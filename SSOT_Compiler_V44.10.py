@@ -5,11 +5,10 @@ URL Ultimate Filter - V44.10 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
-2. [Compiler] 實作 Pretty-Print 陣列排版引擎，恢復 JS 檔案多行可讀性 (800+ 行)。
+2. [Compiler] 實作 Pretty-Print 陣列排版引擎，恢復 JS 檔案多行可讀性。
 3. [Privacy] 實作 PARAM_CLEANING_EXEMPTED_DOMAINS，保護電商返利與歸因參數。
-4. [Testing] 將 OAUTH_SAFE_HARBOR 納入動態矩陣測試，確保核心登入不被誤殺與誤淨化。
-5. [Fix] 實作 100% PASS 條件式寫入：測試有 FAILED 則拒絕生成 JS。
-6. test
+4. [Fix] 實作 100% PASS 條件式寫入：測試有 FAILED 則拒絕生成 JS。
+5. [Fix] 解決 Python 3.11 (GitHub Actions) f-string 不支援反斜線之 SyntaxError。
 """
 
 import json
@@ -162,6 +161,7 @@ RULES_DB = {
             'uploadrar.com', 'usersdrive.com', '__sbcdn'
         ]
     },
+
     "BLOCK_DOMAINS": [
         'anymind360.com', 'vt.quark.cn', 'iqr.chinatimes.com', 'ecount.ctee.com.tw', 'sdk.gamania.dev',
         'udc.yahoo.com', 'csc.yahoo.com', 'beap.gemini.yahoo.com', 'opus.analytics.yahoo.com', 'noa.yahoo.com',
@@ -218,6 +218,7 @@ RULES_DB = {
         'onesignal.com', 'sharethis.com', 'bat.bing.com', 'clarity.ms', 'pinterest.com', 'reddit.com',
         'snapchat.com'
     ],
+
     "CRITICAL_PATH_GENERIC": [
         '/accounts/CheckConnection', '/0.gif', '/1.gif', '/pixel.gif', '/beacon.gif', '/ping.gif',
         '/track.gif', '/dot.gif', '/clear.gif', '/empty.gif', '/shim.gif', '/spacer.gif', '/imp.gif',
@@ -452,7 +453,11 @@ def format_js_map(dct: Dict[str, List[str]], indent: int = 4) -> str:
     for k, v in dct.items():
         val_str = format_js_set(v, indent + 4, items_per_line=4)
         entries.append(f"{' ' * indent}['{k}', {val_str}]")
-    return f"new Map([\n{',\n'.join(entries)}\n{' ' * (indent - 2)}])"
+    
+    # [Fix] 將帶有反斜線 \n 的 join 運算提取到 f-string 外部，以兼容 Python 3.11 (GitHub Actions)
+    joined_entries = ",\n".join(entries)
+    closing_indent = " " * (indent - 2)
+    return f"new Map([\n{joined_entries}\n{closing_indent}])"
 
 def compile_js() -> str:
     js_rules_definition = f"""/**
