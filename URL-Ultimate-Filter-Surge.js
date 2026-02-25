@@ -14,7 +14,7 @@ const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
     'accounts.google.com', 'accounts.google.com.tw', 'accounts.youtube.com', 'appleid.apple.com', 'idmsa.apple.com', 'facebook.com',
     'www.facebook.com', 'm.facebook.com', 'login.microsoftonline.com', 'login.live.com', 'github.com', 'api.twitter.com',
-    'api.x.com', 'test.com'
+    'api.x.com'
   ]),
     PATHS: [
     '/oauth', '/oauth2', '/authorize', '/login', '/signin', '/session'
