@@ -3,15 +3,26 @@ name: SSOT Compiler Auto Build & Deploy
 on:
   push:
     branches: [ main ]
-    # 當 Python 編譯腳本有變動時觸發
     paths:
       - 'SSOT_Compiler.py'
 
+# 宣告 GITHUB_TOKEN 的權限，允許推播程式碼與發佈 GitHub Pages
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+# 確保同一時間只有一個 Pages 部署任務在執行，避免並發衝突
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  build-and-deploy:
+    # 宣告部署環境為 github-pages，並自動獲取部署後的網址
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     
     steps:
@@ -24,28 +35,27 @@ jobs:
           python-version: '3.11'
 
       - name: Run SSOT Compiler and Matrix Tests
-        # 執行編譯與測試，若測試失敗（非 0 退出碼），流程會自動在此中斷
         run: |
           python SSOT_Compiler.py
 
-      - name: Upload Test Report as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: SSOT-Test-Report
-          path: '*_SSOT_Report.html'
-          retention-days: 14
-
       - name: Commit and Push Generated Fixed JS
-        # 【關鍵修改點】：此處需從動態檔名改為固定的 URL-Ultimate-Filter-Surge.js
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          
-          # 將原本可能是 git add URL-Ultimate-Filter-Surge-V*.js 的指令改為固定檔名
           git add URL-Ultimate-Filter-Surge.js
-          
-          # 【已移除】git add *_SSOT_Report.html 
-          # 不再將測試報告提交入 Git 版本庫，改由上方 Artifact 負責收集
-          
-          git commit -m "Auto-build: Update Surge Filter" || echo "No changes to commit"
+          git commit -m "Auto-build: Update Surge Filter and Generate Pages" || echo "No changes to commit"
           git push
+
+      # 以下為 GitHub Pages 現代化部署的標準流程
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Report Artifact for Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # 將 Python 生成的 public 資料夾作為靜態網站的根目錄上傳
+          path: './public'
+
+      - name: Deploy Report to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
