@@ -10,7 +10,6 @@ URL Ultimate Filter - V44.11 SSOT Compiler & Matrix Test Suite
 4. [Fix] 實作 100% PASS 條件式寫入：測試有 FAILED 則拒絕生成 JS。
 5. [Fix] 解決 Python 3.11 (GitHub Actions) f-string 不支援反斜線之 SyntaxError。
 6. [Fix] 固定輸出之 JS 檔名為 URL-Ultimate-Filter-Surge.js，確保 Surge 設定檔可無縫抓取更新。
-7. test
 """
 
 import json
@@ -38,7 +37,7 @@ RULES_DB = {
         'appleid.apple.com', 'idmsa.apple.com',
         'facebook.com', 'www.facebook.com', 'm.facebook.com',
         'login.microsoftonline.com', 'login.live.com',
-        'github.com', 'api.twitter.com', 'api.x.com', 'test.com'
+        'github.com', 'api.twitter.com', 'api.x.com'
     ],
     "OAUTH_SAFE_HARBOR_PATHS": [
         '/oauth', '/oauth2', '/authorize', '/login', '/signin', '/session'
