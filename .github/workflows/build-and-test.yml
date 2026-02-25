@@ -38,7 +38,7 @@ jobs:
         run: |
           python SSOT_Compiler.py
 
-        - name: Commit and Push Generated Fixed JS
+      - name: Commit and Push Generated Fixed JS
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
