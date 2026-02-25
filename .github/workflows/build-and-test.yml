@@ -38,12 +38,19 @@ jobs:
         run: |
           python SSOT_Compiler.py
 
-      - name: Commit and Push Generated Fixed JS
+        - name: Commit and Push Generated Fixed JS
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add URL-Ultimate-Filter-Surge.js
+          
+          # 建立本地的自動編譯 Commit
           git commit -m "Auto-build: Update Surge Filter and Generate Pages" || echo "No changes to commit"
+          
+          # 【關鍵修復】：在推播前，先將遠端最新進度拉取並進行 Rebase（變基）整合
+          git pull --rebase origin main
+          
+          # 安全推送至遠端
           git push
 
       # 以下為 GitHub Pages 現代化部署的標準流程
