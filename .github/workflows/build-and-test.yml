@@ -28,6 +28,13 @@ jobs:
         run: |
           python SSOT_Compiler.py
 
+      - name: Upload Test Report as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SSOT-Test-Report
+          path: '*_SSOT_Report.html'
+          retention-days: 14
+
       - name: Commit and Push Generated Fixed JS
         # 【關鍵修改點】：此處需從動態檔名改為固定的 URL-Ultimate-Filter-Surge.js
         run: |
@@ -37,8 +44,8 @@ jobs:
           # 將原本可能是 git add URL-Ultimate-Filter-Surge-V*.js 的指令改為固定檔名
           git add URL-Ultimate-Filter-Surge.js
           
-          # 測試報告仍帶有版本號，可使用萬用字元加入
-          git add *_SSOT_Report.html
+          # 【已移除】git add *_SSOT_Report.html 
+          # 不再將測試報告提交入 Git 版本庫，改由上方 Artifact 負責收集
           
-          git commit -m "Auto-build: Update Surge Filter and Test Report" || echo "No changes to commit"
+          git commit -m "Auto-build: Update Surge Filter" || echo "No changes to commit"
           git push
