@@ -5,7 +5,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - 'SSOT_Compiler_V44.10.py' # 只有當修改了這個 Python 檔案時才觸發
+      - 'SSOT_Compiler_V44.11.py' # 只有當修改了這個 Python 檔案時才觸發
   workflow_dispatch:
 
 # 賦予寫入權限，以便測試通過後將生成的 JS 檔案推回 Repository
