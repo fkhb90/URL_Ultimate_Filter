@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.11 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.12 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -10,6 +10,7 @@ URL Ultimate Filter - V44.11 SSOT Compiler & Matrix Test Suite
 4. [Fix] 實作 100% PASS 條件式寫入：測試有 FAILED 則拒絕生成 JS。
 5. [Fix] 解決 Python 3.11 (GitHub Actions) f-string 不支援反斜線之 SyntaxError。
 6. [Fix] 固定輸出之 JS 檔名為 URL-Ultimate-Filter-Surge.js，確保 Surge 設定檔可無縫抓取更新。
+7. [Deploy] 支援 GitHub Pages 現代化部署，報告固定輸出至 public/index.html 以便行動端免下載預覽。
 """
 
 import json
@@ -25,7 +26,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.11"
+VERSION = "44.12"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -455,7 +456,6 @@ def format_js_map(dct: Dict[str, List[str]], indent: int = 4) -> str:
         val_str = format_js_set(v, indent + 4, items_per_line=4)
         entries.append(f"{' ' * indent}['{k}', {val_str}]")
     
-    # [Fix] 將帶有反斜線 \n 的 join 運算提取到 f-string 外部，以兼容 Python 3.11 (GitHub Actions)
     joined_entries = ",\n".join(entries)
     closing_indent = " " * (indent - 2)
     return f"new Map([\n{joined_entries}\n{closing_indent}])"
@@ -463,7 +463,7 @@ def format_js_map(dct: Dict[str, List[str]], indent: int = 4) -> str:
 def compile_js() -> str:
     js_rules_definition = f"""/**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   {VERSION} (SSOT Compilation & Fixed Filename)
+ * @version   {VERSION} (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
@@ -1218,7 +1218,6 @@ def evaluate_result(actual: Any, expected_type: str) -> Tuple[bool, str, str]:
 def run_tests():
     print(f"1. [SSOT COMPILER] Compiling Python RULES_DB to JavaScript (V{VERSION}) in memory...")
     js_content = compile_js()
-    # [Fix] 永遠輸出為固定檔名，避免 Surge 設定檔無法抓取最新腳本的問題
     js_filename = "URL-Ultimate-Filter-Surge.js"
 
     cases = generate_full_coverage_cases()
@@ -1284,7 +1283,6 @@ def run_tests():
         failed = total - passed
         rate = round((passed/total)*100, 1) if total else 0
 
-        # Generate HTML Report Data
         category_stats = defaultdict(lambda: {"pass": 0, "fail": 0})
         rows_html = ""
         for o in outcomes:
@@ -1311,7 +1309,11 @@ def run_tests():
         overall_status_text = "ALL SYSTEMS GO" if failed == 0 else f"{failed} ISSUES FOUND"
         rate_color_class = "text-success" if rate == 100 else ("text-warning" if rate > 90 else "text-danger")
 
-        report_name = f"V{VERSION}_SSOT_Report.html"
+        # [新增] 建立 public 資料夾，並將 HTML 輸出為 index.html 以利 GitHub Pages 部署
+        public_dir = Path("public")
+        public_dir.mkdir(exist_ok=True)
+        report_name = public_dir / "index.html"
+
         html = HTML_TEMPLATE.format(
             version_name=f"V{VERSION}", gen_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
             rate=rate, total=total, passed=passed, failed=failed, table_rows=rows_html,
@@ -1319,7 +1321,9 @@ def run_tests():
             overall_status_text=overall_status_text, rate_color_class=rate_color_class,
             category_options=cat_options_html, json_chart_data=json.dumps(chart_data)
         )
-        with open(report_name, "w", encoding="utf-8") as f: f.write(html)
+        
+        with open(report_name, "w", encoding="utf-8") as f: 
+            f.write(html)
         
         print("\n" + "="*55)
         print(f"📊 測試統計 (Test Statistics)")
@@ -1329,16 +1333,15 @@ def run_tests():
         print("="*55)
 
         if passed == total:
-            # 100% PASS 才執行實體寫入
             with open(js_filename, "w", encoding="utf-8") as f:
                 f.write(js_content)
             print(f"\n✅  SSOT BUILD & TEST PASSED")
             print(f"📄  JavaScript Compiled & Saved: {js_filename}")
-            print(f"📄  Test Report Saved: {report_name}")
+            print(f"📄  Test Report Saved for Pages: {report_name}")
         else:
             print(f"\n❌  SSOT TEST FAILED")
             print(f"⚠️  JavaScript Generation SKIPPED due to test failures.")
-            print(f"📄  Test Report Saved: {report_name}")
+            print(f"📄  Test Report Saved for Pages: {report_name}")
         print("="*55 + "\n")
 
     finally:
