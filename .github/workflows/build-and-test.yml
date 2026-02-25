@@ -1,62 +1,41 @@
-name: SSOT Compiler & Matrix Test Pipeline
+name: SSOT Compiler Auto Build & Deploy
 
-# 當推送到 main 分支，或是透過 GitHub 網頁手動觸發時執行
 on:
   push:
     branches: [ main ]
+    # 當 Python 編譯腳本有變動時觸發
     paths:
-      - 'SSOT_Compiler_V44.11.py' # 只有當修改了這個 Python 檔案時才觸發
-  workflow_dispatch:
-
-# 賦予寫入權限，以便測試通過後將生成的 JS 檔案推回 Repository
-permissions:
-  contents: write
+      - 'SSOT_Compiler_*.py'
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
+    
     steps:
-    - name: 1. 檢出程式碼 (Checkout repository)
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: 2. 設定 Python 環境 (Set up Python)
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: 3. 設定 Node.js 環境 (Set up Node.js)
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
+      - name: Run SSOT Compiler and Matrix Tests
+        # 執行編譯與測試，若測試失敗（非 0 退出碼），流程會自動在此中斷
+        run: |
+          python SSOT_Compiler_V44.11.py
 
-    - name: 4. 執行 SSOT 編譯與矩陣測試 (Run SSOT Compiler & Tests)
-      run: |
-        # 執行您提供的 V44.10 Python 腳本
-        python SSOT_Compiler_V44.10.py
-
-    - name: 5. 檢查並提交生成的 JS 檔案 (Commit compiled JS if tests passed)
-      # 只有當上一步 (執行腳本) 狀態為 0 (100% PASS) 時才會執行這步
-      run: |
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
-        
-        # 將生成的 JS 與 HTML 報告加入暫存區
-        git add URL-Ultimate-Filter-Surge-*.js
-        git add *_SSOT_Report.html
-        
-        # 如果有檔案變更則進行 Commit 與 Push
-        if git diff --staged --quiet; then
-          echo "No changes to commit."
-        else
-          git commit -m "🚀 Auto-compiled JS & Test Report from SSOT update"
+      - name: Commit and Push Generated Fixed JS
+        # 【關鍵修改點】：此處需從動態檔名改為固定的 URL-Ultimate-Filter-Surge.js
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # 將原本可能是 git add URL-Ultimate-Filter-Surge-V*.js 的指令改為固定檔名
+          git add URL-Ultimate-Filter-Surge.js
+          
+          # 測試報告仍帶有版本號，可使用萬用字元加入
+          git add *_SSOT_Report.html
+          
+          git commit -m "Auto-build: Update Surge Filter and Test Report" || echo "No changes to commit"
           git push
-        fi
-
-    - name: 6. 歸檔測試報告 (Upload HTML Report as Artifact)
-      if: always() # 無論測試成功或失敗，都把 HTML 報告存下來供下載查看
-      uses: actions/upload-artifact@v4
-      with:
-        name: Matrix-Test-Report
-        path: '*_SSOT_Report.html'
-        retention-days: 7
