@@ -38,7 +38,7 @@ RULES_DB = {
         'appleid.apple.com', 'idmsa.apple.com',
         'facebook.com', 'www.facebook.com', 'm.facebook.com',
         'login.microsoftonline.com', 'login.live.com',
-        'github.com', 'api.twitter.com', 'api.x.com', 'test1.com'
+        'github.com', 'api.twitter.com', 'api.x.com'
     ],
     "OAUTH_SAFE_HARBOR_PATHS": [
         '/oauth', '/oauth2', '/authorize', '/login', '/signin', '/session'
