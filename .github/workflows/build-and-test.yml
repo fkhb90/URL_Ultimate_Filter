@@ -5,7 +5,7 @@ on:
     branches: [ main ]
     # 當 Python 編譯腳本有變動時觸發
     paths:
-      - 'SSOT_Compiler_*.py'
+      - 'SSOT_Compiler.py'
 
 jobs:
   build-and-test:
@@ -23,7 +23,7 @@ jobs:
       - name: Run SSOT Compiler and Matrix Tests
         # 執行編譯與測試，若測試失敗（非 0 退出碼），流程會自動在此中斷
         run: |
-          python SSOT_Compiler_V44.11.py
+          python SSOT_Compiler.py
 
       - name: Commit and Push Generated Fixed JS
         # 【關鍵修改點】：此處需從動態檔名改為固定的 URL-Ultimate-Filter-Surge.js
