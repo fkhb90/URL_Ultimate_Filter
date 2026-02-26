@@ -1,11 +1,12 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.12 (SSOT Compilation & Pages Deployment)
+ * @version   44.14 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
  * 3) [Testing] OAuth 登入路徑測試覆蓋。
- * @lastUpdated 2026-02-25
+ * 4) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級，並於 L1 攔截 HTTPDNS 直連。
+ * @lastUpdated 2026-02-26
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
@@ -51,7 +52,8 @@ const RULES = {
     'applovin.com', 'ironsrc.com', 'vungle.com', 'adcolony.com', 'chartboost.com', 'tapjoy.com',
     'pangle.io', 'taboola.com', 'outbrain.com', 'popads.net', 'ads.tiktok.com', 'analytics.tiktok.com',
     'ads.linkedin.com', 'ad.etmall.com.tw', 'ad.line.me', 'ad-history.line.me', 'inmobi.com', 'inner-active.mobi',
-    'split.io', 'launchdarkly.com', 'clarity.ms', 'fullstory.com', 'cdn.segment.com'
+    'split.io', 'launchdarkly.com', 'clarity.ms', 'fullstory.com', 'cdn.segment.com', 'dem.shopee.com',
+    'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw', 'analytics.shopee.tw', 'dmp.shopee.tw'
   ]),
   REDIRECTOR_HOSTS: new Set([
     '1ink.cc', 'adfoc.us', 'adsafelink.com', 'adshnk.com', 'adz7short.space', 'aylink.co',
@@ -140,8 +142,7 @@ const RULES = {
     'log.pchome.com.tw', 'ad.pchome.com.tw', 'vm5apis.com', 'vlitag.com', 'intentarget.com', 'innity.net',
     'ad-specs.guoshippartners.com', 'cdn.ad.plus', 'cdn.doublemax.net', 'udmserve.net', 'signal-snacks.gliastudios.com', 'adc.tamedia.com.tw',
     'log.zoom.us', 'metrics.uber.com', 'event-tracker.uber.com', 'cn-geo1.uber.com', 'udp.yahoo.com', 'analytics.yahoo.com',
-    'effirst.com', 'px.effirst.com', 'simonsignal.com', 'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw',
-    'log-collector.shopee.tw', 'analytics.shopee.tw', 'dmp.shopee.tw', 'analysis.momoshop.com.tw', 'event.momoshop.com.tw', 'sspap.momoshop.com.tw',
+    'effirst.com', 'px.effirst.com', 'simonsignal.com', 'analysis.momoshop.com.tw', 'event.momoshop.com.tw', 'sspap.momoshop.com.tw',
     'analytics.etmall.com.tw', 'pixel.momoshop.com.tw', 'trace.momoshop.com.tw', 'browser.sentry-cdn.com', 'bam.nr-data.net', 'bam-cell.nr-data.net',
     'lrkt-in.com', 'cdn.lr-ingest.com', 'r.lr-ingest.io', 'api-iam.intercom.io', 'openfpcdn.io', 'fingerprintjs.com',
     'fundingchoicesmessages.google.com', 'hotjar.com', 'segment.io', 'mixpanel.com', 'amplitude.com', 'crazyegg.com',
@@ -221,7 +222,7 @@ const RULES = {
     '/v.gif', '/ad-sw.js', '/ads-sw.js', '/ad-call', '/adx/', '/adsales/',
     '/adserver/', '/adsync/', '/adtech/', '/abtesting/', '/b/ss', '/feature-flag/',
     '/i/adsct', '/track/m', '/track/pc', '/user-profile/', 'cacafly/track', '/api/v1/t',
-    '/sa.gif', '/api/v2/rum'
+    '/sa.gif', '/api/v2/rum', '/batch_resolve'
   ],
     SCRIPT_ROOTS: [
     '/prebid', '/sentry.', 'sentry-', '/analytics.', 'ga-init.', 'gtag.',
