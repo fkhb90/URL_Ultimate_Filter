@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.12 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.13 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
 2. [Compiler] 實作 Pretty-Print 陣列排版引擎，恢復 JS 檔案多行可讀性。
 3. [Privacy] 實作 PARAM_CLEANING_EXEMPTED_DOMAINS，保護電商返利與歸因參數。
 4. [Fix] 實作 100% PASS 條件式寫入：測試有 FAILED 則拒絕生成 JS。
-5. [Fix] 解決 Python 3.11 (GitHub Actions) f-string 不支援反斜線之 SyntaxError。
-6. [Fix] 固定輸出之 JS 檔名為 URL-Ultimate-Filter-Surge.js，確保 Surge 設定檔可無縫抓取更新。
-7. [Deploy] 支援 GitHub Pages 現代化部署，報告固定輸出至 public/index.html 以便行動端免下載預覽。
+5. [Deploy] 支援 GitHub Pages 現代化部署，報告固定輸出至 public/index.html 以便行動端免下載預覽。
+6. [Feature-V44.13] 升級蝦皮追蹤子網域 (如 dem.shopee.com) 至 PRIORITY_BLOCK_DOMAINS，防範軟白名單覆蓋漏洞。
+7. [Feature-V44.13] 於 CRITICAL_PATH_GENERIC 新增 HTTPDNS 攔截關鍵字 (/batch_resolve)，阻斷 APP 硬編碼 IP 繞過行為。
+8. [Test-V44.13] 新增蝦皮 DEM 遙測與 HTTPDNS 攔截專屬測試案例，確保 L1/P0 邏輯優先級正確。
+9. [Fix-V44.14] 修正 HTML 報告生成時的 TestOutcome 屬性呼叫錯誤 (o.expected 修正為 o.case.expected)。
 """
 
 import json
@@ -26,7 +28,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.12"
+VERSION = "44.14"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -73,7 +75,8 @@ RULES_DB = {
         'unityads.unity3d.com', 'applovin.com', 'ironsrc.com', 'vungle.com', 'adcolony.com', 'chartboost.com',
         'tapjoy.com', 'pangle.io', 'taboola.com', 'outbrain.com', 'popads.net', 'ads.tiktok.com',
         'analytics.tiktok.com', 'ads.linkedin.com', 'ad.etmall.com.tw', 'ad.line.me', 'ad-history.line.me',
-        'inmobi.com', 'inner-active.mobi', 'split.io', 'launchdarkly.com', 'clarity.ms', 'fullstory.com', 'cdn.segment.com'
+        'inmobi.com', 'inner-active.mobi', 'split.io', 'launchdarkly.com', 'clarity.ms', 'fullstory.com', 'cdn.segment.com',
+        'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw', 'analytics.shopee.tw', 'dmp.shopee.tw'
     ],
     "REDIRECTOR_HOSTS": [
         '1ink.cc', 'adfoc.us', 'adsafelink.com', 'adshnk.com', 'adz7short.space', 'aylink.co',
@@ -172,8 +175,7 @@ RULES_DB = {
         'cdn.ad.plus', 'cdn.doublemax.net', 'udmserve.net', 'signal-snacks.gliastudios.com', 'adc.tamedia.com.tw',
         'log.zoom.us', 'metrics.uber.com', 'event-tracker.uber.com', 'cn-geo1.uber.com',
         'udp.yahoo.com', 'analytics.yahoo.com',
-        'effirst.com', 'px.effirst.com', 'simonsignal.com', 'dem.shopee.com', 'apm.tracking.shopee.tw',
-        'live-apm.shopee.tw', 'log-collector.shopee.tw', 'analytics.shopee.tw', 'dmp.shopee.tw',
+        'effirst.com', 'px.effirst.com', 'simonsignal.com', 
         'analysis.momoshop.com.tw', 'event.momoshop.com.tw', 'sspap.momoshop.com.tw',
         'analytics.etmall.com.tw', 'pixel.momoshop.com.tw', 'trace.momoshop.com.tw',
         'browser.sentry-cdn.com', 'bam.nr-data.net', 'bam-cell.nr-data.net', 'lrkt-in.com',
@@ -244,7 +246,7 @@ RULES_DB = {
         '/plugins/easy-social-share-buttons/', '/event_report', '/log/aplus', '/v.gif', '/ad-sw.js', 
         '/ads-sw.js', '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/', 
         '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc', '/user-profile/', 
-        'cacafly/track', '/api/v1/t', '/sa.gif', '/api/v2/rum'
+        'cacafly/track', '/api/v1/t', '/sa.gif', '/api/v2/rum', '/batch_resolve'
     ],
     "CRITICAL_PATH_SCRIPT_ROOTS": [
         '/prebid', '/sentry.', 'sentry-', '/analytics.', 'ga-init.', 'gtag.', 'gtm.', 'ytag.',
@@ -468,6 +470,7 @@ def compile_js() -> str:
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
  * 3) [Testing] OAuth 登入路徑測試覆蓋。
+ * 4) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級，並於 L1 攔截 HTTPDNS 直連。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -1189,6 +1192,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Matrix: OAuth Safe Harbor", f"https://{oauth_domain}/oauth2/auth?gclid=123", RES_ALLOW, "OAuth bypasses everything"))
     cases.append(TestCase("Matrix: Double Decode Escape", "https://example.com/%2561%2564/banner.webp", RES_BLOCK_403, "Blocked by High Confidence Override (Double Decoded)"))
     cases.append(TestCase("Matrix: Triple Decode Perf Limit", "https://example.com/%252561%252564/banner.webp", RES_ALLOW, "Allowed (By Design - Perf Limit)"))
+
+    # V44.13 新增測試案例
+    cases.append(TestCase("Edge: Shopee DEM (P0)", "https://dem.shopee.com/dem/entrance/v1/apps/rw-platform/tags/web-performance/event/json", RES_BLOCK_403, "P0 bypasses Soft WL"))
+    cases.append(TestCase("Edge: HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772072185", RES_BLOCK_403, "Blocked by L1 Critical Path"))
 
     return cases
 
