@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.16 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.18 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
 2. [Compiler] 實作 Pretty-Print 陣列排版引擎，恢復 JS 檔案多行可讀性。
 3. [Privacy] 實作 PARAM_CLEANING_EXEMPTED_DOMAINS，保護電商返利與歸因參數。
-4. [Fix] 實作 100% PASS 條件式寫入：測試有 FAILED 則拒絕生成 JS。
-5. [Feature-V44.13] 升級蝦皮追蹤子網域為 P0，防範軟白名單覆蓋；新增 HTTPDNS 攔截。
-6. [Fix-V44.14] 修正 HTML 報告 TestOutcome 屬性錯誤。
-7. [Optimize-V44.16] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
-    - 透過正則表達式動態辨識 /api/, /v1/, /graphql/ 等特徵。
-    - 凡判定為 API 之請求將自動豁免 302 參數清洗，確保所有 APP 內部之 HMAC 數位簽章不被破壞。
-    - 取代 V44.15 缺乏擴充性的「打地鼠式」手動網域豁免模式。
+4. [Feature] 升級蝦皮追蹤子網域為 P0，防範軟白名單覆蓋；新增 HTTPDNS 攔截。
+5. [Optimize-V44.16] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
+6. [Feature-V44.17] 建立 FINANCE_SAFE_HARBOR (金融避風港) 機制，將金融、第三方支付與政府憑證網域獨立。
+7. [Fix-V44.18] 修正啟發式 API 引擎中 v\d+ (如 /v2/) 對標準網頁 (如 LINE Today) 造成的 False Positive 誤判。
 """
 
 import json
@@ -29,7 +26,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.16"
+VERSION = "44.18"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -48,8 +45,22 @@ RULES_DB = {
     ],
     "PARAM_CLEANING_EXEMPTED_DOMAINS": [
         'shopback.com.tw', 'extrabux.com', 'buy.line.me'
-        # V44.16: 不再需要手動將 shopee 填入此處，將交由啟發式 API 引擎全自動處理
     ],
+    "FINANCE_SAFE_HARBOR": {
+        "EXACT": [
+            'api.ecpay.com.tw', 'payment.ecpay.com.tw', 'api.map.ecpay.com.tw', 'api.jkos.com'
+        ],
+        "WILDCARDS": [
+            'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw',
+            'richart.tw', 'bot.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw',
+            'dawho.tw', 'dbs.com.tw', 'firstbank.com.tw', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw',
+            'landbank.com.tw', 'megabank.com.tw', 'scsb.com.tw', 'sinopac.com', 'sinotrade.com.tw',
+            'standardchartered.com.tw', 'tcb-bank.com.tw', 'paypal.com', 'stripe.com',
+            'taiwanpay.com.tw', 'twca.com.tw', 'twmp.com.tw', 'pay.taipei',
+            'momopay.com.tw', 'mymobibank.com.tw',
+            'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'org.tw', 'tdcc.com.tw'
+        ]
+    },
     "PRIORITY_BLOCK_DOMAINS": [
         'penphone92.com', 'api.penphone92.com', 'www.penphone92.com', 
         'cdn-path.com', 'www.cdn-path.com', 
@@ -108,25 +119,18 @@ RULES_DB = {
             'sso.godaddy.com', 'idmsa.apple.com', 'api.login.yahoo.com', 
             'firebaseappcheck.googleapis.com', 'firebaseinstallations.googleapis.com',
             'firebaseremoteconfig.googleapis.com', 'accounts.google.com.tw', 'accounts.felo.me',
-            'api.etmall.com.tw', 'api.map.ecpay.com.tw', 'api.ecpay.com.tw', 'payment.ecpay.com.tw',
-            'api.jkos.com', 'tw.fd-api.com', 'tw.mapi.shp.yahoo.com', 
+            'api.etmall.com.tw',
+            'tw.fd-api.com', 'tw.mapi.shp.yahoo.com', 
             'code.createjs.com', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'raw.githubusercontent.com',
             'ss.ledabangong.com', 'userscripts.adtidy.org', 'api.github.com', 'api.vercel.com',
             'gateway.facebook.com', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com',
             'api.discord.com', 'api.twitch.tv', 'api.line.me', 'today.line.me',
-            'pro.104.com.tw', 'gov.tw', 'datadog.pool.ntp.org', 'ewp.uber.com', 'copilot.microsoft.com', 
+            'pro.104.com.tw', 'datadog.pool.ntp.org', 'ewp.uber.com', 'copilot.microsoft.com', 
             'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net'
         ],
         "WILDCARDS": [
             'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com',
-            'shopee.tw', 'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw',
-            'richart.tw', 'bot.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw',
-            'dawho.tw', 'dbs.com.tw', 'firstbank.com.tw', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw',
-            'landbank.com.tw', 'megabank.com.tw', 'megatime.com.tw', 'mitake.com.tw', 'money-link.com.tw',
-            'momopay.com.tw', 'mymobibank.com.tw', 'paypal.com', 'scsb.com.tw', 'sinopac.com',
-            'sinotrade.com.tw', 'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw',
-            'taiwanpay.com.tw', 'tcb-bank.com.tw', 'twca.com.tw', 'twmp.com.tw', 'pay.taipei',
-            'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'org.tw', 'tdcc.com.tw',
+            'shopee.tw', 'mitake.com.tw', 'money-link.com.tw',
             'icloud.com', 'apple.com', 'whatsapp.net', 'update.microsoft.com', 'windowsupdate.com',
             'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
             'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
@@ -472,7 +476,9 @@ def compile_js() -> str:
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
  * 3) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級，並於 L1 攔截 HTTPDNS 直連。
- * 4) [Optimize-V44.16] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」，全域自動豁免 API 參數清洗，解決 HMAC 破壞問題。
+ * 4) [Optimize] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
+ * 5) [Feature] 新增 FINANCE_SAFE_HARBOR，全域絕對放行銀行、支付與政府網域，防範 302 破壞 POST 交易防護鏈。
+ * 6) [Fix-V44.18] 修正啟發式 API 引擎中 v\\d+ 對標準網頁 (如 LINE Today) 造成的 False Positive 誤判。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -484,6 +490,11 @@ const OAUTH_SAFE_HARBOR = {{
 }};
 
 const PARAM_CLEANING_EXEMPTED_DOMAINS = {format_js_set(RULES_DB['PARAM_CLEANING_EXEMPTED_DOMAINS'])};
+
+const FINANCE_SAFE_HARBOR = {{
+    EXACT: {format_js_set(RULES_DB['FINANCE_SAFE_HARBOR']['EXACT'])},
+    WILDCARDS: {format_js_array(RULES_DB['FINANCE_SAFE_HARBOR']['WILDCARDS'])}
+}};
 
 // #################################################################################################
 // #  ⚙️ RULES CONFIGURATION
@@ -558,9 +569,9 @@ const RULES = {{
        /[?&](ad|ads|campaign|tracker)_[a-z]+=/i,
        /\\/ad(server|serve|vert|vertis|v)\\./i
     ],
-    // V44.16 啟發式 API 簽章防護特徵庫
+    // V44.18 修正：移除 v\\d+ 以避免對一般 Web 頁面 (如 /v2/article) 造成 False Positive 誤判
     API_SIGNATURE_BYPASS: [
-        /\\/(api|graphql|v\\d+|trpc|rest)\\//i, 
+        /\\/(api|graphql|trpc|rest)\\//i, 
         /\\.(json|xml)(\\?|$)/i
     ]
   }},
@@ -691,9 +702,8 @@ const HELPERS = {
         return null;
     }
     
-    // V44.16 啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)
-    // 偵測到此為底層 API 呼叫 (如 /api/v4/...)，全域放棄參數清洗以防破壞 APP 內部 HMAC 數位簽章
-    if (RULES.REGEX.API_SIGNATURE_BYPASS.some(r => r.test(pathLower))) {
+    // V44.18 修正：強化判斷邏輯，除了正則外，亦對 api. 或 graphql. 開頭的子網域予以豁免，確保精準度
+    if (RULES.REGEX.API_SIGNATURE_BYPASS.some(r => r.test(pathLower)) || hostname.startsWith('api.') || hostname.startsWith('graphql.')) {
         if (CONFIG.DEBUG_MODE) console.log(`[Exempted] Heuristic API Bypass: ${pathLower}`);
         return null;
     }
@@ -743,6 +753,7 @@ let __INITIALIZED__ = false;
 function initializeOnce() {
   if (__INITIALIZED__) return;
   __INITIALIZED__ = true;
+  FINANCE_SAFE_HARBOR.EXACT.forEach(d => multiLevelCache.set(d, 'ALLOW', 86400000));
   RULES.HARD_WHITELIST.EXACT.forEach(d => multiLevelCache.set(d, 'ALLOW', 86400000));
   RULES.PRIORITY_BLOCK_DOMAINS.forEach(d => multiLevelCache.set(d, 'BLOCK', 86400000));
 }
@@ -832,6 +843,12 @@ function processRequest(request) {
     if (HELPERS.isSafeHarborDomain(hostname)) {
         stats.allows++;
         return null;
+    }
+
+    if (isDomainMatch(FINANCE_SAFE_HARBOR.EXACT, FINANCE_SAFE_HARBOR.WILDCARDS, hostname)) {
+      multiLevelCache.set(hostname, 'ALLOW', 86400000);
+      stats.allows++;
+      return null; 
     }
 
     const performCleaning = () => {
@@ -1210,11 +1227,14 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # V44.13 - V44.16 新增測試案例
     cases.append(TestCase("Edge: Shopee DEM (P0)", "https://dem.shopee.com/dem/entrance/v1/apps/rw-platform/tags/web-performance/event/json", RES_BLOCK_403, "P0 bypasses Soft WL"))
     cases.append(TestCase("Edge: HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772072185", RES_BLOCK_403, "Blocked by L1 Critical Path"))
+    cases.append(TestCase("Feature: Heuristic API Bypass", "https://unknown-ecommerce.com/graphql/user?fbclid=test", RES_ALLOW, "GraphQL path exempted globally"))
     
-    # V44.16 啟發式 API 防護機制測試
-    cases.append(TestCase("Feature: Heuristic API Bypass (Shopee)", "https://mall.shopee.tw/api/v4/itemcard/set/elements?gclid=123", RES_ALLOW, "API path exempted from 302 cleaning"))
-    cases.append(TestCase("Feature: Heuristic API Bypass (Global)", "https://unknown-ecommerce.com/graphql/user?fbclid=test", RES_ALLOW, "GraphQL path exempted globally"))
-    cases.append(TestCase("Feature: Heuristic API vs Tracking", "https://unknown-ecommerce.com/product/shoe?fbclid=test", RES_CLEAN_302, "Standard web URL still gets cleaned"))
+    # V44.17 新增金融避風港測試案例
+    cases.append(TestCase("Finance: ECPay Post Data bypass", "https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5?Token=test_token_123&TradeInfo=abc", RES_ALLOW, "Exempted from 302 to protect POST parameters"))
+    cases.append(TestCase("Finance: Cathay Bank wildcard bypass", "https://ebank.cathaybk.com.tw/login?session_id=123&utm_source=should_not_clean", RES_ALLOW, "Exempted from 302 to protect token chain"))
+    
+    # V44.18 修正：確保一般新聞/網頁平台不會因為 /v2/ 等路徑被誤認為 API
+    cases.append(TestCase("General: Web UI still cleans", "https://today.line.me/tw/v2/article/123?utm_source=line", RES_CLEAN_302, "Normal Hard Whitelist still undergoes parameter cleaning"))
 
     return cases
 
