@@ -1,12 +1,11 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.15 (SSOT Compilation & Pages Deployment)
+ * @version   44.16 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
- * 3) [Testing] OAuth 登入路徑測試覆蓋。
- * 4) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級，並於 L1 攔截 HTTPDNS 直連。
- * 5) [Patch] 擴充蝦皮 API 網域至參數清洗豁免清單，修復 APP API 數位簽章驗證問題。
+ * 3) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級，並於 L1 攔截 HTTPDNS 直連。
+ * 4) [Optimize-V44.16] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」，全域自動豁免 API 參數清洗，解決 HMAC 破壞問題。
  * @lastUpdated 2026-02-26
  */
 
@@ -24,8 +23,7 @@ const OAUTH_SAFE_HARBOR = {
 };
 
 const PARAM_CLEANING_EXEMPTED_DOMAINS = new Set([
-    'shopback.com.tw', 'extrabux.com', 'buy.line.me', 'shopee.tw', 'shopee.com', 'shopeemobile.com',
-    'mall.shopee.tw'
+    'shopback.com.tw', 'extrabux.com', 'buy.line.me'
   ]);
 
 // #################################################################################################
@@ -637,6 +635,11 @@ const RULES = {
     HEURISTIC: [
        /[?&](ad|ads|campaign|tracker)_[a-z]+=/i,
        /\/ad(server|serve|vert|vertis|v)\./i
+    ],
+    // V44.16 啟發式 API 簽章防護特徵庫
+    API_SIGNATURE_BYPASS: [
+        /\/(api|graphql|v\d+|trpc|rest)\//i, 
+        /\.(json|xml)(\?|$)/i
     ]
   },
 
@@ -768,6 +771,13 @@ const HELPERS = {
     }
 
     if (PARAM_CLEANING_EXEMPTED_DOMAINS.has(hostname)) {
+        return null;
+    }
+    
+    // V44.16 啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)
+    // 偵測到此為底層 API 呼叫 (如 /api/v4/...)，全域放棄參數清洗以防破壞 APP 內部 HMAC 數位簽章
+    if (RULES.REGEX.API_SIGNATURE_BYPASS.some(r => r.test(pathLower))) {
+        if (CONFIG.DEBUG_MODE) console.log(`[Exempted] Heuristic API Bypass: ${pathLower}`);
         return null;
     }
 
