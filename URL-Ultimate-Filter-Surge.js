@@ -1,11 +1,13 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.16 (SSOT Compilation & Pages Deployment)
+ * @version   44.18 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
  * 3) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級，並於 L1 攔截 HTTPDNS 直連。
- * 4) [Optimize-V44.16] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」，全域自動豁免 API 參數清洗，解決 HMAC 破壞問題。
+ * 4) [Optimize] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
+ * 5) [Feature] 新增 FINANCE_SAFE_HARBOR，全域絕對放行銀行、支付與政府網域，防範 302 破壞 POST 交易防護鏈。
+ * 6) [Fix-V44.18] 修正啟發式 API 引擎中 v\d+ 對標準網頁 (如 LINE Today) 造成的 False Positive 誤判。
  * @lastUpdated 2026-02-26
  */
 
@@ -25,6 +27,20 @@ const OAUTH_SAFE_HARBOR = {
 const PARAM_CLEANING_EXEMPTED_DOMAINS = new Set([
     'shopback.com.tw', 'extrabux.com', 'buy.line.me'
   ]);
+
+const FINANCE_SAFE_HARBOR = {
+    EXACT: new Set([
+    'api.ecpay.com.tw', 'payment.ecpay.com.tw', 'api.map.ecpay.com.tw', 'api.jkos.com'
+  ]),
+    WILDCARDS: [
+    'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw', 'richart.tw',
+    'bot.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw', 'dawho.tw', 'dbs.com.tw',
+    'firstbank.com.tw', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw', 'megabank.com.tw',
+    'scsb.com.tw', 'sinopac.com', 'sinotrade.com.tw', 'standardchartered.com.tw', 'tcb-bank.com.tw', 'paypal.com',
+    'stripe.com', 'taiwanpay.com.tw', 'twca.com.tw', 'twmp.com.tw', 'pay.taipei', 'momopay.com.tw',
+    'mymobibank.com.tw', 'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'org.tw', 'tdcc.com.tw'
+  ]
+};
 
 // #################################################################################################
 // #  ⚙️ RULES CONFIGURATION
@@ -82,26 +98,18 @@ const RULES = {
     'api.openai.com', 'a-api.anthropic.com', 'api.feedly.com', 'sandbox.feedly.com', 'cloud.feedly.com', 'translate.google.com',
     'translate.googleapis.com', 'inbox.google.com', 'reportaproblem.apple.com', 'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
     'sso.godaddy.com', 'idmsa.apple.com', 'api.login.yahoo.com', 'firebaseappcheck.googleapis.com', 'firebaseinstallations.googleapis.com', 'firebaseremoteconfig.googleapis.com',
-    'accounts.google.com.tw', 'accounts.felo.me', 'api.etmall.com.tw', 'api.map.ecpay.com.tw', 'api.ecpay.com.tw', 'payment.ecpay.com.tw',
-    'api.jkos.com', 'tw.fd-api.com', 'tw.mapi.shp.yahoo.com', 'code.createjs.com', 'oa.ledabangong.com', 'oa.qianyibangong.com',
-    'raw.githubusercontent.com', 'ss.ledabangong.com', 'userscripts.adtidy.org', 'api.github.com', 'api.vercel.com', 'gateway.facebook.com',
-    'graph.instagram.com', 'graph.threads.net', 'i.instagram.com', 'api.discord.com', 'api.twitch.tv', 'api.line.me',
-    'today.line.me', 'pro.104.com.tw', 'gov.tw', 'datadog.pool.ntp.org', 'ewp.uber.com', 'copilot.microsoft.com',
-    'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net'
+    'accounts.google.com.tw', 'accounts.felo.me', 'api.etmall.com.tw', 'tw.fd-api.com', 'tw.mapi.shp.yahoo.com', 'code.createjs.com',
+    'oa.ledabangong.com', 'oa.qianyibangong.com', 'raw.githubusercontent.com', 'ss.ledabangong.com', 'userscripts.adtidy.org', 'api.github.com',
+    'api.vercel.com', 'gateway.facebook.com', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com', 'api.discord.com',
+    'api.twitch.tv', 'api.line.me', 'today.line.me', 'pro.104.com.tw', 'datadog.pool.ntp.org', 'ewp.uber.com',
+    'copilot.microsoft.com', 'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net'
   ]),
     WILDCARDS: [
-    'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com', 'shopee.tw', 'cathaybk.com.tw',
-    'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw', 'richart.tw', 'bot.com.tw',
-    'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw', 'dawho.tw', 'dbs.com.tw', 'firstbank.com.tw',
-    'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw', 'megabank.com.tw', 'megatime.com.tw',
-    'mitake.com.tw', 'money-link.com.tw', 'momopay.com.tw', 'mymobibank.com.tw', 'paypal.com', 'scsb.com.tw',
-    'sinopac.com', 'sinotrade.com.tw', 'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw', 'taiwanpay.com.tw',
-    'tcb-bank.com.tw', 'twca.com.tw', 'twmp.com.tw', 'pay.taipei', 'post.gov.tw', 'nhi.gov.tw',
-    'mohw.gov.tw', 'org.tw', 'tdcc.com.tw', 'icloud.com', 'apple.com', 'whatsapp.net',
-    'update.microsoft.com', 'windowsupdate.com', 'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
-    'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
-    'perma.cc', 'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'googlevideo.com', 'app.goo.gl',
-    'goo.gl'
+    'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com', 'shopee.tw', 'mitake.com.tw',
+    'money-link.com.tw', 'icloud.com', 'apple.com', 'whatsapp.net', 'update.microsoft.com', 'windowsupdate.com',
+    'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io', 'archive.is', 'archive.li',
+    'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com', 'perma.cc', 'timetravel.mementoweb.org',
+    'web-static.archive.org', 'web.archive.org', 'googlevideo.com', 'app.goo.gl', 'goo.gl'
   ]
   },
 
@@ -636,9 +644,9 @@ const RULES = {
        /[?&](ad|ads|campaign|tracker)_[a-z]+=/i,
        /\/ad(server|serve|vert|vertis|v)\./i
     ],
-    // V44.16 啟發式 API 簽章防護特徵庫
+    // V44.18 修正：移除 v\d+ 以避免對一般 Web 頁面 (如 /v2/article) 造成 False Positive 誤判
     API_SIGNATURE_BYPASS: [
-        /\/(api|graphql|v\d+|trpc|rest)\//i, 
+        /\/(api|graphql|trpc|rest)\//i, 
         /\.(json|xml)(\?|$)/i
     ]
   },
@@ -774,9 +782,8 @@ const HELPERS = {
         return null;
     }
     
-    // V44.16 啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)
-    // 偵測到此為底層 API 呼叫 (如 /api/v4/...)，全域放棄參數清洗以防破壞 APP 內部 HMAC 數位簽章
-    if (RULES.REGEX.API_SIGNATURE_BYPASS.some(r => r.test(pathLower))) {
+    // V44.18 修正：強化判斷邏輯，除了正則外，亦對 api. 或 graphql. 開頭的子網域予以豁免，確保精準度
+    if (RULES.REGEX.API_SIGNATURE_BYPASS.some(r => r.test(pathLower)) || hostname.startsWith('api.') || hostname.startsWith('graphql.')) {
         if (CONFIG.DEBUG_MODE) console.log(`[Exempted] Heuristic API Bypass: ${pathLower}`);
         return null;
     }
@@ -826,6 +833,7 @@ let __INITIALIZED__ = false;
 function initializeOnce() {
   if (__INITIALIZED__) return;
   __INITIALIZED__ = true;
+  FINANCE_SAFE_HARBOR.EXACT.forEach(d => multiLevelCache.set(d, 'ALLOW', 86400000));
   RULES.HARD_WHITELIST.EXACT.forEach(d => multiLevelCache.set(d, 'ALLOW', 86400000));
   RULES.PRIORITY_BLOCK_DOMAINS.forEach(d => multiLevelCache.set(d, 'BLOCK', 86400000));
 }
@@ -915,6 +923,12 @@ function processRequest(request) {
     if (HELPERS.isSafeHarborDomain(hostname)) {
         stats.allows++;
         return null;
+    }
+
+    if (isDomainMatch(FINANCE_SAFE_HARBOR.EXACT, FINANCE_SAFE_HARBOR.WILDCARDS, hostname)) {
+      multiLevelCache.set(hostname, 'ALLOW', 86400000);
+      stats.allows++;
+      return null; 
     }
 
     const performCleaning = () => {
