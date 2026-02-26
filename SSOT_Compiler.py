@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.15 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.16 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
 2. [Compiler] 實作 Pretty-Print 陣列排版引擎，恢復 JS 檔案多行可讀性。
 3. [Privacy] 實作 PARAM_CLEANING_EXEMPTED_DOMAINS，保護電商返利與歸因參數。
 4. [Fix] 實作 100% PASS 條件式寫入：測試有 FAILED 則拒絕生成 JS。
-5. [Deploy] 支援 GitHub Pages 現代化部署，報告固定輸出至 public/index.html 以便行動端免下載預覽。
-6. [Feature-V44.13] 升級蝦皮追蹤子網域 (如 dem.shopee.com) 至 PRIORITY_BLOCK_DOMAINS，防範軟白名單覆蓋漏洞。
-7. [Feature-V44.13] 於 CRITICAL_PATH_GENERIC 新增 HTTPDNS 攔截關鍵字 (/batch_resolve)，阻斷 APP 硬編碼 IP 繞過行為。
-8. [Fix-V44.14] 修正 HTML 報告生成時的 TestOutcome 屬性呼叫錯誤 (o.expected 修正為 o.case.expected)。
-9. [Patch-V44.15] 將蝦皮核心 API 網域加入 PARAM_CLEANING_EXEMPTED_DOMAINS，防範 302 參數清洗破壞 APP API 數位簽章驗證。
+5. [Feature-V44.13] 升級蝦皮追蹤子網域為 P0，防範軟白名單覆蓋；新增 HTTPDNS 攔截。
+6. [Fix-V44.14] 修正 HTML 報告 TestOutcome 屬性錯誤。
+7. [Optimize-V44.16] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
+    - 透過正則表達式動態辨識 /api/, /v1/, /graphql/ 等特徵。
+    - 凡判定為 API 之請求將自動豁免 302 參數清洗，確保所有 APP 內部之 HMAC 數位簽章不被破壞。
+    - 取代 V44.15 缺乏擴充性的「打地鼠式」手動網域豁免模式。
 """
 
 import json
@@ -28,7 +29,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.15"
+VERSION = "44.16"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -46,8 +47,8 @@ RULES_DB = {
         '/oauth', '/oauth2', '/authorize', '/login', '/signin', '/session'
     ],
     "PARAM_CLEANING_EXEMPTED_DOMAINS": [
-        'shopback.com.tw', 'extrabux.com', 'buy.line.me',
-        'shopee.tw', 'shopee.com', 'shopeemobile.com', 'mall.shopee.tw'
+        'shopback.com.tw', 'extrabux.com', 'buy.line.me'
+        # V44.16: 不再需要手動將 shopee 填入此處，將交由啟發式 API 引擎全自動處理
     ],
     "PRIORITY_BLOCK_DOMAINS": [
         'penphone92.com', 'api.penphone92.com', 'www.penphone92.com', 
@@ -470,9 +471,8 @@ def compile_js() -> str:
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
- * 3) [Testing] OAuth 登入路徑測試覆蓋。
- * 4) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級，並於 L1 攔截 HTTPDNS 直連。
- * 5) [Patch] 擴充蝦皮 API 網域至參數清洗豁免清單，修復 APP API 數位簽章驗證問題。
+ * 3) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級，並於 L1 攔截 HTTPDNS 直連。
+ * 4) [Optimize-V44.16] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」，全域自動豁免 API 參數清洗，解決 HMAC 破壞問題。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -557,6 +557,11 @@ const RULES = {{
     HEURISTIC: [
        /[?&](ad|ads|campaign|tracker)_[a-z]+=/i,
        /\\/ad(server|serve|vert|vertis|v)\\./i
+    ],
+    // V44.16 啟發式 API 簽章防護特徵庫
+    API_SIGNATURE_BYPASS: [
+        /\\/(api|graphql|v\\d+|trpc|rest)\\//i, 
+        /\\.(json|xml)(\\?|$)/i
     ]
   }},
 
@@ -683,6 +688,13 @@ const HELPERS = {
     }
 
     if (PARAM_CLEANING_EXEMPTED_DOMAINS.has(hostname)) {
+        return null;
+    }
+    
+    // V44.16 啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)
+    // 偵測到此為底層 API 呼叫 (如 /api/v4/...)，全域放棄參數清洗以防破壞 APP 內部 HMAC 數位簽章
+    if (RULES.REGEX.API_SIGNATURE_BYPASS.some(r => r.test(pathLower))) {
+        if (CONFIG.DEBUG_MODE) console.log(`[Exempted] Heuristic API Bypass: ${pathLower}`);
         return null;
     }
 
@@ -1195,10 +1207,14 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Matrix: Double Decode Escape", "https://example.com/%2561%2564/banner.webp", RES_BLOCK_403, "Blocked by High Confidence Override (Double Decoded)"))
     cases.append(TestCase("Matrix: Triple Decode Perf Limit", "https://example.com/%252561%252564/banner.webp", RES_ALLOW, "Allowed (By Design - Perf Limit)"))
 
-    # V44.13 - V44.15 新增測試案例
+    # V44.13 - V44.16 新增測試案例
     cases.append(TestCase("Edge: Shopee DEM (P0)", "https://dem.shopee.com/dem/entrance/v1/apps/rw-platform/tags/web-performance/event/json", RES_BLOCK_403, "P0 bypasses Soft WL"))
     cases.append(TestCase("Edge: HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772072185", RES_BLOCK_403, "Blocked by L1 Critical Path"))
-    cases.append(TestCase("Edge: Shopee API Signature Bypass", "https://mall.shopee.tw/api/v4/itemcard/set/elements?set_ids=2,13,8", RES_ALLOW, "Exempted from 302 cleaning"))
+    
+    # V44.16 啟發式 API 防護機制測試
+    cases.append(TestCase("Feature: Heuristic API Bypass (Shopee)", "https://mall.shopee.tw/api/v4/itemcard/set/elements?gclid=123", RES_ALLOW, "API path exempted from 302 cleaning"))
+    cases.append(TestCase("Feature: Heuristic API Bypass (Global)", "https://unknown-ecommerce.com/graphql/user?fbclid=test", RES_ALLOW, "GraphQL path exempted globally"))
+    cases.append(TestCase("Feature: Heuristic API vs Tracking", "https://unknown-ecommerce.com/product/shoe?fbclid=test", RES_CLEAN_302, "Standard web URL still gets cleaned"))
 
     return cases
 
