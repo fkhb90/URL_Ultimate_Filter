@@ -91,17 +91,17 @@ const RULES = {
   ]),
     WILDCARDS: [
     'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com', 'shopee.tw', 'cathaybk.com.tw',
-    'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw', 'richart.tw', 'bot.com.tw',
-    'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw', 'dawho.tw', 'dbs.com.tw', 'firstbank.com.tw',
-    'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw', 'megabank.com.tw', 'megatime.com.tw',
-    'mitake.com.tw', 'money-link.com.tw', 'momopay.com.tw', 'mymobibank.com.tw', 'paypal.com', 'scsb.com.tw',
-    'sinopac.com', 'sinotrade.com.tw', 'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw', 'taiwanpay.com.tw',
-    'tcb-bank.com.tw', 'twca.com.tw', 'twmp.com.tw', 'pay.taipei', 'post.gov.tw', 'nhi.gov.tw',
-    'mohw.gov.tw', 'org.tw', 'tdcc.com.tw', 'icloud.com', 'apple.com', 'whatsapp.net',
-    'update.microsoft.com', 'windowsupdate.com', 'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
-    'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
-    'perma.cc', 'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'googlevideo.com', 'app.goo.gl',
-    'goo.gl'
+    'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw', 'mall.shopee.tw', 'richart.tw',
+    'bot.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw', 'dawho.tw', 'dbs.com.tw',
+    'firstbank.com.tw', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw', 'megabank.com.tw',
+    'megatime.com.tw', 'mitake.com.tw', 'money-link.com.tw', 'momopay.com.tw', 'mymobibank.com.tw', 'paypal.com',
+    'scsb.com.tw', 'sinopac.com', 'sinotrade.com.tw', 'standardchartered.com.tw', 'stripe.com', 'taipeifubon.com.tw',
+    'taiwanpay.com.tw', 'tcb-bank.com.tw', 'twca.com.tw', 'twmp.com.tw', 'pay.taipei', 'post.gov.tw',
+    'nhi.gov.tw', 'mohw.gov.tw', 'org.tw', 'tdcc.com.tw', 'icloud.com', 'apple.com',
+    'whatsapp.net', 'update.microsoft.com', 'windowsupdate.com', 'atlassian.net', 'auth0.com', 'okta.com',
+    'nextdns.io', 'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn',
+    'cc.bingj.com', 'perma.cc', 'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'googlevideo.com',
+    'app.goo.gl', 'goo.gl'
   ]
   },
 
@@ -496,9 +496,9 @@ const RULES = {
     ['instagram.com', new Set([
         '/logging_client_events'
       ])],
-   // ['mall.shopee.tw', new Set([
-   //     '/userstats_record/batchrecord'
-   //   ])],
+    ['mall.shopee.tw', new Set([
+        '/userstats_record/batchrecord'
+      ])],
     ['patronus.idata.shopeemobile.com', new Set([
         '/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'
       ])],
