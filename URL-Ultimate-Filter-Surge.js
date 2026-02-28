@@ -1,15 +1,17 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.20 (SSOT Compilation & Pages Deployment)
+ * @version   44.23 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
  * 3) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級，並於 L1 攔截 HTTPDNS 直連。
  * 4) [Optimize] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
- * 5) [Feature] 新增 FINANCE_SAFE_HARBOR，全域絕對放行銀行、支付與政府網域，防範 302 破壞 POST 交易防護鏈。
+ * 5) [Feature] 新增 FINANCE_SAFE_HARBOR，全域絕對放行銀行、支付與政府網域。
  * 6) [Fix] 修正啟發式 API 引擎中 v\d+ 對標準網頁造成的 False Positive 誤判。
- * 7) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)，防護 /error_204 等遙測回傳機制。
- * 8) [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS，精準封鎖第一方廣告追蹤腳本。
+ * 7) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)。
+ * 8) [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS。
+ * 9) [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/。
+ * 10) [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 CRITICAL_PATH_SCRIPT_ROOTS 突破靜態白名單保護。
  * @lastUpdated 2026-02-28
  */
 
@@ -190,7 +192,8 @@ const RULES = {
     'bluekai.com', 'casalemedia.com', 'criteo.com', 'doubleclick.net', 'googleadservices.com', 'googlesyndication.com',
     'outbrain.com', 'taboola.com', 'rubiconproject.com', 'pubmatic.com', 'openx.com', 'smartadserver.com',
     'spotx.tv', 'yandex.ru', 'addthis.com', 'disqus.com', 'onesignal.com', 'sharethis.com',
-    'bat.bing.com', 'clarity.ms', 'pinterest.com', 'reddit.com', 'snapchat.com', 'elads.kocpc.com.tw'
+    'bat.bing.com', 'clarity.ms', 'pinterest.com', 'reddit.com', 'snapchat.com', 'elads.kocpc.com.tw',
+    'newaddiscover.com'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
@@ -205,7 +208,8 @@ const RULES = {
     /^(.+\.)?pbs\.yahoo\.com$/i,
     /^(.+\.)?ay\.delivery$/i,
     /^(.+\.)?cootlogix\.com$/i,
-    /^(.+\.)?ottadvisors\.com$/i
+    /^(.+\.)?ottadvisors\.com$/i,
+    /^(.+\.)?newaddiscover\.com$/i
   ],
 
   CRITICAL_PATH: {
@@ -252,7 +256,7 @@ const RULES = {
     'ads-beacon.', 'autotrack.', 'beacon.', 'capture.', '/cf.js', 'cmp.js',
     'collect.js', 'link-click-tracker.', 'main-ad.', 'scevent.min.', 'showcoverad.', 'sp.js',
     'tracker.js', 'tracking-api.', 'tracking.js', 'user-id.', 'user-timing.', 'wcslog.',
-    'jslog.min.', 'device-uuid.'
+    'jslog.min.', 'device-uuid.', '/plugins/advanced-ads', '/plugins/adrotate'
   ],
     MAP: new Map([
     ['o.alicdn.com', new Set([
@@ -531,71 +535,71 @@ const RULES = {
     '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
   ],
     PATH_BLOCK: [
-    'china-caa', '/advertising/', '/affiliate/', '/popup/', '/promoted/', '/sponsor/',
-    '/vclick/', '/ads-self-serve/', '/httpdns/', '/d?dn=', '/resolve?host=', '/query?host=',
-    '__httpdns__', 'dns-query', '112wan', '2mdn', '51y5', '51yes',
-    '789htbet', '96110', 'acs86', 'ad-choices', 'ad-logics', 'adash',
-    'adashx', 'adcash', 'adcome', 'addsticky', 'addthis', 'adform',
-    'adhacker', 'adinfuse', 'adjust', 'admarvel', 'admaster', 'admation',
-    'admdfs', 'admicro', 'admob', 'adnewnc', 'adpush', 'adpushup',
-    'adroll', 'adsage', 'adsame', 'adsense', 'adsensor', 'adserver',
-    'adservice', 'adsh', 'adskeeper', 'adsmind', 'adsmogo', 'adsnew',
-    'adsrvmedia', 'adsrvr', 'adsserving', 'adsterra', 'adsupply', 'adsupport',
-    'adswizz', 'adsystem', 'adtilt', 'adtima', 'adtrack', 'advert',
-    'advertise', 'advertisement', 'advertiser', 'adview', 'ad-video', 'advideo',
-    'adware', 'adwhirl', 'adwords', 'adzcore', 'affiliate', 'alexametrics',
-    'allyes', 'amplitude', 'analysis', 'analysys', 'analytics', 'aottertrek',
-    'appadhoc', 'appads', 'appboy', 'appier', 'applovin', 'appsflyer',
-    'apptimize', 'apsalar', 'baichuan', 'bango', 'bangobango', 'bidvertiser',
-    'bingads', 'bkrtx', 'bluekai', 'breaktime', 'bugsense', 'burstly',
-    'cedexis', 'chartboost', 'circulate', 'click-fraud', 'clkservice', 'cnzz',
-    'cognitivlabs', 'collect', 'crazyegg', 'crittercism', 'cross-device', 'dealerfire',
-    'dfp', 'dienst', 'djns', 'dlads', 'dnserror', 'domob',
-    'doubleclick', 'doublemax', 'dsp', 'duapps', 'duomeng', 'dwtrack',
-    'egoid', 'emarbox', 'en25', 'eyeota', 'fenxi', 'fingerprinting',
-    'flurry', 'fwmrm', 'getadvltem', 'getexceptional', 'googleads', 'googlesyndication',
-    'greenplasticdua', 'growingio', 'guanggao', 'guomob', 'guoshipartners', 'heapanalytics',
-    'hotjar', 'hsappstatic', 'hubspot', 'igstatic', 'inmobi', 'innity',
-    'instabug', 'intercom', 'izooto', 'jpush', 'juicer', 'jumptap',
-    'kissmetrics', 'lianmeng', 'litix', 'localytics', 'logly', 'mailmunch',
-    'malvertising', 'matomo', 'medialytics', 'meetrics', 'mgid', 'mifengv',
-    'mixpanel', 'mobaders', 'mobclix', 'mobileapptracking', '/monitoring/', 'mvfglobal',
-    'networkbench', 'newrelic', 'omgmta', 'omniture', 'onead', 'openinstall',
-    'openx', 'optimizely', 'outstream', 'partnerad', 'pingfore', 'piwik',
-    'pixanalytics', 'playtomic', 'polyad', 'popin', 'popin2mdn', 'programmatic',
-    'pushnotification', 'quantserve', 'quantumgraph', 'queryly', 'qxs', 'rayjump',
-    'retargeting', 'ronghub', 'scorecardresearch', 'scupio', 'securepubads', 'sensor',
-    'sentry', 'shence', 'shenyun', 'shoplytics', 'shujupie', 'smartadserver',
-    'smartbanner', 'snowplow', 'socdm', 'sponsors', 'spy', 'spyware',
-    'statcounter', 'stathat', 'sticky-ad', 'storageug', 'straas', 'studybreakmedia',
-    'stunninglover', 'supersonicads', 'syndication', 'taboola', 'tagtoo', 'talkingdata',
-    'tanx', 'tapjoy', 'tapjoyads', 'tenmax', 'tapfiliate', 'tingyun',
-    'tiqcdn', 'tlcafftrax', 'toateeli', 'tongji', '/trace/', 'tracker',
-    'trackersimulator', 'trafficjunky', 'trafficmanager', 'tubemogul', 'uedas', 'umeng',
-    'umtrack', 'unidesk', 'usermaven', 'usertesting', 'vast', 'venraas',
-    'vilynx', 'vpaid', 'vpon', 'vungle', 'whalecloud', 'wistia',
-    'wlmonitor', 'woopra', 'xxshuyuan', 'yandex', 'zaoo', 'zarget',
-    'zgdfz6h7po', 'zgty365', 'zhengjian', 'zhengwunet', 'zhuichaguoji', 'zjtoolbar',
-    'zzhyyj', '/ad-choices', '/ad-click', '/ad-code', 'ad-conversion', '/ad-engagement',
-    'ad-engagement', '/ad-event', '/ad-events', '/ad-exchange', 'ad-impression', '/ad-impression',
-    '/ad-inventory', '/ad-loader', '/ad-logic', '/ad-manager', '/ad-metrics', '/ad-network',
-    '/ad-placement', '/ad-platform', '/ad-request', '/ad-response', '/ad-script', '/ad-server',
-    '/ad-slot', '/ad-specs', '/ad-system', '/ad-tag', '/ad-tech', 'ad-telemetry',
-    '/ad-telemetry', '/ad-unit', 'ad-verification', '/ad-verification', '/ad-view', 'ad-viewability',
-    '/ad-viewability', '/ad-wrapper', '/adframe/', '/adrequest/', '/adretrieve/', '/adserve/',
-    '/adserving/', '/fetch_ads/', '/getad/', '/getads/', 'ad-break', 'ad_event',
-    'ad_logic', 'ad_pixel', 'ad-call', 'adsbygoogle', 'amp-ad', 'amp-analytics',
-    'amp-auto-ads', 'amp-sticky-ad', 'amp4ads', 'apstag', 'google_ad', 'pagead',
-    'pwt.js', '/analytic/', '/analytics/', '/api/v2/rum', '/audit/', '/beacon/',
-    '/collect?', '/collector/', 'g/collect', '/insight/', '/intelligence/', '/measurement',
-    'mp/collect', '/report/', '/reporting/', '/reports/', '/telemetry/', '/unstable/produce_batch',
-    '/v1/produce', '/bugsnag/', '/crash/', 'debug/mp/collect', '/error/', '/envelope',
-    '/exception/', '/stacktrace/', 'performance-tracking', 'real-user-monitoring', 'web-vitals', 'audience',
-    'attribution', 'behavioral-targeting', 'cohort', 'cohort-analysis', 'data-collection', 'data-sync',
-    'fingerprint', 'retargeting', 'session-replay', 'third-party-cookie', 'user-analytics', 'user-behavior',
-    'user-cohort', 'user-segment', 'appier', 'comscore', 'fbevents', 'fbq',
-    'google-analytics', 'onead', 'osano', 'sailthru', 'tapfiliate', 'utag.js',
-    '/apmapi/', 'canvas', 'webgl', 'audio-fp', 'font-detect'
+    'china-caa', '/advertising/', '/affiliate/', '/videoads/', '/popup/', '/promoted/',
+    '/sponsor/', '/vclick/', '/ads-self-serve/', '/httpdns/', '/d?dn=', '/resolve?host=',
+    '/query?host=', '__httpdns__', 'dns-query', '112wan', '2mdn', '51y5',
+    '51yes', '789htbet', '96110', 'acs86', 'ad-choices', 'ad-logics',
+    'adash', 'adashx', 'adcash', 'adcome', 'addsticky', 'addthis',
+    'adform', 'adhacker', 'adinfuse', 'adjust', 'admarvel', 'admaster',
+    'admation', 'admdfs', 'admicro', 'admob', 'adnewnc', 'adpush',
+    'adpushup', 'adroll', 'adsage', 'adsame', 'adsense', 'adsensor',
+    'adserver', 'adservice', 'adsh', 'adskeeper', 'adsmind', 'adsmogo',
+    'adsnew', 'adsrvmedia', 'adsrvr', 'adsserving', 'adsterra', 'adsupply',
+    'adsupport', 'adswizz', 'adsystem', 'adtilt', 'adtima', 'adtrack',
+    'advert', 'advertise', 'advertisement', 'advertiser', 'adview', 'ad-video',
+    'advideo', 'adware', 'adwhirl', 'adwords', 'adzcore', 'affiliate',
+    'alexametrics', 'allyes', 'amplitude', 'analysis', 'analysys', 'analytics',
+    'aottertrek', 'appadhoc', 'appads', 'appboy', 'appier', 'applovin',
+    'appsflyer', 'apptimize', 'apsalar', 'baichuan', 'bango', 'bangobango',
+    'bidvertiser', 'bingads', 'bkrtx', 'bluekai', 'breaktime', 'bugsense',
+    'burstly', 'cedexis', 'chartboost', 'circulate', 'click-fraud', 'clkservice',
+    'cnzz', 'cognitivlabs', 'collect', 'crazyegg', 'crittercism', 'cross-device',
+    'dealerfire', 'dfp', 'dienst', 'djns', 'dlads', 'dnserror',
+    'domob', 'doubleclick', 'doublemax', 'dsp', 'duapps', 'duomeng',
+    'dwtrack', 'egoid', 'emarbox', 'en25', 'eyeota', 'fenxi',
+    'fingerprinting', 'flurry', 'fwmrm', 'getadvltem', 'getexceptional', 'googleads',
+    'googlesyndication', 'greenplasticdua', 'growingio', 'guanggao', 'guomob', 'guoshipartners',
+    'heapanalytics', 'hotjar', 'hsappstatic', 'hubspot', 'igstatic', 'inmobi',
+    'innity', 'instabug', 'intercom', 'izooto', 'jpush', 'juicer',
+    'jumptap', 'kissmetrics', 'lianmeng', 'litix', 'localytics', 'logly',
+    'mailmunch', 'malvertising', 'matomo', 'medialytics', 'meetrics', 'mgid',
+    'mifengv', 'mixpanel', 'mobaders', 'mobclix', 'mobileapptracking', '/monitoring/',
+    'mvfglobal', 'networkbench', 'newrelic', 'omgmta', 'omniture', 'onead',
+    'openinstall', 'openx', 'optimizely', 'outstream', 'partnerad', 'pingfore',
+    'piwik', 'pixanalytics', 'playtomic', 'polyad', 'popin', 'popin2mdn',
+    'programmatic', 'pushnotification', 'quantserve', 'quantumgraph', 'queryly', 'qxs',
+    'rayjump', 'retargeting', 'ronghub', 'scorecardresearch', 'scupio', 'securepubads',
+    'sensor', 'sentry', 'shence', 'shenyun', 'shoplytics', 'shujupie',
+    'smartadserver', 'smartbanner', 'snowplow', 'socdm', 'sponsors', 'spy',
+    'spyware', 'statcounter', 'stathat', 'sticky-ad', 'storageug', 'straas',
+    'studybreakmedia', 'stunninglover', 'supersonicads', 'syndication', 'taboola', 'tagtoo',
+    'talkingdata', 'tanx', 'tapjoy', 'tapjoyads', 'tenmax', 'tapfiliate',
+    'tingyun', 'tiqcdn', 'tlcafftrax', 'toateeli', 'tongji', '/trace/',
+    'tracker', 'trackersimulator', 'trafficjunky', 'trafficmanager', 'tubemogul', 'uedas',
+    'umeng', 'umtrack', 'unidesk', 'usermaven', 'usertesting', 'vast',
+    'venraas', 'vilynx', 'vpaid', 'vpon', 'vungle', 'whalecloud',
+    'wistia', 'wlmonitor', 'woopra', 'xxshuyuan', 'yandex', 'zaoo',
+    'zarget', 'zgdfz6h7po', 'zgty365', 'zhengjian', 'zhengwunet', 'zhuichaguoji',
+    'zjtoolbar', 'zzhyyj', '/ad-choices', '/ad-click', '/ad-code', 'ad-conversion',
+    '/ad-engagement', 'ad-engagement', '/ad-event', '/ad-events', '/ad-exchange', 'ad-impression',
+    '/ad-impression', '/ad-inventory', '/ad-loader', '/ad-logic', '/ad-manager', '/ad-metrics',
+    '/ad-network', '/ad-placement', '/ad-platform', '/ad-request', '/ad-response', '/ad-script',
+    '/ad-server', '/ad-slot', '/ad-specs', '/ad-system', '/ad-tag', '/ad-tech',
+    'ad-telemetry', '/ad-telemetry', '/ad-unit', 'ad-verification', '/ad-verification', '/ad-view',
+    'ad-viewability', '/ad-viewability', '/ad-wrapper', '/adframe/', '/adrequest/', '/adretrieve/',
+    '/adserve/', '/adserving/', '/fetch_ads/', '/getad/', '/getads/', 'ad-break',
+    'ad_event', 'ad_logic', 'ad_pixel', 'ad-call', 'adsbygoogle', 'amp-ad',
+    'amp-analytics', 'amp-auto-ads', 'amp-sticky-ad', 'amp4ads', 'apstag', 'google_ad',
+    'pagead', 'pwt.js', '/analytic/', '/analytics/', '/api/v2/rum', '/audit/',
+    '/beacon/', '/collect?', '/collector/', 'g/collect', '/insight/', '/intelligence/',
+    '/measurement', 'mp/collect', '/report/', '/reporting/', '/reports/', '/telemetry/',
+    '/unstable/produce_batch', '/v1/produce', '/bugsnag/', '/crash/', 'debug/mp/collect', '/error/',
+    '/envelope', '/exception/', '/stacktrace/', 'performance-tracking', 'real-user-monitoring', 'web-vitals',
+    'audience', 'attribution', 'behavioral-targeting', 'cohort', 'cohort-analysis', 'data-collection',
+    'data-sync', 'fingerprint', 'retargeting', 'session-replay', 'third-party-cookie', 'user-analytics',
+    'user-behavior', 'user-cohort', 'user-segment', 'appier', 'comscore', 'fbevents',
+    'fbq', 'google-analytics', 'onead', 'osano', 'sailthru', 'tapfiliate',
+    'utag.js', '/apmapi/', 'canvas', 'webgl', 'audio-fp', 'font-detect'
   ],
     DROP: new Set([
     '.log', '?diag=', '?log=', '-log.', '/diag/', '/log/',
@@ -970,6 +974,8 @@ function processRequest(request) {
         }
     }
 
+    // L1 零信任掃描器：即使是靜態檔案 (如 .js) 或是位於 /wp-content/ 內的系統目錄，
+    // 只要命中惡意特徵，都會被強制攔截。
     if (criticalPathScanner.matches(pathLower)) {
       stats.blocks++;
       if (CONFIG.DEBUG_MODE) console.log(`[Block] L1 Critical: ${pathLower}`);
