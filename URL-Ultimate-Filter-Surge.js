@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.19 (SSOT Compilation & Pages Deployment)
+ * @version   44.20 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
@@ -9,6 +9,7 @@
  * 5) [Feature] 新增 FINANCE_SAFE_HARBOR，全域絕對放行銀行、支付與政府網域，防範 302 破壞 POST 交易防護鏈。
  * 6) [Fix] 修正啟發式 API 引擎中 v\d+ 對標準網頁造成的 False Positive 誤判。
  * 7) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)，防護 /error_204 等遙測回傳機制。
+ * 8) [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS，精準封鎖第一方廣告追蹤腳本。
  * @lastUpdated 2026-02-28
  */
 
@@ -189,7 +190,7 @@ const RULES = {
     'bluekai.com', 'casalemedia.com', 'criteo.com', 'doubleclick.net', 'googleadservices.com', 'googlesyndication.com',
     'outbrain.com', 'taboola.com', 'rubiconproject.com', 'pubmatic.com', 'openx.com', 'smartadserver.com',
     'spotx.tv', 'yandex.ru', 'addthis.com', 'disqus.com', 'onesignal.com', 'sharethis.com',
-    'bat.bing.com', 'clarity.ms', 'pinterest.com', 'reddit.com', 'snapchat.com'
+    'bat.bing.com', 'clarity.ms', 'pinterest.com', 'reddit.com', 'snapchat.com', 'elads.kocpc.com.tw'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
