@@ -1,14 +1,15 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.18 (SSOT Compilation & Pages Deployment)
+ * @version   44.19 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
  * 3) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級，並於 L1 攔截 HTTPDNS 直連。
  * 4) [Optimize] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
  * 5) [Feature] 新增 FINANCE_SAFE_HARBOR，全域絕對放行銀行、支付與政府網域，防範 302 破壞 POST 交易防護鏈。
- * 6) [Fix-V44.18] 修正啟發式 API 引擎中 v\d+ 對標準網頁 (如 LINE Today) 造成的 False Positive 誤判。
- * @lastUpdated 2026-02-26
+ * 6) [Fix] 修正啟發式 API 引擎中 v\d+ 對標準網頁造成的 False Positive 誤判。
+ * 7) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)，防護 /error_204 等遙測回傳機制。
+ * @lastUpdated 2026-02-28
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
@@ -603,7 +604,7 @@ const RULES = {
     'ingest', 'intake', 'live-log', 'log-event', 'logevents', 'loggly',
     'log-hl', 'realtime-log', '/rum/', 'server-event', 'telemetry', 'uploadmobiledata',
     'web-beacon', 'web-vitals', 'crash-report', 'diagnostic.log', 'profiler', 'stacktrace',
-    'trace.json'
+    'trace.json', '/error_204', 'a=logerror'
   ])
   },
 
@@ -644,7 +645,6 @@ const RULES = {
        /[?&](ad|ads|campaign|tracker)_[a-z]+=/i,
        /\/ad(server|serve|vert|vertis|v)\./i
     ],
-    // V44.18 修正：移除 v\d+ 以避免對一般 Web 頁面 (如 /v2/article) 造成 False Positive 誤判
     API_SIGNATURE_BYPASS: [
         /\/(api|graphql|trpc|rest)\//i, 
         /\.(json|xml)(\?|$)/i
@@ -782,7 +782,6 @@ const HELPERS = {
         return null;
     }
     
-    // V44.18 修正：強化判斷邏輯，除了正則外，亦對 api. 或 graphql. 開頭的子網域予以豁免，確保精準度
     if (RULES.REGEX.API_SIGNATURE_BYPASS.some(r => r.test(pathLower)) || hostname.startsWith('api.') || hostname.startsWith('graphql.')) {
         if (CONFIG.DEBUG_MODE) console.log(`[Exempted] Heuristic API Bypass: ${pathLower}`);
         return null;
