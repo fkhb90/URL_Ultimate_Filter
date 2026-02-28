@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.20 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.21 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -13,6 +13,7 @@ URL Ultimate Filter - V44.20 SSOT Compiler & Matrix Test Suite
 7. [Fix-V44.18] 修正啟發式 API 引擎中 v\d+ (如 /v2/) 對標準網頁 (如 LINE Today) 造成的 False Positive 誤判。
 8. [Privacy-V44.19] 針對 YouTube 等 App 的高精度設備指紋遙測 (如 /error_204, a=logerror) 實作全域靜默丟棄 (DROP 204)。
 9. [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS，精準封鎖第一方廣告追蹤腳本 (First-Party Tracking)。
+10. [Privacy-V44.21] 將 /plugins/advanced-ads 與 /plugins/adrotate 納入 PATH_BLOCK，通殺 WordPress 第一方廣告外掛，並透過目錄特徵防範文章網址誤殺。
 """
 
 import json
@@ -28,7 +29,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.20"
+VERSION = "44.21"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -368,7 +369,7 @@ RULES_DB = {
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
     ],
     "PATH_BLOCK": [
-        'china-caa', '/advertising/', '/affiliate/',
+        'china-caa', '/advertising/', '/affiliate/', '/plugins/advanced-ads', '/plugins/adrotate',
         '/popup/', '/promoted/', '/sponsor/', '/vclick/', '/ads-self-serve/', '/httpdns/', '/d?dn=', '/resolve?host=',
         '/query?host=', '__httpdns__', 'dns-query', '112wan', '2mdn', '51y5', '51yes', '789htbet', '96110',
         'acs86', 'ad-choices', 'ad-logics', 'adash', 'adashx', 'adcash', 'adcome', 'addsticky', 'addthis',
@@ -484,6 +485,7 @@ def compile_js() -> str:
  * 6) [Fix] 修正啟發式 API 引擎中 v\\d+ 對標準網頁造成的 False Positive 誤判。
  * 7) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)，防護 /error_204 等遙測回傳機制。
  * 8) [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS，精準封鎖第一方廣告追蹤腳本。
+ * 9) [Privacy-V44.21] 將 /plugins/advanced-ads 與 /plugins/adrotate 納入 PATH_BLOCK，防堵 WordPress 響應式第一方廣告外掛。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -1239,8 +1241,11 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Telemetry Drop (YT)", "https://www.youtube.com/error_204?cosver=18.7.1.22H31&cmodel=iPhone16%2C1&a=logerror", RES_DROP_204, "Silent Drop for High Precision Telemetry"))
     cases.append(TestCase("Privacy: Generic Logerror Drop", "https://example.com/api/tracking?a=logerror&device=iphone", RES_DROP_204, "Silent Drop for general a=logerror pattern"))
     
-    # V44.20 新增 第一方廣告追蹤子網域測試
-    cases.append(TestCase("Privacy: First-Party Ad", "https://elads.kocpc.com.tw/ktc/ktc.js/", RES_BLOCK_403, "Blocked First-Party Tracker"))
+    cases.append(TestCase("Privacy: First-Party Ad", "https://elads.kocpc.com.tw/ktc/ktc.js/", RES_BLOCK_403, "Blocked First-Party Tracker Domain"))
+
+    # V44.21 新增 WordPress 廣告外掛路徑精準封鎖測試 (包含正反向邊界測試)
+    cases.append(TestCase("Privacy: WP Ad Plugin", "https://www.koc.com.tw/wp-content/plugins/advanced-ads-responsive/public/assets/js/script.js?ver=1.10.2", RES_BLOCK_403, "Blocked WordPress Ad Plugin Path"))
+    cases.append(TestCase("General: WP Article Bypass", "https://www.koc.com.tw/news/review-of-advanced-ads-plugin/", RES_ALLOW, "Ensure article slugs are not falsely blocked"))
 
     return cases
 
