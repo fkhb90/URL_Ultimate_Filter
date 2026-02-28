@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.22 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.23 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -13,8 +13,8 @@ URL Ultimate Filter - V44.22 SSOT Compiler & Matrix Test Suite
 7. [Fix-V44.18] 修正啟發式 API 引擎中 v\d+ 對標準網頁造成的 False Positive 誤判。
 8. [Privacy-V44.19] 針對 YouTube 等 App 的高精度設備指紋遙測實作全域靜默丟棄 (DROP 204)。
 9. [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS，精準封鎖第一方廣告追蹤。
-10. [Privacy-V44.21] 將 /plugins/advanced-ads 等納入 PATH_BLOCK，防堵 WordPress 響應式廣告。
-11. [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含動態子網域) 與通用路徑 /videoads/，防範高耗能浮動影音干擾。
+10. [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/ 通用路徑。
+11. [BugFix-V44.23] 修復 V44.21 測試失敗問題：將 /plugins/advanced-ads 移至 L1 零信任掃描器 (CRITICAL_PATH_SCRIPT_ROOTS)，突破 /wp-content/ 與 .js 的靜態白名單保護機制。
 """
 
 import json
@@ -30,7 +30,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.22"
+VERSION = "44.23"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -273,7 +273,8 @@ RULES_DB = {
         'beacon.min.', 'plausible.outbound', 'abtasty.', 'ad-core.', 'ad-lib.', 'adroll_pro.', 'ads-beacon.',
         'autotrack.', 'beacon.', 'capture.', '/cf.js', 'cmp.js', 'collect.js', 'link-click-tracker.',
         'main-ad.', 'scevent.min.', 'showcoverad.', 'sp.js', 'tracker.js', 'tracking-api.',
-        'tracking.js', 'user-id.', 'user-timing.', 'wcslog.', 'jslog.min.', 'device-uuid.'
+        'tracking.js', 'user-id.', 'user-timing.', 'wcslog.', 'jslog.min.', 'device-uuid.',
+        '/plugins/advanced-ads', '/plugins/adrotate'
     ],
     "CRITICAL_PATH_MAP": {
         'o.alicdn.com': ['/tongyi-fe/lib/cnzz/c.js', '/tongyi-fe/lib/cnzz/z.js'],
@@ -370,7 +371,7 @@ RULES_DB = {
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
     ],
     "PATH_BLOCK": [
-        'china-caa', '/advertising/', '/affiliate/', '/plugins/advanced-ads', '/plugins/adrotate', '/videoads/',
+        'china-caa', '/advertising/', '/affiliate/', '/videoads/',
         '/popup/', '/promoted/', '/sponsor/', '/vclick/', '/ads-self-serve/', '/httpdns/', '/d?dn=', '/resolve?host=',
         '/query?host=', '__httpdns__', 'dns-query', '112wan', '2mdn', '51y5', '51yes', '789htbet', '96110',
         'acs86', 'ad-choices', 'ad-logics', 'adash', 'adashx', 'adcash', 'adcome', 'addsticky', 'addthis',
@@ -482,12 +483,12 @@ def compile_js() -> str:
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
  * 3) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級，並於 L1 攔截 HTTPDNS 直連。
  * 4) [Optimize] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
- * 5) [Feature] 新增 FINANCE_SAFE_HARBOR，全域絕對放行銀行、支付與政府網域，防範 302 破壞 POST 交易防護鏈。
+ * 5) [Feature] 新增 FINANCE_SAFE_HARBOR，全域絕對放行銀行、支付與政府網域。
  * 6) [Fix] 修正啟發式 API 引擎中 v\\d+ 對標準網頁造成的 False Positive 誤判。
- * 7) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)，防護 /error_204 等遙測回傳機制。
- * 8) [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS，精準封鎖第一方廣告追蹤腳本。
- * 9) [Privacy-V44.21] 將 /plugins/advanced-ads 納入 PATH_BLOCK，防堵 WordPress 響應式第一方廣告外掛。
- * 10) [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/ 通用路徑，防範車載設備過熱。
+ * 7) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)。
+ * 8) [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS。
+ * 9) [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/。
+ * 10) [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 CRITICAL_PATH_SCRIPT_ROOTS 突破靜態白名單保護。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -898,6 +899,8 @@ function processRequest(request) {
         }
     }
 
+    // L1 零信任掃描器：即使是靜態檔案 (如 .js) 或是位於 /wp-content/ 內的系統目錄，
+    // 只要命中惡意特徵，都會被強制攔截。
     if (criticalPathScanner.matches(pathLower)) {
       stats.blocks++;
       if (CONFIG.DEBUG_MODE) console.log(`[Block] L1 Critical: ${pathLower}`);
@@ -1245,10 +1248,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Generic Logerror Drop", "https://example.com/api/tracking?a=logerror&device=iphone", RES_DROP_204, "Silent Drop for general a=logerror pattern"))
     
     cases.append(TestCase("Privacy: First-Party Ad", "https://elads.kocpc.com.tw/ktc/ktc.js/", RES_BLOCK_403, "Blocked First-Party Tracker Domain"))
-    cases.append(TestCase("Privacy: WP Ad Plugin", "https://www.koc.com.tw/wp-content/plugins/advanced-ads-responsive/public/assets/js/script.js?ver=1.10.2", RES_BLOCK_403, "Blocked WordPress Ad Plugin Path"))
+    cases.append(TestCase("Privacy: WP Ad Plugin (L1 Scanner)", "https://www.koc.com.tw/wp-content/plugins/advanced-ads-responsive/public/assets/js/script.js?ver=1.10.2", RES_BLOCK_403, "Must be blocked by L1 Scanner ignoring static whitelist"))
     cases.append(TestCase("General: WP Article Bypass", "https://www.koc.com.tw/news/review-of-advanced-ads-plugin/", RES_ALLOW, "Ensure article slugs are not falsely blocked"))
 
-    # V44.22 新增 Video Ads 惡意聯播網封鎖測試
     cases.append(TestCase("AdBlock: Video Ad Root Domain", "https://newaddiscover.com/videoads/?cb=1772287290", RES_BLOCK_403, "Blocked Video Ad Root Domain"))
     cases.append(TestCase("AdBlock: Video Ad Subdomain", "https://news2.newaddiscover.com/videoads/?ca=71&cb=1772287290", RES_BLOCK_403, "Blocked Video Ad Subdomain via Regex"))
     cases.append(TestCase("AdBlock: Generic Video Ad Path", "https://example-random-ad-site.com/videoads/?user=123", RES_BLOCK_403, "Blocked Generic Video Ad Path via ACScanner"))
