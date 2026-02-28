@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.18 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.19 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -11,6 +11,7 @@ URL Ultimate Filter - V44.18 SSOT Compiler & Matrix Test Suite
 5. [Optimize-V44.16] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
 6. [Feature-V44.17] 建立 FINANCE_SAFE_HARBOR (金融避風港) 機制，將金融、第三方支付與政府憑證網域獨立。
 7. [Fix-V44.18] 修正啟發式 API 引擎中 v\d+ (如 /v2/) 對標準網頁 (如 LINE Today) 造成的 False Positive 誤判。
+8. [Privacy-V44.19] 針對 YouTube 等 App 的高精度設備指紋遙測 (如 /error_204, a=logerror) 實作全域靜默丟棄 (DROP 204) 機制，防範硬體特徵外洩並節省設備電量。
 """
 
 import json
@@ -26,7 +27,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.18"
+VERSION = "44.19"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -424,7 +425,8 @@ RULES_DB = {
         'collect?', 'collector', 'crashlytics', 'csp-report', 'data-pipeline', 'error-monitoring',
         'error-report', 'heartbeat', 'ingest', 'intake', 'live-log', 'log-event', 'logevents',
         'loggly', 'log-hl', 'realtime-log', '/rum/', 'server-event', 'telemetry', 'uploadmobiledata',
-        'web-beacon', 'web-vitals', 'crash-report', 'diagnostic.log', 'profiler', 'stacktrace', 'trace.json'
+        'web-beacon', 'web-vitals', 'crash-report', 'diagnostic.log', 'profiler', 'stacktrace', 'trace.json',
+        '/error_204', 'a=logerror'
     ],
     "PARAMS_GLOBAL": [
         'dev_id', 'gclid', 'fbclid', 'ttclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term',
@@ -478,7 +480,8 @@ def compile_js() -> str:
  * 3) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級，並於 L1 攔截 HTTPDNS 直連。
  * 4) [Optimize] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
  * 5) [Feature] 新增 FINANCE_SAFE_HARBOR，全域絕對放行銀行、支付與政府網域，防範 302 破壞 POST 交易防護鏈。
- * 6) [Fix-V44.18] 修正啟發式 API 引擎中 v\\d+ 對標準網頁 (如 LINE Today) 造成的 False Positive 誤判。
+ * 6) [Fix] 修正啟發式 API 引擎中 v\\d+ 對標準網頁造成的 False Positive 誤判。
+ * 7) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)，防護 /error_204 等遙測回傳機制。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -569,7 +572,6 @@ const RULES = {{
        /[?&](ad|ads|campaign|tracker)_[a-z]+=/i,
        /\\/ad(server|serve|vert|vertis|v)\\./i
     ],
-    // V44.18 修正：移除 v\\d+ 以避免對一般 Web 頁面 (如 /v2/article) 造成 False Positive 誤判
     API_SIGNATURE_BYPASS: [
         /\\/(api|graphql|trpc|rest)\\//i, 
         /\\.(json|xml)(\\?|$)/i
@@ -702,7 +704,6 @@ const HELPERS = {
         return null;
     }
     
-    // V44.18 修正：強化判斷邏輯，除了正則外，亦對 api. 或 graphql. 開頭的子網域予以豁免，確保精準度
     if (RULES.REGEX.API_SIGNATURE_BYPASS.some(r => r.test(pathLower)) || hostname.startsWith('api.') || hostname.startsWith('graphql.')) {
         if (CONFIG.DEBUG_MODE) console.log(`[Exempted] Heuristic API Bypass: ${pathLower}`);
         return null;
@@ -1224,17 +1225,18 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Matrix: Double Decode Escape", "https://example.com/%2561%2564/banner.webp", RES_BLOCK_403, "Blocked by High Confidence Override (Double Decoded)"))
     cases.append(TestCase("Matrix: Triple Decode Perf Limit", "https://example.com/%252561%252564/banner.webp", RES_ALLOW, "Allowed (By Design - Perf Limit)"))
 
-    # V44.13 - V44.16 新增測試案例
     cases.append(TestCase("Edge: Shopee DEM (P0)", "https://dem.shopee.com/dem/entrance/v1/apps/rw-platform/tags/web-performance/event/json", RES_BLOCK_403, "P0 bypasses Soft WL"))
     cases.append(TestCase("Edge: HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772072185", RES_BLOCK_403, "Blocked by L1 Critical Path"))
     cases.append(TestCase("Feature: Heuristic API Bypass", "https://unknown-ecommerce.com/graphql/user?fbclid=test", RES_ALLOW, "GraphQL path exempted globally"))
     
-    # V44.17 新增金融避風港測試案例
     cases.append(TestCase("Finance: ECPay Post Data bypass", "https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5?Token=test_token_123&TradeInfo=abc", RES_ALLOW, "Exempted from 302 to protect POST parameters"))
     cases.append(TestCase("Finance: Cathay Bank wildcard bypass", "https://ebank.cathaybk.com.tw/login?session_id=123&utm_source=should_not_clean", RES_ALLOW, "Exempted from 302 to protect token chain"))
     
-    # V44.18 修正：確保一般新聞/網頁平台不會因為 /v2/ 等路徑被誤認為 API
     cases.append(TestCase("General: Web UI still cleans", "https://today.line.me/tw/v2/article/123?utm_source=line", RES_CLEAN_302, "Normal Hard Whitelist still undergoes parameter cleaning"))
+
+    # V44.19 新增 YouTube 等設備指紋遙測的 DROP 測試
+    cases.append(TestCase("Privacy: Telemetry Drop (YT)", "https://www.youtube.com/error_204?cosver=18.7.1.22H31&cmodel=iPhone16%2C1&a=logerror", RES_DROP_204, "Silent Drop for High Precision Telemetry"))
+    cases.append(TestCase("Privacy: Generic Logerror Drop", "https://example.com/api/tracking?a=logerror&device=iphone", RES_DROP_204, "Silent Drop for general a=logerror pattern"))
 
     return cases
 
