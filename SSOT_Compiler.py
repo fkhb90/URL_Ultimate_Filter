@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.21 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.22 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -10,10 +10,11 @@ URL Ultimate Filter - V44.21 SSOT Compiler & Matrix Test Suite
 4. [Feature] 升級蝦皮追蹤子網域為 P0，防範軟白名單覆蓋；新增 HTTPDNS 攔截。
 5. [Optimize-V44.16] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
 6. [Feature-V44.17] 建立 FINANCE_SAFE_HARBOR (金融避風港) 機制，將金融、第三方支付與政府憑證網域獨立。
-7. [Fix-V44.18] 修正啟發式 API 引擎中 v\d+ (如 /v2/) 對標準網頁 (如 LINE Today) 造成的 False Positive 誤判。
-8. [Privacy-V44.19] 針對 YouTube 等 App 的高精度設備指紋遙測 (如 /error_204, a=logerror) 實作全域靜默丟棄 (DROP 204)。
-9. [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS，精準封鎖第一方廣告追蹤腳本 (First-Party Tracking)。
-10. [Privacy-V44.21] 將 /plugins/advanced-ads 與 /plugins/adrotate 納入 PATH_BLOCK，通殺 WordPress 第一方廣告外掛，並透過目錄特徵防範文章網址誤殺。
+7. [Fix-V44.18] 修正啟發式 API 引擎中 v\d+ 對標準網頁造成的 False Positive 誤判。
+8. [Privacy-V44.19] 針對 YouTube 等 App 的高精度設備指紋遙測實作全域靜默丟棄 (DROP 204)。
+9. [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS，精準封鎖第一方廣告追蹤。
+10. [Privacy-V44.21] 將 /plugins/advanced-ads 等納入 PATH_BLOCK，防堵 WordPress 響應式廣告。
+11. [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含動態子網域) 與通用路徑 /videoads/，防範高耗能浮動影音干擾。
 """
 
 import json
@@ -29,7 +30,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.21"
+VERSION = "44.22"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -229,7 +230,7 @@ RULES_DB = {
         'googleadservices.com', 'googlesyndication.com', 'outbrain.com', 'taboola.com', 'rubiconproject.com',
         'pubmatic.com', 'openx.com', 'smartadserver.com', 'spotx.tv', 'yandex.ru', 'addthis.com', 'disqus.com',
         'onesignal.com', 'sharethis.com', 'bat.bing.com', 'clarity.ms', 'pinterest.com', 'reddit.com',
-        'snapchat.com', 'elads.kocpc.com.tw'
+        'snapchat.com', 'elads.kocpc.com.tw', 'newaddiscover.com'
     ],
 
     "CRITICAL_PATH_GENERIC": [
@@ -369,7 +370,7 @@ RULES_DB = {
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
     ],
     "PATH_BLOCK": [
-        'china-caa', '/advertising/', '/affiliate/', '/plugins/advanced-ads', '/plugins/adrotate',
+        'china-caa', '/advertising/', '/affiliate/', '/plugins/advanced-ads', '/plugins/adrotate', '/videoads/',
         '/popup/', '/promoted/', '/sponsor/', '/vclick/', '/ads-self-serve/', '/httpdns/', '/d?dn=', '/resolve?host=',
         '/query?host=', '__httpdns__', 'dns-query', '112wan', '2mdn', '51y5', '51yes', '789htbet', '96110',
         'acs86', 'ad-choices', 'ad-logics', 'adash', 'adashx', 'adcash', 'adcome', 'addsticky', 'addthis',
@@ -485,7 +486,8 @@ def compile_js() -> str:
  * 6) [Fix] 修正啟發式 API 引擎中 v\\d+ 對標準網頁造成的 False Positive 誤判。
  * 7) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)，防護 /error_204 等遙測回傳機制。
  * 8) [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS，精準封鎖第一方廣告追蹤腳本。
- * 9) [Privacy-V44.21] 將 /plugins/advanced-ads 與 /plugins/adrotate 納入 PATH_BLOCK，防堵 WordPress 響應式第一方廣告外掛。
+ * 9) [Privacy-V44.21] 將 /plugins/advanced-ads 納入 PATH_BLOCK，防堵 WordPress 響應式第一方廣告外掛。
+ * 10) [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/ 通用路徑，防範車載設備過熱。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -535,7 +537,8 @@ const RULES = {{
     /^(.+\\.)?pbs\\.yahoo\\.com$/i,
     /^(.+\\.)?ay\\.delivery$/i,
     /^(.+\\.)?cootlogix\\.com$/i,
-    /^(.+\\.)?ottadvisors\\.com$/i
+    /^(.+\\.)?ottadvisors\\.com$/i,
+    /^(.+\\.)?newaddiscover\\.com$/i
   ],
 
   CRITICAL_PATH: {{
@@ -1242,10 +1245,13 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Generic Logerror Drop", "https://example.com/api/tracking?a=logerror&device=iphone", RES_DROP_204, "Silent Drop for general a=logerror pattern"))
     
     cases.append(TestCase("Privacy: First-Party Ad", "https://elads.kocpc.com.tw/ktc/ktc.js/", RES_BLOCK_403, "Blocked First-Party Tracker Domain"))
-
-    # V44.21 新增 WordPress 廣告外掛路徑精準封鎖測試 (包含正反向邊界測試)
     cases.append(TestCase("Privacy: WP Ad Plugin", "https://www.koc.com.tw/wp-content/plugins/advanced-ads-responsive/public/assets/js/script.js?ver=1.10.2", RES_BLOCK_403, "Blocked WordPress Ad Plugin Path"))
     cases.append(TestCase("General: WP Article Bypass", "https://www.koc.com.tw/news/review-of-advanced-ads-plugin/", RES_ALLOW, "Ensure article slugs are not falsely blocked"))
+
+    # V44.22 新增 Video Ads 惡意聯播網封鎖測試
+    cases.append(TestCase("AdBlock: Video Ad Root Domain", "https://newaddiscover.com/videoads/?cb=1772287290", RES_BLOCK_403, "Blocked Video Ad Root Domain"))
+    cases.append(TestCase("AdBlock: Video Ad Subdomain", "https://news2.newaddiscover.com/videoads/?ca=71&cb=1772287290", RES_BLOCK_403, "Blocked Video Ad Subdomain via Regex"))
+    cases.append(TestCase("AdBlock: Generic Video Ad Path", "https://example-random-ad-site.com/videoads/?user=123", RES_BLOCK_403, "Blocked Generic Video Ad Path via ACScanner"))
 
     return cases
 
