@@ -1,20 +1,17 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.30 (SSOT Compilation & Pages Deployment)
+ * @version   44.31 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
- * 3) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級，並於 L1 攔截 HTTPDNS 直連。
+ * 3) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級。
  * 4) [Optimize] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
  * 5) [Feature] 新增 FINANCE_SAFE_HARBOR，全域絕對放行銀行、支付與政府網域。
  * 6) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)。
- * 7) [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/。
- * 8) [BugFix-V44.23] 將 /plugins/advanced-ads 移至 L1 零信任掃描器突破靜態白名單保護。
- * 9) [Fix-V44.25] 升級 591 至 HARD_WHITELIST，並增列 salt/s 參數白名單。
- * 10) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，完美解決 API 302 斷線與 App 喚醒失效問題。
- * 11) [AdBlock-V44.28] 封鎖 app-ads-services.com 與 Emarsys 遙測端點 (eservice.emarsys.net)；新增 /client/events 至 DROP 清單。
- * 12) [Feature-V44.29] 擴充 API 啟發式前綴 (appapi.) 並將 104.com.tw 納入 SILENT_REWRITE_DOMAINS；驗證 device_id 精準狙擊。
- * 13) [Fix-V44.30] 將 appapi.104.com.tw 提權至 HARD_WHITELIST，解決其內部推薦 API 包含 /ad/ 路徑觸發 HIGH_CONFIDENCE 誤殺的問題。
+ * 7) [Fix-V44.25] 升級 591 至 HARD_WHITELIST，並增列 salt/s 參數白名單。
+ * 8) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，解決 API 302 斷線與 App 喚醒失效問題。
+ * 9) [Fix-V44.30] 將 appapi.104.com.tw 提權至 HARD_WHITELIST，解決其內部推薦 API 包含 /ad/ 路徑的誤殺問題。
+ * 10) [Architecture-V44.31] 建立「網域特化參數白名單 (DOMAIN_PARAMS_WHITELIST)」，專門豁免 104 API 嚴格校驗的 device_id 必傳參數，防止防撞庫機制導致的 App 斷線，同時維持對其他網域的設備指紋封殺。
  * @lastUpdated 2026-03-02
  */
 
@@ -650,7 +647,13 @@ const RULES = {
         ['cmapi.tw.coupang.com', new Set(['/'])],
         ['accounts.felo.me', new Set(['/'])],
         ['gcp-data-api.ltn.com.tw', new Set(['/'])]
-    ])
+    ]),
+    // V44.31: 網域特化參數白名單，針對特定網域允許特定的指紋參數存活 (防止 APP 斷線)
+    DOMAIN_PARAMS_WHITELIST: new Map([
+    ['104.com.tw', new Set([
+        'device_id'
+      ])]
+  ])
   },
 
   REGEX: {
@@ -824,22 +827,43 @@ const HELPERS = {
         }
     }
 
+    // V44.31 構建網域特化允許清單
+    let allowedParamsForDomain = new Set();
+    if (RULES.PARAMS.DOMAIN_PARAMS_WHITELIST) {
+        for (const [domain, allowedSet] of RULES.PARAMS.DOMAIN_PARAMS_WHITELIST) {
+            if (hostname === domain || hostname.endsWith('.' + domain)) {
+                for (const p of allowedSet) allowedParamsForDomain.add(p.toLowerCase());
+            }
+        }
+    }
+
     try {
       const urlObj = new URL(urlStr);
       const params = urlObj.searchParams;
       let changed = false;
 
       for (const p of RULES.PARAMS.GLOBAL) {
-        if (params.has(p)) { params.delete(p); changed = true; }
+        if (params.has(p)) { 
+            // 檢查該參數是否在此網域被特許保留
+            if (allowedParamsForDomain.has(p.toLowerCase())) continue;
+            params.delete(p); 
+            changed = true; 
+        }
       }
       for (const p of RULES.PARAMS.COSMETIC) {
-        if (params.has(p)) { params.delete(p); changed = true; }
+        if (params.has(p)) { 
+            if (allowedParamsForDomain.has(p.toLowerCase())) continue;
+            params.delete(p); 
+            changed = true; 
+        }
       }
 
       const keys = Array.from(params.keys());
       for (const key of keys) {
         const lowerKey = key.toLowerCase();
-        if (RULES.PARAMS.WHITELIST.has(lowerKey)) continue;
+        // 全域白名單 或 網域特化白名單 皆可保護此參數
+        if (RULES.PARAMS.WHITELIST.has(lowerKey) || allowedParamsForDomain.has(lowerKey)) continue;
+        
         for (const p of RULES.PARAMS.PREFIXES) {
           if (lowerKey.startsWith(p)) { params.delete(key); changed = true; break; }
         }
@@ -965,7 +989,6 @@ function processRequest(request) {
         return null;
     };
 
-    // V44.30 提權：HARD_WHITELIST 直接 bypass 路徑黑名單，直達參數淨化
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
       multiLevelCache.set(hostname, 'ALLOW', 86400000);
       stats.allows++;
