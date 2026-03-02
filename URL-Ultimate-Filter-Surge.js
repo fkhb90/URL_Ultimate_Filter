@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.26 (SSOT Compilation & Pages Deployment)
+ * @version   44.27 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
@@ -12,9 +12,8 @@
  * 8) [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS。
  * 9) [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/。
  * 10) [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 CRITICAL_PATH_SCRIPT_ROOTS 突破靜態白名單保護。
- * 11) [Fix-V44.24] 將 591 房屋交易網納入 PARAM_CLEANING_EXEMPTED_DOMAINS，保護 iOS Universal Links 短網址喚醒。
- * 12) [Fix-V44.25] 針對 591 短網址跳轉 /v2/ 問題，升級至 HARD_WHITELIST 並增列 salt/s 參數白名單。
- * 13) [Architecture-V44.26] 升級 PARAM_CLEANING_EXEMPTED_DOMAINS 支援 WILDCARDS，修復 bff-house.591.com.tw 等微服務 API 子網域因 302 重定向導致的 Fetch 異常。
+ * 11) [Fix-V44.25] 針對 591 短網址跳轉 /v2/ 問題，升級至 HARD_WHITELIST 並增列 salt/s 參數白名單。
+ * 12) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」。全域封殺 device_id；遇到 API 請求或 591 網域時改用底層 Rewrite，完美解決 API 302 斷線與 App 喚醒失效問題。
  * @lastUpdated 2026-03-02
  */
 
@@ -31,11 +30,17 @@ const OAUTH_SAFE_HARBOR = {
   ]
 };
 
-// V44.26 升級：支援 EXACT 與 WILDCARDS，與 HARD_WHITELIST 結構看齊
+// 完全豁免參數清理的網域 (例如 ShopBack 聯盟行銷)
 const PARAM_CLEANING_EXEMPTED_DOMAINS = {
     EXACT: new Set([
     'shopback.com.tw', 'extrabux.com', 'buy.line.me'
   ]),
+    WILDCARDS: []
+};
+
+// V44.27 雙軌機制：這些網域需要清理參數，但必須使用 Silent Rewrite 代替 302 以保護 Deep Links
+const SILENT_REWRITE_DOMAINS = {
+    EXACT: new Set([]),
     WILDCARDS: [
     '591.com.tw'
   ]
@@ -624,22 +629,22 @@ const RULES = {
 
   PARAMS: {
     GLOBAL: new Set([
-    'dev_id', 'gclid', 'fbclid', 'ttclid', 'utm_source', 'utm_medium',
-    'utm_campaign', 'utm_term', 'utm_content', 'yclid', 'mc_cid', 'mc_eid',
-    'srsltid', 'dclid', 'gclsrc', 'twclid', 'lid', '_branch_match_id',
-    '_ga', '_gl', '_gid', '_openstat', 'admitad_uid', 'aiad_clid',
-    'awc', 'btag', 'cjevent', 'cmpid', 'cuid', 'external_click_id',
-    'gad_source', 'gbraid', 'gps_adid', 'iclid', 'igshid', 'irclickid',
-    'is_retargeting', 'ko_click_id', 'li_fat_id', 'mibextid', 'msclkid', 'oprtrack',
-    'rb_clickid', 'sscid', 'trk', 'usqp', 'vero_conv', 'vero_id',
-    'wbraid', 'wt_mc', 'xtor', 'ysclid', 'zanpid', 'yt_src',
-    'yt_ad', 's_kwcid', 'sc_cid'
+    'dev_id', 'device_id', 'gclid', 'fbclid', 'ttclid', 'utm_source',
+    'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'yclid', 'mc_cid',
+    'mc_eid', 'srsltid', 'dclid', 'gclsrc', 'twclid', 'lid',
+    '_branch_match_id', '_ga', '_gl', '_gid', '_openstat', 'admitad_uid',
+    'aiad_clid', 'awc', 'btag', 'cjevent', 'cmpid', 'cuid',
+    'external_click_id', 'gad_source', 'gbraid', 'gps_adid', 'iclid', 'igshid',
+    'irclickid', 'is_retargeting', 'ko_click_id', 'li_fat_id', 'mibextid', 'msclkid',
+    'oprtrack', 'rb_clickid', 'sscid', 'trk', 'usqp', 'vero_conv',
+    'vero_id', 'wbraid', 'wt_mc', 'xtor', 'ysclid', 'zanpid',
+    'yt_src', 'yt_ad', 's_kwcid', 'sc_cid'
   ]),
     GLOBAL_REGEX: [/^utm_\w+/i, /^ig_[\w_]+/i, /^asa_\w+/i, /^tt_[\w_]+/i, /^li_[\w_]+/i],
     PREFIXES: new Set(['__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs', '_oly_', 'action_', 'ad_', 'adjust_', 'aff_', 'af_', 'alg_', 'at_', 'bd_', 'bsft_', 'campaign_', 'cj', 'cm_', 'content_', 'creative_', 'fb_', 'from_', 'gcl_', 'guce_', 'hmsr_', 'hsa_', 'ir_', 'itm_', 'li_', 'matomo_', 'medium_', 'mkt_', 'ms_', 'mt_', 'mtm', 'pk_', 'piwik_', 'placement_', 'ref_', 'share_', 'source_', 'space_', 'term_', 'trk_', 'tt_', 'ttc_', 'vsm_', 'li_fat_', 'linkedin_']),
     PREFIXES_REGEX: [/_ga_/i, /^tt_[\w_]+/i, /^li_[\w_]+/i],
     COSMETIC: new Set(['fb_ref', 'fb_source', 'from', 'ref', 'share_id', 'spot_im_redirect_source']),
-    WHITELIST: new Set(['code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v', 'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status', 'timestamp', 'type', 'withstats', 'access_token', 'client_assertion', 'client_id', 'device_id', 'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset', 'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id', 'cancel_url', 'error_url', 'return_url', 'success_url', 'metadata', 'pagestatus', 'eventactiontype', 'unitpricewithdeliveryfee', 'previousitempricecount', 'optiontablelandingvendoritemid', 'selectedshowdeliverypddstatus', 'salt', 's']),
+    WHITELIST: new Set(['code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v', 'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status', 'timestamp', 'type', 'withstats', 'access_token', 'client_assertion', 'client_id', 'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset', 'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id', 'cancel_url', 'error_url', 'return_url', 'success_url', 'metadata', 'pagestatus', 'eventactiontype', 'unitpricewithdeliveryfee', 'previousitempricecount', 'optiontablelandingvendoritemid', 'selectedshowdeliverypddstatus', 'salt', 's']),
     EXEMPTIONS: new Map([
         ['www.google.com', new Set(['/maps/'])],
         ['taxi.sleepnova.org', new Set(['/api/v4/routes_estimate'])],
@@ -800,15 +805,18 @@ const HELPERS = {
         return null;
     }
 
-    // V44.26 升級：支援 Wildcards 比對，修復 BFF API 異常
     if (isDomainMatch(PARAM_CLEANING_EXEMPTED_DOMAINS.EXACT, PARAM_CLEANING_EXEMPTED_DOMAINS.WILDCARDS, hostname)) {
         if (CONFIG.DEBUG_MODE) console.log(`[Exempted] Domain Cleanup Bypass: ${hostname}`);
         return null;
     }
     
-    if (RULES.REGEX.API_SIGNATURE_BYPASS.some(r => r.test(pathLower)) || hostname.startsWith('api.') || hostname.startsWith('graphql.')) {
-        if (CONFIG.DEBUG_MODE) console.log(`[Exempted] Heuristic API Bypass: ${pathLower}`);
-        return null;
+    let rewriteType = '302'; // 預設使用 302 重定向淨化
+
+    // V44.27：API 或保護深度連結的網域，改用 Silent Rewrite (底層無痕修改 URL)
+    if (RULES.REGEX.API_SIGNATURE_BYPASS.some(r => r.test(pathLower)) || 
+        hostname.startsWith('api.') || hostname.startsWith('graphql.') || hostname.startsWith('bff-') ||
+        isDomainMatch(SILENT_REWRITE_DOMAINS.EXACT, SILENT_REWRITE_DOMAINS.WILDCARDS, hostname)) {
+        rewriteType = 'REWRITE';
     }
 
     const exemptions = RULES.PARAMS.EXEMPTIONS.get(hostname);
@@ -844,7 +852,7 @@ const HELPERS = {
           changed = true;
         }
       }
-      return changed ? urlObj.toString() : null;
+      return changed ? { url: urlObj.toString(), type: rewriteType } : null;
     } catch (_) {
       return null;
     }
@@ -947,10 +955,14 @@ function processRequest(request) {
     }
 
     const performCleaning = () => {
-        const cleanUrl = HELPERS.cleanTrackingParams(url, hostname, pathLower);
-        if (cleanUrl) {
+        const cleanResult = HELPERS.cleanTrackingParams(url, hostname, pathLower);
+        if (cleanResult) {
             stats.allows++;
-            return { response: { status: 302, headers: { Location: cleanUrl } } };
+            if (cleanResult.type === 'REWRITE') {
+                if (CONFIG.DEBUG_MODE) console.log(`[Silent Rewrite] ${cleanResult.url}`);
+                return { url: cleanResult.url }; 
+            }
+            return { response: { status: 302, headers: { Location: cleanResult.url } } };
         }
         return null;
     };
@@ -985,8 +997,6 @@ function processRequest(request) {
         }
     }
 
-    // L1 零信任掃描器：即使是靜態檔案 (如 .js) 或是位於 /wp-content/ 內的系統目錄，
-    // 只要命中惡意特徵，都會被強制攔截。
     if (criticalPathScanner.matches(pathLower)) {
       stats.blocks++;
       if (CONFIG.DEBUG_MODE) console.log(`[Block] L1 Critical: ${pathLower}`);
