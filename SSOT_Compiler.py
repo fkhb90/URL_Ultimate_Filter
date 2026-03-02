@@ -16,6 +16,7 @@ URL Ultimate Filter - V44.24 SSOT Compiler & Matrix Test Suite
 10. [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/ 通用路徑。
 11. [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 L1 零信任掃描器突破靜態白名單。
 12. [Fix-V44.24] 將 591 房屋交易網 (www.591.com.tw 等) 納入 PARAM_CLEANING_EXEMPTED_DOMAINS，防範 302 重新導向破壞 iOS Universal Links (App 喚醒) 導致短網址失效。
+13. [Fix-V44.25] 將 591.com.tw 升級至 HARD_WHITELIST，並將 salt 與 s 納入參數白名單，徹底排除腳本干擾，並揭示 591 伺服器端路由 Bug。
 """
 
 import json
@@ -31,7 +32,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.24"
+VERSION = "44.25"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -136,7 +137,7 @@ RULES_DB = {
         ],
         "WILDCARDS": [
             'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com',
-            'shopee.tw', 'mitake.com.tw', 'money-link.com.tw',
+            'shopee.tw', 'mitake.com.tw', 'money-link.com.tw', '591.com.tw',
             'icloud.com', 'apple.com', 'whatsapp.net', 'update.microsoft.com', 'windowsupdate.com',
             'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
             'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
@@ -492,6 +493,7 @@ def compile_js() -> str:
  * 9) [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/。
  * 10) [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 CRITICAL_PATH_SCRIPT_ROOTS 突破靜態白名單保護。
  * 11) [Fix-V44.24] 將 591 房屋交易網 (www.591.com.tw 等) 納入 PARAM_CLEANING_EXEMPTED_DOMAINS，保護 iOS Universal Links 短網址喚醒。
+ * 12) [Fix-V44.25] 針對 591 短網址跳轉 /v2/ 問題，升級至 HARD_WHITELIST 並增列 salt/s 參數白名單，證明此為 591 伺服器端路由 Bug。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -563,7 +565,7 @@ const RULES = {{
     PREFIXES: new Set(['__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs', '_oly_', 'action_', 'ad_', 'adjust_', 'aff_', 'af_', 'alg_', 'at_', 'bd_', 'bsft_', 'campaign_', 'cj', 'cm_', 'content_', 'creative_', 'fb_', 'from_', 'gcl_', 'guce_', 'hmsr_', 'hsa_', 'ir_', 'itm_', 'li_', 'matomo_', 'medium_', 'mkt_', 'ms_', 'mt_', 'mtm', 'pk_', 'piwik_', 'placement_', 'ref_', 'share_', 'source_', 'space_', 'term_', 'trk_', 'tt_', 'ttc_', 'vsm_', 'li_fat_', 'linkedin_']),
     PREFIXES_REGEX: [/_ga_/i, /^tt_[\\w_]+/i, /^li_[\\w_]+/i],
     COSMETIC: new Set(['fb_ref', 'fb_source', 'from', 'ref', 'share_id', 'spot_im_redirect_source']),
-    WHITELIST: new Set(['code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v', 'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status', 'timestamp', 'type', 'withstats', 'access_token', 'client_assertion', 'client_id', 'device_id', 'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset', 'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id', 'cancel_url', 'error_url', 'return_url', 'success_url', 'metadata', 'pagestatus', 'eventactiontype', 'unitpricewithdeliveryfee', 'previousitempricecount', 'optiontablelandingvendoritemid', 'selectedshowdeliverypddstatus']),
+    WHITELIST: new Set(['code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v', 'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status', 'timestamp', 'type', 'withstats', 'access_token', 'client_assertion', 'client_id', 'device_id', 'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset', 'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id', 'cancel_url', 'error_url', 'return_url', 'success_url', 'metadata', 'pagestatus', 'eventactiontype', 'unitpricewithdeliveryfee', 'previousitempricecount', 'optiontablelandingvendoritemid', 'selectedshowdeliverypddstatus', 'salt', 's']),
     EXEMPTIONS: new Map([
         ['www.google.com', new Set(['/maps/'])],
         ['taxi.sleepnova.org', new Set(['/api/v4/routes_estimate'])],
@@ -1258,8 +1260,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("AdBlock: Video Ad Subdomain", "https://news2.newaddiscover.com/videoads/?ca=71&cb=1772287290", RES_BLOCK_403, "Blocked Video Ad Subdomain via Regex"))
     cases.append(TestCase("AdBlock: Generic Video Ad Path", "https://example-random-ad-site.com/videoads/?user=123", RES_BLOCK_403, "Blocked Generic Video Ad Path via ACScanner"))
 
-    # V44.24 新增 591 房屋交易網 iOS Universal Links 喚醒保護測試
+    # V44.24 & V44.25 新增 591 房屋交易網 iOS Universal Links 喚醒保護與路由測試
     cases.append(TestCase("Privacy: Universal Link Bypass", "https://www.591.com.tw/2S?salt=STrc0&s=al&utm_source=line", RES_ALLOW, "Exempted from 302 to protect App Deep Links and Short URLs"))
+    cases.append(TestCase("General: 591 Shortlink Integrity", "https://www.591.com.tw/2S?salt=STrc0&s=al", RES_ALLOW, "Hard Whitelist and Parameter Whitelist guarantees no interference"))
 
     return cases
 
