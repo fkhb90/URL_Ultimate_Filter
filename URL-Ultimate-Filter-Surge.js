@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.23 (SSOT Compilation & Pages Deployment)
+ * @version   44.24 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
@@ -12,7 +12,8 @@
  * 8) [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS。
  * 9) [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/。
  * 10) [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 CRITICAL_PATH_SCRIPT_ROOTS 突破靜態白名單保護。
- * @lastUpdated 2026-02-28
+ * 11) [Fix-V44.24] 將 591 房屋交易網 (www.591.com.tw 等) 納入 PARAM_CLEANING_EXEMPTED_DOMAINS，保護 iOS Universal Links 短網址喚醒。
+ * @lastUpdated 2026-03-02
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
@@ -29,7 +30,7 @@ const OAUTH_SAFE_HARBOR = {
 };
 
 const PARAM_CLEANING_EXEMPTED_DOMAINS = new Set([
-    'shopback.com.tw', 'extrabux.com', 'buy.line.me'
+    'shopback.com.tw', 'extrabux.com', 'buy.line.me', 'www.591.com.tw', 'm.591.com.tw', '591.com.tw'
   ]);
 
 const FINANCE_SAFE_HARBOR = {
