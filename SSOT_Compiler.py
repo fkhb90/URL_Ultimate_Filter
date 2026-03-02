@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.26 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.27 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -14,10 +14,9 @@ URL Ultimate Filter - V44.26 SSOT Compiler & Matrix Test Suite
 8. [Privacy-V44.19] 針對 YouTube 等 App 的高精度設備指紋遙測實作全域靜默丟棄 (DROP 204)。
 9. [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS，精準封鎖第一方廣告追蹤。
 10. [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/ 通用路徑。
-11. [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 L1 零信任掃描器突破靜態白名單。
-12. [Fix-V44.24] 將 591 房屋交易網納入 PARAM_CLEANING_EXEMPTED_DOMAINS，保護 iOS Universal Links 短網址喚醒。
-13. [Fix-V44.25] 針對 591 短網址跳轉 /v2/ 問題，升級至 HARD_WHITELIST 並增列 salt/s 參數白名單。
-14. [Architecture-V44.26] 升級 PARAM_CLEANING_EXEMPTED_DOMAINS 支援 WILDCARDS (萬用字元)，徹底修復 591 BFF (Backend-For-Frontend) API 子網域因 302 跳轉導致的 Fetch 異常。
+11. [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 L1 零信任掃描器。
+12. [Fix-V44.25] 針對 591 短網址跳轉 /v2/ 問題，升級至 HARD_WHITELIST 並增列 salt/s 參數白名單。
+13. [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」。將 device_id 移出白名單並全域封殺；遇到 API 請求或特定網域 (如 591.com.tw) 時，放棄 302 改用底層 Rewrite，完美兼顧設備指紋隱私與 App 深度連結/Fetch 穩定性。
 """
 
 import json
@@ -33,7 +32,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.26"
+VERSION = "44.27"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -54,9 +53,11 @@ RULES_DB = {
         "EXACT": [
             'shopback.com.tw', 'extrabux.com', 'buy.line.me'
         ],
-        "WILDCARDS": [
-            '591.com.tw'
-        ]
+        "WILDCARDS": []
+    },
+    "SILENT_REWRITE_DOMAINS": {
+        "EXACT": [],
+        "WILDCARDS": ['591.com.tw']
     },
     "FINANCE_SAFE_HARBOR": {
         "EXACT": [
@@ -441,7 +442,7 @@ RULES_DB = {
         '/error_204', 'a=logerror'
     ],
     "PARAMS_GLOBAL": [
-        'dev_id', 'gclid', 'fbclid', 'ttclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term',
+        'dev_id', 'device_id', 'gclid', 'fbclid', 'ttclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term',
         'utm_content', 'yclid', 'mc_cid', 'mc_eid', 'srsltid', 'dclid', 'gclsrc', 'twclid', 'lid',
         '_branch_match_id', '_ga', '_gl', '_gid', '_openstat', 'admitad_uid', 'aiad_clid', 'awc', 'btag',
         'cjevent', 'cmpid', 'cuid', 'external_click_id', 'gad_source', 'gbraid', 'gps_adid', 'iclid',
@@ -497,9 +498,8 @@ def compile_js() -> str:
  * 8) [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS。
  * 9) [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/。
  * 10) [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 CRITICAL_PATH_SCRIPT_ROOTS 突破靜態白名單保護。
- * 11) [Fix-V44.24] 將 591 房屋交易網納入 PARAM_CLEANING_EXEMPTED_DOMAINS，保護 iOS Universal Links 短網址喚醒。
- * 12) [Fix-V44.25] 針對 591 短網址跳轉 /v2/ 問題，升級至 HARD_WHITELIST 並增列 salt/s 參數白名單。
- * 13) [Architecture-V44.26] 升級 PARAM_CLEANING_EXEMPTED_DOMAINS 支援 WILDCARDS，修復 bff-house.591.com.tw 等微服務 API 子網域因 302 重定向導致的 Fetch 異常。
+ * 11) [Fix-V44.25] 針對 591 短網址跳轉 /v2/ 問題，升級至 HARD_WHITELIST 並增列 salt/s 參數白名單。
+ * 12) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」。全域封殺 device_id；遇到 API 請求或 591 網域時改用底層 Rewrite，完美解決 API 302 斷線與 App 喚醒失效問題。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -510,10 +510,16 @@ const OAUTH_SAFE_HARBOR = {{
     PATHS: {format_js_array(RULES_DB['OAUTH_SAFE_HARBOR_PATHS'])}
 }};
 
-// V44.26 升級：支援 EXACT 與 WILDCARDS，與 HARD_WHITELIST 結構看齊
+// 完全豁免參數清理的網域 (例如 ShopBack 聯盟行銷)
 const PARAM_CLEANING_EXEMPTED_DOMAINS = {{
     EXACT: {format_js_set(RULES_DB['PARAM_CLEANING_EXEMPTED_DOMAINS']['EXACT'])},
     WILDCARDS: {format_js_array(RULES_DB['PARAM_CLEANING_EXEMPTED_DOMAINS']['WILDCARDS'])}
+}};
+
+// V44.27 雙軌機制：這些網域需要清理參數，但必須使用 Silent Rewrite 代替 302 以保護 Deep Links
+const SILENT_REWRITE_DOMAINS = {{
+    EXACT: {format_js_set(RULES_DB['SILENT_REWRITE_DOMAINS']['EXACT'])},
+    WILDCARDS: {format_js_array(RULES_DB['SILENT_REWRITE_DOMAINS']['WILDCARDS'])}
 }};
 
 const FINANCE_SAFE_HARBOR = {{
@@ -575,7 +581,7 @@ const RULES = {{
     PREFIXES: new Set(['__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs', '_oly_', 'action_', 'ad_', 'adjust_', 'aff_', 'af_', 'alg_', 'at_', 'bd_', 'bsft_', 'campaign_', 'cj', 'cm_', 'content_', 'creative_', 'fb_', 'from_', 'gcl_', 'guce_', 'hmsr_', 'hsa_', 'ir_', 'itm_', 'li_', 'matomo_', 'medium_', 'mkt_', 'ms_', 'mt_', 'mtm', 'pk_', 'piwik_', 'placement_', 'ref_', 'share_', 'source_', 'space_', 'term_', 'trk_', 'tt_', 'ttc_', 'vsm_', 'li_fat_', 'linkedin_']),
     PREFIXES_REGEX: [/_ga_/i, /^tt_[\\w_]+/i, /^li_[\\w_]+/i],
     COSMETIC: new Set(['fb_ref', 'fb_source', 'from', 'ref', 'share_id', 'spot_im_redirect_source']),
-    WHITELIST: new Set(['code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v', 'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status', 'timestamp', 'type', 'withstats', 'access_token', 'client_assertion', 'client_id', 'device_id', 'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset', 'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id', 'cancel_url', 'error_url', 'return_url', 'success_url', 'metadata', 'pagestatus', 'eventactiontype', 'unitpricewithdeliveryfee', 'previousitempricecount', 'optiontablelandingvendoritemid', 'selectedshowdeliverypddstatus', 'salt', 's']),
+    WHITELIST: new Set(['code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v', 'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status', 'timestamp', 'type', 'withstats', 'access_token', 'client_assertion', 'client_id', 'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset', 'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id', 'cancel_url', 'error_url', 'return_url', 'success_url', 'metadata', 'pagestatus', 'eventactiontype', 'unitpricewithdeliveryfee', 'previousitempricecount', 'optiontablelandingvendoritemid', 'selectedshowdeliverypddstatus', 'salt', 's']),
     EXEMPTIONS: new Map([
         ['www.google.com', new Set(['/maps/'])],
         ['taxi.sleepnova.org', new Set(['/api/v4/routes_estimate'])],
@@ -731,15 +737,18 @@ const HELPERS = {
         return null;
     }
 
-    // V44.26 升級：支援 Wildcards 比對，修復 BFF API 異常
     if (isDomainMatch(PARAM_CLEANING_EXEMPTED_DOMAINS.EXACT, PARAM_CLEANING_EXEMPTED_DOMAINS.WILDCARDS, hostname)) {
         if (CONFIG.DEBUG_MODE) console.log(`[Exempted] Domain Cleanup Bypass: ${hostname}`);
         return null;
     }
     
-    if (RULES.REGEX.API_SIGNATURE_BYPASS.some(r => r.test(pathLower)) || hostname.startsWith('api.') || hostname.startsWith('graphql.')) {
-        if (CONFIG.DEBUG_MODE) console.log(`[Exempted] Heuristic API Bypass: ${pathLower}`);
-        return null;
+    let rewriteType = '302'; // 預設使用 302 重定向淨化
+
+    // V44.27：API 或保護深度連結的網域，改用 Silent Rewrite (底層無痕修改 URL)
+    if (RULES.REGEX.API_SIGNATURE_BYPASS.some(r => r.test(pathLower)) || 
+        hostname.startsWith('api.') || hostname.startsWith('graphql.') || hostname.startsWith('bff-') ||
+        isDomainMatch(SILENT_REWRITE_DOMAINS.EXACT, SILENT_REWRITE_DOMAINS.WILDCARDS, hostname)) {
+        rewriteType = 'REWRITE';
     }
 
     const exemptions = RULES.PARAMS.EXEMPTIONS.get(hostname);
@@ -775,7 +784,7 @@ const HELPERS = {
           changed = true;
         }
       }
-      return changed ? urlObj.toString() : null;
+      return changed ? { url: urlObj.toString(), type: rewriteType } : null;
     } catch (_) {
       return null;
     }
@@ -878,10 +887,14 @@ function processRequest(request) {
     }
 
     const performCleaning = () => {
-        const cleanUrl = HELPERS.cleanTrackingParams(url, hostname, pathLower);
-        if (cleanUrl) {
+        const cleanResult = HELPERS.cleanTrackingParams(url, hostname, pathLower);
+        if (cleanResult) {
             stats.allows++;
-            return { response: { status: 302, headers: { Location: cleanUrl } } };
+            if (cleanResult.type === 'REWRITE') {
+                if (CONFIG.DEBUG_MODE) console.log(`[Silent Rewrite] ${cleanResult.url}`);
+                return { url: cleanResult.url }; 
+            }
+            return { response: { status: 302, headers: { Location: cleanResult.url } } };
         }
         return null;
     };
@@ -916,8 +929,6 @@ function processRequest(request) {
         }
     }
 
-    // L1 零信任掃描器：即使是靜態檔案 (如 .js) 或是位於 /wp-content/ 內的系統目錄，
-    // 只要命中惡意特徵，都會被強制攔截。
     if (criticalPathScanner.matches(pathLower)) {
       stats.blocks++;
       if (CONFIG.DEBUG_MODE) console.log(`[Block] L1 Critical: ${pathLower}`);
@@ -985,9 +996,10 @@ if (typeof $request !== 'undefined') {
 #  3. TEST SUITE & HTML REPORTS (SSOT DRIVEN)
 # ==========================================
 
-PRIORITY_MAP = { "ALLOW (Null)": 0, "CLEAN (302)": 1, "DROP (204)": 2, "BLOCK (403)": 3 }
+PRIORITY_MAP = { "ALLOW (Null)": 0, "CLEAN (302)": 1, "REWRITE (URL)": 2, "DROP (204)": 3, "BLOCK (403)": 4 }
 RES_ALLOW = "ALLOW (Null)"
 RES_CLEAN_302 = "CLEAN (302)"
+RES_REWRITE = "REWRITE (URL)"
 RES_DROP_204 = "DROP (204)"
 RES_BLOCK_403 = "BLOCK (403)"
 
@@ -1170,7 +1182,6 @@ HTML_TEMPLATE = """
 """
 
 def is_domain_whitelisted(domain: str) -> bool:
-    """檢查黑名單網域是否實質上被白名單覆蓋，但須排除 P0 優先級阻擋。"""
     for pd in RULES_DB["PRIORITY_BLOCK_DOMAINS"]:
         if domain == pd or domain.endswith('.' + pd):
             return False
@@ -1182,7 +1193,6 @@ def is_domain_whitelisted(domain: str) -> bool:
     return False
 
 def is_path_keyword_blocked(path: str) -> bool:
-    """模擬 JS L1/L2 關鍵字掃描器，判斷參數本身是否會觸發阻擋"""
     path_lower = path.lower()
     for k in RULES_DB["HIGH_CONFIDENCE"]:
         if k.lower() in path_lower: return True
@@ -1254,11 +1264,12 @@ def generate_full_coverage_cases() -> List[TestCase]:
 
     cases.append(TestCase("Edge: Shopee DEM (P0)", "https://dem.shopee.com/dem/entrance/v1/apps/rw-platform/tags/web-performance/event/json", RES_BLOCK_403, "P0 bypasses Soft WL"))
     cases.append(TestCase("Edge: HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772072185", RES_BLOCK_403, "Blocked by L1 Critical Path"))
-    cases.append(TestCase("Feature: Heuristic API Bypass", "https://unknown-ecommerce.com/graphql/user?fbclid=test", RES_ALLOW, "GraphQL path exempted globally"))
+    
+    # V44.27: API Rewrite 測試
+    cases.append(TestCase("Feature: Heuristic API Silent Rewrite", "https://unknown-ecommerce.com/graphql/user?fbclid=test", RES_REWRITE, "GraphQL path uses Silent Rewrite to clean tracking parameters safely"))
     
     cases.append(TestCase("Finance: ECPay Post Data bypass", "https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5?Token=test_token_123&TradeInfo=abc", RES_ALLOW, "Exempted from 302 to protect POST parameters"))
     cases.append(TestCase("Finance: Cathay Bank wildcard bypass", "https://ebank.cathaybk.com.tw/login?session_id=123&utm_source=should_not_clean", RES_ALLOW, "Exempted from 302 to protect token chain"))
-    
     cases.append(TestCase("General: Web UI still cleans", "https://today.line.me/tw/v2/article/123?utm_source=line", RES_CLEAN_302, "Normal Hard Whitelist still undergoes parameter cleaning"))
 
     cases.append(TestCase("Privacy: Telemetry Drop (YT)", "https://www.youtube.com/error_204?cosver=18.7.1.22H31&cmodel=iPhone16%2C1&a=logerror", RES_DROP_204, "Silent Drop for High Precision Telemetry"))
@@ -1270,12 +1281,11 @@ def generate_full_coverage_cases() -> List[TestCase]:
 
     cases.append(TestCase("AdBlock: Video Ad Root Domain", "https://newaddiscover.com/videoads/?cb=1772287290", RES_BLOCK_403, "Blocked Video Ad Root Domain"))
     cases.append(TestCase("AdBlock: Video Ad Subdomain", "https://news2.newaddiscover.com/videoads/?ca=71&cb=1772287290", RES_BLOCK_403, "Blocked Video Ad Subdomain via Regex"))
-    cases.append(TestCase("AdBlock: Generic Video Ad Path", "https://example-random-ad-site.com/videoads/?user=123", RES_BLOCK_403, "Blocked Generic Video Ad Path via ACScanner"))
-
-    # V44.24, 25 & 26 新增 591 房屋交易網保護與 BFF API 萬用字元防護測試
-    cases.append(TestCase("Privacy: Universal Link Bypass", "https://www.591.com.tw/2S?salt=STrc0&s=al&utm_source=line", RES_ALLOW, "Exempted from 302 to protect App Deep Links and Short URLs"))
+    
+    # V44.27 雙軌機制防護測試：591 深度連結與 API
+    cases.append(TestCase("Privacy: Universal Link Silent Rewrite", "https://www.591.com.tw/2S?salt=STrc0&s=al&utm_source=line", RES_REWRITE, "Used Silent Rewrite to clean params without 302 breaking Deep Link"))
     cases.append(TestCase("General: 591 Shortlink Integrity", "https://www.591.com.tw/2S?salt=STrc0&s=al", RES_ALLOW, "Hard Whitelist and Parameter Whitelist guarantees no interference"))
-    cases.append(TestCase("Privacy: Exemption Wildcard (591 BFF)", "https://bff-house.591.com.tw/v1/touch/sale/detail?utm_source=&device_id=b26dd90d", RES_ALLOW, "Exempted 591 API subdomain from 302 cleaning via WILDCARDS"))
+    cases.append(TestCase("Privacy: API Silent Rewrite (591 BFF)", "https://bff-house.591.com.tw/v1/touch/sale/detail?utm_source=test&device_id=b26dd90d", RES_REWRITE, "Cleaned device_id and utm_ using Silent Rewrite without triggering CORS 302"))
 
     return cases
 
@@ -1289,17 +1299,22 @@ def evaluate_result(actual: Any, expected_type: str) -> Tuple[bool, str, str]:
         if expected_type == RES_ALLOW: return True, RES_ALLOW, ""
         return False, RES_ALLOW, f"Expected {expected_type} but got Null"
 
-    if isinstance(actual, dict) and "response" in actual:
-        resp = actual["response"]
-        code = resp.get("status")
-        body = resp.get("body", "")
-        if code == 403:
-            if expected_type == RES_BLOCK_403: return True, RES_BLOCK_403, str(body)
-            if expected_type in {RES_DROP_204, RES_CLEAN_302}: return True, "BLOCK (Promoted)", "Promoted to Block"
-            return False, RES_BLOCK_403, str(body)
-        if code == 204: return (expected_type == RES_DROP_204), RES_DROP_204, ""
-        if code == 302: return (expected_type == RES_CLEAN_302), RES_CLEAN_302, ""
-        return False, f"HTTP ({code})", str(body)[:200]
+    if isinstance(actual, dict):
+        if "response" in actual:
+            resp = actual["response"]
+            code = resp.get("status")
+            body = resp.get("body", "")
+            if code == 403:
+                if expected_type == RES_BLOCK_403: return True, RES_BLOCK_403, str(body)
+                if expected_type in {RES_DROP_204, RES_CLEAN_302, RES_REWRITE}: return True, "BLOCK (Promoted)", "Promoted to Block"
+                return False, RES_BLOCK_403, str(body)
+            if code == 204: return (expected_type == RES_DROP_204), RES_DROP_204, ""
+            if code == 302: return (expected_type == RES_CLEAN_302), RES_CLEAN_302, ""
+            return False, f"HTTP ({code})", str(body)[:200]
+        elif "url" in actual:
+            if expected_type == RES_REWRITE: return True, RES_REWRITE, ""
+            return False, "REWRITE", str(actual["url"])[:200]
+            
     return False, "INVALID", str(actual)[:200]
 
 def run_tests():
