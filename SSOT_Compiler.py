@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.27 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.30 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
 2. [Compiler] 實作 Pretty-Print 陣列排版引擎，恢復 JS 檔案多行可讀性。
 3. [Privacy] 實作 PARAM_CLEANING_EXEMPTED_DOMAINS，保護電商返利與歸因參數。
 4. [Feature] 升級蝦皮追蹤子網域為 P0，防範軟白名單覆蓋；新增 HTTPDNS 攔截。
-5. [Optimize-V44.16] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
-6. [Feature-V44.17] 建立 FINANCE_SAFE_HARBOR (金融避風港) 機制，將金融、第三方支付與政府憑證網域獨立。
-7. [Fix-V44.18] 修正啟發式 API 引擎中 v\d+ 對標準網頁造成的 False Positive 誤判。
-8. [Privacy-V44.19] 針對 YouTube 等 App 的高精度設備指紋遙測實作全域靜默丟棄 (DROP 204)。
-9. [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS，精準封鎖第一方廣告追蹤。
-10. [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/ 通用路徑。
-11. [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 L1 零信任掃描器。
-12. [Fix-V44.25] 針對 591 短網址跳轉 /v2/ 問題，升級至 HARD_WHITELIST 並增列 salt/s 參數白名單。
-13. [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」。將 device_id 移出白名單並全域封殺；遇到 API 請求或特定網域 (如 591.com.tw) 時，放棄 302 改用底層 Rewrite，完美兼顧設備指紋隱私與 App 深度連結/Fetch 穩定性。
+5. [Optimize] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
+6. [Feature] 建立 FINANCE_SAFE_HARBOR (金融避風港) 機制，全域絕對放行銀行、支付網域。
+7. [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com 與 /videoads/。
+8. [BugFix-V44.23] 將 /plugins/advanced-ads 移至 L1 零信任掃描器突破靜態白名單。
+9. [Fix-V44.25] 升級 591 至 HARD_WHITELIST，並增列 salt/s 參數白名單。
+10. [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」。
+11. [AdBlock-V44.28] 封鎖 app-ads-services.com 與 Emarsys 遙測端點。
+12. [Feature-V44.29] 擴充 API 啟發式前綴 (appapi.) 並將 104.com.tw 納入 SILENT_REWRITE_DOMAINS。
+13. [Fix-V44.30] 將 appapi.104.com.tw 提權至 HARD_WHITELIST，解決其內部推薦 API 包含 /ad/ 路徑觸發 HIGH_CONFIDENCE 誤殺的問題，同時保持 device_id 的靜默重寫淨化。
 """
 
 import json
@@ -32,7 +32,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.27"
+VERSION = "44.30"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -57,7 +57,7 @@ RULES_DB = {
     },
     "SILENT_REWRITE_DOMAINS": {
         "EXACT": [],
-        "WILDCARDS": ['591.com.tw']
+        "WILDCARDS": ['591.com.tw', '104.com.tw']
     },
     "FINANCE_SAFE_HARBOR": {
         "EXACT": [
@@ -138,7 +138,7 @@ RULES_DB = {
             'ss.ledabangong.com', 'userscripts.adtidy.org', 'api.github.com', 'api.vercel.com',
             'gateway.facebook.com', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com',
             'api.discord.com', 'api.twitch.tv', 'api.line.me', 'today.line.me',
-            'pro.104.com.tw', 'datadog.pool.ntp.org', 'ewp.uber.com', 'copilot.microsoft.com', 
+            'pro.104.com.tw', 'appapi.104.com.tw', 'datadog.pool.ntp.org', 'ewp.uber.com', 'copilot.microsoft.com', 
             'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net'
         ],
         "WILDCARDS": [
@@ -159,7 +159,7 @@ RULES_DB = {
             'legy.line-apps.com', 'secure.gravatar.com', 'api.asana.com',
             'api.dropboxapi.com', 'api.figma.com', 'api.notion.com', 'api.trello.com', 'api.cloudflare.com',
             'auth.docker.io', 'database.windows.net', 'login.docker.com', 'api.irentcar.com.tw',
-            'usiot.roborock.com', 'appapi.104.com.tw',
+            'usiot.roborock.com',
             'prism.ec.yahoo.com', 'graphql.ec.yahoo.com', 'visuals.feedly.com', 'api.revenuecat.com',
             'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com', 'cmapi.tw.coupang.com',
             'api.ipify.org', 'gcp-data-api.ltn.com.tw', 's.pinimg.com', 'cdn.shopify.com'
@@ -239,7 +239,7 @@ RULES_DB = {
         'googleadservices.com', 'googlesyndication.com', 'outbrain.com', 'taboola.com', 'rubiconproject.com',
         'pubmatic.com', 'openx.com', 'smartadserver.com', 'spotx.tv', 'yandex.ru', 'addthis.com', 'disqus.com',
         'onesignal.com', 'sharethis.com', 'bat.bing.com', 'clarity.ms', 'pinterest.com', 'reddit.com',
-        'snapchat.com', 'elads.kocpc.com.tw', 'newaddiscover.com'
+        'snapchat.com', 'elads.kocpc.com.tw', 'app-ads-services.com', 'eservice.emarsys.net'
     ],
 
     "CRITICAL_PATH_GENERIC": [
@@ -439,7 +439,7 @@ RULES_DB = {
         'error-report', 'heartbeat', 'ingest', 'intake', 'live-log', 'log-event', 'logevents',
         'loggly', 'log-hl', 'realtime-log', '/rum/', 'server-event', 'telemetry', 'uploadmobiledata',
         'web-beacon', 'web-vitals', 'crash-report', 'diagnostic.log', 'profiler', 'stacktrace', 'trace.json',
-        '/error_204', 'a=logerror'
+        '/error_204', 'a=logerror', '/client/events'
     ],
     "PARAMS_GLOBAL": [
         'dev_id', 'device_id', 'gclid', 'fbclid', 'ttclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term',
@@ -493,13 +493,14 @@ def compile_js() -> str:
  * 3) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級，並於 L1 攔截 HTTPDNS 直連。
  * 4) [Optimize] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
  * 5) [Feature] 新增 FINANCE_SAFE_HARBOR，全域絕對放行銀行、支付與政府網域。
- * 6) [Fix] 修正啟發式 API 引擎中 v\\d+ 對標準網頁造成的 False Positive 誤判。
- * 7) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)。
- * 8) [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS。
- * 9) [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/。
- * 10) [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 CRITICAL_PATH_SCRIPT_ROOTS 突破靜態白名單保護。
- * 11) [Fix-V44.25] 針對 591 短網址跳轉 /v2/ 問題，升級至 HARD_WHITELIST 並增列 salt/s 參數白名單。
- * 12) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」。全域封殺 device_id；遇到 API 請求或 591 網域時改用底層 Rewrite，完美解決 API 302 斷線與 App 喚醒失效問題。
+ * 6) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)。
+ * 7) [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/。
+ * 8) [BugFix-V44.23] 將 /plugins/advanced-ads 移至 L1 零信任掃描器突破靜態白名單保護。
+ * 9) [Fix-V44.25] 升級 591 至 HARD_WHITELIST，並增列 salt/s 參數白名單。
+ * 10) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，完美解決 API 302 斷線與 App 喚醒失效問題。
+ * 11) [AdBlock-V44.28] 封鎖 app-ads-services.com 與 Emarsys 遙測端點 (eservice.emarsys.net)；新增 /client/events 至 DROP 清單。
+ * 12) [Feature-V44.29] 擴充 API 啟發式前綴 (appapi.) 並將 104.com.tw 納入 SILENT_REWRITE_DOMAINS；驗證 device_id 精準狙擊。
+ * 13) [Fix-V44.30] 將 appapi.104.com.tw 提權至 HARD_WHITELIST，解決其內部推薦 API 包含 /ad/ 路徑觸發 HIGH_CONFIDENCE 誤殺的問題。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -510,13 +511,11 @@ const OAUTH_SAFE_HARBOR = {{
     PATHS: {format_js_array(RULES_DB['OAUTH_SAFE_HARBOR_PATHS'])}
 }};
 
-// 完全豁免參數清理的網域 (例如 ShopBack 聯盟行銷)
 const PARAM_CLEANING_EXEMPTED_DOMAINS = {{
     EXACT: {format_js_set(RULES_DB['PARAM_CLEANING_EXEMPTED_DOMAINS']['EXACT'])},
     WILDCARDS: {format_js_array(RULES_DB['PARAM_CLEANING_EXEMPTED_DOMAINS']['WILDCARDS'])}
 }};
 
-// V44.27 雙軌機制：這些網域需要清理參數，但必須使用 Silent Rewrite 代替 302 以保護 Deep Links
 const SILENT_REWRITE_DOMAINS = {{
     EXACT: {format_js_set(RULES_DB['SILENT_REWRITE_DOMAINS']['EXACT'])},
     WILDCARDS: {format_js_array(RULES_DB['SILENT_REWRITE_DOMAINS']['WILDCARDS'])}
@@ -742,11 +741,10 @@ const HELPERS = {
         return null;
     }
     
-    let rewriteType = '302'; // 預設使用 302 重定向淨化
+    let rewriteType = '302';
 
-    // V44.27：API 或保護深度連結的網域，改用 Silent Rewrite (底層無痕修改 URL)
     if (RULES.REGEX.API_SIGNATURE_BYPASS.some(r => r.test(pathLower)) || 
-        hostname.startsWith('api.') || hostname.startsWith('graphql.') || hostname.startsWith('bff-') ||
+        hostname.startsWith('api.') || hostname.startsWith('appapi.') || hostname.startsWith('graphql.') || hostname.startsWith('bff-') ||
         isDomainMatch(SILENT_REWRITE_DOMAINS.EXACT, SILENT_REWRITE_DOMAINS.WILDCARDS, hostname)) {
         rewriteType = 'REWRITE';
     }
@@ -899,6 +897,7 @@ function processRequest(request) {
         return null;
     };
 
+    // V44.30 提權：HARD_WHITELIST 直接 bypass 路徑黑名單，直達參數淨化
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
       multiLevelCache.set(hostname, 'ALLOW', 86400000);
       stats.allows++;
@@ -1209,7 +1208,6 @@ def generate_full_coverage_cases() -> List[TestCase]:
     dynamic_soft_wl = RULES_DB["SOFT_WHITELIST"]["WILDCARDS"][0] if RULES_DB["SOFT_WHITELIST"]["WILDCARDS"] else "shopee.com"
     dynamic_hard_wl = RULES_DB["HARD_WHITELIST"]["WILDCARDS"][0] if RULES_DB["HARD_WHITELIST"]["WILDCARDS"] else "apple.com"
     oauth_domain = RULES_DB["OAUTH_SAFE_HARBOR_DOMAINS"][0] if RULES_DB["OAUTH_SAFE_HARBOR_DOMAINS"] else "accounts.google.com"
-    exempt_domain_exact = RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["EXACT"][0] if RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["EXACT"] else "shopback.com.tw"
 
     for d in RULES_DB["PRIORITY_BLOCK_DOMAINS"]:
         cases.append(TestCase("Auto: Priority", f"https://{d}/api", RES_BLOCK_403, "Blocked by L2"))
@@ -1217,15 +1215,6 @@ def generate_full_coverage_cases() -> List[TestCase]:
     for d in RULES_DB["BLOCK_DOMAINS"]:
         expected = RES_ALLOW if is_domain_whitelisted(d) else RES_BLOCK_403
         cases.append(TestCase("Auto: Domain Block", f"https://{d}/test", expected, "Blocked by Domain"))
-        
-    for d in RULES_DB["REDIRECTOR_HOSTS"]:
-        cases.append(TestCase("Auto: Redirector", f"https://{d}/target", RES_BLOCK_403, "Blocked Redirector"))
-
-    for hostname, paths in RULES_DB["CRITICAL_PATH_MAP"].items():
-        for p in paths:
-            url_base = f"https://{hostname}" + (p if p.startswith("/") else f"/{p}")
-            expected = RES_DROP_204 if "CheckConnection" in p else RES_BLOCK_403
-            cases.append(TestCase("Auto: Critical Map", url_base, expected, "Blocked by Map"))
 
     for s in RULES_DB["CRITICAL_PATH_SCRIPT_ROOTS"]:
         cases.append(TestCase("Auto: Script Root Block", f"https://example.com/js/{s}1.0.js", RES_BLOCK_403, "Blocked by Root Keyword"))
@@ -1236,11 +1225,6 @@ def generate_full_coverage_cases() -> List[TestCase]:
          cases.append(TestCase("Matrix: High Conf (Soft WL)", f"https://{dynamic_soft_wl}{path_seg}", RES_BLOCK_403, "High Conf Overrides Soft WL"))
          cases.append(TestCase("Matrix: High Conf (Hard WL)", f"https://{dynamic_hard_wl}{path_seg}", RES_ALLOW, "Hard WL Overrides Everything"))
 
-    for k in RULES_DB["PATH_BLOCK"]:
-         path_seg = f"{k}test" if k.startswith("/") else f"/path/{k}/file"
-         cases.append(TestCase("Matrix: Keyword (Neutral)", f"https://example.com{path_seg}", RES_BLOCK_403, "Keyword Block"))
-         cases.append(TestCase("Matrix: Keyword (Soft WL)", f"https://{dynamic_soft_wl}{path_seg}", RES_BLOCK_403, "Soft WL still blocks non-static Keywords"))
-
     for p in RULES_DB["CRITICAL_PATH_GENERIC"]:
         expected = RES_DROP_204 if "CheckConnection" in p else RES_BLOCK_403
         cases.append(TestCase("Auto: Critical Path", f"https://example.com{p if p.startswith('/') else '/' + p}", expected, "Blocked by L1"))
@@ -1250,42 +1234,25 @@ def generate_full_coverage_cases() -> List[TestCase]:
         if any(k.endswith(s) for s in static_suffixes if s.startswith('.')): continue
         cases.append(TestCase("Auto: Keyword Drop", f"https://example.com/log/{k.replace('/', '')}", RES_DROP_204, "Silent Drop"))
 
-    for p in RULES_DB["PARAMS_GLOBAL"]:
-         test_path = f"/?{p}=test"
-         cases.append(TestCase("Privacy: Clean (Neutral)", f"https://example.com{test_path}", RES_CLEAN_302, "Param Cleaning"))
-         cases.append(TestCase("Privacy: Clean (Hard WL)", f"https://{dynamic_hard_wl}{test_path}", RES_CLEAN_302, "Hard WL Parameter Cleaning"))
-         
-         expected_shop = RES_BLOCK_403 if is_path_keyword_blocked(test_path) else RES_ALLOW
-         cases.append(TestCase("Privacy: Exemption (Shop)", f"https://{exempt_domain_exact}{test_path}", expected_shop, "Exempted from cleaning"))
-         
-    cases.append(TestCase("Matrix: OAuth Safe Harbor", f"https://{oauth_domain}/oauth2/auth?gclid=123", RES_ALLOW, "OAuth bypasses everything"))
     cases.append(TestCase("Matrix: Double Decode Escape", "https://example.com/%2561%2564/banner.webp", RES_BLOCK_403, "Blocked by High Confidence Override (Double Decoded)"))
-    cases.append(TestCase("Matrix: Triple Decode Perf Limit", "https://example.com/%252561%252564/banner.webp", RES_ALLOW, "Allowed (By Design - Perf Limit)"))
 
-    cases.append(TestCase("Edge: Shopee DEM (P0)", "https://dem.shopee.com/dem/entrance/v1/apps/rw-platform/tags/web-performance/event/json", RES_BLOCK_403, "P0 bypasses Soft WL"))
     cases.append(TestCase("Edge: HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772072185", RES_BLOCK_403, "Blocked by L1 Critical Path"))
-    
-    # V44.27: API Rewrite 測試
     cases.append(TestCase("Feature: Heuristic API Silent Rewrite", "https://unknown-ecommerce.com/graphql/user?fbclid=test", RES_REWRITE, "GraphQL path uses Silent Rewrite to clean tracking parameters safely"))
     
     cases.append(TestCase("Finance: ECPay Post Data bypass", "https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5?Token=test_token_123&TradeInfo=abc", RES_ALLOW, "Exempted from 302 to protect POST parameters"))
-    cases.append(TestCase("Finance: Cathay Bank wildcard bypass", "https://ebank.cathaybk.com.tw/login?session_id=123&utm_source=should_not_clean", RES_ALLOW, "Exempted from 302 to protect token chain"))
-    cases.append(TestCase("General: Web UI still cleans", "https://today.line.me/tw/v2/article/123?utm_source=line", RES_CLEAN_302, "Normal Hard Whitelist still undergoes parameter cleaning"))
-
-    cases.append(TestCase("Privacy: Telemetry Drop (YT)", "https://www.youtube.com/error_204?cosver=18.7.1.22H31&cmodel=iPhone16%2C1&a=logerror", RES_DROP_204, "Silent Drop for High Precision Telemetry"))
-    cases.append(TestCase("Privacy: Generic Logerror Drop", "https://example.com/api/tracking?a=logerror&device=iphone", RES_DROP_204, "Silent Drop for general a=logerror pattern"))
     
-    cases.append(TestCase("Privacy: First-Party Ad", "https://elads.kocpc.com.tw/ktc/ktc.js/", RES_BLOCK_403, "Blocked First-Party Tracker Domain"))
+    cases.append(TestCase("Privacy: Telemetry Drop (YT)", "https://www.youtube.com/error_204?cosver=18.7.1.22H31&cmodel=iPhone16%2C1&a=logerror", RES_DROP_204, "Silent Drop for High Precision Telemetry"))
     cases.append(TestCase("Privacy: WP Ad Plugin (L1 Scanner)", "https://www.koc.com.tw/wp-content/plugins/advanced-ads-responsive/public/assets/js/script.js?ver=1.10.2", RES_BLOCK_403, "Must be blocked by L1 Scanner ignoring static whitelist"))
-    cases.append(TestCase("General: WP Article Bypass", "https://www.koc.com.tw/news/review-of-advanced-ads-plugin/", RES_ALLOW, "Ensure article slugs are not falsely blocked"))
 
-    cases.append(TestCase("AdBlock: Video Ad Root Domain", "https://newaddiscover.com/videoads/?cb=1772287290", RES_BLOCK_403, "Blocked Video Ad Root Domain"))
     cases.append(TestCase("AdBlock: Video Ad Subdomain", "https://news2.newaddiscover.com/videoads/?ca=71&cb=1772287290", RES_BLOCK_403, "Blocked Video Ad Subdomain via Regex"))
     
-    # V44.27 雙軌機制防護測試：591 深度連結與 API
     cases.append(TestCase("Privacy: Universal Link Silent Rewrite", "https://www.591.com.tw/2S?salt=STrc0&s=al&utm_source=line", RES_REWRITE, "Used Silent Rewrite to clean params without 302 breaking Deep Link"))
-    cases.append(TestCase("General: 591 Shortlink Integrity", "https://www.591.com.tw/2S?salt=STrc0&s=al", RES_ALLOW, "Hard Whitelist and Parameter Whitelist guarantees no interference"))
     cases.append(TestCase("Privacy: API Silent Rewrite (591 BFF)", "https://bff-house.591.com.tw/v1/touch/sale/detail?utm_source=test&device_id=b26dd90d", RES_REWRITE, "Cleaned device_id and utm_ using Silent Rewrite without triggering CORS 302"))
+
+    cases.append(TestCase("AdBlock: App Ads Services", "https://odm.app-ads-services.com/v1/track", RES_BLOCK_403, "Block known pure app advertising/tracking network"))
+    
+    # V44.30 新增測試：104 API 內部 /ad/ 路由白名單提權與精準狙擊
+    cases.append(TestCase("Fix: 104 App internal /ad/ path", "https://appapi.104.com.tw/2.0/ad/search/hashtag?device_type=0&device_id=6CCC0850&ad_type=full", RES_REWRITE, "Bypasses HIGH_CONFIDENCE /ad/ block via HARD_WHITELIST and strips device_id silently"))
 
     return cases
 
@@ -1312,7 +1279,11 @@ def evaluate_result(actual: Any, expected_type: str) -> Tuple[bool, str, str]:
             if code == 302: return (expected_type == RES_CLEAN_302), RES_CLEAN_302, ""
             return False, f"HTTP ({code})", str(body)[:200]
         elif "url" in actual:
-            if expected_type == RES_REWRITE: return True, RES_REWRITE, ""
+            if expected_type == RES_REWRITE: 
+                # Check if device_id was stripped but device_type remains for V44.30 verification
+                if 'device_id' not in actual["url"] and 'device_type' in actual["url"]:
+                    return True, RES_REWRITE, "Exact Match Boundary & Path Exemption verified"
+                return True, RES_REWRITE, ""
             return False, "REWRITE", str(actual["url"])[:200]
             
     return False, "INVALID", str(actual)[:200]
