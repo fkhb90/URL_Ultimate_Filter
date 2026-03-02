@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.24 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.26 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -15,8 +15,9 @@ URL Ultimate Filter - V44.24 SSOT Compiler & Matrix Test Suite
 9. [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS，精準封鎖第一方廣告追蹤。
 10. [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/ 通用路徑。
 11. [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 L1 零信任掃描器突破靜態白名單。
-12. [Fix-V44.24] 將 591 房屋交易網 (www.591.com.tw 等) 納入 PARAM_CLEANING_EXEMPTED_DOMAINS，防範 302 重新導向破壞 iOS Universal Links (App 喚醒) 導致短網址失效。
-13. [Fix-V44.25] 將 591.com.tw 升級至 HARD_WHITELIST，並將 salt 與 s 納入參數白名單，徹底排除腳本干擾，並揭示 591 伺服器端路由 Bug。
+12. [Fix-V44.24] 將 591 房屋交易網納入 PARAM_CLEANING_EXEMPTED_DOMAINS，保護 iOS Universal Links 短網址喚醒。
+13. [Fix-V44.25] 針對 591 短網址跳轉 /v2/ 問題，升級至 HARD_WHITELIST 並增列 salt/s 參數白名單。
+14. [Architecture-V44.26] 升級 PARAM_CLEANING_EXEMPTED_DOMAINS 支援 WILDCARDS (萬用字元)，徹底修復 591 BFF (Backend-For-Frontend) API 子網域因 302 跳轉導致的 Fetch 異常。
 """
 
 import json
@@ -32,7 +33,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.25"
+VERSION = "44.26"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -49,10 +50,14 @@ RULES_DB = {
     "OAUTH_SAFE_HARBOR_PATHS": [
         '/oauth', '/oauth2', '/authorize', '/login', '/signin', '/session'
     ],
-    "PARAM_CLEANING_EXEMPTED_DOMAINS": [
-        'shopback.com.tw', 'extrabux.com', 'buy.line.me', 
-        'www.591.com.tw', 'm.591.com.tw', '591.com.tw'
-    ],
+    "PARAM_CLEANING_EXEMPTED_DOMAINS": {
+        "EXACT": [
+            'shopback.com.tw', 'extrabux.com', 'buy.line.me'
+        ],
+        "WILDCARDS": [
+            '591.com.tw'
+        ]
+    },
     "FINANCE_SAFE_HARBOR": {
         "EXACT": [
             'api.ecpay.com.tw', 'payment.ecpay.com.tw', 'api.map.ecpay.com.tw', 'api.jkos.com'
@@ -492,8 +497,9 @@ def compile_js() -> str:
  * 8) [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS。
  * 9) [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/。
  * 10) [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 CRITICAL_PATH_SCRIPT_ROOTS 突破靜態白名單保護。
- * 11) [Fix-V44.24] 將 591 房屋交易網 (www.591.com.tw 等) 納入 PARAM_CLEANING_EXEMPTED_DOMAINS，保護 iOS Universal Links 短網址喚醒。
- * 12) [Fix-V44.25] 針對 591 短網址跳轉 /v2/ 問題，升級至 HARD_WHITELIST 並增列 salt/s 參數白名單，證明此為 591 伺服器端路由 Bug。
+ * 11) [Fix-V44.24] 將 591 房屋交易網納入 PARAM_CLEANING_EXEMPTED_DOMAINS，保護 iOS Universal Links 短網址喚醒。
+ * 12) [Fix-V44.25] 針對 591 短網址跳轉 /v2/ 問題，升級至 HARD_WHITELIST 並增列 salt/s 參數白名單。
+ * 13) [Architecture-V44.26] 升級 PARAM_CLEANING_EXEMPTED_DOMAINS 支援 WILDCARDS，修復 bff-house.591.com.tw 等微服務 API 子網域因 302 重定向導致的 Fetch 異常。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -504,7 +510,11 @@ const OAUTH_SAFE_HARBOR = {{
     PATHS: {format_js_array(RULES_DB['OAUTH_SAFE_HARBOR_PATHS'])}
 }};
 
-const PARAM_CLEANING_EXEMPTED_DOMAINS = {format_js_set(RULES_DB['PARAM_CLEANING_EXEMPTED_DOMAINS'])};
+// V44.26 升級：支援 EXACT 與 WILDCARDS，與 HARD_WHITELIST 結構看齊
+const PARAM_CLEANING_EXEMPTED_DOMAINS = {{
+    EXACT: {format_js_set(RULES_DB['PARAM_CLEANING_EXEMPTED_DOMAINS']['EXACT'])},
+    WILDCARDS: {format_js_array(RULES_DB['PARAM_CLEANING_EXEMPTED_DOMAINS']['WILDCARDS'])}
+}};
 
 const FINANCE_SAFE_HARBOR = {{
     EXACT: {format_js_set(RULES_DB['FINANCE_SAFE_HARBOR']['EXACT'])},
@@ -663,6 +673,14 @@ const multiLevelCache = new HighPerformanceLRUCache(512);
 const stats = { blocks: 0, allows: 0, toString: () => `Blocked: ${stats.blocks}, Allowed: ${stats.allows}` };
 const criticalMapCache = new HighPerformanceLRUCache(256);
 
+function isDomainMatch(setExact, wildcards, hostname) {
+  if (setExact.has(hostname)) return true;
+  for (const d of wildcards) {
+    if (hostname === d || hostname.endsWith('.' + d)) return true;
+  }
+  return false;
+}
+
 const HELPERS = {
   isStaticFile: (pathLowerMaybeWithQuery) => {
     if (!pathLowerMaybeWithQuery) return false;
@@ -713,7 +731,9 @@ const HELPERS = {
         return null;
     }
 
-    if (PARAM_CLEANING_EXEMPTED_DOMAINS.has(hostname)) {
+    // V44.26 升級：支援 Wildcards 比對，修復 BFF API 異常
+    if (isDomainMatch(PARAM_CLEANING_EXEMPTED_DOMAINS.EXACT, PARAM_CLEANING_EXEMPTED_DOMAINS.WILDCARDS, hostname)) {
+        if (CONFIG.DEBUG_MODE) console.log(`[Exempted] Domain Cleanup Bypass: ${hostname}`);
         return null;
     }
     
@@ -770,14 +790,6 @@ function initializeOnce() {
   FINANCE_SAFE_HARBOR.EXACT.forEach(d => multiLevelCache.set(d, 'ALLOW', 86400000));
   RULES.HARD_WHITELIST.EXACT.forEach(d => multiLevelCache.set(d, 'ALLOW', 86400000));
   RULES.PRIORITY_BLOCK_DOMAINS.forEach(d => multiLevelCache.set(d, 'BLOCK', 86400000));
-}
-
-function isDomainMatch(setExact, wildcards, hostname) {
-  if (setExact.has(hostname)) return true;
-  for (const d of wildcards) {
-    if (hostname === d || hostname.endsWith('.' + d)) return true;
-  }
-  return false;
 }
 
 function isPriorityDomain(hostname) {
@@ -1187,7 +1199,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     dynamic_soft_wl = RULES_DB["SOFT_WHITELIST"]["WILDCARDS"][0] if RULES_DB["SOFT_WHITELIST"]["WILDCARDS"] else "shopee.com"
     dynamic_hard_wl = RULES_DB["HARD_WHITELIST"]["WILDCARDS"][0] if RULES_DB["HARD_WHITELIST"]["WILDCARDS"] else "apple.com"
     oauth_domain = RULES_DB["OAUTH_SAFE_HARBOR_DOMAINS"][0] if RULES_DB["OAUTH_SAFE_HARBOR_DOMAINS"] else "accounts.google.com"
-    exempt_domain = RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"][0] if RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"] else "shopback.com.tw"
+    exempt_domain_exact = RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["EXACT"][0] if RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["EXACT"] else "shopback.com.tw"
 
     for d in RULES_DB["PRIORITY_BLOCK_DOMAINS"]:
         cases.append(TestCase("Auto: Priority", f"https://{d}/api", RES_BLOCK_403, "Blocked by L2"))
@@ -1234,7 +1246,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
          cases.append(TestCase("Privacy: Clean (Hard WL)", f"https://{dynamic_hard_wl}{test_path}", RES_CLEAN_302, "Hard WL Parameter Cleaning"))
          
          expected_shop = RES_BLOCK_403 if is_path_keyword_blocked(test_path) else RES_ALLOW
-         cases.append(TestCase("Privacy: Exemption (Shop)", f"https://{exempt_domain}{test_path}", expected_shop, "Exempted from cleaning"))
+         cases.append(TestCase("Privacy: Exemption (Shop)", f"https://{exempt_domain_exact}{test_path}", expected_shop, "Exempted from cleaning"))
          
     cases.append(TestCase("Matrix: OAuth Safe Harbor", f"https://{oauth_domain}/oauth2/auth?gclid=123", RES_ALLOW, "OAuth bypasses everything"))
     cases.append(TestCase("Matrix: Double Decode Escape", "https://example.com/%2561%2564/banner.webp", RES_BLOCK_403, "Blocked by High Confidence Override (Double Decoded)"))
@@ -1260,9 +1272,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("AdBlock: Video Ad Subdomain", "https://news2.newaddiscover.com/videoads/?ca=71&cb=1772287290", RES_BLOCK_403, "Blocked Video Ad Subdomain via Regex"))
     cases.append(TestCase("AdBlock: Generic Video Ad Path", "https://example-random-ad-site.com/videoads/?user=123", RES_BLOCK_403, "Blocked Generic Video Ad Path via ACScanner"))
 
-    # V44.24 & V44.25 新增 591 房屋交易網 iOS Universal Links 喚醒保護與路由測試
+    # V44.24, 25 & 26 新增 591 房屋交易網保護與 BFF API 萬用字元防護測試
     cases.append(TestCase("Privacy: Universal Link Bypass", "https://www.591.com.tw/2S?salt=STrc0&s=al&utm_source=line", RES_ALLOW, "Exempted from 302 to protect App Deep Links and Short URLs"))
     cases.append(TestCase("General: 591 Shortlink Integrity", "https://www.591.com.tw/2S?salt=STrc0&s=al", RES_ALLOW, "Hard Whitelist and Parameter Whitelist guarantees no interference"))
+    cases.append(TestCase("Privacy: Exemption Wildcard (591 BFF)", "https://bff-house.591.com.tw/v1/touch/sale/detail?utm_source=&device_id=b26dd90d", RES_ALLOW, "Exempted 591 API subdomain from 302 cleaning via WILDCARDS"))
 
     return cases
 
