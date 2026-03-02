@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.25 (SSOT Compilation & Pages Deployment)
+ * @version   44.26 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
@@ -12,8 +12,9 @@
  * 8) [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS。
  * 9) [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/。
  * 10) [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 CRITICAL_PATH_SCRIPT_ROOTS 突破靜態白名單保護。
- * 11) [Fix-V44.24] 將 591 房屋交易網 (www.591.com.tw 等) 納入 PARAM_CLEANING_EXEMPTED_DOMAINS，保護 iOS Universal Links 短網址喚醒。
- * 12) [Fix-V44.25] 針對 591 短網址跳轉 /v2/ 問題，升級至 HARD_WHITELIST 並增列 salt/s 參數白名單，證明此為 591 伺服器端路由 Bug。
+ * 11) [Fix-V44.24] 將 591 房屋交易網納入 PARAM_CLEANING_EXEMPTED_DOMAINS，保護 iOS Universal Links 短網址喚醒。
+ * 12) [Fix-V44.25] 針對 591 短網址跳轉 /v2/ 問題，升級至 HARD_WHITELIST 並增列 salt/s 參數白名單。
+ * 13) [Architecture-V44.26] 升級 PARAM_CLEANING_EXEMPTED_DOMAINS 支援 WILDCARDS，修復 bff-house.591.com.tw 等微服務 API 子網域因 302 重定向導致的 Fetch 異常。
  * @lastUpdated 2026-03-02
  */
 
@@ -30,9 +31,15 @@ const OAUTH_SAFE_HARBOR = {
   ]
 };
 
-const PARAM_CLEANING_EXEMPTED_DOMAINS = new Set([
-    'shopback.com.tw', 'extrabux.com', 'buy.line.me', 'www.591.com.tw', 'm.591.com.tw', '591.com.tw'
-  ]);
+// V44.26 升級：支援 EXACT 與 WILDCARDS，與 HARD_WHITELIST 結構看齊
+const PARAM_CLEANING_EXEMPTED_DOMAINS = {
+    EXACT: new Set([
+    'shopback.com.tw', 'extrabux.com', 'buy.line.me'
+  ]),
+    WILDCARDS: [
+    '591.com.tw'
+  ]
+};
 
 const FINANCE_SAFE_HARBOR = {
     EXACT: new Set([
@@ -735,6 +742,14 @@ const multiLevelCache = new HighPerformanceLRUCache(512);
 const stats = { blocks: 0, allows: 0, toString: () => `Blocked: ${stats.blocks}, Allowed: ${stats.allows}` };
 const criticalMapCache = new HighPerformanceLRUCache(256);
 
+function isDomainMatch(setExact, wildcards, hostname) {
+  if (setExact.has(hostname)) return true;
+  for (const d of wildcards) {
+    if (hostname === d || hostname.endsWith('.' + d)) return true;
+  }
+  return false;
+}
+
 const HELPERS = {
   isStaticFile: (pathLowerMaybeWithQuery) => {
     if (!pathLowerMaybeWithQuery) return false;
@@ -785,7 +800,9 @@ const HELPERS = {
         return null;
     }
 
-    if (PARAM_CLEANING_EXEMPTED_DOMAINS.has(hostname)) {
+    // V44.26 升級：支援 Wildcards 比對，修復 BFF API 異常
+    if (isDomainMatch(PARAM_CLEANING_EXEMPTED_DOMAINS.EXACT, PARAM_CLEANING_EXEMPTED_DOMAINS.WILDCARDS, hostname)) {
+        if (CONFIG.DEBUG_MODE) console.log(`[Exempted] Domain Cleanup Bypass: ${hostname}`);
         return null;
     }
     
@@ -842,14 +859,6 @@ function initializeOnce() {
   FINANCE_SAFE_HARBOR.EXACT.forEach(d => multiLevelCache.set(d, 'ALLOW', 86400000));
   RULES.HARD_WHITELIST.EXACT.forEach(d => multiLevelCache.set(d, 'ALLOW', 86400000));
   RULES.PRIORITY_BLOCK_DOMAINS.forEach(d => multiLevelCache.set(d, 'BLOCK', 86400000));
-}
-
-function isDomainMatch(setExact, wildcards, hostname) {
-  if (setExact.has(hostname)) return true;
-  for (const d of wildcards) {
-    if (hostname === d || hostname.endsWith('.' + d)) return true;
-  }
-  return false;
 }
 
 function isPriorityDomain(hostname) {
