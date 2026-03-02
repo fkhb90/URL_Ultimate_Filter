@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.23 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.24 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -14,7 +14,8 @@ URL Ultimate Filter - V44.23 SSOT Compiler & Matrix Test Suite
 8. [Privacy-V44.19] 針對 YouTube 等 App 的高精度設備指紋遙測實作全域靜默丟棄 (DROP 204)。
 9. [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS，精準封鎖第一方廣告追蹤。
 10. [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/ 通用路徑。
-11. [BugFix-V44.23] 修復 V44.21 測試失敗問題：將 /plugins/advanced-ads 移至 L1 零信任掃描器 (CRITICAL_PATH_SCRIPT_ROOTS)，突破 /wp-content/ 與 .js 的靜態白名單保護機制。
+11. [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 L1 零信任掃描器突破靜態白名單。
+12. [Fix-V44.24] 將 591 房屋交易網 (www.591.com.tw 等) 納入 PARAM_CLEANING_EXEMPTED_DOMAINS，防範 302 重新導向破壞 iOS Universal Links (App 喚醒) 導致短網址失效。
 """
 
 import json
@@ -30,7 +31,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.23"
+VERSION = "44.24"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -48,7 +49,8 @@ RULES_DB = {
         '/oauth', '/oauth2', '/authorize', '/login', '/signin', '/session'
     ],
     "PARAM_CLEANING_EXEMPTED_DOMAINS": [
-        'shopback.com.tw', 'extrabux.com', 'buy.line.me'
+        'shopback.com.tw', 'extrabux.com', 'buy.line.me', 
+        'www.591.com.tw', 'm.591.com.tw', '591.com.tw'
     ],
     "FINANCE_SAFE_HARBOR": {
         "EXACT": [
@@ -489,6 +491,7 @@ def compile_js() -> str:
  * 8) [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS。
  * 9) [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/。
  * 10) [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 CRITICAL_PATH_SCRIPT_ROOTS 突破靜態白名單保護。
+ * 11) [Fix-V44.24] 將 591 房屋交易網 (www.591.com.tw 等) 納入 PARAM_CLEANING_EXEMPTED_DOMAINS，保護 iOS Universal Links 短網址喚醒。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -1254,6 +1257,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("AdBlock: Video Ad Root Domain", "https://newaddiscover.com/videoads/?cb=1772287290", RES_BLOCK_403, "Blocked Video Ad Root Domain"))
     cases.append(TestCase("AdBlock: Video Ad Subdomain", "https://news2.newaddiscover.com/videoads/?ca=71&cb=1772287290", RES_BLOCK_403, "Blocked Video Ad Subdomain via Regex"))
     cases.append(TestCase("AdBlock: Generic Video Ad Path", "https://example-random-ad-site.com/videoads/?user=123", RES_BLOCK_403, "Blocked Generic Video Ad Path via ACScanner"))
+
+    # V44.24 新增 591 房屋交易網 iOS Universal Links 喚醒保護測試
+    cases.append(TestCase("Privacy: Universal Link Bypass", "https://www.591.com.tw/2S?salt=STrc0&s=al&utm_source=line", RES_ALLOW, "Exempted from 302 to protect App Deep Links and Short URLs"))
 
     return cases
 
