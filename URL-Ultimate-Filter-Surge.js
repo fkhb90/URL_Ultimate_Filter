@@ -1,19 +1,20 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.27 (SSOT Compilation & Pages Deployment)
+ * @version   44.30 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
  * 3) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級，並於 L1 攔截 HTTPDNS 直連。
  * 4) [Optimize] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
  * 5) [Feature] 新增 FINANCE_SAFE_HARBOR，全域絕對放行銀行、支付與政府網域。
- * 6) [Fix] 修正啟發式 API 引擎中 v\d+ 對標準網頁造成的 False Positive 誤判。
- * 7) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)。
- * 8) [Privacy-V44.20] 將 elads.kocpc.com.tw 納入 BLOCK_DOMAINS。
- * 9) [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/。
- * 10) [BugFix-V44.23] 修復測試失敗問題：將 /plugins/advanced-ads 移至 CRITICAL_PATH_SCRIPT_ROOTS 突破靜態白名單保護。
- * 11) [Fix-V44.25] 針對 591 短網址跳轉 /v2/ 問題，升級至 HARD_WHITELIST 並增列 salt/s 參數白名單。
- * 12) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」。全域封殺 device_id；遇到 API 請求或 591 網域時改用底層 Rewrite，完美解決 API 302 斷線與 App 喚醒失效問題。
+ * 6) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)。
+ * 7) [AdBlock-V44.22] 封鎖惡意影音廣告網域 newaddiscover.com (含子網域) 與 /videoads/。
+ * 8) [BugFix-V44.23] 將 /plugins/advanced-ads 移至 L1 零信任掃描器突破靜態白名單保護。
+ * 9) [Fix-V44.25] 升級 591 至 HARD_WHITELIST，並增列 salt/s 參數白名單。
+ * 10) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，完美解決 API 302 斷線與 App 喚醒失效問題。
+ * 11) [AdBlock-V44.28] 封鎖 app-ads-services.com 與 Emarsys 遙測端點 (eservice.emarsys.net)；新增 /client/events 至 DROP 清單。
+ * 12) [Feature-V44.29] 擴充 API 啟發式前綴 (appapi.) 並將 104.com.tw 納入 SILENT_REWRITE_DOMAINS；驗證 device_id 精準狙擊。
+ * 13) [Fix-V44.30] 將 appapi.104.com.tw 提權至 HARD_WHITELIST，解決其內部推薦 API 包含 /ad/ 路徑觸發 HIGH_CONFIDENCE 誤殺的問題。
  * @lastUpdated 2026-03-02
  */
 
@@ -30,7 +31,6 @@ const OAUTH_SAFE_HARBOR = {
   ]
 };
 
-// 完全豁免參數清理的網域 (例如 ShopBack 聯盟行銷)
 const PARAM_CLEANING_EXEMPTED_DOMAINS = {
     EXACT: new Set([
     'shopback.com.tw', 'extrabux.com', 'buy.line.me'
@@ -38,11 +38,10 @@ const PARAM_CLEANING_EXEMPTED_DOMAINS = {
     WILDCARDS: []
 };
 
-// V44.27 雙軌機制：這些網域需要清理參數，但必須使用 Silent Rewrite 代替 302 以保護 Deep Links
 const SILENT_REWRITE_DOMAINS = {
     EXACT: new Set([]),
     WILDCARDS: [
-    '591.com.tw'
+    '591.com.tw', '104.com.tw'
   ]
 };
 
@@ -119,8 +118,8 @@ const RULES = {
     'accounts.google.com.tw', 'accounts.felo.me', 'api.etmall.com.tw', 'tw.fd-api.com', 'tw.mapi.shp.yahoo.com', 'code.createjs.com',
     'oa.ledabangong.com', 'oa.qianyibangong.com', 'raw.githubusercontent.com', 'ss.ledabangong.com', 'userscripts.adtidy.org', 'api.github.com',
     'api.vercel.com', 'gateway.facebook.com', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com', 'api.discord.com',
-    'api.twitch.tv', 'api.line.me', 'today.line.me', 'pro.104.com.tw', 'datadog.pool.ntp.org', 'ewp.uber.com',
-    'copilot.microsoft.com', 'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net'
+    'api.twitch.tv', 'api.line.me', 'today.line.me', 'pro.104.com.tw', 'appapi.104.com.tw', 'datadog.pool.ntp.org',
+    'ewp.uber.com', 'copilot.microsoft.com', 'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net'
   ]),
     WILDCARDS: [
     'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com', 'shopee.tw', 'mitake.com.tw',
@@ -137,9 +136,9 @@ const RULES = {
     'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com', 'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org',
     'api.zendesk.com', 'duckduckgo.com', 'legy.line-apps.com', 'secure.gravatar.com', 'api.asana.com', 'api.dropboxapi.com',
     'api.figma.com', 'api.notion.com', 'api.trello.com', 'api.cloudflare.com', 'auth.docker.io', 'database.windows.net',
-    'login.docker.com', 'api.irentcar.com.tw', 'usiot.roborock.com', 'appapi.104.com.tw', 'prism.ec.yahoo.com', 'graphql.ec.yahoo.com',
-    'visuals.feedly.com', 'api.revenuecat.com', 'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com', 'cmapi.tw.coupang.com',
-    'api.ipify.org', 'gcp-data-api.ltn.com.tw', 's.pinimg.com', 'cdn.shopify.com'
+    'login.docker.com', 'api.irentcar.com.tw', 'usiot.roborock.com', 'prism.ec.yahoo.com', 'graphql.ec.yahoo.com', 'visuals.feedly.com',
+    'api.revenuecat.com', 'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com', 'cmapi.tw.coupang.com', 'api.ipify.org',
+    'gcp-data-api.ltn.com.tw', 's.pinimg.com', 'cdn.shopify.com'
   ]),
     WILDCARDS: [
     'chatgpt.com', 'shopee.com', 'shopeemobile.com', 'shopee.io', 'youtube.com', 'facebook.com',
@@ -207,7 +206,7 @@ const RULES = {
     'outbrain.com', 'taboola.com', 'rubiconproject.com', 'pubmatic.com', 'openx.com', 'smartadserver.com',
     'spotx.tv', 'yandex.ru', 'addthis.com', 'disqus.com', 'onesignal.com', 'sharethis.com',
     'bat.bing.com', 'clarity.ms', 'pinterest.com', 'reddit.com', 'snapchat.com', 'elads.kocpc.com.tw',
-    'newaddiscover.com'
+    'app-ads-services.com', 'eservice.emarsys.net'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
@@ -623,7 +622,7 @@ const RULES = {
     'ingest', 'intake', 'live-log', 'log-event', 'logevents', 'loggly',
     'log-hl', 'realtime-log', '/rum/', 'server-event', 'telemetry', 'uploadmobiledata',
     'web-beacon', 'web-vitals', 'crash-report', 'diagnostic.log', 'profiler', 'stacktrace',
-    'trace.json', '/error_204', 'a=logerror'
+    'trace.json', '/error_204', 'a=logerror', '/client/events'
   ])
   },
 
@@ -810,11 +809,10 @@ const HELPERS = {
         return null;
     }
     
-    let rewriteType = '302'; // 預設使用 302 重定向淨化
+    let rewriteType = '302';
 
-    // V44.27：API 或保護深度連結的網域，改用 Silent Rewrite (底層無痕修改 URL)
     if (RULES.REGEX.API_SIGNATURE_BYPASS.some(r => r.test(pathLower)) || 
-        hostname.startsWith('api.') || hostname.startsWith('graphql.') || hostname.startsWith('bff-') ||
+        hostname.startsWith('api.') || hostname.startsWith('appapi.') || hostname.startsWith('graphql.') || hostname.startsWith('bff-') ||
         isDomainMatch(SILENT_REWRITE_DOMAINS.EXACT, SILENT_REWRITE_DOMAINS.WILDCARDS, hostname)) {
         rewriteType = 'REWRITE';
     }
@@ -967,6 +965,7 @@ function processRequest(request) {
         return null;
     };
 
+    // V44.30 提權：HARD_WHITELIST 直接 bypass 路徑黑名單，直達參數淨化
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
       multiLevelCache.set(hostname, 'ALLOW', 86400000);
       stats.allows++;
