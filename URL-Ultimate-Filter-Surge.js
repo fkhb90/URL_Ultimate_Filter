@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.31 (SSOT Compilation & Pages Deployment)
+ * @version   44.32 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
@@ -10,9 +10,9 @@
  * 6) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)。
  * 7) [Fix-V44.25] 升級 591 至 HARD_WHITELIST，並增列 salt/s 參數白名單。
  * 8) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，解決 API 302 斷線與 App 喚醒失效問題。
- * 9) [Fix-V44.30] 將 appapi.104.com.tw 提權至 HARD_WHITELIST，解決其內部推薦 API 包含 /ad/ 路徑的誤殺問題。
- * 10) [Architecture-V44.31] 建立「網域特化參數白名單 (DOMAIN_PARAMS_WHITELIST)」，專門豁免 104 API 嚴格校驗的 device_id 必傳參數，防止防撞庫機制導致的 App 斷線，同時維持對其他網域的設備指紋封殺。
- * @lastUpdated 2026-03-02
+ * 9) [Architecture-V44.31] 建立「網域特化參數白名單 (DOMAIN_PARAMS_WHITELIST)」，專門豁免 104 API 嚴格校驗的 device_id。
+ * 10) [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決其與 '/api/login' 發生「子字串碰撞」導致 104 登入失敗的致命 Bug；並將 104.com.tw 全面提權至 HARD_WHITELIST。
+ * @lastUpdated 2026-03-03
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
@@ -120,10 +120,11 @@ const RULES = {
   ]),
     WILDCARDS: [
     'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com', 'shopee.tw', 'mitake.com.tw',
-    'money-link.com.tw', '591.com.tw', 'icloud.com', 'apple.com', 'whatsapp.net', 'update.microsoft.com',
-    'windowsupdate.com', 'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io', 'archive.is',
-    'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com', 'perma.cc',
-    'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'googlevideo.com', 'app.goo.gl', 'goo.gl'
+    'money-link.com.tw', '591.com.tw', '104.com.tw', 'icloud.com', 'apple.com', 'whatsapp.net',
+    'update.microsoft.com', 'windowsupdate.com', 'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
+    'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
+    'perma.cc', 'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'googlevideo.com', 'app.goo.gl',
+    'goo.gl'
   ]
   },
 
@@ -230,23 +231,22 @@ const RULES = {
     '/match.php', '/utm.gif', '/event.gif', '/bk', '/bk.gif', '/collect',
     '/events', '/telemetry', '/metrics', '/traces', '/track', '/beacon',
     '/pixel', '/v1/collect', '/v1/events', '/v1/track', '/v1/telemetry', '/v1/metrics',
-    '/v1/log', '/v1/traces', '/v1/report', '/appbase_report_log', '/stat_log', '/trackcode/',
-    '/v2/collect', '/v2/events', '/v2/track', '/v2/telemetry', '/tp2', '/api/v1/collect',
-    '/api/v1/events', '/api/v1/track', '/api/v1/telemetry', '/api/v1/log', '/api/log', '/v1/event',
-    '/api/stats/ads', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/pagead/gen_204', '/pagead/paralleladview',
-    '/tiktok/pixel/events', '/linkedin/insight/track', '/api/fingerprint', '/v1/fingerprint', '/cdn/fp/', '/api/collect',
-    '/api/track', '/tr/', '/beacon', '/api/v1/event', '/rest/n/log', '/action-log',
-    '/ramen/v1/events', '/_events', '/report/v1/log', '/app/mobilelog', '/api/web/ad/', '/cdn/fingerprint/',
-    '/api/device-id', '/api/visitor-id', '/ads/ga-audiences', '/doubleclick/', '/google-analytics/', '/googleadservices/',
-    '/googlesyndication/', '/googletagmanager/', '/tiktok/track/', '/__utm.gif', '/j/collect', '/r/collect',
-    '/api/batch', '/api/events', '/api/logs/', '/api/v1/events', '/api/v1/track', '/api/v2/event',
-    '/api/v2/events', '/collect?', '/data/collect', '/events/track', '/ingest/', '/intake',
-    '/p.gif', '/rec/bundle', '/t.gif', '/telemetry/', '/track/', '/v1/pixel',
-    '/v2/track', '/v3/track', '/2/client/addlog_batch', '/plugins/easy-social-share-buttons/', '/event_report', '/log/aplus',
-    '/v.gif', '/ad-sw.js', '/ads-sw.js', '/ad-call', '/adx/', '/adsales/',
-    '/adserver/', '/adsync/', '/adtech/', '/abtesting/', '/b/ss', '/feature-flag/',
-    '/i/adsct', '/track/m', '/track/pc', '/user-profile/', 'cacafly/track', '/api/v1/t',
-    '/sa.gif', '/api/v2/rum', '/batch_resolve'
+    '/v1/traces', '/v1/report', '/appbase_report_log', '/stat_log', '/trackcode/', '/v2/collect',
+    '/v2/events', '/v2/track', '/v2/telemetry', '/tp2', '/api/v1/collect', '/api/v1/events',
+    '/api/v1/track', '/api/v1/telemetry', '/v1/event', '/api/stats/ads', '/api/stats/atr', '/api/stats/qoe',
+    '/api/stats/playback', '/pagead/gen_204', '/pagead/paralleladview', '/tiktok/pixel/events', '/linkedin/insight/track', '/api/fingerprint',
+    '/v1/fingerprint', '/cdn/fp/', '/api/collect', '/api/track', '/tr/', '/beacon',
+    '/api/v1/event', '/rest/n/log', '/action-log', '/ramen/v1/events', '/_events', '/report/v1/log',
+    '/app/mobilelog', '/api/web/ad/', '/cdn/fingerprint/', '/api/device-id', '/api/visitor-id', '/ads/ga-audiences',
+    '/doubleclick/', '/google-analytics/', '/googleadservices/', '/googlesyndication/', '/googletagmanager/', '/tiktok/track/',
+    '/__utm.gif', '/j/collect', '/r/collect', '/api/batch', '/api/events', '/api/logs/',
+    '/api/v1/events', '/api/v1/track', '/api/v2/event', '/api/v2/events', '/collect?', '/data/collect',
+    '/events/track', '/ingest/', '/intake', '/p.gif', '/rec/bundle', '/t.gif',
+    '/telemetry/', '/track/', '/v1/pixel', '/v2/track', '/v3/track', '/2/client/addlog_batch',
+    '/plugins/easy-social-share-buttons/', '/event_report', '/log/aplus', '/v.gif', '/ad-sw.js', '/ads-sw.js',
+    '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/',
+    '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc',
+    '/user-profile/', 'cacafly/track', '/api/v1/t', '/sa.gif', '/api/v2/rum', '/batch_resolve'
   ],
     SCRIPT_ROOTS: [
     '/prebid', '/sentry.', 'sentry-', '/analytics.', 'ga-init.', 'gtag.',
@@ -648,7 +648,6 @@ const RULES = {
         ['accounts.felo.me', new Set(['/'])],
         ['gcp-data-api.ltn.com.tw', new Set(['/'])]
     ]),
-    // V44.31: 網域特化參數白名單，針對特定網域允許特定的指紋參數存活 (防止 APP 斷線)
     DOMAIN_PARAMS_WHITELIST: new Map([
     ['104.com.tw', new Set([
         'device_id'
@@ -827,7 +826,6 @@ const HELPERS = {
         }
     }
 
-    // V44.31 構建網域特化允許清單
     let allowedParamsForDomain = new Set();
     if (RULES.PARAMS.DOMAIN_PARAMS_WHITELIST) {
         for (const [domain, allowedSet] of RULES.PARAMS.DOMAIN_PARAMS_WHITELIST) {
@@ -844,7 +842,6 @@ const HELPERS = {
 
       for (const p of RULES.PARAMS.GLOBAL) {
         if (params.has(p)) { 
-            // 檢查該參數是否在此網域被特許保留
             if (allowedParamsForDomain.has(p.toLowerCase())) continue;
             params.delete(p); 
             changed = true; 
@@ -861,7 +858,6 @@ const HELPERS = {
       const keys = Array.from(params.keys());
       for (const key of keys) {
         const lowerKey = key.toLowerCase();
-        // 全域白名單 或 網域特化白名單 皆可保護此參數
         if (RULES.PARAMS.WHITELIST.has(lowerKey) || allowedParamsForDomain.has(lowerKey)) continue;
         
         for (const p of RULES.PARAMS.PREFIXES) {
