@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.32 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.33 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -13,7 +13,8 @@ URL Ultimate Filter - V44.32 SSOT Compiler & Matrix Test Suite
 7. [Fix-V44.25] 升級 591 至 HARD_WHITELIST，並增列 salt/s 參數白名單。
 8. [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，解決 API 302 斷線。
 9. [Architecture-V44.31] 建立「網域特化參數白名單」，豁免 104 API 嚴格校驗的 device_id。
-10. [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決其與 '/api/login' 發生「子字串碰撞」導致 104 登入失敗的致命 Bug；並將 104.com.tw 全面提權至 HARD_WHITELIST。
+10. [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決 104 登入失敗的致命 Bug。
+11. [BugFix-V44.33] 修復測試引擎 (Matrix Test Suite) 覆蓋率遺失問題，完整恢復 PATH_BLOCK, PARAMS_GLOBAL, REDIRECTOR_HOSTS 與 CRITICAL_PATH_MAP 的動態測試矩陣生成迴圈，總用例數恢復至 800+ 級別。
 """
 
 import json
@@ -29,7 +30,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.32"
+VERSION = "44.33"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -242,7 +243,6 @@ RULES_DB = {
         'snapchat.com', 'elads.kocpc.com.tw', 'app-ads-services.com', 'eservice.emarsys.net'
     ],
 
-    # V44.32: 移除了會引發邊界碰撞的 '/api/log' 等危險特徵，保護所有 /login 路由
     "CRITICAL_PATH_GENERIC": [
         '/accounts/CheckConnection', '/0.gif', '/1.gif', '/pixel.gif', '/beacon.gif', '/ping.gif',
         '/track.gif', '/dot.gif', '/clear.gif', '/empty.gif', '/shim.gif', '/spacer.gif', '/imp.gif',
@@ -498,7 +498,8 @@ def compile_js() -> str:
  * 7) [Fix-V44.25] 升級 591 至 HARD_WHITELIST，並增列 salt/s 參數白名單。
  * 8) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，解決 API 302 斷線與 App 喚醒失效問題。
  * 9) [Architecture-V44.31] 建立「網域特化參數白名單 (DOMAIN_PARAMS_WHITELIST)」，專門豁免 104 API 嚴格校驗的 device_id。
- * 10) [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決其與 '/api/login' 發生「子字串碰撞」導致 104 登入失敗的致命 Bug；並將 104.com.tw 全面提權至 HARD_WHITELIST。
+ * 10) [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決 104 登入失敗的致命 Bug。
+ * 11) [BugFix-V44.33] 修復 Matrix Test Suite 引擎中的陣列截斷問題，完整恢復 800+ 條迴歸測試用例。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -1224,52 +1225,79 @@ def generate_full_coverage_cases() -> List[TestCase]:
     dynamic_soft_wl = RULES_DB["SOFT_WHITELIST"]["WILDCARDS"][0] if RULES_DB["SOFT_WHITELIST"]["WILDCARDS"] else "shopee.com"
     dynamic_hard_wl = RULES_DB["HARD_WHITELIST"]["WILDCARDS"][0] if RULES_DB["HARD_WHITELIST"]["WILDCARDS"] else "apple.com"
     oauth_domain = RULES_DB["OAUTH_SAFE_HARBOR_DOMAINS"][0] if RULES_DB["OAUTH_SAFE_HARBOR_DOMAINS"] else "accounts.google.com"
+    exempt_domain_exact = RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["EXACT"][0] if RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["EXACT"] else "shopback.com.tw"
 
+    # --- V44.33 BugFix: 恢復被意外截斷的自動生成迴圈 ---
+
+    # 1. 恢復 PRIORITY_BLOCK_DOMAINS
     for d in RULES_DB["PRIORITY_BLOCK_DOMAINS"]:
         cases.append(TestCase("Auto: Priority", f"https://{d}/api", RES_BLOCK_403, "Blocked by L2"))
     
+    # 2. 恢復 BLOCK_DOMAINS
     for d in RULES_DB["BLOCK_DOMAINS"]:
         expected = RES_ALLOW if is_domain_whitelisted(d) else RES_BLOCK_403
         cases.append(TestCase("Auto: Domain Block", f"https://{d}/test", expected, "Blocked by Domain"))
 
+    # 3. 恢復 REDIRECTOR_HOSTS (之前遺失)
+    for d in RULES_DB["REDIRECTOR_HOSTS"]:
+        cases.append(TestCase("Auto: Redirector", f"https://{d}/target", RES_BLOCK_403, "Blocked Redirector"))
+
+    # 4. 恢復 CRITICAL_PATH_MAP (之前遺失)
+    for hostname, paths in RULES_DB["CRITICAL_PATH_MAP"].items():
+        for p in paths:
+            url_base = f"https://{hostname}" + (p if p.startswith("/") else f"/{p}")
+            expected = RES_DROP_204 if "CheckConnection" in p else RES_BLOCK_403
+            cases.append(TestCase("Auto: Critical Map", url_base, expected, "Blocked by Map"))
+
+    # 5. 恢復 CRITICAL_PATH_SCRIPT_ROOTS
     for s in RULES_DB["CRITICAL_PATH_SCRIPT_ROOTS"]:
         cases.append(TestCase("Auto: Script Root Block", f"https://example.com/js/{s}1.0.js", RES_BLOCK_403, "Blocked by Root Keyword"))
 
+    # 6. 恢復 HIGH_CONFIDENCE
     for k in RULES_DB["HIGH_CONFIDENCE"]:
          path_seg = f"{k}test.webp" if k.startswith("/") else f"/path/{k}/file.webp"
          cases.append(TestCase("Matrix: High Conf (Neutral)", f"https://example.com{path_seg}", RES_BLOCK_403, "High Conf Block"))
          cases.append(TestCase("Matrix: High Conf (Soft WL)", f"https://{dynamic_soft_wl}{path_seg}", RES_BLOCK_403, "High Conf Overrides Soft WL"))
          cases.append(TestCase("Matrix: High Conf (Hard WL)", f"https://{dynamic_hard_wl}{path_seg}", RES_ALLOW, "Hard WL Overrides Everything"))
 
+    # 7. 恢復 PATH_BLOCK (之前遺失)
+    for k in RULES_DB["PATH_BLOCK"]:
+         path_seg = f"{k}test" if k.startswith("/") else f"/path/{k}/file"
+         cases.append(TestCase("Matrix: Keyword (Neutral)", f"https://example.com{path_seg}", RES_BLOCK_403, "Keyword Block"))
+         cases.append(TestCase("Matrix: Keyword (Soft WL)", f"https://{dynamic_soft_wl}{path_seg}", RES_BLOCK_403, "Soft WL still blocks non-static Keywords"))
+
+    # 8. 恢復 CRITICAL_PATH_GENERIC
     for p in RULES_DB["CRITICAL_PATH_GENERIC"]:
         expected = RES_DROP_204 if "CheckConnection" in p else RES_BLOCK_403
         cases.append(TestCase("Auto: Critical Path", f"https://example.com{p if p.startswith('/') else '/' + p}", expected, "Blocked by L1"))
 
+    # 9. 恢復 DROP 測試
     static_suffixes = RULES_DB["EXCEPTIONS_SUFFIXES"]
     for k in RULES_DB["DROP"]:
         if any(k.endswith(s) for s in static_suffixes if s.startswith('.')): continue
         cases.append(TestCase("Auto: Keyword Drop", f"https://example.com/log/{k.replace('/', '')}", RES_DROP_204, "Silent Drop"))
 
-    cases.append(TestCase("Matrix: Double Decode Escape", "https://example.com/%2561%2564/banner.webp", RES_BLOCK_403, "Blocked by High Confidence Override (Double Decoded)"))
+    # 10. 恢復 PARAMS_GLOBAL (之前遺失)
+    for p in RULES_DB["PARAMS_GLOBAL"]:
+         test_path = f"/?{p}=test"
+         cases.append(TestCase("Privacy: Clean (Neutral)", f"https://example.com{test_path}", RES_CLEAN_302, "Param Cleaning"))
+         cases.append(TestCase("Privacy: Clean (Hard WL)", f"https://{dynamic_hard_wl}{test_path}", RES_CLEAN_302, "Hard WL Parameter Cleaning"))
+         
+         expected_shop = RES_BLOCK_403 if is_path_keyword_blocked(test_path) else RES_ALLOW
+         cases.append(TestCase("Privacy: Exemption (Shop)", f"https://{exempt_domain_exact}{test_path}", expected_shop, "Exempted from cleaning"))
 
+    # --- 自訂與邊界條件測試 ---
+    cases.append(TestCase("Matrix: Double Decode Escape", "https://example.com/%2561%2564/banner.webp", RES_BLOCK_403, "Blocked by High Confidence Override (Double Decoded)"))
     cases.append(TestCase("Edge: HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772072185", RES_BLOCK_403, "Blocked by L1 Critical Path"))
     cases.append(TestCase("Feature: Heuristic API Silent Rewrite", "https://unknown-ecommerce.com/graphql/user?fbclid=test", RES_REWRITE, "GraphQL path uses Silent Rewrite to clean tracking parameters safely"))
-    
     cases.append(TestCase("Finance: ECPay Post Data bypass", "https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5?Token=test_token_123&TradeInfo=abc", RES_ALLOW, "Exempted from 302 to protect POST parameters"))
-    
     cases.append(TestCase("Privacy: Telemetry Drop (YT)", "https://www.youtube.com/error_204?cosver=18.7.1.22H31&cmodel=iPhone16%2C1&a=logerror", RES_DROP_204, "Silent Drop for High Precision Telemetry"))
     cases.append(TestCase("Privacy: WP Ad Plugin (L1 Scanner)", "https://www.koc.com.tw/wp-content/plugins/advanced-ads-responsive/public/assets/js/script.js?ver=1.10.2", RES_BLOCK_403, "Must be blocked by L1 Scanner ignoring static whitelist"))
-
     cases.append(TestCase("AdBlock: Video Ad Subdomain", "https://news2.newaddiscover.com/videoads/?ca=71&cb=1772287290", RES_BLOCK_403, "Blocked Video Ad Subdomain via Regex"))
-    
     cases.append(TestCase("Privacy: Universal Link Silent Rewrite", "https://www.591.com.tw/2S?salt=STrc0&s=al&utm_source=line", RES_REWRITE, "Used Silent Rewrite to clean params without 302 breaking Deep Link"))
     cases.append(TestCase("Privacy: API Silent Rewrite (591 BFF)", "https://bff-house.591.com.tw/v1/touch/sale/detail?utm_source=test&device_id=b26dd90d", RES_REWRITE, "Cleaned device_id and utm_ using Silent Rewrite without triggering CORS 302"))
-
     cases.append(TestCase("AdBlock: App Ads Services", "https://odm.app-ads-services.com/v1/track", RES_BLOCK_403, "Block known pure app advertising/tracking network"))
-    
     cases.append(TestCase("Fix: 104 App internal /ad/ path", "https://appapi.104.com.tw/2.0/ad/search/hashtag?device_type=0&device_id=6CCC0850&ad_type=full", RES_REWRITE, "Bypasses HIGH_CONFIDENCE /ad/ block via HARD_WHITELIST and strips device_id silently"))
-
-    # V44.32 新增測試：解決 '/api/log' 導致的登入邊界碰撞
     cases.append(TestCase("BugFix: API Login Collision", "https://api.signin.104.com.tw/v2/api/login/valid-account", RES_ALLOW, "Prevent /api/log from falsely killing /api/login endpoints"))
 
     return cases
