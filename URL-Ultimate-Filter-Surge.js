@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.32 (SSOT Compilation & Pages Deployment)
+ * @version   44.33 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
@@ -11,7 +11,8 @@
  * 7) [Fix-V44.25] 升級 591 至 HARD_WHITELIST，並增列 salt/s 參數白名單。
  * 8) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，解決 API 302 斷線與 App 喚醒失效問題。
  * 9) [Architecture-V44.31] 建立「網域特化參數白名單 (DOMAIN_PARAMS_WHITELIST)」，專門豁免 104 API 嚴格校驗的 device_id。
- * 10) [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決其與 '/api/login' 發生「子字串碰撞」導致 104 登入失敗的致命 Bug；並將 104.com.tw 全面提權至 HARD_WHITELIST。
+ * 10) [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決 104 登入失敗的致命 Bug。
+ * 11) [BugFix-V44.33] 修復 Matrix Test Suite 引擎中的陣列截斷問題，完整恢復 800+ 條迴歸測試用例。
  * @lastUpdated 2026-03-03
  */
 
