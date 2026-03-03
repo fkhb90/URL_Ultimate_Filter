@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.33 (SSOT Compilation & Pages Deployment)
+ * @version   44.34 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
@@ -9,10 +9,10 @@
  * 5) [Feature] 新增 FINANCE_SAFE_HARBOR，全域絕對放行銀行、支付與政府網域。
  * 6) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)。
  * 7) [Fix-V44.25] 升級 591 至 HARD_WHITELIST，並增列 salt/s 參數白名單。
- * 8) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，解決 API 302 斷線與 App 喚醒失效問題。
- * 9) [Architecture-V44.31] 建立「網域特化參數白名單 (DOMAIN_PARAMS_WHITELIST)」，專門豁免 104 API 嚴格校驗的 device_id。
+ * 8) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」完美解決 API 302 斷線與 App 喚醒失效問題。
+ * 9) [Architecture-V44.31] 建立「網域特化參數白名單」，專門豁免 104 API 嚴格校驗的 device_id。
  * 10) [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決 104 登入失敗的致命 Bug。
- * 11) [BugFix-V44.33] 修復 Matrix Test Suite 引擎中的陣列截斷問題，完整恢復 800+ 條迴歸測試用例。
+ * 11) [BugFix-V44.34] 擴充 SOFT_WHITELIST 與 PATH_EXEMPTIONS，精準放行 threads.com 與 threads.net 的 /post/ 路由，修復因長網址包含開放重定向 (Open Redirect) 特徵而導致的 L1 掃描器誤殺問題。
  * @lastUpdated 2026-03-03
  */
 
@@ -149,14 +149,14 @@ const RULES = {
     'unpkg.com', 'ytimg.com', 'new-reporter.com', 'wp.com', 'flipboard.com', 'inoreader.com',
     'itofoo.com', 'newsblur.com', 'theoldreader.com', 'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com',
     'github.io', 'gitlab.io', 'netlify.app', 'oraclecloud.com', 'pages.dev', 'vercel.app',
-    'windows.net', 'threads.net', 'slack.com', 'feedly.com', 'ak.sv', 'bayimg.com',
-    'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com', 'cubeupload.com', 'dlupload.com',
-    'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co', 'imagebam.com', 'imageban.ru',
-    'imageshack.com', 'imagetwist.com', 'imagevenue.com', 'imgbb.com', 'imgbox.com', 'imgflip.com',
-    'imx.to', 'indishare.org', 'infidrive.net', 'k2s.cc', 'katfile.com', 'mirrored.to',
-    'multiup.io', 'nmac.to', 'noelshack.com', 'pic-upload.de', 'pixhost.to', 'postimg.cc',
-    'prnt.sc', 'sfile.mobi', 'thefileslocker.net', 'turboimagehost.com', 'uploadhaven.com', 'uploadrar.com',
-    'usersdrive.com', '__sbcdn'
+    'windows.net', 'threads.net', 'threads.com', 'slack.com', 'feedly.com', 'ak.sv',
+    'bayimg.com', 'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com', 'cubeupload.com',
+    'dlupload.com', 'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co', 'imagebam.com',
+    'imageban.ru', 'imageshack.com', 'imagetwist.com', 'imagevenue.com', 'imgbb.com', 'imgbox.com',
+    'imgflip.com', 'imx.to', 'indishare.org', 'infidrive.net', 'k2s.cc', 'katfile.com',
+    'mirrored.to', 'multiup.io', 'nmac.to', 'noelshack.com', 'pic-upload.de', 'pixhost.to',
+    'postimg.cc', 'prnt.sc', 'sfile.mobi', 'thefileslocker.net', 'turboimagehost.com', 'uploadhaven.com',
+    'uploadrar.com', 'usersdrive.com', '__sbcdn'
   ]
   },
 
@@ -684,11 +684,14 @@ const RULES = {
     PREFIXES: new Set(['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/', '/wp-content/', '/wp-includes/', '/fonts/', '/dist/', '/vendor/', '/public/']),
     SUBSTRINGS: new Set(['cdn-cgi', 'shop/goods', 'product/detail']),
     SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js', 'uploads', 'fonts', 'resources']),
+    // V44.34: 新增 threads.com 與 threads.net 的 /post/ 路由豁免，防範長網址字串碰撞誤殺
     PATH_EXEMPTIONS: new Map([
         ['shopee.tw', new Set(['/api/v4/search/search_items'])],
         ['cmapi.tw.coupang.com', new Set(['/vendor-items/'])],
         ['www.google.com', new Set(['/url', '/search'])],
-        ['play.googleapis.com', new Set(['/log/batch'])]
+        ['play.googleapis.com', new Set(['/log/batch'])],
+        ['threads.com', new Set(['/post/'])],
+        ['threads.net', new Set(['/post/'])]
     ])
   }
 };
@@ -780,10 +783,14 @@ const HELPERS = {
   },
 
   isPathExemptedForDomain: (hostname, pathLower) => {
-    const exemptedPaths = RULES.EXCEPTIONS.PATH_EXEMPTIONS.get(hostname);
-    if (!exemptedPaths) return false;
-    for (const exemptedPath of exemptedPaths) {
-      if (pathLower.includes(exemptedPath)) return true;
+    // V44.34: 確保 PATH_EXEMPTIONS 能處理精確網域與萬用字元網域
+    let isExempted = false;
+    for (const [domain, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
+      if (hostname === domain || hostname.endsWith('.' + domain)) {
+        for (const exemptedPath of exemptedPaths) {
+          if (pathLower.includes(exemptedPath)) return true;
+        }
+      }
     }
     return false;
   },
@@ -999,6 +1006,7 @@ function processRequest(request) {
     }
     if (cached === 'BLOCK') { stats.blocks++; return { response: { status: 403, body: 'Blocked by Cache' } }; }
 
+    // V44.34: 確保路徑豁免在所有黑名單掃描前執行
     if (HELPERS.isPathExemptedForDomain(hostname, pathLower)) {
         stats.allows++;
         return performCleaning();
