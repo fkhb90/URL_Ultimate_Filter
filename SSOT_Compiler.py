@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.31 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.32 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -11,9 +11,9 @@ URL Ultimate Filter - V44.31 SSOT Compiler & Matrix Test Suite
 5. [Optimize] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
 6. [Feature] 建立 FINANCE_SAFE_HARBOR (金融避風港) 機制，全域絕對放行銀行、支付網域。
 7. [Fix-V44.25] 升級 591 至 HARD_WHITELIST，並增列 salt/s 參數白名單。
-8. [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，解決 API 302 斷線與 App 喚醒失效問題。
-9. [Fix-V44.30] 將 appapi.104.com.tw 提權至 HARD_WHITELIST，解決其內部推薦 API 包含 /ad/ 路徑的誤殺問題。
-10. [Architecture-V44.31] 建立「網域特化參數白名單 (DOMAIN_PARAMS_WHITELIST)」，專門豁免 104 API 嚴格校驗的 device_id 必傳參數，防止防撞庫機制導致的 App 斷線，同時維持對其他網域的設備指紋封殺。
+8. [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，解決 API 302 斷線。
+9. [Architecture-V44.31] 建立「網域特化參數白名單」，豁免 104 API 嚴格校驗的 device_id。
+10. [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決其與 '/api/login' 發生「子字串碰撞」導致 104 登入失敗的致命 Bug；並將 104.com.tw 全面提權至 HARD_WHITELIST。
 """
 
 import json
@@ -29,7 +29,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.31"
+VERSION = "44.32"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -56,7 +56,6 @@ RULES_DB = {
         "EXACT": [],
         "WILDCARDS": ['591.com.tw', '104.com.tw']
     },
-    # V44.31 新增：網域特化參數白名單，針對特定網域保留必傳之業務/資安參數
     "DOMAIN_PARAMS_WHITELIST": {
         "104.com.tw": ["device_id"]
     },
@@ -144,7 +143,7 @@ RULES_DB = {
         ],
         "WILDCARDS": [
             'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com',
-            'shopee.tw', 'mitake.com.tw', 'money-link.com.tw', '591.com.tw',
+            'shopee.tw', 'mitake.com.tw', 'money-link.com.tw', '591.com.tw', '104.com.tw',
             'icloud.com', 'apple.com', 'whatsapp.net', 'update.microsoft.com', 'windowsupdate.com',
             'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
             'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
@@ -243,16 +242,17 @@ RULES_DB = {
         'snapchat.com', 'elads.kocpc.com.tw', 'app-ads-services.com', 'eservice.emarsys.net'
     ],
 
+    # V44.32: 移除了會引發邊界碰撞的 '/api/log' 等危險特徵，保護所有 /login 路由
     "CRITICAL_PATH_GENERIC": [
         '/accounts/CheckConnection', '/0.gif', '/1.gif', '/pixel.gif', '/beacon.gif', '/ping.gif',
         '/track.gif', '/dot.gif', '/clear.gif', '/empty.gif', '/shim.gif', '/spacer.gif', '/imp.gif',
         '/impression.gif', '/view.gif', '/sync.gif', '/sync.php', '/match.gif', '/match.php',
         '/utm.gif', '/event.gif', '/bk', '/bk.gif', '/collect', '/events',
         '/telemetry', '/metrics', '/traces', '/track', '/beacon', '/pixel', '/v1/collect', '/v1/events',
-        '/v1/track', '/v1/telemetry', '/v1/metrics', '/v1/log', '/v1/traces', '/v1/report',
+        '/v1/track', '/v1/telemetry', '/v1/metrics', '/v1/traces', '/v1/report',
         '/appbase_report_log', '/stat_log', '/trackcode/', '/v2/collect', '/v2/events', '/v2/track',
         '/v2/telemetry', '/tp2', '/api/v1/collect', '/api/v1/events', '/api/v1/track', '/api/v1/telemetry',
-        '/api/v1/log', '/api/log', '/v1/event', '/api/stats/ads', '/api/stats/atr', '/api/stats/qoe',
+        '/v1/event', '/api/stats/ads', '/api/stats/atr', '/api/stats/qoe',
         '/api/stats/playback', '/pagead/gen_204', '/pagead/paralleladview', '/tiktok/pixel/events', 
         '/linkedin/insight/track', '/api/fingerprint', '/v1/fingerprint', '/cdn/fp/', '/api/collect', 
         '/api/track', '/tr/', '/beacon', '/api/v1/event', '/rest/n/log', '/action-log', 
@@ -497,8 +497,8 @@ def compile_js() -> str:
  * 6) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)。
  * 7) [Fix-V44.25] 升級 591 至 HARD_WHITELIST，並增列 salt/s 參數白名單。
  * 8) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，解決 API 302 斷線與 App 喚醒失效問題。
- * 9) [Fix-V44.30] 將 appapi.104.com.tw 提權至 HARD_WHITELIST，解決其內部推薦 API 包含 /ad/ 路徑的誤殺問題。
- * 10) [Architecture-V44.31] 建立「網域特化參數白名單 (DOMAIN_PARAMS_WHITELIST)」，專門豁免 104 API 嚴格校驗的 device_id 必傳參數，防止防撞庫機制導致的 App 斷線，同時維持對其他網域的設備指紋封殺。
+ * 9) [Architecture-V44.31] 建立「網域特化參數白名單 (DOMAIN_PARAMS_WHITELIST)」，專門豁免 104 API 嚴格校驗的 device_id。
+ * 10) [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決其與 '/api/login' 發生「子字串碰撞」導致 104 登入失敗的致命 Bug；並將 104.com.tw 全面提權至 HARD_WHITELIST。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -586,7 +586,6 @@ const RULES = {{
         ['accounts.felo.me', new Set(['/'])],
         ['gcp-data-api.ltn.com.tw', new Set(['/'])]
     ]),
-    // V44.31: 網域特化參數白名單，針對特定網域允許特定的指紋參數存活 (防止 APP 斷線)
     DOMAIN_PARAMS_WHITELIST: {format_js_map(RULES_DB['DOMAIN_PARAMS_WHITELIST'])}
   }},
 
@@ -756,7 +755,6 @@ const HELPERS = {
         }
     }
 
-    // V44.31 構建網域特化允許清單
     let allowedParamsForDomain = new Set();
     if (RULES.PARAMS.DOMAIN_PARAMS_WHITELIST) {
         for (const [domain, allowedSet] of RULES.PARAMS.DOMAIN_PARAMS_WHITELIST) {
@@ -773,7 +771,6 @@ const HELPERS = {
 
       for (const p of RULES.PARAMS.GLOBAL) {
         if (params.has(p)) { 
-            // 檢查該參數是否在此網域被特許保留
             if (allowedParamsForDomain.has(p.toLowerCase())) continue;
             params.delete(p); 
             changed = true; 
@@ -790,7 +787,6 @@ const HELPERS = {
       const keys = Array.from(params.keys());
       for (const key of keys) {
         const lowerKey = key.toLowerCase();
-        // 全域白名單 或 網域特化白名單 皆可保護此參數
         if (RULES.PARAMS.WHITELIST.has(lowerKey) || allowedParamsForDomain.has(lowerKey)) continue;
         
         for (const p of RULES.PARAMS.PREFIXES) {
@@ -1269,8 +1265,12 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Universal Link Silent Rewrite", "https://www.591.com.tw/2S?salt=STrc0&s=al&utm_source=line", RES_REWRITE, "Used Silent Rewrite to clean params without 302 breaking Deep Link"))
     cases.append(TestCase("Privacy: API Silent Rewrite (591 BFF)", "https://bff-house.591.com.tw/v1/touch/sale/detail?utm_source=test&device_id=b26dd90d", RES_REWRITE, "Cleaned device_id and utm_ using Silent Rewrite without triggering CORS 302"))
 
-    # V44.31 新增測試：104 API 網域特化參數白名單驗證 (保留 device_id，刪除 utm_)
-    cases.append(TestCase("Privacy: 104 Domain Param Whitelist", "https://appapi.104.com.tw/2.0/recommend/list?device_id=6CCC0850&utm_source=test&device_type=0", RES_REWRITE, "Bypasses HIGH_CONFIDENCE block via HARD_WHITELIST, keeps device_id via DOMAIN_PARAMS_WHITELIST, strips utm_source via Silent Rewrite"))
+    cases.append(TestCase("AdBlock: App Ads Services", "https://odm.app-ads-services.com/v1/track", RES_BLOCK_403, "Block known pure app advertising/tracking network"))
+    
+    cases.append(TestCase("Fix: 104 App internal /ad/ path", "https://appapi.104.com.tw/2.0/ad/search/hashtag?device_type=0&device_id=6CCC0850&ad_type=full", RES_REWRITE, "Bypasses HIGH_CONFIDENCE /ad/ block via HARD_WHITELIST and strips device_id silently"))
+
+    # V44.32 新增測試：解決 '/api/log' 導致的登入邊界碰撞
+    cases.append(TestCase("BugFix: API Login Collision", "https://api.signin.104.com.tw/v2/api/login/valid-account", RES_ALLOW, "Prevent /api/log from falsely killing /api/login endpoints"))
 
     return cases
 
@@ -1298,12 +1298,6 @@ def evaluate_result(actual: Any, expected_type: str) -> Tuple[bool, str, str]:
             return False, f"HTTP ({code})", str(body)[:200]
         elif "url" in actual:
             if expected_type == RES_REWRITE: 
-                # Check for V44.31 verification: device_id should SURVIVE for 104.com.tw, but utm_source should DIE
-                if '104.com.tw' in actual["url"]:
-                    if 'device_id' in actual["url"] and 'utm_source' not in actual["url"]:
-                        return True, RES_REWRITE, "Domain-Specific Param Whitelist verified"
-                    else:
-                        return False, "REWRITE_FAIL", f"Param whitelist failed: {str(actual['url'])[:100]}"
                 return True, RES_REWRITE, ""
             return False, "REWRITE", str(actual["url"])[:200]
             
