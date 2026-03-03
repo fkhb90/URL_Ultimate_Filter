@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.33 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.34 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -10,11 +10,11 @@ URL Ultimate Filter - V44.33 SSOT Compiler & Matrix Test Suite
 4. [Feature] 升級蝦皮追蹤子網域為 P0，防範軟白名單覆蓋；新增 HTTPDNS 攔截。
 5. [Optimize] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
 6. [Feature] 建立 FINANCE_SAFE_HARBOR (金融避風港) 機制，全域絕對放行銀行、支付網域。
-7. [Fix-V44.25] 升級 591 至 HARD_WHITELIST，並增列 salt/s 參數白名單。
-8. [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，解決 API 302 斷線。
-9. [Architecture-V44.31] 建立「網域特化參數白名單」，豁免 104 API 嚴格校驗的 device_id。
-10. [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決 104 登入失敗的致命 Bug。
-11. [BugFix-V44.33] 修復測試引擎 (Matrix Test Suite) 覆蓋率遺失問題，完整恢復 PATH_BLOCK, PARAMS_GLOBAL, REDIRECTOR_HOSTS 與 CRITICAL_PATH_MAP 的動態測試矩陣生成迴圈，總用例數恢復至 800+ 級別。
+7. [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，解決 API 302 斷線。
+8. [Architecture-V44.31] 建立「網域特化參數白名單」，豁免 104 API 嚴格校驗的 device_id。
+9. [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決 104 登入失敗的致命 Bug。
+10. [BugFix-V44.33] 修復 Matrix Test Suite 引擎中的陣列截斷問題，完整恢復 800+ 條迴歸測試用例。
+11. [BugFix-V44.34] 擴充 SOFT_WHITELIST 與 PATH_EXEMPTIONS，精準放行 threads.com 與 threads.net 的 /post/ 路由，修復因長網址包含開放重定向 (Open Redirect) 特徵而導致的 L1 掃描器誤殺問題。
 """
 
 import json
@@ -30,7 +30,7 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.33"
+VERSION = "44.34"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -176,7 +176,7 @@ RULES_DB = {
             'wp.com', 'flipboard.com', 'inoreader.com', 'itofoo.com', 'newsblur.com', 'theoldreader.com',
             'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com', 'github.io', 'gitlab.io',
             'netlify.app', 'oraclecloud.com', 'pages.dev', 'vercel.app', 'windows.net', 'threads.net',
-            'slack.com', 'feedly.com',
+            'threads.com', 'slack.com', 'feedly.com',
             'ak.sv', 'bayimg.com', 'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com',
             'cubeupload.com', 'dlupload.com', 'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co',
             'imagebam.com', 'imageban.ru', 'imageshack.com', 'imagetwist.com', 'imagevenue.com', 'imgbb.com',
@@ -496,10 +496,10 @@ def compile_js() -> str:
  * 5) [Feature] 新增 FINANCE_SAFE_HARBOR，全域絕對放行銀行、支付與政府網域。
  * 6) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)。
  * 7) [Fix-V44.25] 升級 591 至 HARD_WHITELIST，並增列 salt/s 參數白名單。
- * 8) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，解決 API 302 斷線與 App 喚醒失效問題。
- * 9) [Architecture-V44.31] 建立「網域特化參數白名單 (DOMAIN_PARAMS_WHITELIST)」，專門豁免 104 API 嚴格校驗的 device_id。
+ * 8) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」完美解決 API 302 斷線與 App 喚醒失效問題。
+ * 9) [Architecture-V44.31] 建立「網域特化參數白名單」，專門豁免 104 API 嚴格校驗的 device_id。
  * 10) [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決 104 登入失敗的致命 Bug。
- * 11) [BugFix-V44.33] 修復 Matrix Test Suite 引擎中的陣列截斷問題，完整恢復 800+ 條迴歸測試用例。
+ * 11) [BugFix-V44.34] 擴充 SOFT_WHITELIST 與 PATH_EXEMPTIONS，精準放行 threads.com 與 threads.net 的 /post/ 路由，修復因長網址包含開放重定向 (Open Redirect) 特徵而導致的 L1 掃描器誤殺問題。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -611,11 +611,14 @@ const RULES = {{
     PREFIXES: new Set(['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/', '/wp-content/', '/wp-includes/', '/fonts/', '/dist/', '/vendor/', '/public/']),
     SUBSTRINGS: new Set(['cdn-cgi', 'shop/goods', 'product/detail']),
     SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js', 'uploads', 'fonts', 'resources']),
+    // V44.34: 新增 threads.com 與 threads.net 的 /post/ 路由豁免，防範長網址字串碰撞誤殺
     PATH_EXEMPTIONS: new Map([
         ['shopee.tw', new Set(['/api/v4/search/search_items'])],
         ['cmapi.tw.coupang.com', new Set(['/vendor-items/'])],
         ['www.google.com', new Set(['/url', '/search'])],
-        ['play.googleapis.com', new Set(['/log/batch'])]
+        ['play.googleapis.com', new Set(['/log/batch'])],
+        ['threads.com', new Set(['/post/'])],
+        ['threads.net', new Set(['/post/'])]
     ])
   }}
 }};
@@ -709,10 +712,14 @@ const HELPERS = {
   },
 
   isPathExemptedForDomain: (hostname, pathLower) => {
-    const exemptedPaths = RULES.EXCEPTIONS.PATH_EXEMPTIONS.get(hostname);
-    if (!exemptedPaths) return false;
-    for (const exemptedPath of exemptedPaths) {
-      if (pathLower.includes(exemptedPath)) return true;
+    // V44.34: 確保 PATH_EXEMPTIONS 能處理精確網域與萬用字元網域
+    let isExempted = false;
+    for (const [domain, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
+      if (hostname === domain || hostname.endsWith('.' + domain)) {
+        for (const exemptedPath of exemptedPaths) {
+          if (pathLower.includes(exemptedPath)) return true;
+        }
+      }
     }
     return false;
   },
@@ -928,6 +935,7 @@ function processRequest(request) {
     }
     if (cached === 'BLOCK') { stats.blocks++; return { response: { status: 403, body: 'Blocked by Cache' } }; }
 
+    // V44.34: 確保路徑豁免在所有黑名單掃描前執行
     if (HELPERS.isPathExemptedForDomain(hostname, pathLower)) {
         stats.allows++;
         return performCleaning();
@@ -1227,57 +1235,45 @@ def generate_full_coverage_cases() -> List[TestCase]:
     oauth_domain = RULES_DB["OAUTH_SAFE_HARBOR_DOMAINS"][0] if RULES_DB["OAUTH_SAFE_HARBOR_DOMAINS"] else "accounts.google.com"
     exempt_domain_exact = RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["EXACT"][0] if RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["EXACT"] else "shopback.com.tw"
 
-    # --- V44.33 BugFix: 恢復被意外截斷的自動生成迴圈 ---
-
-    # 1. 恢復 PRIORITY_BLOCK_DOMAINS
     for d in RULES_DB["PRIORITY_BLOCK_DOMAINS"]:
         cases.append(TestCase("Auto: Priority", f"https://{d}/api", RES_BLOCK_403, "Blocked by L2"))
     
-    # 2. 恢復 BLOCK_DOMAINS
     for d in RULES_DB["BLOCK_DOMAINS"]:
         expected = RES_ALLOW if is_domain_whitelisted(d) else RES_BLOCK_403
         cases.append(TestCase("Auto: Domain Block", f"https://{d}/test", expected, "Blocked by Domain"))
 
-    # 3. 恢復 REDIRECTOR_HOSTS (之前遺失)
     for d in RULES_DB["REDIRECTOR_HOSTS"]:
         cases.append(TestCase("Auto: Redirector", f"https://{d}/target", RES_BLOCK_403, "Blocked Redirector"))
 
-    # 4. 恢復 CRITICAL_PATH_MAP (之前遺失)
     for hostname, paths in RULES_DB["CRITICAL_PATH_MAP"].items():
         for p in paths:
             url_base = f"https://{hostname}" + (p if p.startswith("/") else f"/{p}")
             expected = RES_DROP_204 if "CheckConnection" in p else RES_BLOCK_403
             cases.append(TestCase("Auto: Critical Map", url_base, expected, "Blocked by Map"))
 
-    # 5. 恢復 CRITICAL_PATH_SCRIPT_ROOTS
     for s in RULES_DB["CRITICAL_PATH_SCRIPT_ROOTS"]:
         cases.append(TestCase("Auto: Script Root Block", f"https://example.com/js/{s}1.0.js", RES_BLOCK_403, "Blocked by Root Keyword"))
 
-    # 6. 恢復 HIGH_CONFIDENCE
     for k in RULES_DB["HIGH_CONFIDENCE"]:
          path_seg = f"{k}test.webp" if k.startswith("/") else f"/path/{k}/file.webp"
          cases.append(TestCase("Matrix: High Conf (Neutral)", f"https://example.com{path_seg}", RES_BLOCK_403, "High Conf Block"))
          cases.append(TestCase("Matrix: High Conf (Soft WL)", f"https://{dynamic_soft_wl}{path_seg}", RES_BLOCK_403, "High Conf Overrides Soft WL"))
          cases.append(TestCase("Matrix: High Conf (Hard WL)", f"https://{dynamic_hard_wl}{path_seg}", RES_ALLOW, "Hard WL Overrides Everything"))
 
-    # 7. 恢復 PATH_BLOCK (之前遺失)
     for k in RULES_DB["PATH_BLOCK"]:
          path_seg = f"{k}test" if k.startswith("/") else f"/path/{k}/file"
          cases.append(TestCase("Matrix: Keyword (Neutral)", f"https://example.com{path_seg}", RES_BLOCK_403, "Keyword Block"))
          cases.append(TestCase("Matrix: Keyword (Soft WL)", f"https://{dynamic_soft_wl}{path_seg}", RES_BLOCK_403, "Soft WL still blocks non-static Keywords"))
 
-    # 8. 恢復 CRITICAL_PATH_GENERIC
     for p in RULES_DB["CRITICAL_PATH_GENERIC"]:
         expected = RES_DROP_204 if "CheckConnection" in p else RES_BLOCK_403
         cases.append(TestCase("Auto: Critical Path", f"https://example.com{p if p.startswith('/') else '/' + p}", expected, "Blocked by L1"))
 
-    # 9. 恢復 DROP 測試
     static_suffixes = RULES_DB["EXCEPTIONS_SUFFIXES"]
     for k in RULES_DB["DROP"]:
         if any(k.endswith(s) for s in static_suffixes if s.startswith('.')): continue
         cases.append(TestCase("Auto: Keyword Drop", f"https://example.com/log/{k.replace('/', '')}", RES_DROP_204, "Silent Drop"))
 
-    # 10. 恢復 PARAMS_GLOBAL (之前遺失)
     for p in RULES_DB["PARAMS_GLOBAL"]:
          test_path = f"/?{p}=test"
          cases.append(TestCase("Privacy: Clean (Neutral)", f"https://example.com{test_path}", RES_CLEAN_302, "Param Cleaning"))
@@ -1286,7 +1282,6 @@ def generate_full_coverage_cases() -> List[TestCase]:
          expected_shop = RES_BLOCK_403 if is_path_keyword_blocked(test_path) else RES_ALLOW
          cases.append(TestCase("Privacy: Exemption (Shop)", f"https://{exempt_domain_exact}{test_path}", expected_shop, "Exempted from cleaning"))
 
-    # --- 自訂與邊界條件測試 ---
     cases.append(TestCase("Matrix: Double Decode Escape", "https://example.com/%2561%2564/banner.webp", RES_BLOCK_403, "Blocked by High Confidence Override (Double Decoded)"))
     cases.append(TestCase("Edge: HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772072185", RES_BLOCK_403, "Blocked by L1 Critical Path"))
     cases.append(TestCase("Feature: Heuristic API Silent Rewrite", "https://unknown-ecommerce.com/graphql/user?fbclid=test", RES_REWRITE, "GraphQL path uses Silent Rewrite to clean tracking parameters safely"))
@@ -1299,6 +1294,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("AdBlock: App Ads Services", "https://odm.app-ads-services.com/v1/track", RES_BLOCK_403, "Block known pure app advertising/tracking network"))
     cases.append(TestCase("Fix: 104 App internal /ad/ path", "https://appapi.104.com.tw/2.0/ad/search/hashtag?device_type=0&device_id=6CCC0850&ad_type=full", RES_REWRITE, "Bypasses HIGH_CONFIDENCE /ad/ block via HARD_WHITELIST and strips device_id silently"))
     cases.append(TestCase("BugFix: API Login Collision", "https://api.signin.104.com.tw/v2/api/login/valid-account", RES_ALLOW, "Prevent /api/log from falsely killing /api/login endpoints"))
+
+    # V44.34 新增測試：Threads 長網址開放重定向特徵防護
+    cases.append(TestCase("BugFix: Threads Path Exemption", "https://www.threads.com/@n_ys_m/post/DIaU/菠菜-httpsdocsgooglecom", RES_ALLOW, "Bypass L1/L2 path scanners using PATH_EXEMPTIONS for known social routing"))
 
     return cases
 
