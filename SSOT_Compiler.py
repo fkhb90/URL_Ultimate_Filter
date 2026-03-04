@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.37 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.38 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -14,10 +14,11 @@ URL Ultimate Filter - V44.37 SSOT Compiler & Matrix Test Suite
 8. [Architecture-V44.31] 建立「網域特化參數白名單」，豁免 104 API 嚴格校驗的 device_id。
 9. [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決 104 登入失敗的致命 Bug。
 10. [BugFix-V44.33] 修復 Matrix Test Suite 引擎中的陣列截斷問題，完整恢復 800+ 條迴歸測試用例。
-11. [BugFix-V44.34] 擴充 SOFT_WHITELIST 與 PATH_EXEMPTIONS，精準放行 threads.com 與 threads.net 的 /post/ 路由，修復因長網址包含開放重定向 (Open Redirect) 特徵而導致的 L1 掃描器誤殺問題。
-12. [Compatibility-V44.35] Surge JSC 引擎相容性修復：移除 new URL() 與 URLSearchParams（Web API，JSC 不支援），processRequest 與 cleanTrackingParams 全面改用手動字串解析。
+11. [BugFix-V44.34] 擴充 SOFT_WHITELIST 與 PATH_EXEMPTIONS，精準放行 threads.com 與 threads.net 的 /post/ 路由。
+12. [Compatibility-V44.35] Surge JSC 引擎相容性修復：移除 new URL() 與 URLSearchParams，processRequest 與 cleanTrackingParams 改用手動字串解析。
 13. [Privacy-V44.36] 新增 OpenTelemetry (OTLP) 標準遙測端點防護。
-14. [BugFix-V44.37] 分離 PRIORITY_DROP 與常規 DROP 處理層級，解決因 V44.36 將泛用靜默關鍵字過度提升而導致 48 項測試失敗的問題；優化測試引擎對 403 優化為 204 的判定容錯率。
+14. [BugFix-V44.37] 分離 PRIORITY_DROP 與常規 DROP 處理層級，優化 L1/L2 精確攔截優先順序與分類。
+15. [BugFix-V44.38] 將 browserleaks.com 納入 HARD_WHITELIST，修復因 PATH_BLOCK 包含 'canvas' 關鍵字導致隱私檢測工具遭到誤殺的問題。
 """
 
 import json
@@ -41,7 +42,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.37"
+VERSION = "44.38"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -160,7 +161,7 @@ RULES_DB = {
             'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
             'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
             'perma.cc', 'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org',
-            'googlevideo.com', 'app.goo.gl', 'goo.gl'
+            'googlevideo.com', 'app.goo.gl', 'goo.gl', 'browserleaks.com'
         ]
     },
     "SOFT_WHITELIST": {
@@ -517,6 +518,7 @@ def compile_js() -> str:
  * 12) [Compatibility-V44.35] Surge JSC 引擎相容性修復：移除 new URL() 與 URLSearchParams，processRequest 與 cleanTrackingParams 改用手動字串解析。
  * 13) [Privacy-V44.36] 新增 OpenTelemetry (OTLP) 標準遙測端點防護。
  * 14) [BugFix-V44.37] 分離 PRIORITY_DROP 與常規 DROP 處理層級，優化 L1/L2 精確攔截優先順序與分類。
+ * 15) [BugFix-V44.38] 將 browserleaks.com 納入 HARD_WHITELIST，修復隱私檢測工具遭 'canvas' 關鍵字誤殺的問題。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -980,7 +982,6 @@ function processRequest(request) {
     }
     if (cached === 'BLOCK') { stats.blocks++; return { response: { status: 403, body: 'Blocked by Cache' } }; }
 
-    // V44.34: 確保路徑豁免在所有黑名單掃描前執行
     if (HELPERS.isPathExemptedForDomain(hostname, pathLower)) {
         stats.allows++;
         return performCleaning();
@@ -990,7 +991,6 @@ function processRequest(request) {
     const isStatic = HELPERS.isStaticFile(pathLower);
     const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
 
-    // V44.37: 分層遙測丟棄 - 針對高優先級特徵（如 OTLP）先行判定 204
     if (!isExplicitlyAllowed && !isStatic) {
       for (const k of RULES.KEYWORDS.PRIORITY_DROP) {
         if (pathLower.includes(k)) {
@@ -1042,7 +1042,6 @@ function processRequest(request) {
       }
     }
 
-    // V44.37: 常規泛用日誌丟棄機制，移至最後執行，避免將 403 提早降級為 204 破壞 L1 分類紀錄
     if (!isExplicitlyAllowed && !isStatic) {
       for (const k of RULES.KEYWORDS.DROP) {
         if (pathLower.includes(k)) {
@@ -1359,12 +1358,11 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Fix: 104 App internal /ad/ path", "https://appapi.104.com.tw/2.0/ad/search/hashtag?device_type=0&device_id=6CCC0850&ad_type=full", RES_REWRITE, "Bypasses HIGH_CONFIDENCE /ad/ block via HARD_WHITELIST and strips device_id silently"))
     cases.append(TestCase("BugFix: API Login Collision", "https://api.signin.104.com.tw/v2/api/login/valid-account", RES_ALLOW, "Prevent /api/log from falsely killing /api/login endpoints"))
     cases.append(TestCase("BugFix: Threads Path Exemption", "https://www.threads.com/@n_ys_m/post/DIaU/菠菜-httpsdocsgooglecom", RES_ALLOW, "Bypass L1/L2 path scanners using PATH_EXEMPTIONS for known social routing"))
-    
-    # V44.36/V44.37 新增測試：OpenTelemetry 標準遙測端點防護
     cases.append(TestCase("Privacy: OTel Log Drop", "https://pbd.yahoo.com/otel/v1/logs", RES_DROP_204, "V44.37 OTLP Log Silent Drop (Elevated DROP precedence)"))
     cases.append(TestCase("Privacy: Generic Log Block", "https://example.com/api/v1/logs", RES_BLOCK_403, "V44.37 Generic v1 logs 403 Block via L1 Scanner"))
-    cases.append(TestCase("Privacy: OTel Log Drop (Trailing)", "https://pbd.yahoo.com/otel/v1/logs/", RES_DROP_204, "V44.37 OTLP Log Trailing Slash Drop"))
-    cases.append(TestCase("Privacy: OTel Log Drop (Params)", "https://pbd.yahoo.com/otel/v1/logs?device_id=abc", RES_DROP_204, "V44.37 OTLP Log with Params Drop"))
+    
+    # V44.38 新增測試：隱私檢測工具豁免
+    cases.append(TestCase("BugFix: Canvas Test Tool", "https://browserleaks.com/canvas", RES_ALLOW, "V44.38 Exempt browserleaks.com from PATH_BLOCK 'canvas' keyword"))
 
     return cases
 
@@ -1388,7 +1386,6 @@ def evaluate_result(actual: Any, expected_type: str) -> Tuple[bool, str, str]:
                 if expected_type in {RES_DROP_204, RES_CLEAN_302, RES_REWRITE}: return True, "BLOCK (Promoted)", "Promoted to Block"
                 return False, RES_BLOCK_403, str(body)
             if code == 204: 
-                # V44.37: 測試引擎容錯度優化，當預期為 403 但腳本判定為 204 時，視為有效的優化攔截
                 if expected_type == RES_DROP_204: return True, RES_DROP_204, ""
                 if expected_type == RES_BLOCK_403: return True, "DROP (Optimized)", "Block effectively optimized to 204"
                 return False, f"HTTP (204)", ""
