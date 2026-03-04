@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.34 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.35 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -15,6 +15,7 @@ URL Ultimate Filter - V44.34 SSOT Compiler & Matrix Test Suite
 9. [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決 104 登入失敗的致命 Bug。
 10. [BugFix-V44.33] 修復 Matrix Test Suite 引擎中的陣列截斷問題，完整恢復 800+ 條迴歸測試用例。
 11. [BugFix-V44.34] 擴充 SOFT_WHITELIST 與 PATH_EXEMPTIONS，精準放行 threads.com 與 threads.net 的 /post/ 路由，修復因長網址包含開放重定向 (Open Redirect) 特徵而導致的 L1 掃描器誤殺問題。
+12. Fixed By Claude Code [Compatibility-V44.35] Surge JSC 引擎相容性修復：移除 new URL() 與 URLSearchParams（Web API，JSC 不支援），processRequest 與 cleanTrackingParams 全面改用手動字串解析；修復 $done 通知版本號 V44.35 未正確插值的問題。
 """
 
 import json
@@ -30,7 +31,15 @@ from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-VERSION = "44.34"
+# Fix Windows console encoding (cp950 cannot encode emoji)
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+VERSION = "44.35"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -500,10 +509,12 @@ def compile_js() -> str:
  * 9) [Architecture-V44.31] 建立「網域特化參數白名單」，專門豁免 104 API 嚴格校驗的 device_id。
  * 10) [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決 104 登入失敗的致命 Bug。
  * 11) [BugFix-V44.34] 擴充 SOFT_WHITELIST 與 PATH_EXEMPTIONS，精準放行 threads.com 與 threads.net 的 /post/ 路由，修復因長網址包含開放重定向 (Open Redirect) 特徵而導致的 L1 掃描器誤殺問題。
+ * 12) [Compatibility-V44.35] Surge JSC 引擎相容性修復：移除 new URL() 與 URLSearchParams（Web API，JSC 不支援），processRequest 與 cleanTrackingParams 全面改用手動字串解析；修復 $done 通知版本號 V{VERSION} 未正確插值的問題。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
 const CONFIG = {{ DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 }};
+const SCRIPT_VERSION = '{VERSION}';
 
 const OAUTH_SAFE_HARBOR = {{
     DOMAINS: {format_js_set(RULES_DB['OAUTH_SAFE_HARBOR_DOMAINS'])},
@@ -592,8 +603,8 @@ const RULES = {{
 
   REGEX: {{
     PATH_BLOCK: [
-      /^https?:\\/\\/[^\\/]+\\/(\\w+\\/)?ad[s]?\\//i,
-      /\\.(com|net|org)\\/(\\w+\\/)?(ad|banner|tracker)\\.(js|gif|png)$/i,
+      /^\\/(\\w+\\/)?ads?\\//i,
+      /\\/(ad|banner|tracker)\\.(js|gif|png)(\\?|$)/i,
       /\\/pagead\\/ads/i, /\\/googleads\\//i, /\\/ads\\/user-lists\\//i, /\\/marketing\\/api\\//i
     ],
     HEURISTIC: [
@@ -626,7 +637,7 @@ const RULES = {{
 
     js_engine_logic = r"""
 class ACScanner {
-  constructor(keywords) { this.keywords = keywords; }
+  constructor(keywords) { this.keywords = keywords.map(k => k.toLowerCase()); }
   matches(text) {
     if (!text) return false;
     const target = text.length > CONFIG.AC_SCAN_MAX_LENGTH ? text.substring(0, CONFIG.AC_SCAN_MAX_LENGTH) : text;
@@ -661,13 +672,13 @@ const criticalPathScanner = new ACScanner([
   ...RULES.CRITICAL_PATH.SCRIPT_ROOTS
 ]);
 
-const COMBINED_REGEX = [
+// PATH_REGEX: 僅含路徑層級正則 (對 pathLower 比對)
+// 注意: BLOCK_DOMAINS_REGEX 為網域層級正則 (對 hostname 比對)，
+//       已在 processRequest 的網域檢查階段獨立執行，不應混入此陣列。
+const COMBINED_PATH_REGEX = [
   ...RULES.REGEX.PATH_BLOCK,
-  ...RULES.REGEX.HEURISTIC,
-  ...RULES.BLOCK_DOMAINS_REGEX
+  ...RULES.REGEX.HEURISTIC
 ];
-
-const PRIORITY_SUFFIX_LIST = Array.from(RULES.PRIORITY_BLOCK_DOMAINS);
 
 const STATIC_EXTENSIONS = new Set();
 const STATIC_FILENAMES = new Set();
@@ -692,7 +703,7 @@ function isDomainMatch(setExact, wildcards, hostname) {
 const HELPERS = {
   isStaticFile: (pathLowerMaybeWithQuery) => {
     if (!pathLowerMaybeWithQuery) return false;
-    const cleanPath = pathLowerMaybeWithQuery.split('?')[0].toLowerCase();
+    const cleanPath = pathLowerMaybeWithQuery.split('?')[0];
     const lastDot = cleanPath.lastIndexOf('.');
     if (lastDot !== -1) {
       const ext = cleanPath.substring(lastDot);
@@ -712,8 +723,6 @@ const HELPERS = {
   },
 
   isPathExemptedForDomain: (hostname, pathLower) => {
-    // V44.34: 確保 PATH_EXEMPTIONS 能處理精確網域與萬用字元網域
-    let isExempted = false;
     for (const [domain, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
       if (hostname === domain || hostname.endsWith('.' + domain)) {
         for (const exemptedPath of exemptedPaths) {
@@ -773,41 +782,74 @@ const HELPERS = {
     }
 
     try {
-      const urlObj = new URL(urlStr);
-      const params = urlObj.searchParams;
+      // Manual query string parsing (Surge JSC compatibility: no URLSearchParams)
+      const _qi = urlStr.indexOf('?');
+      if (_qi < 0) return null;
+
+      const _hi = urlStr.indexOf('#', _qi);
+      const base = urlStr.substring(0, _qi);
+      const qs = _hi >= 0 ? urlStr.substring(_qi + 1, _hi) : urlStr.substring(_qi + 1);
+      const hash = _hi >= 0 ? urlStr.substring(_hi) : '';
+
+      if (!qs) return null;
+
+      const pairs = qs.split('&');
+      const kept = [];
       let changed = false;
 
-      for (const p of RULES.PARAMS.GLOBAL) {
-        if (params.has(p)) { 
-            if (allowedParamsForDomain.has(p.toLowerCase())) continue;
-            params.delete(p); 
-            changed = true; 
-        }
-      }
-      for (const p of RULES.PARAMS.COSMETIC) {
-        if (params.has(p)) { 
-            if (allowedParamsForDomain.has(p.toLowerCase())) continue;
-            params.delete(p); 
-            changed = true; 
-        }
-      }
-
-      const keys = Array.from(params.keys());
-      for (const key of keys) {
+      for (let i = 0; i < pairs.length; i++) {
+        const pair = pairs[i];
+        if (!pair) { kept.push(pair); continue; }
+        const eqIdx = pair.indexOf('=');
+        const key = eqIdx >= 0 ? pair.substring(0, eqIdx) : pair;
         const lowerKey = key.toLowerCase();
-        if (RULES.PARAMS.WHITELIST.has(lowerKey) || allowedParamsForDomain.has(lowerKey)) continue;
-        
-        for (const p of RULES.PARAMS.PREFIXES) {
-          if (lowerKey.startsWith(p)) { params.delete(key); changed = true; break; }
+
+        // 1. GLOBAL params check
+        let shouldRemove = false;
+        for (const p of RULES.PARAMS.GLOBAL) {
+          if (key === p) {
+            if (!allowedParamsForDomain.has(lowerKey)) shouldRemove = true;
+            break;
+          }
         }
-        if (!params.has(key)) continue;
+        if (shouldRemove) { changed = true; continue; }
+
+        // 2. COSMETIC params check
+        for (const p of RULES.PARAMS.COSMETIC) {
+          if (key === p) {
+            if (!allowedParamsForDomain.has(lowerKey)) shouldRemove = true;
+            break;
+          }
+        }
+        if (shouldRemove) { changed = true; continue; }
+
+        // 3. Whitelisted params: skip further checks
+        if (RULES.PARAMS.WHITELIST.has(lowerKey) || allowedParamsForDomain.has(lowerKey)) {
+          kept.push(pair);
+          continue;
+        }
+
+        // 4. PREFIX match check
+        let prefixHit = false;
+        for (const p of RULES.PARAMS.PREFIXES) {
+          if (lowerKey.startsWith(p)) { prefixHit = true; break; }
+        }
+        if (prefixHit) { changed = true; continue; }
+
+        // 5. GLOBAL_REGEX / PREFIXES_REGEX check
         if (RULES.PARAMS.GLOBAL_REGEX.some(r => r.test(lowerKey)) ||
             RULES.PARAMS.PREFIXES_REGEX.some(r => r.test(lowerKey))) {
-          params.delete(key);
           changed = true;
+          continue;
         }
+
+        kept.push(pair);
       }
-      return changed ? { url: urlObj.toString(), type: rewriteType } : null;
+
+      if (!changed) return null;
+      const newQs = kept.join('&');
+      const newUrl = newQs ? base + '?' + newQs + hash : base + hash;
+      return { url: newUrl, type: rewriteType };
     } catch (_) {
       return null;
     }
@@ -826,7 +868,7 @@ function initializeOnce() {
 
 function isPriorityDomain(hostname) {
   if (RULES.PRIORITY_BLOCK_DOMAINS.has(hostname)) return true;
-  for (const d of PRIORITY_SUFFIX_LIST) {
+  for (const d of RULES.PRIORITY_BLOCK_DOMAINS) {
     if (hostname.endsWith('.' + d)) return true;
   }
   return false;
@@ -857,10 +899,16 @@ function processRequest(request) {
   if (!url) return null;
 
   try {
-    const urlObj = new URL(url);
-    const hostname = urlObj.hostname.toLowerCase();
-    const rawPath = urlObj.pathname + urlObj.search;
-    
+    // Manual URL parsing (Surge JSC compatibility: no Web API)
+    const _pe = url.indexOf('://');
+    const _hs = _pe >= 0 ? _pe + 3 : 0;
+    const _ps = url.indexOf('/', _hs);
+    const _hp = _ps >= 0 ? url.substring(_hs, _ps) : url.substring(_hs);
+    const hostname = _hp.split(':')[0].toLowerCase();
+    let rawPath = _ps >= 0 ? url.substring(_ps) : '/';
+    const _fi = rawPath.indexOf('#');
+    if (_fi >= 0) rawPath = rawPath.substring(0, _fi);
+
     let pathLower;
     try {
         let decoded = decodeURIComponent(rawPath);
@@ -979,7 +1027,7 @@ function processRequest(request) {
           stats.blocks++;
           return { response: { status: 403, body: 'Blocked by Keyword' } };
         }
-        if (COMBINED_REGEX.some(r => r.test(pathLower))) {
+        if (COMBINED_PATH_REGEX.some(r => r.test(pathLower))) {
           stats.blocks++;
           return { response: { status: 403, body: 'Blocked by Regex' } };
         }
@@ -1010,7 +1058,7 @@ if (typeof $request !== 'undefined') {
   $done(processRequest($request));
 } else {
   if (typeof $done !== 'undefined') {
-      $done({ title: 'URL Ultimate Filter', content: `V{VERSION} Active\n${stats.toString()}` });
+      $done({ title: 'URL Ultimate Filter', content: `V${SCRIPT_VERSION} Active\n${stats.toString()}` });
   }
 }
 """
@@ -1216,14 +1264,20 @@ def is_domain_whitelisted(domain: str) -> bool:
             return True
     return False
 
+_ALL_BLOCK_KEYWORDS = [
+    k.lower() for k in (
+        RULES_DB["HIGH_CONFIDENCE"]
+        + RULES_DB["CRITICAL_PATH_GENERIC"]
+        + RULES_DB["CRITICAL_PATH_SCRIPT_ROOTS"]
+        + RULES_DB["PATH_BLOCK"]
+    )
+]
+
 def is_path_keyword_blocked(path: str) -> bool:
     path_lower = path.lower()
-    for k in RULES_DB["HIGH_CONFIDENCE"]:
-        if k.lower() in path_lower: return True
-    for k in RULES_DB["CRITICAL_PATH_GENERIC"] + RULES_DB["CRITICAL_PATH_SCRIPT_ROOTS"]:
-        if k.lower() in path_lower: return True
-    for k in RULES_DB["PATH_BLOCK"]:
-        if k.lower() in path_lower: return True
+    for k in _ALL_BLOCK_KEYWORDS:
+        if k in path_lower:
+            return True
     return False
 
 def generate_full_coverage_cases() -> List[TestCase]:
@@ -1385,9 +1439,10 @@ def run_tests():
             sys.exit(1)
             
         results = json.loads(stdout)
+        result_map = {r['id']: r for r in results}
         outcomes = []
         for i, c in enumerate(final_cases):
-            res = next((r for r in results if r['id'] == i), {})
+            res = result_map.get(i, {})
             actual_output = res.get('output')
             is_pass, status, details = evaluate_result(actual_output, c.expected)
             outcomes.append(TestOutcome(c, status, details, is_pass))
