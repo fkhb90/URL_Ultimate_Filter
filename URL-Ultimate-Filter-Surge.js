@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.35 (SSOT Compilation & Pages Deployment)
+ * @version   44.37 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
@@ -9,16 +9,18 @@
  * 5) [Feature] 新增 FINANCE_SAFE_HARBOR，全域絕對放行銀行、支付與政府網域。
  * 6) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)。
  * 7) [Fix-V44.25] 升級 591 至 HARD_WHITELIST，並增列 salt/s 參數白名單。
- * 8) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」完美解決 API 302 斷線與 App 喚醒失效問題。
+ * 8) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，解決 API 302 斷線與 App 喚醒失效問題。
  * 9) [Architecture-V44.31] 建立「網域特化參數白名單」，專門豁免 104 API 嚴格校驗的 device_id。
  * 10) [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決 104 登入失敗的致命 Bug。
- * 11) [BugFix-V44.34] 擴充 SOFT_WHITELIST 與 PATH_EXEMPTIONS，精準放行 threads.com 與 threads.net 的 /post/ 路由，修復因長網址包含開放重定向 (Open Redirect) 特徵而導致的 L1 掃描器誤殺問題。
- * 12) [Compatibility-V44.35] Surge JSC 引擎相容性修復：移除 new URL() 與 URLSearchParams（Web API，JSC 不支援），processRequest 與 cleanTrackingParams 全面改用手動字串解析；修復 $done 通知版本號 V44.35 未正確插值的問題。
+ * 11) [BugFix-V44.34] 擴充 SOFT_WHITELIST 與 PATH_EXEMPTIONS，精準放行 threads.com 與 threads.net 的 /post/ 路由。
+ * 12) [Compatibility-V44.35] Surge JSC 引擎相容性修復：移除 new URL() 與 URLSearchParams，processRequest 與 cleanTrackingParams 改用手動字串解析。
+ * 13) [Privacy-V44.36] 新增 OpenTelemetry (OTLP) 標準遙測端點防護。
+ * 14) [BugFix-V44.37] 分離 PRIORITY_DROP 與常規 DROP 處理層級，優化 L1/L2 精確攔截優先順序與分類。
  * @lastUpdated 2026-03-04
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.35';
+const SCRIPT_VERSION = '44.37';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -232,20 +234,19 @@ const RULES = {
     '/track.gif', '/dot.gif', '/clear.gif', '/empty.gif', '/shim.gif', '/spacer.gif',
     '/imp.gif', '/impression.gif', '/view.gif', '/sync.gif', '/sync.php', '/match.gif',
     '/match.php', '/utm.gif', '/event.gif', '/bk', '/bk.gif', '/collect',
-    '/events', '/telemetry', '/metrics', '/traces', '/track', '/beacon',
-    '/pixel', '/v1/collect', '/v1/events', '/v1/track', '/v1/telemetry', '/v1/metrics',
-    '/v1/traces', '/v1/report', '/appbase_report_log', '/stat_log', '/trackcode/', '/v2/collect',
-    '/v2/events', '/v2/track', '/v2/telemetry', '/tp2', '/api/v1/collect', '/api/v1/events',
-    '/api/v1/track', '/api/v1/telemetry', '/v1/event', '/api/stats/ads', '/api/stats/atr', '/api/stats/qoe',
-    '/api/stats/playback', '/pagead/gen_204', '/pagead/paralleladview', '/tiktok/pixel/events', '/linkedin/insight/track', '/api/fingerprint',
-    '/v1/fingerprint', '/cdn/fp/', '/api/collect', '/api/track', '/tr/', '/beacon',
-    '/api/v1/event', '/rest/n/log', '/action-log', '/ramen/v1/events', '/_events', '/report/v1/log',
-    '/app/mobilelog', '/api/web/ad/', '/cdn/fingerprint/', '/api/device-id', '/api/visitor-id', '/ads/ga-audiences',
-    '/doubleclick/', '/google-analytics/', '/googleadservices/', '/googlesyndication/', '/googletagmanager/', '/tiktok/track/',
-    '/__utm.gif', '/j/collect', '/r/collect', '/api/batch', '/api/events', '/api/logs/',
+    '/events', '/track', '/beacon', '/pixel', '/v1/collect', '/v1/events',
+    '/v1/track', '/v1/report', '/v1/logs', '/api/v1/logs', '/appbase_report_log', '/stat_log',
+    '/trackcode/', '/v2/collect', '/v2/events', '/v2/track', '/tp2', '/api/v1/collect',
+    '/api/v1/events', '/api/v1/track', '/api/v1/telemetry', '/v1/event', '/api/stats/ads', '/api/stats/atr',
+    '/api/stats/qoe', '/api/stats/playback', '/pagead/gen_204', '/pagead/paralleladview', '/tiktok/pixel/events', '/linkedin/insight/track',
+    '/api/fingerprint', '/v1/fingerprint', '/cdn/fp/', '/api/collect', '/api/track', '/tr/',
+    '/beacon', '/api/v1/event', '/rest/n/log', '/action-log', '/ramen/v1/events', '/_events',
+    '/report/v1/log', '/app/mobilelog', '/api/web/ad/', '/cdn/fingerprint/', '/api/device-id', '/api/visitor-id',
+    '/ads/ga-audiences', '/doubleclick/', '/google-analytics/', '/googleadservices/', '/googlesyndication/', '/googletagmanager/',
+    '/tiktok/track/', '/__utm.gif', '/j/collect', '/r/collect', '/api/batch', '/api/events',
     '/api/v1/events', '/api/v1/track', '/api/v2/event', '/api/v2/events', '/collect?', '/data/collect',
-    '/events/track', '/ingest/', '/intake', '/p.gif', '/rec/bundle', '/t.gif',
-    '/telemetry/', '/track/', '/v1/pixel', '/v2/track', '/v3/track', '/2/client/addlog_batch',
+    '/events/track', '/ingest/', '/ingest/otel', '/intake', '/p.gif', '/rec/bundle',
+    '/t.gif', '/track/', '/v1/pixel', '/v2/track', '/v3/track', '/2/client/addlog_batch',
     '/plugins/easy-social-share-buttons/', '/event_report', '/log/aplus', '/v.gif', '/ad-sw.js', '/ads-sw.js',
     '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/',
     '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc',
@@ -605,24 +606,28 @@ const RULES = {
     'amp-analytics', 'amp-auto-ads', 'amp-sticky-ad', 'amp4ads', 'apstag', 'google_ad',
     'pagead', 'pwt.js', '/analytic/', '/analytics/', '/api/v2/rum', '/audit/',
     '/beacon/', '/collect?', '/collector/', 'g/collect', '/insight/', '/intelligence/',
-    '/measurement', 'mp/collect', '/report/', '/reporting/', '/reports/', '/telemetry/',
-    '/unstable/produce_batch', '/v1/produce', '/bugsnag/', '/crash/', 'debug/mp/collect', '/error/',
-    '/envelope', '/exception/', '/stacktrace/', 'performance-tracking', 'real-user-monitoring', 'web-vitals',
-    'audience', 'attribution', 'behavioral-targeting', 'cohort', 'cohort-analysis', 'data-collection',
-    'data-sync', 'fingerprint', 'retargeting', 'session-replay', 'third-party-cookie', 'user-analytics',
-    'user-behavior', 'user-cohort', 'user-segment', 'appier', 'comscore', 'fbevents',
-    'fbq', 'google-analytics', 'onead', 'osano', 'sailthru', 'tapfiliate',
-    'utag.js', '/apmapi/', 'canvas', 'webgl', 'audio-fp', 'font-detect'
+    '/measurement', 'mp/collect', '/report/', '/reporting/', '/reports/', '/unstable/produce_batch',
+    '/v1/produce', '/bugsnag/', '/crash/', 'debug/mp/collect', '/error/', '/envelope',
+    '/exception/', '/stacktrace/', 'performance-tracking', 'real-user-monitoring', 'web-vitals', 'audience',
+    'attribution', 'behavioral-targeting', 'cohort', 'cohort-analysis', 'data-collection', 'data-sync',
+    'fingerprint', 'retargeting', 'session-replay', 'third-party-cookie', 'user-analytics', 'user-behavior',
+    'user-cohort', 'user-segment', 'appier', 'comscore', 'fbevents', 'fbq',
+    'google-analytics', 'onead', 'osano', 'sailthru', 'tapfiliate', 'utag.js',
+    '/apmapi/', 'canvas', 'webgl', 'audio-fp', 'font-detect'
   ],
+    PRIORITY_DROP: new Set([
+    '/otel/v1/logs', '/otel/v1/traces', '/otel/v1/metrics', '/agent/v1/logs', '/v1/telemetry', '/v1/metrics',
+    '/v1/traces', '/telemetry/'
+  ]),
     DROP: new Set([
     '.log', '?diag=', '?log=', '-log.', '/diag/', '/log/',
     '/logging/', '/logs/', 'adlog', 'ads-beacon', 'airbrake', 'amp-analytics',
     'batch', 'beacon', 'client-event', 'collect', 'collect?', 'collector',
     'crashlytics', 'csp-report', 'data-pipeline', 'error-monitoring', 'error-report', 'heartbeat',
     'ingest', 'intake', 'live-log', 'log-event', 'logevents', 'loggly',
-    'log-hl', 'realtime-log', '/rum/', 'server-event', 'telemetry', 'uploadmobiledata',
-    'web-beacon', 'web-vitals', 'crash-report', 'diagnostic.log', 'profiler', 'stacktrace',
-    'trace.json', '/error_204', 'a=logerror', '/client/events'
+    'log-hl', 'realtime-log', '/rum/', 'server-event', 'uploadmobiledata', 'web-beacon',
+    'web-vitals', 'crash-report', 'diagnostic.log', 'profiler', 'stacktrace', 'trace.json',
+    '/error_204', 'a=logerror', '/client/events'
   ])
   },
 
@@ -637,7 +642,7 @@ const RULES = {
     'irclickid', 'is_retargeting', 'ko_click_id', 'li_fat_id', 'mibextid', 'msclkid',
     'oprtrack', 'rb_clickid', 'sscid', 'trk', 'usqp', 'vero_conv',
     'vero_id', 'wbraid', 'wt_mc', 'xtor', 'ysclid', 'zanpid',
-    'yt_src', 'yt_ad', 's_kwcid', 'sc_cid'
+    'yt_src', 'yt_ad', 's_kwcid', 'sc_cid', 'log_level'
   ]),
     GLOBAL_REGEX: [/^utm_\w+/i, /^ig_[\w_]+/i, /^asa_\w+/i, /^tt_[\w_]+/i, /^li_[\w_]+/i],
     PREFIXES: new Set(['__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs', '_oly_', 'action_', 'ad_', 'adjust_', 'aff_', 'af_', 'alg_', 'at_', 'bd_', 'bsft_', 'campaign_', 'cj', 'cm_', 'content_', 'creative_', 'fb_', 'from_', 'gcl_', 'guce_', 'hmsr_', 'hsa_', 'ir_', 'itm_', 'li_', 'matomo_', 'medium_', 'mkt_', 'ms_', 'mt_', 'mtm', 'pk_', 'piwik_', 'placement_', 'ref_', 'share_', 'source_', 'space_', 'term_', 'trk_', 'tt_', 'ttc_', 'vsm_', 'li_fat_', 'linkedin_']),
@@ -686,7 +691,6 @@ const RULES = {
     PREFIXES: new Set(['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/', '/wp-content/', '/wp-includes/', '/fonts/', '/dist/', '/vendor/', '/public/']),
     SUBSTRINGS: new Set(['cdn-cgi', 'shop/goods', 'product/detail']),
     SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js', 'uploads', 'fonts', 'resources']),
-    // V44.34: 新增 threads.com 與 threads.net 的 /post/ 路由豁免，防範長網址字串碰撞誤殺
     PATH_EXEMPTIONS: new Map([
         ['shopee.tw', new Set(['/api/v4/search/search_items'])],
         ['cmapi.tw.coupang.com', new Set(['/vendor-items/'])],
@@ -734,9 +738,6 @@ const criticalPathScanner = new ACScanner([
   ...RULES.CRITICAL_PATH.SCRIPT_ROOTS
 ]);
 
-// PATH_REGEX: 僅含路徑層級正則 (對 pathLower 比對)
-// 注意: BLOCK_DOMAINS_REGEX 為網域層級正則 (對 hostname 比對)，
-//       已在 processRequest 的網域檢查階段獨立執行，不應混入此陣列。
 const COMBINED_PATH_REGEX = [
   ...RULES.REGEX.PATH_BLOCK,
   ...RULES.REGEX.HEURISTIC
@@ -844,7 +845,6 @@ const HELPERS = {
     }
 
     try {
-      // Manual query string parsing (Surge JSC compatibility: no URLSearchParams)
       const _qi = urlStr.indexOf('?');
       if (_qi < 0) return null;
 
@@ -866,7 +866,6 @@ const HELPERS = {
         const key = eqIdx >= 0 ? pair.substring(0, eqIdx) : pair;
         const lowerKey = key.toLowerCase();
 
-        // 1. GLOBAL params check
         let shouldRemove = false;
         for (const p of RULES.PARAMS.GLOBAL) {
           if (key === p) {
@@ -876,7 +875,6 @@ const HELPERS = {
         }
         if (shouldRemove) { changed = true; continue; }
 
-        // 2. COSMETIC params check
         for (const p of RULES.PARAMS.COSMETIC) {
           if (key === p) {
             if (!allowedParamsForDomain.has(lowerKey)) shouldRemove = true;
@@ -885,20 +883,17 @@ const HELPERS = {
         }
         if (shouldRemove) { changed = true; continue; }
 
-        // 3. Whitelisted params: skip further checks
         if (RULES.PARAMS.WHITELIST.has(lowerKey) || allowedParamsForDomain.has(lowerKey)) {
           kept.push(pair);
           continue;
         }
 
-        // 4. PREFIX match check
         let prefixHit = false;
         for (const p of RULES.PARAMS.PREFIXES) {
           if (lowerKey.startsWith(p)) { prefixHit = true; break; }
         }
         if (prefixHit) { changed = true; continue; }
 
-        // 5. GLOBAL_REGEX / PREFIXES_REGEX check
         if (RULES.PARAMS.GLOBAL_REGEX.some(r => r.test(lowerKey)) ||
             RULES.PARAMS.PREFIXES_REGEX.some(r => r.test(lowerKey))) {
           changed = true;
@@ -961,7 +956,6 @@ function processRequest(request) {
   if (!url) return null;
 
   try {
-    // Manual URL parsing (Surge JSC compatibility: no Web API)
     const _pe = url.indexOf('://');
     const _hs = _pe >= 0 ? _pe + 3 : 0;
     const _ps = url.indexOf('/', _hs);
@@ -1055,6 +1049,17 @@ function processRequest(request) {
     const isStatic = HELPERS.isStaticFile(pathLower);
     const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
 
+    // V44.37: 分層遙測丟棄 - 針對高優先級特徵（如 OTLP）先行判定 204
+    if (!isExplicitlyAllowed && !isStatic) {
+      for (const k of RULES.KEYWORDS.PRIORITY_DROP) {
+        if (pathLower.includes(k)) {
+          stats.blocks++;
+          if (CONFIG.DEBUG_MODE) console.log(`[Priority Drop] ${pathLower}`);
+          return { response: { status: 204 } };
+        }
+      }
+    }
+
     if (!isExplicitlyAllowed) {
         if (highConfidenceScanner.matches(pathLower)) {
             stats.blocks++;
@@ -1096,10 +1101,12 @@ function processRequest(request) {
       }
     }
 
+    // V44.37: 常規泛用日誌丟棄機制，移至最後執行，避免將 403 提早降級為 204 破壞 L1 分類紀錄
     if (!isExplicitlyAllowed && !isStatic) {
       for (const k of RULES.KEYWORDS.DROP) {
         if (pathLower.includes(k)) {
           stats.blocks++;
+          if (CONFIG.DEBUG_MODE) console.log(`[Silent Drop] ${pathLower}`);
           return { response: { status: 204 } };
         }
       }
