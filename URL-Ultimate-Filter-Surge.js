@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.41 (SSOT Compilation & Pages Deployment)
+ * @version   44.44 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
@@ -13,18 +13,21 @@
  * 9) [Architecture-V44.31] 建立「網域特化參數白名單」，專門豁免 104 API 嚴格校驗的 device_id。
  * 10) [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決 104 登入失敗的致命 Bug。
  * 11) [BugFix-V44.34] 擴充 SOFT_WHITELIST 與 PATH_EXEMPTIONS，精準放行 threads.com 與 threads.net 的 /post/ 路由。
- * 12) [Compatibility-V44.35] Surge JSC 引擎相容性修復：移除 new URL() 與 URLSearchParams，processRequest 與 cleanTrackingParams 改用手動字串解析。
+ * 12) [Compatibility-V44.35] Surge JSC 引擎相容性修復。
  * 13) [Privacy-V44.36] 新增 OpenTelemetry (OTLP) 標準遙測端點防護。
  * 14) [BugFix-V44.37] 分離 PRIORITY_DROP 與常規 DROP 處理層級，優化 L1/L2 精確攔截優先順序與分類。
  * 15) [BugFix-V44.38] 將 browserleaks.com 納入 HARD_WHITELIST，修復隱私檢測工具遭 'canvas' 關鍵字誤殺的問題。
- * 16) [Optimize-V44.39] 重構 BLOCK_DOMAINS_REGEX 為混合式三層架構：BLOCK_DOMAINS_WILDCARDS (endsWith) + 2 條精簡正則，L2 網域攔截 CPU 開銷降低約 44%。
- * 17) [Optimize-V44.40] 重構 isPriorityDomain 為「後綴剝離 Set 查找」演算法，P0 零信任層 CPU 開銷降低約 96%。
- * 18) [Optimize-V44.41] 統一重構 isDomainMatch 為「後綴剝離 Set 查找」，WILDCARDS 全面升級為 Set，SOFT_WL/HARD_WL/FINANCE 等 6 組全面受惠。
+ * 16) [Optimize-V44.39] 重構 BLOCK_DOMAINS_REGEX 為混合式三層架構。
+ * 17) [Optimize-V44.40] 重構 isPriorityDomain 為「後綴剝離 Set 查找」演算法。
+ * 18) [Optimize-V44.41] 統一重構 isDomainMatch 為「後綴剝離 Set 查找」。
+ * 19) [BugFix-V44.42] 修復 cleanTrackingParams 中 PARAMS.GLOBAL/COSMETIC 的致命效能 Bug。
+ * 20) [Optimize-V44.43] 實作 PARAMS_PREFIX_BUCKETS (前綴分桶)，將參數前綴比對由全域 O(N) 線性掃描優化為 O(1) 首字母查找。
+ * 21) [BugFix-V44.44] 修正硬白名單邏輯盲區：將 feedly.com 納入 PARAM_CLEANING_EXEMPTED_DOMAINS，防止 API 數位簽章遭誤殺而斷線。
  * @lastUpdated 2026-03-05
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.41';
+const SCRIPT_VERSION = '44.44';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -41,7 +44,9 @@ const PARAM_CLEANING_EXEMPTED_DOMAINS = {
     EXACT: new Set([
     'shopback.com.tw', 'extrabux.com', 'buy.line.me'
   ]),
-    WILDCARDS: new Set([])
+    WILDCARDS: new Set([
+    'feedly.com'
+  ])
 };
 
 const SILENT_REWRITE_DOMAINS = {
@@ -642,7 +647,55 @@ const RULES = {
     'yt_src', 'yt_ad', 's_kwcid', 'sc_cid', 'log_level'
   ]),
     GLOBAL_REGEX: [/^utm_\w+/i, /^ig_[\w_]+/i, /^asa_\w+/i, /^tt_[\w_]+/i, /^li_[\w_]+/i],
-    PREFIXES: new Set(['__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs', '_oly_', 'action_', 'ad_', 'adjust_', 'aff_', 'af_', 'alg_', 'at_', 'bd_', 'bsft_', 'campaign_', 'cj', 'cm_', 'content_', 'creative_', 'fb_', 'from_', 'gcl_', 'guce_', 'hmsr_', 'hsa_', 'ir_', 'itm_', 'li_', 'matomo_', 'medium_', 'mkt_', 'ms_', 'mt_', 'mtm', 'pk_', 'piwik_', 'placement_', 'ref_', 'share_', 'source_', 'space_', 'term_', 'trk_', 'tt_', 'ttc_', 'vsm_', 'li_fat_', 'linkedin_']),
+    PREFIX_BUCKETS: new Map([
+    ['_', [
+        '__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs',
+        '_oly_'
+      ]],
+    ['a', [
+        'action_', 'ad_', 'adjust_', 'aff_', 'af_', 'alg_',
+        'at_'
+      ]],
+    ['b', [
+        'bd_', 'bsft_'
+      ]],
+    ['c', [
+        'campaign_', 'cj', 'cm_', 'content_', 'creative_'
+      ]],
+    ['f', [
+        'fb_', 'from_'
+      ]],
+    ['g', [
+        'gcl_', 'guce_'
+      ]],
+    ['h', [
+        'hmsr_', 'hsa_'
+      ]],
+    ['i', [
+        'ir_', 'itm_'
+      ]],
+    ['l', [
+        'li_', 'li_fat_', 'linkedin_'
+      ]],
+    ['m', [
+        'matomo_', 'medium_', 'mkt_', 'ms_', 'mt_', 'mtm'
+      ]],
+    ['p', [
+        'pk_', 'piwik_', 'placement_'
+      ]],
+    ['r', [
+        'ref_'
+      ]],
+    ['s', [
+        'share_', 'source_', 'space_'
+      ]],
+    ['t', [
+        'term_', 'trk_', 'tt_', 'ttc_'
+      ]],
+    ['v', [
+        'vsm_'
+      ]]
+  ]),
     PREFIXES_REGEX: [/_ga_/i, /^tt_[\w_]+/i, /^li_[\w_]+/i],
     COSMETIC: new Set(['fb_ref', 'fb_source', 'from', 'ref', 'share_id', 'spot_im_redirect_source']),
     WHITELIST: new Set(['code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v', 'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status', 'timestamp', 'type', 'withstats', 'access_token', 'client_assertion', 'client_id', 'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset', 'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id', 'cancel_url', 'error_url', 'return_url', 'success_url', 'metadata', 'pagestatus', 'eventactiontype', 'unitpricewithdeliveryfee', 'previousitempricecount', 'optiontablelandingvendoritemid', 'selectedshowdeliverypddstatus', 'salt', 's']),
@@ -866,22 +919,13 @@ const HELPERS = {
         const key = eqIdx >= 0 ? pair.substring(0, eqIdx) : pair;
         const lowerKey = key.toLowerCase();
 
-        let shouldRemove = false;
-        for (const p of RULES.PARAMS.GLOBAL) {
-          if (key === p) {
-            if (!allowedParamsForDomain.has(lowerKey)) shouldRemove = true;
-            break;
-          }
+        if (RULES.PARAMS.GLOBAL.has(key)) {
+          if (!allowedParamsForDomain.has(lowerKey)) { changed = true; continue; }
         }
-        if (shouldRemove) { changed = true; continue; }
 
-        for (const p of RULES.PARAMS.COSMETIC) {
-          if (key === p) {
-            if (!allowedParamsForDomain.has(lowerKey)) shouldRemove = true;
-            break;
-          }
+        if (RULES.PARAMS.COSMETIC.has(key)) {
+          if (!allowedParamsForDomain.has(lowerKey)) { changed = true; continue; }
         }
-        if (shouldRemove) { changed = true; continue; }
 
         if (RULES.PARAMS.WHITELIST.has(lowerKey) || allowedParamsForDomain.has(lowerKey)) {
           kept.push(pair);
@@ -889,8 +933,13 @@ const HELPERS = {
         }
 
         let prefixHit = false;
-        for (const p of RULES.PARAMS.PREFIXES) {
-          if (lowerKey.startsWith(p)) { prefixHit = true; break; }
+        if (lowerKey) {
+          const bucket = RULES.PARAMS.PREFIX_BUCKETS.get(lowerKey[0]);
+          if (bucket) {
+            for (let j = 0; j < bucket.length; j++) {
+              if (lowerKey.startsWith(bucket[j])) { prefixHit = true; break; }
+            }
+          }
         }
         if (prefixHit) { changed = true; continue; }
 
