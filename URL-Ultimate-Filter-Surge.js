@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.43 (SSOT Compilation & Pages Deployment)
+ * @version   44.42 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
@@ -21,12 +21,11 @@
  * 17) [Optimize-V44.40] 重構 isPriorityDomain 為「後綴剝離 Set 查找」演算法，P0 零信任層 CPU 開銷降低約 96%。
  * 18) [Optimize-V44.41] 統一重構 isDomainMatch 為「後綴剝離 Set 查找」，WILDCARDS 全面升級為 Set，SOFT_WL/HARD_WL/FINANCE 等 6 組全面受惠。
  * 19) [BugFix-V44.42] 修復 cleanTrackingParams 中 PARAMS.GLOBAL/COSMETIC 的致命效能 Bug：Set 資料結構卻以 for...of 做 O(n) 線性迭代比對，改為 Set.has() O(1) 直接查找，移除冗餘 shouldRemove 變數，每參數比對開銷降低約 98%。
- * 20) [Optimize-V44.43] 實作 PARAMS_PREFIX_BUCKETS (前綴分桶)，將參數前綴比對由全域 O(N) 線性掃描優化為基於首字母的 O(1) Map 初始查找，大幅降低迭代開銷。
  * @lastUpdated 2026-03-05
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.43';
+const SCRIPT_VERSION = '44.42';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -644,55 +643,7 @@ const RULES = {
     'yt_src', 'yt_ad', 's_kwcid', 'sc_cid', 'log_level'
   ]),
     GLOBAL_REGEX: [/^utm_\w+/i, /^ig_[\w_]+/i, /^asa_\w+/i, /^tt_[\w_]+/i, /^li_[\w_]+/i],
-    PREFIX_BUCKETS: new Map([
-    ['_', [
-        '__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs',
-        '_oly_'
-      ]],
-    ['a', [
-        'action_', 'ad_', 'adjust_', 'aff_', 'af_', 'alg_',
-        'at_'
-      ]],
-    ['b', [
-        'bd_', 'bsft_'
-      ]],
-    ['c', [
-        'campaign_', 'cj', 'cm_', 'content_', 'creative_'
-      ]],
-    ['f', [
-        'fb_', 'from_'
-      ]],
-    ['g', [
-        'gcl_', 'guce_'
-      ]],
-    ['h', [
-        'hmsr_', 'hsa_'
-      ]],
-    ['i', [
-        'ir_', 'itm_'
-      ]],
-    ['l', [
-        'li_', 'li_fat_', 'linkedin_'
-      ]],
-    ['m', [
-        'matomo_', 'medium_', 'mkt_', 'ms_', 'mt_', 'mtm'
-      ]],
-    ['p', [
-        'pk_', 'piwik_', 'placement_'
-      ]],
-    ['r', [
-        'ref_'
-      ]],
-    ['s', [
-        'share_', 'source_', 'space_'
-      ]],
-    ['t', [
-        'term_', 'trk_', 'tt_', 'ttc_'
-      ]],
-    ['v', [
-        'vsm_'
-      ]]
-  ]),
+    PREFIXES: new Set(['__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs', '_oly_', 'action_', 'ad_', 'adjust_', 'aff_', 'af_', 'alg_', 'at_', 'bd_', 'bsft_', 'campaign_', 'cj', 'cm_', 'content_', 'creative_', 'fb_', 'from_', 'gcl_', 'guce_', 'hmsr_', 'hsa_', 'ir_', 'itm_', 'li_', 'matomo_', 'medium_', 'mkt_', 'ms_', 'mt_', 'mtm', 'pk_', 'piwik_', 'placement_', 'ref_', 'share_', 'source_', 'space_', 'term_', 'trk_', 'tt_', 'ttc_', 'vsm_', 'li_fat_', 'linkedin_']),
     PREFIXES_REGEX: [/_ga_/i, /^tt_[\w_]+/i, /^li_[\w_]+/i],
     COSMETIC: new Set(['fb_ref', 'fb_source', 'from', 'ref', 'share_id', 'spot_im_redirect_source']),
     WHITELIST: new Set(['code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v', 'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status', 'timestamp', 'type', 'withstats', 'access_token', 'client_assertion', 'client_id', 'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset', 'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id', 'cancel_url', 'error_url', 'return_url', 'success_url', 'metadata', 'pagestatus', 'eventactiontype', 'unitpricewithdeliveryfee', 'previousitempricecount', 'optiontablelandingvendoritemid', 'selectedshowdeliverypddstatus', 'salt', 's']),
@@ -917,6 +868,7 @@ const HELPERS = {
         const lowerKey = key.toLowerCase();
 
         // [V44.42] FIX: GLOBAL/COSMETIC are Sets — use O(1) Set.has() directly.
+        // Previously these used for...of loops (O(n)), negating the Set data structure entirely.
         if (RULES.PARAMS.GLOBAL.has(key)) {
           if (!allowedParamsForDomain.has(lowerKey)) { changed = true; continue; }
         }
@@ -930,15 +882,9 @@ const HELPERS = {
           continue;
         }
 
-        // [V44.43] OPTIMIZE: Prefix Bucketing O(1) initial lookup
         let prefixHit = false;
-        if (lowerKey) {
-          const bucket = RULES.PARAMS.PREFIX_BUCKETS.get(lowerKey[0]);
-          if (bucket) {
-            for (let j = 0; j < bucket.length; j++) {
-              if (lowerKey.startsWith(bucket[j])) { prefixHit = true; break; }
-            }
-          }
+        for (const p of RULES.PARAMS.PREFIXES) {
+          if (lowerKey.startsWith(p)) { prefixHit = true; break; }
         }
         if (prefixHit) { changed = true; continue; }
 
