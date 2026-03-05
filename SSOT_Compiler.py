@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.49 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.50 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -31,6 +31,7 @@ URL Ultimate Filter - V44.49 SSOT Compiler & Matrix Test Suite
 25. [BugFix-V44.47] 修正 HTML_TEMPLATE 格式化 KeyError 錯誤，還原高階圖表測試報表儀表板。
 26. [BugFix-V44.48] 完整還原 Matrix Test Suite 的動態生成迴圈，恢復 800+ 條全方位回歸測試案例。
 27. [BugFix-V44.49] 修正 P0 子網域繼承失效 (px.ads.linkedin.com) 與還原 URL 雙重編碼解譯引擎。
+28. [BugFix-V44.50] 修復 Python f-string 反斜線編譯錯誤 (SyntaxError)，確保完全相容 CI/CD (Python < 3.12) 環境。
 """
 
 import json
@@ -52,7 +53,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.49"
+VERSION = "44.50"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -533,7 +534,9 @@ def format_js_map(dct: Dict[str, List[str]], indent: int = 4) -> str:
     for k, v in dct.items():
         val_str = format_js_set(v, indent + 4, items_per_line=4)
         entries.append(f"{' ' * indent}['{k}', {val_str}]")
-    return f"new Map([\n{',\n'.join(entries)}\n{' ' * (indent - 2)}])"
+    # [V44.50] BUGFIX: 抽出 .join() 邏輯至 f-string 外部，防止 Python < 3.12 的反斜線錯誤
+    joined_entries = ",\n".join(entries)
+    return f"new Map([\n{joined_entries}\n{' ' * (indent - 2)}])"
 
 def format_js_prefix_buckets(lst: List[str], indent: int = 4) -> str:
     if not lst: return "new Map()"
@@ -544,7 +547,9 @@ def format_js_prefix_buckets(lst: List[str], indent: int = 4) -> str:
     for k in sorted(buckets.keys()):
         val_str = format_js_array(buckets[k], indent + 4, items_per_line=6)
         entries.append(f"{' ' * indent}['{k}', {val_str}]")
-    return f"new Map([\n{',\n'.join(entries)}\n{' ' * (indent - 2)}])"
+    # [V44.50] BUGFIX: 抽出 .join() 邏輯至 f-string 外部
+    joined_entries = ",\n".join(entries)
+    return f"new Map([\n{joined_entries}\n{' ' * (indent - 2)}])"
 
 def format_scoped_exemptions(dct: Dict[str, Dict[str, List[str]]], indent: int = 4) -> str:
     if not dct: return "new Map()"
@@ -554,15 +559,21 @@ def format_scoped_exemptions(dct: Dict[str, Dict[str, List[str]]], indent: int =
         for path, params in path_dict.items():
             param_set_str = format_js_set(params, indent + 8, items_per_line=4)
             path_entries.append(f"{' ' * (indent + 4)}['{path}', {param_set_str}]")
-        path_map_str = f"new Map([\n{',\n'.join(path_entries)}\n{' ' * (indent + 4)}])"
+        # [V44.50] BUGFIX: 抽出 .join() 邏輯至 f-string 外部
+        joined_paths = ",\n".join(path_entries)
+        path_map_str = f"new Map([\n{joined_paths}\n{' ' * (indent + 4)}])"
         domain_entries.append(f"{' ' * indent}['{domain}', {path_map_str}]")
-    return f"new Map([\n{',\n'.join(domain_entries)}\n{' ' * (indent - 2)}])"
+    # [V44.50] BUGFIX: 抽出 .join() 邏輯至 f-string 外部
+    joined_domains = ",\n".join(domain_entries)
+    return f"new Map([\n{joined_domains}\n{' ' * (indent - 2)}])"
 
 def compile_js() -> str:
+    # 這裡的 .join 內部並沒有反斜線，故不影響
+    regex_joined = ', '.join([f"/{r}/i" for r in RULES_DB['BLOCK_DOMAINS_REGEX']])
     js_rules_definition = f"""/**
  * @file      URL-Ultimate-Filter-Surge.js
  * @version   {VERSION} (SSOT Compilation)
- * @description V44.49 - 修復 P0 子網域繼承防護漏洞與 URL 雙重編碼解譯引擎。
+ * @description V44.50 - 修復 Python f-string 編譯錯誤，確保跨平台相容性。
  */
 
 const CONFIG = {{ DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 }};
@@ -606,7 +617,7 @@ const RULES = {{
   BLOCK_DOMAINS_WILDCARDS: {format_js_set(RULES_DB['BLOCK_DOMAINS_WILDCARDS'])},
 
   BLOCK_DOMAINS_REGEX: [
-    {', '.join([f"/{r}/i" for r in RULES_DB['BLOCK_DOMAINS_REGEX']])}
+    {regex_joined}
   ],
 
   CRITICAL_PATH: {{
@@ -847,7 +858,6 @@ function processRequest(request) {
     const _fi = rawPath.indexOf('#');
     if (_fi >= 0) rawPath = rawPath.substring(0, _fi);
 
-    // [V44.49] 完美還原雙重 URL 編碼解譯機制 (Double Decode Engine)
     let pathLower;
     try {
         let decoded = decodeURIComponent(rawPath);
@@ -863,7 +873,6 @@ function processRequest(request) {
         return { response: { status: 204 } };
     }
 
-    // [V44.49] 修正 P0 網域判斷：傳入 wildcardsSet 確保子網域完美繼承阻擋
     if (isDomainMatch(new Set(), RULES.PRIORITY_BLOCK_DOMAINS, hostname)) {
       stats.blocks++;
       multiLevelCache.set(hostname, 'BLOCK', 86400000);
@@ -885,7 +894,6 @@ function processRequest(request) {
       }
     }
 
-    // [V44.49] 補回 V44.48 遺漏的 OAuth 全域避風港判斷
     if (OAUTH_SAFE_HARBOR.DOMAINS.has(hostname) && hostname !== 'accounts.youtube.com') {
         stats.allows++; return null;
     }
@@ -936,7 +944,6 @@ function processRequest(request) {
       return { response: { status: 403, body: 'Blocked by L1 (Script/Path)' } };
     }
 
-    // [V44.49] 補回 V44.48 遺漏的 Coupang Omni-Block 阻擋器
     if (hostname === 'cmapi.tw.coupang.com') {
       if (/\/.*-ads\//.test(pathLower)) {
         stats.blocks++;
@@ -1011,7 +1018,7 @@ class TestOutcome:
     details: str
     is_pass: bool
 
-# [V44.49] 完整無誤的高階儀表板模板 (嚴格逸出 {{ }})
+# [V44.50] 嚴格逸出 {{ }} 以防止 f-string 格式化錯誤
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -1201,7 +1208,7 @@ def is_path_keyword_blocked(path: str) -> bool:
             return True
     return False
 
-# [V44.49] 動態展開 RULES_DB 生成 800+ 條矩陣測試，加上所有手動邊界測試
+# [V44.50] 動態展開 RULES_DB 生成 800+ 條矩陣測試
 def generate_full_coverage_cases() -> List[TestCase]:
     cases: List[TestCase] = []
     print(f"[TEST GENERATOR] Auto-expanding Python RULES_DB to Matrix Test Suite...")
