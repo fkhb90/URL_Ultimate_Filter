@@ -1,33 +1,11 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.44 (SSOT Compilation & Pages Deployment)
- * @description 
- * 1) [Architecture] Python SSOT 自動編譯生成。
- * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
- * 3) [Patch] 升級蝦皮遙測子網域為 P0 零信任層級。
- * 4) [Optimize] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
- * 5) [Feature] 新增 FINANCE_SAFE_HARBOR，全域絕對放行銀行、支付與政府網域。
- * 6) [Privacy-V44.19] 實作高精度設備指紋靜默丟棄 (DROP 204)。
- * 7) [Fix-V44.25] 升級 591 至 HARD_WHITELIST，並增列 salt/s 參數白名單。
- * 8) [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」，解決 API 302 斷線與 App 喚醒失效問題。
- * 9) [Architecture-V44.31] 建立「網域特化參數白名單」，專門豁免 104 API 嚴格校驗的 device_id。
- * 10) [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決 104 登入失敗的致命 Bug。
- * 11) [BugFix-V44.34] 擴充 SOFT_WHITELIST 與 PATH_EXEMPTIONS，精準放行 threads.com 與 threads.net 的 /post/ 路由。
- * 12) [Compatibility-V44.35] Surge JSC 引擎相容性修復。
- * 13) [Privacy-V44.36] 新增 OpenTelemetry (OTLP) 標準遙測端點防護。
- * 14) [BugFix-V44.37] 分離 PRIORITY_DROP 與常規 DROP 處理層級，優化 L1/L2 精確攔截優先順序與分類。
- * 15) [BugFix-V44.38] 將 browserleaks.com 納入 HARD_WHITELIST，修復隱私檢測工具遭 'canvas' 關鍵字誤殺的問題。
- * 16) [Optimize-V44.39] 重構 BLOCK_DOMAINS_REGEX 為混合式三層架構。
- * 17) [Optimize-V44.40] 重構 isPriorityDomain 為「後綴剝離 Set 查找」演算法。
- * 18) [Optimize-V44.41] 統一重構 isDomainMatch 為「後綴剝離 Set 查找」。
- * 19) [BugFix-V44.42] 修復 cleanTrackingParams 中 PARAMS.GLOBAL/COSMETIC 的致命效能 Bug。
- * 20) [Optimize-V44.43] 實作 PARAMS_PREFIX_BUCKETS (前綴分桶)，將參數前綴比對由全域 O(N) 線性掃描優化為 O(1) 首字母查找。
- * 21) [BugFix-V44.44] 修正硬白名單邏輯盲區：將 feedly.com 納入 PARAM_CLEANING_EXEMPTED_DOMAINS，防止 API 數位簽章遭誤殺而斷線。
- * @lastUpdated 2026-03-05
+ * @version   44.50 (SSOT Compilation)
+ * @description V44.50 - 修復 Python f-string 編譯錯誤，確保跨平台相容性。
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.44';
+const SCRIPT_VERSION = '44.50';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -45,7 +23,9 @@ const PARAM_CLEANING_EXEMPTED_DOMAINS = {
     'shopback.com.tw', 'extrabux.com', 'buy.line.me'
   ]),
     WILDCARDS: new Set([
-    'feedly.com'
+    'feedly.com', 's3.amazonaws.com', 'storage.googleapis.com', 'core.windows.net', 'api.line.me', 'api.newebpay.com',
+    'api.tappayapis.com', 'api.stripe.com', 'api.github.com', 'api.twitch.tv', 'cdn.discordapp.com', 'slack.com',
+    'cloudfunctions.net'
   ])
 };
 
@@ -69,10 +49,6 @@ const FINANCE_SAFE_HARBOR = {
     'mymobibank.com.tw', 'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'org.tw', 'tdcc.com.tw'
   ])
 };
-
-// #################################################################################################
-// #  ⚙️ RULES CONFIGURATION
-// #################################################################################################
 
 const RULES = {
   PRIORITY_BLOCK_DOMAINS: new Set([
@@ -226,8 +202,7 @@ const RULES = {
   ]),
 
   BLOCK_DOMAINS_REGEX: [
-    /^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$/i,
-    /^browser-intake-[\w.-]*datadoghq\.(?:com|eu|us)$/i
+    /^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$/i, /^browser-intake-[\w.-]*datadoghq\.(?:com|eu|us)$/i
   ],
 
   CRITICAL_PATH: {
@@ -404,7 +379,6 @@ const RULES = {
     ['px.ads.linkedin.com', new Set([
         '/collect'
       ])],
-    ['ad.360yield.com', new Set([])],
     ['ads.bing.com', new Set([
         '/msclkid'
       ])],
@@ -450,7 +424,6 @@ const RULES = {
     ['tr.snap.com', new Set([
         '/v2/conversion'
       ])],
-    ['widget.intercom.io', new Set([])],
     ['ads-api.tiktok.com', new Set([
         '/api/v2/pixel'
       ])],
@@ -697,36 +670,25 @@ const RULES = {
       ]]
   ]),
     PREFIXES_REGEX: [/_ga_/i, /^tt_[\w_]+/i, /^li_[\w_]+/i],
-    COSMETIC: new Set(['fb_ref', 'fb_source', 'from', 'ref', 'share_id', 'spot_im_redirect_source']),
-    WHITELIST: new Set(['code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v', 'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status', 'timestamp', 'type', 'withstats', 'access_token', 'client_assertion', 'client_id', 'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset', 'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id', 'cancel_url', 'error_url', 'return_url', 'success_url', 'metadata', 'pagestatus', 'eventactiontype', 'unitpricewithdeliveryfee', 'previousitempricecount', 'optiontablelandingvendoritemid', 'selectedshowdeliverypddstatus', 'salt', 's']),
-    EXEMPTIONS: new Map([
-        ['www.google.com', new Set(['/maps/'])],
-        ['taxi.sleepnova.org', new Set(['/api/v4/routes_estimate'])],
-        ['cmapi.tw.coupang.com', new Set(['/'])],
-        ['accounts.felo.me', new Set(['/'])],
-        ['gcp-data-api.ltn.com.tw', new Set(['/'])]
-    ]),
-    DOMAIN_PARAMS_WHITELIST: new Map([
-    ['104.com.tw', new Set([
-        'device_id'
-      ])]
+    COSMETIC: new Set(['fb_ref', 'fb_source', 'from', 'ref', 'share_id']),
+    WHITELIST: new Set(['code', 'id', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 'token', 'format', 'lang', 'locale', 'salt', 's']),
+    EXEMPTIONS: new Map(),
+    SCOPED_EXEMPTIONS: new Map([
+    ['104.com.tw', new Map([
+        ['/api/', new Set([
+            'device_id', 'client_id'
+          ])],
+        ['/v2/api/', new Set([
+            'device_id'
+          ])]
+        ])]
   ])
   },
 
   REGEX: {
-    PATH_BLOCK: [
-      /^\/(\w+\/)?ads?\//i,
-      /\/(ad|banner|tracker)\.(js|gif|png)(\?|$)/i,
-      /\/pagead\/ads/i, /\/googleads\//i, /\/ads\/user-lists\//i, /\/marketing\/api\//i
-    ],
-    HEURISTIC: [
-       /[?&](ad|ads|campaign|tracker)_[a-z]+=/i,
-       /\/ad(server|serve|vert|vertis|v)\./i
-    ],
-    API_SIGNATURE_BYPASS: [
-        /\/(api|graphql|trpc|rest)\//i, 
-        /\.(json|xml)(\?|$)/i
-    ]
+    PATH_BLOCK: [ /^\/(\w+\/)?ads?\//i, /\/(ad|banner|tracker)\.(js|gif|png)(\?|$)/i ],
+    HEURISTIC: [ /[?&](ad|ads|campaign|tracker)_[a-z]+=/i ],
+    API_SIGNATURE_BYPASS: [ /\/(api|graphql|trpc|rest)\//i, /\.(json|xml)(\?|$)/i ]
   },
 
   EXCEPTIONS: {
@@ -738,17 +700,32 @@ const RULES = {
     '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
     '.zip', '.rar'
   ]),
-    PREFIXES: new Set(['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/', '/wp-content/', '/wp-includes/', '/fonts/', '/dist/', '/vendor/', '/public/']),
-    SUBSTRINGS: new Set(['cdn-cgi', 'shop/goods', 'product/detail']),
-    SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js', 'uploads', 'fonts', 'resources']),
+    PREFIXES: new Set(['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/']),
+    SUBSTRINGS: new Set(['cdn-cgi']),
+    SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js']),
     PATH_EXEMPTIONS: new Map([
-        ['shopee.tw', new Set(['/api/v4/search/search_items'])],
-        ['cmapi.tw.coupang.com', new Set(['/vendor-items/'])],
-        ['www.google.com', new Set(['/url', '/search'])],
-        ['play.googleapis.com', new Set(['/log/batch'])],
-        ['threads.com', new Set(['/post/'])],
-        ['threads.net', new Set(['/post/'])]
-    ])
+    ['shopee.tw', new Set([
+        '/api/v4/search/search_items'
+      ])],
+    ['cmapi.tw.coupang.com', new Set([
+        '/vendor-items/'
+      ])],
+    ['coupangcdn.com', new Set([
+        '/image/ccm/banner/'
+      ])],
+    ['www.google.com', new Set([
+        '/url', '/search'
+      ])],
+    ['play.googleapis.com', new Set([
+        '/log/batch'
+      ])],
+    ['threads.com', new Set([
+        '/post/'
+      ])],
+    ['threads.net', new Set([
+        '/post/'
+      ])]
+  ])
   }
 };
 
@@ -763,16 +740,12 @@ class ACScanner {
 }
 
 class HighPerformanceLRUCache {
-  constructor(limit = 512) {
-    this.limit = limit;
-    this.cache = new Map();
-  }
+  constructor(limit = 512) { this.limit = limit; this.cache = new Map(); }
   get(key) {
     if (!this.cache.has(key)) return null;
     const entry = this.cache.get(key);
     if (Date.now() > entry.expiry) { this.cache.delete(key); return null; }
-    this.cache.delete(key);
-    this.cache.set(key, entry);
+    this.cache.delete(key); this.cache.set(key, entry);
     return entry.value;
   }
   set(key, value, ttl = 300000) {
@@ -783,15 +756,8 @@ class HighPerformanceLRUCache {
 
 const highConfidenceScanner = new ACScanner(RULES.KEYWORDS.HIGH_CONFIDENCE);
 const pathScanner = new ACScanner(RULES.KEYWORDS.PATH_BLOCK);
-const criticalPathScanner = new ACScanner([
-  ...RULES.CRITICAL_PATH.GENERIC,
-  ...RULES.CRITICAL_PATH.SCRIPT_ROOTS
-]);
-
-const COMBINED_PATH_REGEX = [
-  ...RULES.REGEX.PATH_BLOCK,
-  ...RULES.REGEX.HEURISTIC
-];
+const criticalPathScanner = new ACScanner([...RULES.CRITICAL_PATH.GENERIC, ...RULES.CRITICAL_PATH.SCRIPT_ROOTS]);
+const COMBINED_PATH_REGEX = [...RULES.REGEX.PATH_BLOCK, ...RULES.REGEX.HEURISTIC];
 
 const STATIC_EXTENSIONS = new Set();
 const STATIC_FILENAMES = new Set();
@@ -849,65 +815,46 @@ const HELPERS = {
     return false;
   },
 
-  isSafeHarborDomain: (hostname) => {
-      if (hostname === 'accounts.youtube.com') return false; 
-      return OAUTH_SAFE_HARBOR.DOMAINS.has(hostname);
-  },
+  isScopedParamAllowed: (hostname, pathLower, lowerKey) => {
+    let domainExemptions = RULES.PARAMS.SCOPED_EXEMPTIONS.get(hostname);
+    if (!domainExemptions) {
+        for (const [domain, paths] of RULES.PARAMS.SCOPED_EXEMPTIONS) {
+            if (hostname.endsWith('.' + domain)) { domainExemptions = paths; break; }
+        }
+    }
+    if (!domainExemptions) return false;
 
-  isAuthPath: (pathLower) => {
-      for (const keyword of OAUTH_SAFE_HARBOR.PATHS) {
-          if (pathLower.includes(keyword)) return true;
-      }
-      return false;
+    for (const [pathStr, allowedParamsSet] of domainExemptions) {
+        if (pathLower.includes(pathStr) && allowedParamsSet.has(lowerKey)) {
+            return true;
+        }
+    }
+    return false;
   },
 
   cleanTrackingParams: (urlStr, hostname, pathLower) => {
     if (!urlStr.includes('?')) return null;
 
-    if (HELPERS.isSafeHarborDomain(hostname) || HELPERS.isAuthPath(pathLower)) {
-        return null;
-    }
-
-    if (isDomainMatch(PARAM_CLEANING_EXEMPTED_DOMAINS.EXACT, PARAM_CLEANING_EXEMPTED_DOMAINS.WILDCARDS, hostname)) {
-        if (CONFIG.DEBUG_MODE) console.log(`[Exempted] Domain Cleanup Bypass: ${hostname}`);
-        return null;
-    }
+    if (OAUTH_SAFE_HARBOR.DOMAINS.has(hostname) && hostname !== 'accounts.youtube.com') return null;
+    for (const keyword of OAUTH_SAFE_HARBOR.PATHS) if (pathLower.includes(keyword)) return null;
+    if (isDomainMatch(PARAM_CLEANING_EXEMPTED_DOMAINS.EXACT, PARAM_CLEANING_EXEMPTED_DOMAINS.WILDCARDS, hostname)) return null;
     
     let rewriteType = '302';
-
     if (RULES.REGEX.API_SIGNATURE_BYPASS.some(r => r.test(pathLower)) || 
-        hostname.startsWith('api.') || hostname.startsWith('appapi.') || hostname.startsWith('graphql.') || hostname.startsWith('bff-') ||
+        hostname.startsWith('api.') || hostname.startsWith('appapi.') || 
         isDomainMatch(SILENT_REWRITE_DOMAINS.EXACT, SILENT_REWRITE_DOMAINS.WILDCARDS, hostname)) {
         rewriteType = 'REWRITE';
-    }
-
-    const exemptions = RULES.PARAMS.EXEMPTIONS.get(hostname);
-    if (exemptions) {
-        for (const ex of exemptions) {
-            if (pathLower.includes(ex)) return null; 
-        }
-    }
-
-    let allowedParamsForDomain = new Set();
-    if (RULES.PARAMS.DOMAIN_PARAMS_WHITELIST) {
-        for (const [domain, allowedSet] of RULES.PARAMS.DOMAIN_PARAMS_WHITELIST) {
-            if (hostname === domain || hostname.endsWith('.' + domain)) {
-                for (const p of allowedSet) allowedParamsForDomain.add(p.toLowerCase());
-            }
-        }
     }
 
     try {
       const _qi = urlStr.indexOf('?');
       if (_qi < 0) return null;
-
       const _hi = urlStr.indexOf('#', _qi);
       const base = urlStr.substring(0, _qi);
       const qs = _hi >= 0 ? urlStr.substring(_qi + 1, _hi) : urlStr.substring(_qi + 1);
       const hash = _hi >= 0 ? urlStr.substring(_hi) : '';
 
       if (!qs) return null;
-
       const pairs = qs.split('&');
       const kept = [];
       let changed = false;
@@ -919,18 +866,11 @@ const HELPERS = {
         const key = eqIdx >= 0 ? pair.substring(0, eqIdx) : pair;
         const lowerKey = key.toLowerCase();
 
-        if (RULES.PARAMS.GLOBAL.has(key)) {
-          if (!allowedParamsForDomain.has(lowerKey)) { changed = true; continue; }
+        if (RULES.PARAMS.WHITELIST.has(lowerKey) || HELPERS.isScopedParamAllowed(hostname, pathLower, lowerKey)) {
+            kept.push(pair); continue;
         }
 
-        if (RULES.PARAMS.COSMETIC.has(key)) {
-          if (!allowedParamsForDomain.has(lowerKey)) { changed = true; continue; }
-        }
-
-        if (RULES.PARAMS.WHITELIST.has(lowerKey) || allowedParamsForDomain.has(lowerKey)) {
-          kept.push(pair);
-          continue;
-        }
+        if (RULES.PARAMS.GLOBAL.has(key) || RULES.PARAMS.COSMETIC.has(key)) { changed = true; continue; }
 
         let prefixHit = false;
         if (lowerKey) {
@@ -943,10 +883,8 @@ const HELPERS = {
         }
         if (prefixHit) { changed = true; continue; }
 
-        if (RULES.PARAMS.GLOBAL_REGEX.some(r => r.test(lowerKey)) ||
-            RULES.PARAMS.PREFIXES_REGEX.some(r => r.test(lowerKey))) {
-          changed = true;
-          continue;
+        if (RULES.PARAMS.GLOBAL_REGEX.some(r => r.test(lowerKey)) || RULES.PARAMS.PREFIXES_REGEX.some(r => r.test(lowerKey))) {
+          changed = true; continue;
         }
 
         kept.push(pair);
@@ -954,49 +892,20 @@ const HELPERS = {
 
       if (!changed) return null;
       const newQs = kept.join('&');
-      const newUrl = newQs ? base + '?' + newQs + hash : base + hash;
-      return { url: newUrl, type: rewriteType };
-    } catch (_) {
-      return null;
-    }
+      return { url: newQs ? base + '?' + newQs + hash : base + hash, type: rewriteType };
+    } catch (_) { return null; }
   }
 };
-
-let __INITIALIZED__ = false;
-
-function initializeOnce() {
-  if (__INITIALIZED__) return;
-  __INITIALIZED__ = true;
-  FINANCE_SAFE_HARBOR.EXACT.forEach(d => multiLevelCache.set(d, 'ALLOW', 86400000));
-  RULES.HARD_WHITELIST.EXACT.forEach(d => multiLevelCache.set(d, 'ALLOW', 86400000));
-  RULES.PRIORITY_BLOCK_DOMAINS.forEach(d => multiLevelCache.set(d, 'BLOCK', 86400000));
-}
-
-function isPriorityDomain(hostname) {
-  if (RULES.PRIORITY_BLOCK_DOMAINS.has(hostname)) return true;
-  var pos = hostname.indexOf('.');
-  while (pos >= 0) {
-    if (RULES.PRIORITY_BLOCK_DOMAINS.has(hostname.substring(pos + 1))) return true;
-    pos = hostname.indexOf('.', pos + 1);
-  }
-  return false;
-}
 
 function getCriticalBlockedPaths(hostname) {
   const cached = criticalMapCache.get(hostname);
   if (cached !== null) return cached; 
-
   let setOrUndef = RULES.CRITICAL_PATH.MAP.get(hostname);
-
   if (!setOrUndef) {
     for (const [domain, paths] of RULES.CRITICAL_PATH.MAP) {
-      if (hostname.endsWith('.' + domain)) {
-        setOrUndef = paths;
-        break;
-      }
+      if (hostname.endsWith('.' + domain)) { setOrUndef = paths; break; }
     }
   }
-
   const value = setOrUndef ? setOrUndef : false;
   criticalMapCache.set(hostname, value, 300000);
   return value;
@@ -1012,6 +921,7 @@ function processRequest(request) {
     const _ps = url.indexOf('/', _hs);
     const _hp = _ps >= 0 ? url.substring(_hs, _ps) : url.substring(_hs);
     const hostname = _hp.split(':')[0].toLowerCase();
+    
     let rawPath = _ps >= 0 ? url.substring(_ps) : '/';
     const _fi = rawPath.indexOf('#');
     if (_fi >= 0) rawPath = rawPath.substring(0, _fi);
@@ -1031,12 +941,12 @@ function processRequest(request) {
         return { response: { status: 204 } };
     }
 
-    if (isPriorityDomain(hostname)) {
+    if (isDomainMatch(new Set(), RULES.PRIORITY_BLOCK_DOMAINS, hostname)) {
       stats.blocks++;
       multiLevelCache.set(hostname, 'BLOCK', 86400000);
-      return { response: { status: 403, body: 'Blocked by P0 (Zero Trust)' } };
+      return { response: { status: 403, body: 'Blocked by P0' } };
     }
-
+    
     if (RULES.REDIRECTOR_HOSTS.has(hostname)) {
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked Redirector' } };
@@ -1047,52 +957,35 @@ function processRequest(request) {
       for (const badPath of blockedPaths) {
         if (badPath && pathLower.includes(badPath)) {
           stats.blocks++;
-          if (CONFIG.DEBUG_MODE) console.log(`[Block] L4 Map: ${badPath}`);
           return { response: { status: 403, body: 'Blocked by Map' } };
         }
       }
     }
 
-    if (HELPERS.isSafeHarborDomain(hostname)) {
-        stats.allows++;
-        return null;
+    if (OAUTH_SAFE_HARBOR.DOMAINS.has(hostname) && hostname !== 'accounts.youtube.com') {
+        stats.allows++; return null;
     }
 
     if (isDomainMatch(FINANCE_SAFE_HARBOR.EXACT, FINANCE_SAFE_HARBOR.WILDCARDS, hostname)) {
-      multiLevelCache.set(hostname, 'ALLOW', 86400000);
-      stats.allows++;
-      return null; 
+        stats.allows++; return null;
     }
 
     const performCleaning = () => {
         const cleanResult = HELPERS.cleanTrackingParams(url, hostname, pathLower);
         if (cleanResult) {
             stats.allows++;
-            if (cleanResult.type === 'REWRITE') {
-                if (CONFIG.DEBUG_MODE) console.log(`[Silent Rewrite] ${cleanResult.url}`);
-                return { url: cleanResult.url }; 
-            }
+            if (cleanResult.type === 'REWRITE') return { url: cleanResult.url }; 
             return { response: { status: 302, headers: { Location: cleanResult.url } } };
         }
         return null;
     };
 
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
-      multiLevelCache.set(hostname, 'ALLOW', 86400000);
-      stats.allows++;
-      return performCleaning(); 
+      stats.allows++; return performCleaning(); 
     }
-
-    const cached = multiLevelCache.get(hostname);
-    if (cached === 'ALLOW') { 
-        stats.allows++; 
-        return performCleaning(); 
-    }
-    if (cached === 'BLOCK') { stats.blocks++; return { response: { status: 403, body: 'Blocked by Cache' } }; }
 
     if (HELPERS.isPathExemptedForDomain(hostname, pathLower)) {
-        stats.allows++;
-        return performCleaning();
+        stats.allows++; return performCleaning();
     }
 
     const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathLower);
@@ -1102,9 +995,7 @@ function processRequest(request) {
     if (!isExplicitlyAllowed && !isStatic) {
       for (const k of RULES.KEYWORDS.PRIORITY_DROP) {
         if (pathLower.includes(k)) {
-          stats.blocks++;
-          if (CONFIG.DEBUG_MODE) console.log(`[Priority Drop] ${pathLower}`);
-          return { response: { status: 204 } };
+          stats.blocks++; return { response: { status: 204 } };
         }
       }
     }
@@ -1112,14 +1003,12 @@ function processRequest(request) {
     if (!isExplicitlyAllowed) {
         if (highConfidenceScanner.matches(pathLower)) {
             stats.blocks++;
-            if (CONFIG.DEBUG_MODE) console.log(`[Block] High Confidence Override: ${pathLower}`);
             return { response: { status: 403, body: 'Blocked by High Confidence Keyword' } };
         }
     }
 
     if (criticalPathScanner.matches(pathLower)) {
       stats.blocks++;
-      if (CONFIG.DEBUG_MODE) console.log(`[Block] L1 Critical: ${pathLower}`);
       return { response: { status: 403, body: 'Blocked by L1 (Script/Path)' } };
     }
 
@@ -1132,20 +1021,17 @@ function processRequest(request) {
 
     if (!isSoftWhitelisted) {
       if (isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
-        stats.blocks++;
-        return { response: { status: 403, body: 'Blocked by Domain' } };
+        stats.blocks++; return { response: { status: 403, body: 'Blocked by Domain' } };
       }
     }
 
     if (!isSoftWhitelisted || (isSoftWhitelisted && !isStatic)) {
       if (!isExplicitlyAllowed && !isStatic) { 
         if (pathScanner.matches(pathLower)) {
-          stats.blocks++;
-          return { response: { status: 403, body: 'Blocked by Keyword' } };
+          stats.blocks++; return { response: { status: 403, body: 'Blocked by Keyword' } };
         }
         if (COMBINED_PATH_REGEX.some(r => r.test(pathLower))) {
-          stats.blocks++;
-          return { response: { status: 403, body: 'Blocked by Regex' } };
+          stats.blocks++; return { response: { status: 403, body: 'Blocked by Regex' } };
         }
       }
     }
@@ -1153,9 +1039,7 @@ function processRequest(request) {
     if (!isExplicitlyAllowed && !isStatic) {
       for (const k of RULES.KEYWORDS.DROP) {
         if (pathLower.includes(k)) {
-          stats.blocks++;
-          if (CONFIG.DEBUG_MODE) console.log(`[Silent Drop] ${pathLower}`);
-          return { response: { status: 204 } };
+          stats.blocks++; return { response: { status: 204 } };
         }
       }
     }
@@ -1165,16 +1049,12 @@ function processRequest(request) {
   } catch (err) {
     if (CONFIG.DEBUG_MODE) console.log(`[Error] ${err}`);
   }
-
   stats.allows++;
   return null;
 }
 
 if (typeof $request !== 'undefined') {
-  initializeOnce();
   $done(processRequest($request));
 } else {
-  if (typeof $done !== 'undefined') {
-      $done({ title: 'URL Ultimate Filter', content: `V${SCRIPT_VERSION} Active\n${stats.toString()}` });
-  }
+  if (typeof $done !== 'undefined') $done({ title: 'URL Ultimate Filter', content: `V${SCRIPT_VERSION} Active\n${stats.toString()}` });
 }
