@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.41 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.44 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -15,13 +15,16 @@ URL Ultimate Filter - V44.41 SSOT Compiler & Matrix Test Suite
 9. [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決 104 登入失敗的致命 Bug。
 10. [BugFix-V44.33] 修復 Matrix Test Suite 引擎中的陣列截斷問題，完整恢復 800+ 條迴歸測試用例。
 11. [BugFix-V44.34] 擴充 SOFT_WHITELIST 與 PATH_EXEMPTIONS，精準放行 threads.com 與 threads.net 的 /post/ 路由。
-12. [Compatibility-V44.35] Surge JSC 引擎相容性修復：移除 new URL() 與 URLSearchParams，processRequest 與 cleanTrackingParams 改用手動字串解析。
+12. [Compatibility-V44.35] Surge JSC 引擎相容性修復。
 13. [Privacy-V44.36] 新增 OpenTelemetry (OTLP) 標準遙測端點防護。
 14. [BugFix-V44.37] 分離 PRIORITY_DROP 與常規 DROP 處理層級，優化 L1/L2 精確攔截優先順序與分類。
-15. [BugFix-V44.38] 將 browserleaks.com 納入 HARD_WHITELIST，修復因 PATH_BLOCK 包含 'canvas' 關鍵字導致隱私檢測工具遭到誤殺的問題。
-16. [Optimize-V44.39] 重構 BLOCK_DOMAINS_REGEX 為混合式三層架構：將 11 條簡單萬用字元正則解構為 BLOCK_DOMAINS_WILDCARDS（endsWith 原生比對），僅保留 2 條真正需要正則的模式並施加非捕獲群組與字元範圍限縮優化，L2 網域攔截 CPU 開銷降低約 44%。
-17. [Optimize-V44.40] 重構 isPriorityDomain 為「後綴剝離 Set 查找」演算法：以 indexOf + substring 逐層剝離子網域後對原 Set 做 O(1) 查找，取代原本 O(n) 線性 endsWith 迴圈，P0 零信任層 CPU 開銷降低約 96%。
-18. [Optimize-V44.41] 統一重構 isDomainMatch 為「後綴剝離 Set 查找」演算法，並將全部 6 組 WILDCARDS 資料結構從 Array 升級為 Set：SOFT_WHITELIST（99 條, ↓95%）、FINANCE_SAFE_HARBOR（36 條, ↓84%）、HARD_WHITELIST（32 條, ↓84%）等全面受惠。
+15. [BugFix-V44.38] 將 browserleaks.com 納入 HARD_WHITELIST，修復誤殺問題。
+16. [Optimize-V44.39] 重構 BLOCK_DOMAINS_REGEX 為混合式三層架構。
+17. [Optimize-V44.40] 重構 isPriorityDomain 為「後綴剝離 Set 查找」演算法。
+18. [Optimize-V44.41] 統一重構 isDomainMatch 為「後綴剝離 Set 查找」演算法。
+19. [BugFix-V44.42] 修復 cleanTrackingParams 中 PARAMS.GLOBAL 與 PARAMS.COSMETIC 的致命效能 Bug。
+20. [Optimize-V44.43] 實作 PARAMS_PREFIX_BUCKETS (前綴分桶)，將參數前綴比對由全域 O(N) 優化為 O(1) 首字母查找。
+21. [BugFix-V44.44] 修正硬白名單邏輯盲區：將 feedly.com 納入 PARAM_CLEANING_EXEMPTED_DOMAINS，防止 API 的數位簽章與關鍵參數遭誤殺而斷線，並於 Matrix Test Suite 補足對應交叉測試。
 """
 
 import json
@@ -45,7 +48,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.41"
+VERSION = "44.44"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -66,7 +69,9 @@ RULES_DB = {
         "EXACT": [
             'shopback.com.tw', 'extrabux.com', 'buy.line.me'
         ],
-        "WILDCARDS": []
+        "WILDCARDS": [
+            'feedly.com'  # [V44.44] 新增：防止 API 參數與簽章遭靜默重寫破壞
+        ]
     },
     "SILENT_REWRITE_DOMAINS": {
         "EXACT": [],
@@ -475,6 +480,13 @@ RULES_DB = {
         'oprtrack', 'rb_clickid', 'sscid', 'trk', 'usqp', 'vero_conv', 'vero_id', 'wbraid', 'wt_mc',
         'xtor', 'ysclid', 'zanpid', 'yt_src', 'yt_ad', 's_kwcid', 'sc_cid', 'log_level'
     ],
+    "PARAMS_PREFIXES": [
+        '__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs', '_oly_', 'action_', 'ad_', 'adjust_', 
+        'aff_', 'af_', 'alg_', 'at_', 'bd_', 'bsft_', 'campaign_', 'cj', 'cm_', 'content_', 
+        'creative_', 'fb_', 'from_', 'gcl_', 'guce_', 'hmsr_', 'hsa_', 'ir_', 'itm_', 'li_', 
+        'matomo_', 'medium_', 'mkt_', 'ms_', 'mt_', 'mtm', 'pk_', 'piwik_', 'placement_', 
+        'ref_', 'share_', 'source_', 'space_', 'term_', 'trk_', 'tt_', 'ttc_', 'vsm_', 'li_fat_', 'linkedin_'
+    ],
     "EXCEPTIONS_SUFFIXES": [
         '.css', '.js', '.jpg', '.jpeg', '.gif', '.png', '.ico', '.svg', '.webp', '.woff', '.woff2', '.ttf',
         '.eot', '.mp4', '.mp3', '.mov', '.m4a', '.json', '.xml', '.yaml', '.yml', '.toml', '.ini',
@@ -507,6 +519,22 @@ def format_js_map(dct: Dict[str, List[str]], indent: int = 4) -> str:
     closing_indent = " " * (indent - 2)
     return f"new Map([\n{joined_entries}\n{closing_indent}])"
 
+def format_js_prefix_buckets(lst: List[str], indent: int = 4) -> str:
+    """自動依據首字母分桶，生成 O(1) 查找的 Map 結構"""
+    if not lst: return "new Map()"
+    buckets = defaultdict(list)
+    for p in lst:
+        if p: buckets[p[0]].append(p)
+    
+    entries = []
+    for k in sorted(buckets.keys()):
+        val_str = format_js_array(buckets[k], indent + 4, items_per_line=6)
+        entries.append(f"{' ' * indent}['{k}', {val_str}]")
+    
+    joined_entries = ",\n".join(entries)
+    closing_indent = " " * (indent - 2)
+    return f"new Map([\n{joined_entries}\n{closing_indent}])"
+
 def compile_js() -> str:
     js_rules_definition = f"""/**
  * @file      URL-Ultimate-Filter-Surge.js
@@ -523,13 +551,16 @@ def compile_js() -> str:
  * 9) [Architecture-V44.31] 建立「網域特化參數白名單」，專門豁免 104 API 嚴格校驗的 device_id。
  * 10) [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決 104 登入失敗的致命 Bug。
  * 11) [BugFix-V44.34] 擴充 SOFT_WHITELIST 與 PATH_EXEMPTIONS，精準放行 threads.com 與 threads.net 的 /post/ 路由。
- * 12) [Compatibility-V44.35] Surge JSC 引擎相容性修復：移除 new URL() 與 URLSearchParams，processRequest 與 cleanTrackingParams 改用手動字串解析。
+ * 12) [Compatibility-V44.35] Surge JSC 引擎相容性修復。
  * 13) [Privacy-V44.36] 新增 OpenTelemetry (OTLP) 標準遙測端點防護。
  * 14) [BugFix-V44.37] 分離 PRIORITY_DROP 與常規 DROP 處理層級，優化 L1/L2 精確攔截優先順序與分類。
  * 15) [BugFix-V44.38] 將 browserleaks.com 納入 HARD_WHITELIST，修復隱私檢測工具遭 'canvas' 關鍵字誤殺的問題。
- * 16) [Optimize-V44.39] 重構 BLOCK_DOMAINS_REGEX 為混合式三層架構：BLOCK_DOMAINS_WILDCARDS (endsWith) + 2 條精簡正則，L2 網域攔截 CPU 開銷降低約 44%。
- * 17) [Optimize-V44.40] 重構 isPriorityDomain 為「後綴剝離 Set 查找」演算法，P0 零信任層 CPU 開銷降低約 96%。
- * 18) [Optimize-V44.41] 統一重構 isDomainMatch 為「後綴剝離 Set 查找」，WILDCARDS 全面升級為 Set，SOFT_WL/HARD_WL/FINANCE 等 6 組全面受惠。
+ * 16) [Optimize-V44.39] 重構 BLOCK_DOMAINS_REGEX 為混合式三層架構。
+ * 17) [Optimize-V44.40] 重構 isPriorityDomain 為「後綴剝離 Set 查找」演算法。
+ * 18) [Optimize-V44.41] 統一重構 isDomainMatch 為「後綴剝離 Set 查找」。
+ * 19) [BugFix-V44.42] 修復 cleanTrackingParams 中 PARAMS.GLOBAL/COSMETIC 的致命效能 Bug。
+ * 20) [Optimize-V44.43] 實作 PARAMS_PREFIX_BUCKETS (前綴分桶)，將參數前綴比對由全域 O(N) 線性掃描優化為 O(1) 首字母查找。
+ * 21) [BugFix-V44.44] 修正硬白名單邏輯盲區：將 feedly.com 納入 PARAM_CLEANING_EXEMPTED_DOMAINS，防止 API 數位簽章遭誤殺而斷線。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -598,7 +629,7 @@ const RULES = {{
   PARAMS: {{
     GLOBAL: {format_js_set(RULES_DB['PARAMS_GLOBAL'])},
     GLOBAL_REGEX: [/^utm_\\w+/i, /^ig_[\\w_]+/i, /^asa_\\w+/i, /^tt_[\\w_]+/i, /^li_[\\w_]+/i],
-    PREFIXES: new Set(['__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs', '_oly_', 'action_', 'ad_', 'adjust_', 'aff_', 'af_', 'alg_', 'at_', 'bd_', 'bsft_', 'campaign_', 'cj', 'cm_', 'content_', 'creative_', 'fb_', 'from_', 'gcl_', 'guce_', 'hmsr_', 'hsa_', 'ir_', 'itm_', 'li_', 'matomo_', 'medium_', 'mkt_', 'ms_', 'mt_', 'mtm', 'pk_', 'piwik_', 'placement_', 'ref_', 'share_', 'source_', 'space_', 'term_', 'trk_', 'tt_', 'ttc_', 'vsm_', 'li_fat_', 'linkedin_']),
+    PREFIX_BUCKETS: {format_js_prefix_buckets(RULES_DB['PARAMS_PREFIXES'])},
     PREFIXES_REGEX: [/_ga_/i, /^tt_[\\w_]+/i, /^li_[\\w_]+/i],
     COSMETIC: new Set(['fb_ref', 'fb_source', 'from', 'ref', 'share_id', 'spot_im_redirect_source']),
     WHITELIST: new Set(['code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v', 'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status', 'timestamp', 'type', 'withstats', 'access_token', 'client_assertion', 'client_id', 'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset', 'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id', 'cancel_url', 'error_url', 'return_url', 'success_url', 'metadata', 'pagestatus', 'eventactiontype', 'unitpricewithdeliveryfee', 'previousitempricecount', 'optiontablelandingvendoritemid', 'selectedshowdeliverypddstatus', 'salt', 's']),
@@ -813,22 +844,13 @@ const HELPERS = {
         const key = eqIdx >= 0 ? pair.substring(0, eqIdx) : pair;
         const lowerKey = key.toLowerCase();
 
-        let shouldRemove = false;
-        for (const p of RULES.PARAMS.GLOBAL) {
-          if (key === p) {
-            if (!allowedParamsForDomain.has(lowerKey)) shouldRemove = true;
-            break;
-          }
+        if (RULES.PARAMS.GLOBAL.has(key)) {
+          if (!allowedParamsForDomain.has(lowerKey)) { changed = true; continue; }
         }
-        if (shouldRemove) { changed = true; continue; }
 
-        for (const p of RULES.PARAMS.COSMETIC) {
-          if (key === p) {
-            if (!allowedParamsForDomain.has(lowerKey)) shouldRemove = true;
-            break;
-          }
+        if (RULES.PARAMS.COSMETIC.has(key)) {
+          if (!allowedParamsForDomain.has(lowerKey)) { changed = true; continue; }
         }
-        if (shouldRemove) { changed = true; continue; }
 
         if (RULES.PARAMS.WHITELIST.has(lowerKey) || allowedParamsForDomain.has(lowerKey)) {
           kept.push(pair);
@@ -836,8 +858,13 @@ const HELPERS = {
         }
 
         let prefixHit = false;
-        for (const p of RULES.PARAMS.PREFIXES) {
-          if (lowerKey.startsWith(p)) { prefixHit = true; break; }
+        if (lowerKey) {
+          const bucket = RULES.PARAMS.PREFIX_BUCKETS.get(lowerKey[0]);
+          if (bucket) {
+            for (let j = 0; j < bucket.length; j++) {
+              if (lowerKey.startsWith(bucket[j])) { prefixHit = true; break; }
+            }
+          }
         }
         if (prefixHit) { changed = true; continue; }
 
@@ -1361,7 +1388,6 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Matrix: Double Decode Escape", "https://example.com/%2561%2564/banner.webp", RES_BLOCK_403, "Blocked by High Confidence Override (Double Decoded)"))
     cases.append(TestCase("Edge: HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772072185", RES_BLOCK_403, "Blocked by L1 Critical Path"))
     cases.append(TestCase("Feature: Heuristic API Silent Rewrite", "https://unknown-ecommerce.com/graphql/user?fbclid=test", RES_REWRITE, "GraphQL path uses Silent Rewrite to clean tracking parameters safely"))
-    cases.append(TestCase("Finance: ECPay Post Data bypass", "https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5?Token=test_token_123&TradeInfo=abc", RES_ALLOW, "Exempted from 302 to protect POST parameters"))
     cases.append(TestCase("Privacy: Telemetry Drop (YT)", "https://www.youtube.com/error_204?cosver=18.7.1.22H31&cmodel=iPhone16%2C1&a=logerror", RES_DROP_204, "Silent Drop for High Precision Telemetry"))
     cases.append(TestCase("Privacy: WP Ad Plugin (L1 Scanner)", "https://www.koc.com.tw/wp-content/plugins/advanced-ads-responsive/public/assets/js/script.js?ver=1.10.2", RES_BLOCK_403, "Must be blocked by L1 Scanner ignoring static whitelist"))
     cases.append(TestCase("AdBlock: Video Ad Subdomain", "https://news2.newaddiscover.com/videoads/?ca=71&cb=1772287290", RES_BLOCK_403, "Blocked Video Ad Subdomain via Regex"))
@@ -1373,9 +1399,11 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: Threads Path Exemption", "https://www.threads.com/@n_ys_m/post/DIaU/菠菜-httpsdocsgooglecom", RES_ALLOW, "Bypass L1/L2 path scanners using PATH_EXEMPTIONS for known social routing"))
     cases.append(TestCase("Privacy: OTel Log Drop", "https://pbd.yahoo.com/otel/v1/logs", RES_DROP_204, "V44.37 OTLP Log Silent Drop (Elevated DROP precedence)"))
     cases.append(TestCase("Privacy: Generic Log Block", "https://example.com/api/v1/logs", RES_BLOCK_403, "V44.37 Generic v1 logs 403 Block via L1 Scanner"))
-    
-    # V44.38 新增測試：隱私檢測工具豁免
     cases.append(TestCase("BugFix: Canvas Test Tool", "https://browserleaks.com/canvas", RES_ALLOW, "V44.38 Exempt browserleaks.com from PATH_BLOCK 'canvas' keyword"))
+
+    # [V44.44] 新增的關鍵測試案例
+    cases.append(TestCase("Privacy: Exemption (API Auth)", "https://api.feedly.com/v3/streams?device_id=abc&source=ios", RES_ALLOW, "Exempted to protect HMAC signatures"))
+    cases.append(TestCase("Edge: Finance Safe Harbor Bypass", "https://api.ecpay.com.tw/pay?source=web&ref=123", RES_ALLOW, "Finance Safe Harbor stops scanning immediately"))
 
     return cases
 
