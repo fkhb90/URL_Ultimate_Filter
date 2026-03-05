@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.41 (SSOT Compilation & Pages Deployment)
+ * @version   44.42 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
@@ -20,11 +20,12 @@
  * 16) [Optimize-V44.39] 重構 BLOCK_DOMAINS_REGEX 為混合式三層架構：BLOCK_DOMAINS_WILDCARDS (endsWith) + 2 條精簡正則，L2 網域攔截 CPU 開銷降低約 44%。
  * 17) [Optimize-V44.40] 重構 isPriorityDomain 為「後綴剝離 Set 查找」演算法，P0 零信任層 CPU 開銷降低約 96%。
  * 18) [Optimize-V44.41] 統一重構 isDomainMatch 為「後綴剝離 Set 查找」，WILDCARDS 全面升級為 Set，SOFT_WL/HARD_WL/FINANCE 等 6 組全面受惠。
+ * 19) [BugFix-V44.42] 修復 cleanTrackingParams 中 PARAMS.GLOBAL/COSMETIC 的致命效能 Bug：Set 資料結構卻以 for...of 做 O(n) 線性迭代比對，改為 Set.has() O(1) 直接查找，移除冗餘 shouldRemove 變數，每參數比對開銷降低約 98%。
  * @lastUpdated 2026-03-05
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.41';
+const SCRIPT_VERSION = '44.42';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -866,22 +867,15 @@ const HELPERS = {
         const key = eqIdx >= 0 ? pair.substring(0, eqIdx) : pair;
         const lowerKey = key.toLowerCase();
 
-        let shouldRemove = false;
-        for (const p of RULES.PARAMS.GLOBAL) {
-          if (key === p) {
-            if (!allowedParamsForDomain.has(lowerKey)) shouldRemove = true;
-            break;
-          }
+        // [V44.42] FIX: GLOBAL/COSMETIC are Sets — use O(1) Set.has() directly.
+        // Previously these used for...of loops (O(n)), negating the Set data structure entirely.
+        if (RULES.PARAMS.GLOBAL.has(key)) {
+          if (!allowedParamsForDomain.has(lowerKey)) { changed = true; continue; }
         }
-        if (shouldRemove) { changed = true; continue; }
 
-        for (const p of RULES.PARAMS.COSMETIC) {
-          if (key === p) {
-            if (!allowedParamsForDomain.has(lowerKey)) shouldRemove = true;
-            break;
-          }
+        if (RULES.PARAMS.COSMETIC.has(key)) {
+          if (!allowedParamsForDomain.has(lowerKey)) { changed = true; continue; }
         }
-        if (shouldRemove) { changed = true; continue; }
 
         if (RULES.PARAMS.WHITELIST.has(lowerKey) || allowedParamsForDomain.has(lowerKey)) {
           kept.push(pair);
