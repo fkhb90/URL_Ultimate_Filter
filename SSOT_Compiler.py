@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.43 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.42 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -19,11 +19,10 @@ URL Ultimate Filter - V44.43 SSOT Compiler & Matrix Test Suite
 13. [Privacy-V44.36] 新增 OpenTelemetry (OTLP) 標準遙測端點防護。
 14. [BugFix-V44.37] 分離 PRIORITY_DROP 與常規 DROP 處理層級，優化 L1/L2 精確攔截優先順序與分類。
 15. [BugFix-V44.38] 將 browserleaks.com 納入 HARD_WHITELIST，修復因 PATH_BLOCK 包含 'canvas' 關鍵字導致隱私檢測工具遭到誤殺的問題。
-16. [Optimize-V44.39] 重構 BLOCK_DOMAINS_REGEX 為混合式三層架構。
-17. [Optimize-V44.40] 重構 isPriorityDomain 為「後綴剝離 Set 查找」演算法。
-18. [Optimize-V44.41] 統一重構 isDomainMatch 為「後綴剝離 Set 查找」演算法。
-19. [BugFix-V44.42] 修復 cleanTrackingParams 中 PARAMS.GLOBAL 與 PARAMS.COSMETIC 的致命效能 Bug。
-20. [Optimize-V44.43] 實作 PARAMS_PREFIX_BUCKETS (前綴分桶)，將參數前綴比對由 O(N) 優化為 O(1) 初始查找，大幅降低迭代開銷。
+16. [Optimize-V44.39] 重構 BLOCK_DOMAINS_REGEX 為混合式三層架構：將 11 條簡單萬用字元正則解構為 BLOCK_DOMAINS_WILDCARDS（endsWith 原生比對），僅保留 2 條真正需要正則的模式並施加非捕獲群組與字元範圍限縮優化，L2 網域攔截 CPU 開銷降低約 44%。
+17. [Optimize-V44.40] 重構 isPriorityDomain 為「後綴剝離 Set 查找」演算法：以 indexOf + substring 逐層剝離子網域後對原 Set 做 O(1) 查找，取代原本 O(n) 線性 endsWith 迴圈，P0 零信任層 CPU 開銷降低約 96%。
+18. [Optimize-V44.41] 統一重構 isDomainMatch 為「後綴剝離 Set 查找」演算法，並將全部 6 組 WILDCARDS 資料結構從 Array 升級為 Set：SOFT_WHITELIST（99 條, ↓95%）、FINANCE_SAFE_HARBOR（36 條, ↓84%）、HARD_WHITELIST（32 條, ↓84%）等全面受惠。
+19. [BugFix-V44.42] 修復 cleanTrackingParams 中 PARAMS.GLOBAL（43 條）與 PARAMS.COSMETIC（6 條）的致命效能 Bug：兩者已是 Set 卻以 for...of 做 O(n) 線性迭代，改為 Set.has() O(1) 直接查找，同步移除冗餘的 shouldRemove 中間變數，每個 URL 參數的比對開銷降低約 98%。
 """
 
 import json
@@ -47,7 +46,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.43"
+VERSION = "44.42"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -477,13 +476,6 @@ RULES_DB = {
         'oprtrack', 'rb_clickid', 'sscid', 'trk', 'usqp', 'vero_conv', 'vero_id', 'wbraid', 'wt_mc',
         'xtor', 'ysclid', 'zanpid', 'yt_src', 'yt_ad', 's_kwcid', 'sc_cid', 'log_level'
     ],
-    "PARAMS_PREFIXES": [
-        '__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs', '_oly_', 'action_', 'ad_', 'adjust_', 
-        'aff_', 'af_', 'alg_', 'at_', 'bd_', 'bsft_', 'campaign_', 'cj', 'cm_', 'content_', 
-        'creative_', 'fb_', 'from_', 'gcl_', 'guce_', 'hmsr_', 'hsa_', 'ir_', 'itm_', 'li_', 
-        'matomo_', 'medium_', 'mkt_', 'ms_', 'mt_', 'mtm', 'pk_', 'piwik_', 'placement_', 
-        'ref_', 'share_', 'source_', 'space_', 'term_', 'trk_', 'tt_', 'ttc_', 'vsm_', 'li_fat_', 'linkedin_'
-    ],
     "EXCEPTIONS_SUFFIXES": [
         '.css', '.js', '.jpg', '.jpeg', '.gif', '.png', '.ico', '.svg', '.webp', '.woff', '.woff2', '.ttf',
         '.eot', '.mp4', '.mp3', '.mov', '.m4a', '.json', '.xml', '.yaml', '.yml', '.toml', '.ini',
@@ -516,22 +508,6 @@ def format_js_map(dct: Dict[str, List[str]], indent: int = 4) -> str:
     closing_indent = " " * (indent - 2)
     return f"new Map([\n{joined_entries}\n{closing_indent}])"
 
-def format_js_prefix_buckets(lst: List[str], indent: int = 4) -> str:
-    """自動依據首字母分桶，生成 O(1) 查找的 Map 結構"""
-    if not lst: return "new Map()"
-    buckets = defaultdict(list)
-    for p in lst:
-        if p: buckets[p[0]].append(p)
-    
-    entries = []
-    for k in sorted(buckets.keys()):
-        val_str = format_js_array(buckets[k], indent + 4, items_per_line=6)
-        entries.append(f"{' ' * indent}['{k}', {val_str}]")
-    
-    joined_entries = ",\n".join(entries)
-    closing_indent = " " * (indent - 2)
-    return f"new Map([\n{joined_entries}\n{closing_indent}])"
-
 def compile_js() -> str:
     js_rules_definition = f"""/**
  * @file      URL-Ultimate-Filter-Surge.js
@@ -556,7 +532,6 @@ def compile_js() -> str:
  * 17) [Optimize-V44.40] 重構 isPriorityDomain 為「後綴剝離 Set 查找」演算法，P0 零信任層 CPU 開銷降低約 96%。
  * 18) [Optimize-V44.41] 統一重構 isDomainMatch 為「後綴剝離 Set 查找」，WILDCARDS 全面升級為 Set，SOFT_WL/HARD_WL/FINANCE 等 6 組全面受惠。
  * 19) [BugFix-V44.42] 修復 cleanTrackingParams 中 PARAMS.GLOBAL/COSMETIC 的致命效能 Bug：Set 資料結構卻以 for...of 做 O(n) 線性迭代比對，改為 Set.has() O(1) 直接查找，移除冗餘 shouldRemove 變數，每參數比對開銷降低約 98%。
- * 20) [Optimize-V44.43] 實作 PARAMS_PREFIX_BUCKETS (前綴分桶)，將參數前綴比對由全域 O(N) 線性掃描優化為基於首字母的 O(1) Map 初始查找，大幅降低迭代開銷。
  * @lastUpdated {datetime.now().strftime("%Y-%m-%d")}
  */
 
@@ -625,7 +600,7 @@ const RULES = {{
   PARAMS: {{
     GLOBAL: {format_js_set(RULES_DB['PARAMS_GLOBAL'])},
     GLOBAL_REGEX: [/^utm_\\w+/i, /^ig_[\\w_]+/i, /^asa_\\w+/i, /^tt_[\\w_]+/i, /^li_[\\w_]+/i],
-    PREFIX_BUCKETS: {format_js_prefix_buckets(RULES_DB['PARAMS_PREFIXES'])},
+    PREFIXES: new Set(['__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs', '_oly_', 'action_', 'ad_', 'adjust_', 'aff_', 'af_', 'alg_', 'at_', 'bd_', 'bsft_', 'campaign_', 'cj', 'cm_', 'content_', 'creative_', 'fb_', 'from_', 'gcl_', 'guce_', 'hmsr_', 'hsa_', 'ir_', 'itm_', 'li_', 'matomo_', 'medium_', 'mkt_', 'ms_', 'mt_', 'mtm', 'pk_', 'piwik_', 'placement_', 'ref_', 'share_', 'source_', 'space_', 'term_', 'trk_', 'tt_', 'ttc_', 'vsm_', 'li_fat_', 'linkedin_']),
     PREFIXES_REGEX: [/_ga_/i, /^tt_[\\w_]+/i, /^li_[\\w_]+/i],
     COSMETIC: new Set(['fb_ref', 'fb_source', 'from', 'ref', 'share_id', 'spot_im_redirect_source']),
     WHITELIST: new Set(['code', 'id', 'item', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 't', 'targetid', 'token', 'v', 'callback', 'ct', 'cv', 'filter', 'format', 'lang', 'locale', 'status', 'timestamp', 'type', 'withstats', 'access_token', 'client_assertion', 'client_id', 'nonce', 'redirect_uri', 'refresh_token', 'response_type', 'scope', 'direction', 'limit', 'offset', 'order', 'page_number', 'size', 'sort', 'sort_by', 'aff_sub', 'click_id', 'deal_id', 'offer_id', 'cancel_url', 'error_url', 'return_url', 'success_url', 'metadata', 'pagestatus', 'eventactiontype', 'unitpricewithdeliveryfee', 'previousitempricecount', 'optiontablelandingvendoritemid', 'selectedshowdeliverypddstatus', 'salt', 's']),
@@ -841,6 +816,7 @@ const HELPERS = {
         const lowerKey = key.toLowerCase();
 
         // [V44.42] FIX: GLOBAL/COSMETIC are Sets — use O(1) Set.has() directly.
+        // Previously these used for...of loops (O(n)), negating the Set data structure entirely.
         if (RULES.PARAMS.GLOBAL.has(key)) {
           if (!allowedParamsForDomain.has(lowerKey)) { changed = true; continue; }
         }
@@ -854,15 +830,9 @@ const HELPERS = {
           continue;
         }
 
-        // [V44.43] OPTIMIZE: Prefix Bucketing O(1) initial lookup
         let prefixHit = false;
-        if (lowerKey) {
-          const bucket = RULES.PARAMS.PREFIX_BUCKETS.get(lowerKey[0]);
-          if (bucket) {
-            for (let j = 0; j < bucket.length; j++) {
-              if (lowerKey.startsWith(bucket[j])) { prefixHit = true; break; }
-            }
-          }
+        for (const p of RULES.PARAMS.PREFIXES) {
+          if (lowerKey.startsWith(p)) { prefixHit = true; break; }
         }
         if (prefixHit) { changed = true; continue; }
 
