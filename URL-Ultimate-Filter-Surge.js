@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.40 (SSOT Compilation & Pages Deployment)
+ * @version   44.41 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
@@ -19,11 +19,12 @@
  * 15) [BugFix-V44.38] 將 browserleaks.com 納入 HARD_WHITELIST，修復隱私檢測工具遭 'canvas' 關鍵字誤殺的問題。
  * 16) [Optimize-V44.39] 重構 BLOCK_DOMAINS_REGEX 為混合式三層架構：BLOCK_DOMAINS_WILDCARDS (endsWith) + 2 條精簡正則，L2 網域攔截 CPU 開銷降低約 44%。
  * 17) [Optimize-V44.40] 重構 isPriorityDomain 為「後綴剝離 Set 查找」演算法，P0 零信任層 CPU 開銷降低約 96%。
+ * 18) [Optimize-V44.41] 統一重構 isDomainMatch 為「後綴剝離 Set 查找」，WILDCARDS 全面升級為 Set，SOFT_WL/HARD_WL/FINANCE 等 6 組全面受惠。
  * @lastUpdated 2026-03-05
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.40';
+const SCRIPT_VERSION = '44.41';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -40,28 +41,28 @@ const PARAM_CLEANING_EXEMPTED_DOMAINS = {
     EXACT: new Set([
     'shopback.com.tw', 'extrabux.com', 'buy.line.me'
   ]),
-    WILDCARDS: []
+    WILDCARDS: new Set([])
 };
 
 const SILENT_REWRITE_DOMAINS = {
     EXACT: new Set([]),
-    WILDCARDS: [
+    WILDCARDS: new Set([
     '591.com.tw', '104.com.tw'
-  ]
+  ])
 };
 
 const FINANCE_SAFE_HARBOR = {
     EXACT: new Set([
     'api.ecpay.com.tw', 'payment.ecpay.com.tw', 'api.map.ecpay.com.tw', 'api.jkos.com'
   ]),
-    WILDCARDS: [
+    WILDCARDS: new Set([
     'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw', 'richart.tw',
     'bot.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw', 'dawho.tw', 'dbs.com.tw',
     'firstbank.com.tw', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw', 'megabank.com.tw',
     'scsb.com.tw', 'sinopac.com', 'sinotrade.com.tw', 'standardchartered.com.tw', 'tcb-bank.com.tw', 'paypal.com',
     'stripe.com', 'taiwanpay.com.tw', 'twca.com.tw', 'twmp.com.tw', 'pay.taipei', 'momopay.com.tw',
     'mymobibank.com.tw', 'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'org.tw', 'tdcc.com.tw'
-  ]
+  ])
 };
 
 // #################################################################################################
@@ -126,14 +127,14 @@ const RULES = {
     'api.twitch.tv', 'api.line.me', 'today.line.me', 'pro.104.com.tw', 'appapi.104.com.tw', 'datadog.pool.ntp.org',
     'ewp.uber.com', 'copilot.microsoft.com', 'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net'
   ]),
-    WILDCARDS: [
+    WILDCARDS: new Set([
     'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com', 'shopee.tw', 'mitake.com.tw',
     'money-link.com.tw', '591.com.tw', '104.com.tw', 'icloud.com', 'apple.com', 'whatsapp.net',
     'update.microsoft.com', 'windowsupdate.com', 'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
     'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
     'perma.cc', 'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'googlevideo.com', 'app.goo.gl',
     'goo.gl', 'browserleaks.com'
-  ]
+  ])
   },
 
   SOFT_WHITELIST: {
@@ -146,7 +147,7 @@ const RULES = {
     'api.revenuecat.com', 'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com', 'cmapi.tw.coupang.com', 'api.ipify.org',
     'gcp-data-api.ltn.com.tw', 's.pinimg.com', 'cdn.shopify.com'
   ]),
-    WILDCARDS: [
+    WILDCARDS: new Set([
     'chatgpt.com', 'shopee.com', 'shopeemobile.com', 'shopee.io', 'youtube.com', 'facebook.com',
     'instagram.com', 'twitter.com', 'tiktok.com', 'spotify.com', 'netflix.com', 'disney.com',
     'linkedin.com', 'discord.com', 'googleapis.com', 'book.com.tw', 'citiesocial.com', 'coupang.com',
@@ -164,7 +165,7 @@ const RULES = {
     'mirrored.to', 'multiup.io', 'nmac.to', 'noelshack.com', 'pic-upload.de', 'pixhost.to',
     'postimg.cc', 'prnt.sc', 'sfile.mobi', 'thefileslocker.net', 'turboimagehost.com', 'uploadhaven.com',
     'uploadrar.com', 'usersdrive.com', '__sbcdn'
-  ]
+  ])
   },
 
   BLOCK_DOMAINS: new Set([
@@ -214,10 +215,10 @@ const RULES = {
     'bat.bing.com', 'clarity.ms', 'pinterest.com', 'reddit.com', 'snapchat.com', 'elads.kocpc.com.tw',
     'app-ads-services.com', 'eservice.emarsys.net'
   ]),
-  BLOCK_DOMAINS_WILDCARDS: [
+  BLOCK_DOMAINS_WILDCARDS: new Set([
     'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io', 'aotter.net', 'ssp.yahoo.com',
     'pbs.yahoo.com', 'ay.delivery', 'cootlogix.com', 'ottadvisors.com', 'newaddiscover.com'
-  ],
+  ]),
 
   BLOCK_DOMAINS_REGEX: [
     /^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$/i,
@@ -751,10 +752,13 @@ const multiLevelCache = new HighPerformanceLRUCache(512);
 const stats = { blocks: 0, allows: 0, toString: () => `Blocked: ${stats.blocks}, Allowed: ${stats.allows}` };
 const criticalMapCache = new HighPerformanceLRUCache(256);
 
-function isDomainMatch(setExact, wildcards, hostname) {
+function isDomainMatch(setExact, wildcardsSet, hostname) {
   if (setExact.has(hostname)) return true;
-  for (const d of wildcards) {
-    if (hostname === d || hostname.endsWith('.' + d)) return true;
+  if (wildcardsSet.has(hostname)) return true;
+  var pos = hostname.indexOf('.');
+  while (pos >= 0) {
+    if (wildcardsSet.has(hostname.substring(pos + 1))) return true;
+    pos = hostname.indexOf('.', pos + 1);
   }
   return false;
 }
