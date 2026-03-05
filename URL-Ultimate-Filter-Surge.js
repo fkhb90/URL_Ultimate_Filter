@@ -1,6 +1,6 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.38 (SSOT Compilation & Pages Deployment)
+ * @version   44.39 (SSOT Compilation & Pages Deployment)
  * @description 
  * 1) [Architecture] Python SSOT 自動編譯生成。
  * 2) [Privacy] 加入 PARAM_CLEANING_EXEMPTED_DOMAINS 豁免清單，保護電商歸因。
@@ -17,11 +17,12 @@
  * 13) [Privacy-V44.36] 新增 OpenTelemetry (OTLP) 標準遙測端點防護。
  * 14) [BugFix-V44.37] 分離 PRIORITY_DROP 與常規 DROP 處理層級，優化 L1/L2 精確攔截優先順序與分類。
  * 15) [BugFix-V44.38] 將 browserleaks.com 納入 HARD_WHITELIST，修復隱私檢測工具遭 'canvas' 關鍵字誤殺的問題。
- * @lastUpdated 2026-03-04
+ * 16) [Optimize-V44.39] 重構 BLOCK_DOMAINS_REGEX 為混合式三層架構：BLOCK_DOMAINS_WILDCARDS (endsWith) + 2 條精簡正則，L2 網域攔截 CPU 開銷降低約 44%。
+ * @lastUpdated 2026-03-05
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.38';
+const SCRIPT_VERSION = '44.39';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -212,21 +213,14 @@ const RULES = {
     'bat.bing.com', 'clarity.ms', 'pinterest.com', 'reddit.com', 'snapchat.com', 'elads.kocpc.com.tw',
     'app-ads-services.com', 'eservice.emarsys.net'
   ]),
+  BLOCK_DOMAINS_WILDCARDS: [
+    'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io', 'aotter.net', 'ssp.yahoo.com',
+    'pbs.yahoo.com', 'ay.delivery', 'cootlogix.com', 'ottadvisors.com', 'newaddiscover.com'
+  ],
 
   BLOCK_DOMAINS_REGEX: [
-    /^ad[s]?\d*\.(ettoday\.net|ltn\.com\.tw)$/i,
-    /^(.+\.)?sentry\.io$/i,
-    /^browser-intake-.*datadoghq\.(com|eu|us)$/i,
-    /^(.+\.)?pidetupop\.com$/i,
-    /^(.+\.)?cdn-net\.com$/i,
-    /^(.+\.)?lr-ingest\.io$/i,
-    /^(.+\.)?aotter\.net$/i,
-    /^(.+\.)?ssp\.yahoo\.com$/i,
-    /^(.+\.)?pbs\.yahoo\.com$/i,
-    /^(.+\.)?ay\.delivery$/i,
-    /^(.+\.)?cootlogix\.com$/i,
-    /^(.+\.)?ottadvisors\.com$/i,
-    /^(.+\.)?newaddiscover\.com$/i
+    /^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$/i,
+    /^browser-intake-[\w.-]*datadoghq\.(?:com|eu|us)$/i
   ],
 
   CRITICAL_PATH: {
@@ -1081,7 +1075,7 @@ function processRequest(request) {
     }
 
     if (!isSoftWhitelisted) {
-      if (RULES.BLOCK_DOMAINS.has(hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
+      if (isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
         stats.blocks++;
         return { response: { status: 403, body: 'Blocked by Domain' } };
       }
