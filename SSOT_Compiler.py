@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.51 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.57 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -33,6 +33,10 @@ URL Ultimate Filter - V44.51 SSOT Compiler & Matrix Test Suite
 27. [BugFix-V44.49] 修正 P0 子網域繼承失效 (px.ads.linkedin.com) 與還原 URL 雙重編碼解譯引擎。
 28. [BugFix-V44.50] 修復 Python f-string 反斜線編譯錯誤 (SyntaxError)，確保完全相容 CI/CD (Python < 3.12) 環境。
 29. [Feature-V44.51] 擴充 Matrix Test Suite 支援 E2E (End-to-End) 鏈式測試與 Hash 截斷物理模擬。
+30. [Architecture-V44.52] 實作「雙軌目標發佈」，同時生成 Surge 版與具備獨立防護 UI 的 Tampermonkey 版本。
+31. [Feature-V44.54] Tampermonkey 前端 UI 重構：導入分頁 (Tab) 切換展收清單，整合 TM 原生選單開關。
+32. [Feature-V44.56] Tampermonkey UI 再進化：縮小預設盾牌、修正重複請求計數 (採用 Map 狀態機 xN 次數標記)。
+33. [Feature-V44.57] Tampermonkey UX 最佳化：實作「點擊面板外部任意處自動收合」功能，提升操作直覺性。
 """
 
 import json
@@ -54,7 +58,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.51"
+VERSION = "44.57"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -516,7 +520,7 @@ RULES_DB = {
 }
 
 # ==========================================
-#  2. JS COMPILER & FORMATTER
+#  2. JS COMPILER & FORMATTER (SHARED)
 # ==========================================
 
 def format_js_array(lst: List[str], indent: int = 4, items_per_line: int = 6) -> str:
@@ -564,12 +568,11 @@ def format_scoped_exemptions(dct: Dict[str, Dict[str, List[str]]], indent: int =
     joined_domains = ",\n".join(domain_entries)
     return f"new Map([\n{joined_domains}\n{' ' * (indent - 2)}])"
 
-def compile_js() -> str:
+def get_js_rules_definition(platform_desc: str) -> str:
     regex_joined = ', '.join([f"/{r}/i" for r in RULES_DB['BLOCK_DOMAINS_REGEX']])
-    js_rules_definition = f"""/**
- * @file      URL-Ultimate-Filter-Surge.js
+    return f"""/**
+ * @file      URL-Ultimate-Filter-{platform_desc}.js
  * @version   {VERSION} (SSOT Compilation)
- * @description V44.51 - E2E Chained Test Capabilities & Hash Truncation Simulation.
  */
 
 const CONFIG = {{ DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 }};
@@ -656,7 +659,8 @@ const RULES = {{
 }};
 """
 
-    js_engine_logic = r"""
+def get_js_engine_logic() -> str:
+    return r"""
 class ACScanner {
   constructor(keywords) { this.keywords = keywords.map(k => k.toLowerCase()); }
   matches(text) {
@@ -980,17 +984,364 @@ function processRequest(request) {
   stats.allows++;
   return null;
 }
+"""
 
+def compile_surge() -> str:
+    js = get_js_rules_definition("Surge") + get_js_engine_logic()
+    wrapper = """
 if (typeof $request !== 'undefined') {
   $done(processRequest($request));
 } else {
-  if (typeof $done !== 'undefined') $done({ title: 'URL Ultimate Filter', content: `V${SCRIPT_VERSION} Active\n${stats.toString()}` });
+  if (typeof $done !== 'undefined') $done({ title: 'URL Ultimate Filter', content: `V${SCRIPT_VERSION} Active\\n${stats.toString()}` });
 }
 """
-    return js_rules_definition + js_engine_logic
+    return js + wrapper
+
+def compile_tampermonkey() -> str:
+    header = f"""// ==UserScript==
+// @name         URL Ultimate Filter V{VERSION}
+// @namespace    http://tampermonkey.net/
+// @version      {VERSION}
+// @description  SSOT 前端防護盾牌，專業級 UI：極簡盾牌圖示、獨立計數器、點擊外部自動收合機制。
+// @author       Jerry
+// @match        *://*/*
+// @run-at       document-start
+// @grant        GM_registerMenuCommand
+// ==/UserScript==
+
+(function() {{
+    'use strict';
+"""
+    js = get_js_rules_definition("Tampermonkey") + get_js_engine_logic()
+    
+    interceptor_logic = r"""
+    // --- Tampermonkey Interception Hooks & Professional UI ---
+    const tmStats = {
+        blocked: new Map(), // 記錄 { 網址: 出現次數 }
+        cleaned: new Map(), // 記錄 { 原始網址: { newUrl, count } }
+        allowed: new Map(), // 記錄 { 網址: 出現次數 }
+        countBlocked: 0,
+        countCleaned: 0,
+        countAllowed: 0,
+        
+        recordBlock: function(u) { 
+            this.countBlocked++;
+            let c = 1;
+            // 刪除舊紀錄並重新插入，確保最新出現的網址排在 Map 迭代順序的最後面 (即渲染時的最上方)
+            if(this.blocked.has(u)) { c = this.blocked.get(u) + 1; this.blocked.delete(u); }
+            else if(this.blocked.size >= 50) this.blocked.delete(this.blocked.keys().next().value);
+            this.blocked.set(u, c); 
+            requestUpdate(); 
+        },
+        recordClean: function(o, n) { 
+            this.countCleaned++;
+            let c = 1;
+            if(this.cleaned.has(o)) { c = this.cleaned.get(o).count + 1; this.cleaned.delete(o); }
+            else if(this.cleaned.size >= 50) this.cleaned.delete(this.cleaned.keys().next().value);
+            this.cleaned.set(o, {newUrl: n, count: c}); 
+            requestUpdate(); 
+        },
+        recordAllow: function(u) {
+            this.countAllowed++;
+            let c = 1;
+            if(this.allowed.has(u)) { c = this.allowed.get(u) + 1; this.allowed.delete(u); }
+            else if(this.allowed.size >= 50) this.allowed.delete(this.allowed.keys().next().value);
+            this.allowed.set(u, c);
+            if(expanded && activeTab === 'allowed') requestUpdate(); 
+        }
+    };
+
+    let uiContainer, fab, panel, listContainer;
+    let expanded = false;
+    let activeTab = null; // 'blocked', 'cleaned', 'allowed', or null
+    let shieldVisible = true;
+    let updatePending = false;
+
+    // TM 選單控制項
+    if (typeof GM_registerMenuCommand !== 'undefined') {
+        GM_registerMenuCommand("🛡️ 切換 URL 盾牌顯示/隱藏", () => {
+            shieldVisible = !shieldVisible;
+            if (uiContainer) uiContainer.style.display = shieldVisible ? 'block' : 'none';
+        });
+    }
+
+    function initUI() {
+        if (document.getElementById('ssot-ui-root')) return;
+        
+        // 總容器
+        uiContainer = document.createElement('div');
+        uiContainer.id = 'ssot-ui-root';
+        uiContainer.style.cssText = 'position:fixed; bottom:20px; right:20px; z-index:2147483647; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; display: block;';
+        
+        // 1. FAB (浮動微型盾牌按鈕 - 預設顯示狀態)
+        fab = document.createElement('div');
+        fab.innerHTML = '\u{1F6E1}\uFE0F';
+        fab.title = 'URL Ultimate Filter';
+        fab.style.cssText = 'width:28px; height:28px; border-radius:50%; background:#0f172a; border: 1px solid #334155; display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5); user-select:none; transition: all 0.2s ease-out; opacity: 0.6;';
+        fab.onmouseover = () => { fab.style.transform = 'scale(1.1)'; fab.style.opacity = '1'; };
+        fab.onmouseout = () => { fab.style.transform = 'scale(1)'; fab.style.opacity = '0.6'; };
+        fab.onclick = () => { 
+            expanded = true; 
+            activeTab = null; // 點開面板時，預設不展開任何列表
+            renderUI(); 
+        };
+        
+        // 2. 專業控制面板
+        panel = document.createElement('div');
+        panel.style.cssText = 'display:none; position:absolute; bottom:0; right:0; width:360px; background:#0f172a; border: 1px solid #334155; border-radius:12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); overflow:hidden; flex-direction:column; color:#f8fafc;';
+        
+        // 面板頂部標題列
+        const header = document.createElement('div');
+        header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#1e293b; border-bottom:1px solid #334155; user-select:none;';
+        header.innerHTML = `<div style="font-weight:600; display:flex; align-items:center; gap:8px; color:#6366F1;"><span style="font-size:15px;">\u{1F6E1}\uFE0F</span> URL Ultimate Filter V${SCRIPT_VERSION}</div>`;
+        panel.appendChild(header);
+        
+        // 三態統計數據區塊 (Tabs)
+        const tabsRow = document.createElement('div');
+        tabsRow.style.cssText = 'display:flex; padding:8px; gap:8px; background:#0f172a; border-bottom:1px solid #334155;';
+        
+        const createTab = (id, label, color) => {
+            const t = document.createElement('div');
+            t.id = `ssot-tab-${id}`;
+            t.title = `點擊展開/收合 ${label} 列表`;
+            t.style.cssText = `flex:1; text-align:center; padding:8px 4px; cursor:pointer; border-radius:6px; transition:all 0.2s; border-bottom:2px solid transparent; user-select:none; background:transparent;`;
+            t.innerHTML = `<div style="color:${color}; font-weight:700; font-size:18px; line-height:1.2;" id="ssot-cnt-${id}">0</div><div style="color:#94a3b8; font-size:11px; margin-top:2px; font-weight:500;">${label}</div>`;
+            t.onclick = () => { 
+                // 若點擊當前已展開的分頁，則徹底收合面板恢復為預設單一盾牌
+                if (activeTab === id) {
+                    expanded = false;
+                    activeTab = null;
+                } else {
+                    activeTab = id;
+                }
+                renderUI(); 
+            };
+            return t;
+        };
+        
+        tabsRow.appendChild(createTab('blocked', 'Blocked', '#ef4444'));
+        tabsRow.appendChild(createTab('cleaned', 'Cleaned', '#10b981'));
+        tabsRow.appendChild(createTab('allowed', 'Allowed', '#cbd5e1'));
+        panel.appendChild(tabsRow);
+        
+        // 下方動態清單區塊 (僅在有 activeTab 時顯示)
+        listContainer = document.createElement('div');
+        listContainer.id = 'ssot-list-container';
+        listContainer.style.cssText = 'display:none; max-height:280px; overflow-y:auto; padding:0; background:#020617; overscroll-behavior: contain;';
+        
+        // 防止在清單內反白文字時意外觸發收合
+        listContainer.onclick = (e) => e.stopPropagation();
+        panel.appendChild(listContainer);
+        
+        uiContainer.appendChild(fab);
+        uiContainer.appendChild(panel);
+        (document.body || document.documentElement).appendChild(uiContainer);
+        
+        renderUI();
+    }
+
+    // 全域監聽器：點擊面板外部任意處自動收合
+    document.addEventListener('click', (e) => {
+        if (expanded && uiContainer && !uiContainer.contains(e.target)) {
+            expanded = false;
+            activeTab = null;
+            renderUI();
+        }
+    });
+
+    // 使用 requestAnimationFrame 節流更新，避免短時間大量攔截導致網頁卡頓
+    function requestUpdate() {
+        if (!updatePending) {
+            updatePending = true;
+            requestAnimationFrame(() => {
+                updatePending = false;
+                if (expanded) renderUI(); 
+            });
+        }
+    }
+
+    // 核心渲染邏輯 (UI State Sync)
+    function renderUI() {
+        if (!uiContainer) return;
+        uiContainer.style.display = shieldVisible ? 'block' : 'none';
+        if (!shieldVisible) return;
+
+        // 狀態 1: 收合狀態 (只顯示微型盾牌圖示)
+        if (!expanded) {
+            fab.style.display = 'flex';
+            panel.style.display = 'none';
+            return;
+        }
+
+        // 狀態 2: 展開控制面板狀態
+        fab.style.display = 'none';
+        panel.style.display = 'flex';
+
+        // 更新三個獨立的專屬計數器 (顯示真實發生的總請求次數)
+        document.getElementById('ssot-cnt-blocked').innerText = tmStats.countBlocked;
+        document.getElementById('ssot-cnt-cleaned').innerText = tmStats.countCleaned;
+        document.getElementById('ssot-cnt-allowed').innerText = tmStats.countAllowed;
+
+        // 根據 activeTab 更新 Tab 視覺狀態
+        ['blocked', 'cleaned', 'allowed'].forEach(t => {
+            const el = document.getElementById(`ssot-tab-${t}`);
+            if (!el) return;
+            if (activeTab === t) {
+                el.style.backgroundColor = '#1e293b';
+                el.style.borderBottom = `2px solid ${t==='blocked'?'#ef4444':t==='cleaned'?'#10b981':'#cbd5e1'}`;
+            } else {
+                el.style.backgroundColor = 'transparent';
+                el.style.borderBottom = '2px solid transparent';
+            }
+        });
+
+        // 渲染或隱藏下方的網址清單列表
+        if (!activeTab) {
+            listContainer.style.display = 'none';
+            listContainer.innerHTML = '';
+        } else {
+            listContainer.style.display = 'block';
+            let listHtml = '';
+            const itemStyle = 'padding:8px 12px; border-bottom:1px solid #1e293b; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:11px; word-break:break-all; line-height:1.4;';
+            const badgeStyle = 'padding:2px 6px; border-radius:10px; font-size:10px; font-weight:bold; height:fit-content; white-space:nowrap; margin-left:8px;';
+            
+            if (activeTab === 'blocked') {
+                if (tmStats.blocked.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無攔截紀錄</div>`;
+                else listHtml = Array.from(tmStats.blocked.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#fca5a5;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <span>${u}</span>
+                        ${c > 1 ? `<span style="${badgeStyle} background:#7f1d1d; color:#fecaca;">x${c}</span>` : ''}
+                    </div>
+                </div>`).join('');
+            } else if (activeTab === 'cleaned') {
+                if (tmStats.cleaned.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無淨化紀錄</div>`;
+                else listHtml = Array.from(tmStats.cleaned.entries()).reverse().map(([o, data]) => `<div style="${itemStyle}">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+                        <div style="text-decoration:line-through; color:#475569;">${o}</div>
+                        ${data.count > 1 ? `<span style="${badgeStyle} background:#064e3b; color:#a7f3d0;">x${data.count}</span>` : ''}
+                    </div>
+                    <div style="color:#6ee7b7;">➔ ${data.newUrl}</div>
+                </div>`).join('');
+            } else if (activeTab === 'allowed') {
+                if (tmStats.allowed.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無放行紀錄</div>`;
+                else listHtml = Array.from(tmStats.allowed.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#94a3b8;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <span>${u}</span>
+                        ${c > 1 ? `<span style="${badgeStyle} background:#334155; color:#cbd5e1;">x${c}</span>` : ''}
+                    </div>
+                </div>`).join('');
+            }
+            listContainer.innerHTML = listHtml;
+        }
+    }
+
+    // 核心過濾分流控制器
+    function applyFilter(url) {
+        if (!url || typeof url !== 'string' || !url.startsWith('http')) return null;
+        return processRequest({ url: url });
+    }
+
+    // --- 掛鉤 (Hooks) 注入區 ---
+    const origFetch = window.fetch;
+    window.fetch = async function(...args) {
+        let url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+        if (url) {
+            try { url = new URL(url, location.origin).href; } catch(e){}
+            const action = applyFilter(url);
+            if (action) {
+                if (action.response && [403, 204].includes(action.response.status)) {
+                    tmStats.recordBlock(url);
+                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Blocked: ${url}`);
+                    return Promise.reject(new Error("Blocked by URL Ultimate Filter SSOT"));
+                } else if (action.url) {
+                    tmStats.recordClean(url, action.url);
+                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] ✏️ Rewrote: ${url} -> ${action.url}`);
+                    if (typeof args[0] === 'string') args[0] = action.url;
+                    else args[0] = new Request(action.url, args[0]);
+                } else {
+                    tmStats.recordAllow(url);
+                }
+            } else {
+                tmStats.recordAllow(url);
+            }
+        }
+        return origFetch.apply(this, args);
+    };
+
+    const origOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+        this._ssotBlocked = false;
+        if (url) {
+            try {
+                let absoluteUrl = new URL(url, location.origin).href;
+                const action = applyFilter(absoluteUrl);
+                if (action) {
+                    if (action.response && [403, 204].includes(action.response.status)) {
+                        tmStats.recordBlock(absoluteUrl);
+                        this._ssotBlocked = true;
+                    } else if (action.url) {
+                        tmStats.recordClean(absoluteUrl, action.url);
+                        url = action.url;
+                    } else {
+                        tmStats.recordAllow(absoluteUrl);
+                    }
+                } else {
+                    tmStats.recordAllow(absoluteUrl);
+                }
+            } catch(e){}
+        }
+        return origOpen.call(this, method, url, ...rest);
+    };
+
+    const origSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function(...args) {
+        if (this._ssotBlocked) {
+            this.dispatchEvent(new Event('error'));
+            return;
+        }
+        return origSend.apply(this, args);
+    };
+    
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+                if (node.tagName === 'SCRIPT' || node.tagName === 'IMG' || node.tagName === 'IFRAME') {
+                    if (node.src) {
+                        try {
+                            const action = applyFilter(node.src);
+                            if (action && action.response && [403, 204].includes(action.response.status)) {
+                                tmStats.recordBlock(node.src);
+                                node.remove(); 
+                            } else if (action && action.url && node.src !== action.url) {
+                                tmStats.recordClean(node.src, action.url);
+                                node.src = action.url; 
+                            } else if (!action) {
+                                tmStats.recordAllow(node.src);
+                            }
+                        } catch(e){}
+                    }
+                }
+            }
+        }
+    });
+    
+    // 初始化啟動序列
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            observer.observe(document.documentElement, { childList: true, subtree: true });
+            initUI();
+        });
+    } else {
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+        initUI();
+    }
+})();
+"""
+    return header + js + interceptor_logic
+
 
 # ==========================================
-#  3. TEST SUITE & HTML REPORTS (RESTORED MATRIX)
+#  3. TEST SUITE & HTML REPORTS
 # ==========================================
 
 PRIORITY_MAP = { "ALLOW (Null)": 0, "CLEAN (302)": 1, "REWRITE (URL)": 2, "DROP (204)": 3, "BLOCK (403)": 4 }
@@ -1082,7 +1433,7 @@ HTML_TEMPLATE = """
                 <h1>Regression Report <span style="color:var(--primary); font-size: 0.8em;">({version_name})</span></h1>
                 <div class="meta">
                     <span><i class="far fa-clock"></i> {gen_time}</span>
-                    <span><i class="fas fa-bolt"></i> SSOT Dynamic Matrix</span>
+                    <span><i class="fas fa-bolt"></i> SSOT Dynamic Matrix (Dual-Target)</span>
                     <span style="color: var(--primary); font-weight: 600;"><i class="fas fa-vial"></i> 總共測試了 {total} 個 CASES</span>
                 </div>
             </div>
@@ -1288,7 +1639,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: Threads Path Exemption", "https://www.threads.com/@n_ys_m/post/DIaU/abc", RES_ALLOW, "Bypass L1/L2 path scanners using PATH_EXEMPTIONS"))
     cases.append(TestCase("BugFix: P0 Subdomain Inheritance", "https://px.ads.linkedin.com/test", RES_BLOCK_403, "Validate P0 wildcards logic correctly inherits down to subdomains"))
 
-    # --- E2E 端到端鏈式測試區塊 (End-to-End Chained Tests) ---
+    # --- E2E 端到端鏈式測試區塊 ---
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
     cases.append(TestCase("E2E: Malicious Payload Block", "https://static.104.com.tw/ad.json", RES_BLOCK_403, "模擬 JSON 內遭植入第三方追蹤並點擊，觸發 L1 攔截", is_e2e=True, e2e_target_url="https://googleadservices.com/track/click"))
@@ -1325,12 +1676,14 @@ def evaluate_result(actual: Any, expected_type: str) -> Tuple[bool, str, str]:
     return False, "INVALID", str(actual)[:200]
 
 def run_tests():
-    print(f"1. [SSOT COMPILER] Compiling Python RULES_DB to JavaScript (V{VERSION}) in memory...")
-    js_content = compile_js()
-    js_filename = "URL-Ultimate-Filter-Surge.js"
+    print(f"1. [SSOT COMPILER] Compiling Python RULES_DB to Dual-Target JavaScript (V{VERSION})...")
+    js_surge_content = compile_surge()
+    js_tampermonkey_content = compile_tampermonkey()
+    js_surge_filename = "URL-Ultimate-Filter-Surge.js"
+    js_tm_filename = "URL-Ultimate-Filter-Tampermonkey.user.js"
 
     cases = generate_full_coverage_cases()
-    unique_cases = {c.category + c.url: c for c in cases}.values() # E2E cases share base URL, use category as key offset
+    unique_cases = {c.category + c.url: c for c in cases}.values() 
     final_cases = sorted(list(unique_cases), key=lambda c: c.category)
 
     runner_code = textwrap.dedent("""
@@ -1338,33 +1691,21 @@ def run_tests():
     global.$done = function(data) {};
     global.$notification = { post: function() {} };
     const fs = require('fs');
-    """) + "\n\n" + js_content + "\n\n" + textwrap.dedent("""
+    """) + "\n\n" + js_surge_content + "\n\n" + textwrap.dedent("""
     function runTest(c) {
       if (typeof initializeOnce === 'function') initializeOnce();
       try {
-          // 階段一：模擬取得 Payload (必須成功放行)
           let res1 = processRequest({ url: c.url });
-          
           if (c.is_e2e) {
-              if (res1 !== null) {
-                  return { error: "E2E Phase 1 Failed", details: "Initial payload fetch was unexpectedly blocked." };
-              }
-              // 階段二：擷取目標 URL，並模擬 HTTP 網路層 Hash (#) 剝除特性
+              if (res1 !== null) return { error: "E2E Phase 1 Failed", details: "Initial payload fetch was blocked." };
               let targetUrl = c.e2e_target_url;
               let hashIdx = targetUrl.indexOf('#');
-              if (hashIdx !== -1) {
-                  targetUrl = targetUrl.substring(0, hashIdx);
-              }
-              
-              // 執行第二階段過濾掃描
-              let res2 = processRequest({ url: targetUrl });
-              return res2;
+              if (hashIdx !== -1) targetUrl = targetUrl.substring(0, hashIdx);
+              return processRequest({ url: targetUrl });
           }
-          
           return res1;
       } catch (e) { return { error: "Runtime Error", details: String(e) }; }
     }
-    
     try {
         const payloadPath = process.argv[2];
         const cases = JSON.parse(fs.readFileSync(payloadPath, 'utf8'));
@@ -1415,7 +1756,6 @@ def run_tests():
             cat = o.case.category
             if o.is_pass: category_stats[cat]["pass"] += 1
             else: category_stats[cat]["fail"] += 1
-            
             cls = "bg-pass" if o.is_pass else "bg-fail"
             txt = "PASS" if o.is_pass else "FAIL"
             color = "#10B981" if o.is_pass else "#EF4444"
@@ -1423,12 +1763,7 @@ def run_tests():
 
         sorted_cats = sorted(category_stats.keys())
         cat_options_html = "".join([f'<option value="{cat}">{cat}</option>' for cat in sorted_cats])
-        
-        chart_data = {
-            "passed": passed, "failed": failed, "categories": sorted_cats,
-            "cat_passed": [category_stats[c]["pass"] for c in sorted_cats],
-            "cat_failed": [category_stats[c]["fail"] for c in sorted_cats]
-        }
+        chart_data = {"passed": passed, "failed": failed, "categories": sorted_cats, "cat_passed": [category_stats[c]["pass"] for c in sorted_cats], "cat_failed": [category_stats[c]["fail"] for c in sorted_cats]}
         
         initial_status_filter = "FAIL" if failed > 0 else "all"
         overall_status_class = "status-pass" if failed == 0 else "status-fail"
@@ -1446,9 +1781,7 @@ def run_tests():
             overall_status_text=overall_status_text, rate_color_class=rate_color_class,
             category_options=cat_options_html, json_chart_data=json.dumps(chart_data)
         )
-        
-        with open(report_name, "w", encoding="utf-8") as f: 
-            f.write(html)
+        with open(report_name, "w", encoding="utf-8") as f: f.write(html)
         
         print("\n" + "="*55)
         print(f"📊 測試統計 (Test Statistics)")
@@ -1458,15 +1791,15 @@ def run_tests():
         print("="*55)
 
         if passed == total:
-            with open(js_filename, "w", encoding="utf-8") as f:
-                f.write(js_content)
-            print(f"\n✅  SSOT BUILD & TEST PASSED")
-            print(f"📄  JavaScript Compiled & Saved: {js_filename}")
+            with open(js_surge_filename, "w", encoding="utf-8") as f: f.write(js_surge_content)
+            with open(js_tm_filename, "w", encoding="utf-8") as f: f.write(js_tampermonkey_content)
+            print(f"\n✅  SSOT DUAL-TARGET BUILD & TEST PASSED")
+            print(f"📄  Surge Edition Saved: {js_surge_filename}")
+            print(f"📄  Tampermonkey Edition Saved: {js_tm_filename}")
             print(f"📄  Test Report Saved for Pages: {report_name}")
         else:
             print(f"\n❌  SSOT TEST FAILED")
             print(f"⚠️  JavaScript Generation SKIPPED due to test failures.")
-            print(f"📄  Test Report Saved for Pages: {report_name}")
         print("="*55 + "\n")
 
     finally:
