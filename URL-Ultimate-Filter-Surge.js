@@ -1,11 +1,11 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.50 (SSOT Compilation)
- * @description V44.50 - 修復 Python f-string 編譯錯誤，確保跨平台相容性。
+ * @version   44.51 (SSOT Compilation)
+ * @description V44.51 - E2E Chained Test Capabilities & Hash Truncation Simulation.
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.50';
+const SCRIPT_VERSION = '44.51';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
