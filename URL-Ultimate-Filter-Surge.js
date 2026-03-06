@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.57 (SSOT Compilation)
+ * @version   44.59 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.57';
+const SCRIPT_VERSION = '44.59';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -72,7 +72,7 @@ const RULES = {
     'pangle.io', 'taboola.com', 'outbrain.com', 'popads.net', 'ads.tiktok.com', 'analytics.tiktok.com',
     'ads.linkedin.com', 'ad.etmall.com.tw', 'ad.line.me', 'ad-history.line.me', 'inmobi.com', 'inner-active.mobi',
     'split.io', 'launchdarkly.com', 'clarity.ms', 'fullstory.com', 'cdn.segment.com', 'dem.shopee.com',
-    'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw', 'analytics.shopee.tw', 'dmp.shopee.tw'
+    'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw', 'analytics.shopee.tw', 'dmp.shopee.tw', 'iadsdk.apple.com'
   ]),
   REDIRECTOR_HOSTS: new Set([
     '1ink.cc', 'adfoc.us', 'adsafelink.com', 'adshnk.com', 'adz7short.space', 'aylink.co',
@@ -160,44 +160,43 @@ const RULES = {
     'fundingchoicesmessages.google.com', 'hotjar.com', 'segment.io', 'mixpanel.com', 'amplitude.com', 'crazyegg.com',
     'bugsnag.com', 'sentry.io', 'newrelic.com', 'logrocket.com', 'criteo.com', 'pubmatic.com',
     'rubiconproject.com', 'openx.com', 'fpjs.io', 'adunblock1.static-cloudflare.workers.dev', 'guce.oath.com', 'app-site-association.cdn-apple.com',
-    'iadsdk.apple.com', 'cdn-edge-tracking.com', 'edge-analytics.amazonaws.com', 'edge-telemetry.akamai.com', 'edge-tracking.cloudflare.com', 'edgecompute-analytics.com',
-    'monitoring.edge-compute.io', 'realtime-edge.fastly.com', '2o7.net', 'everesttech.net', 'log.felo.ai', 'event.sc.gearupportal.com',
-    'pidetupop.com', 'adform.net', 'adsrvr.org', 'analytics.line.me', 'analytics.slashdotmedia.com', 'analytics.strava.com',
-    'analytics.twitter.com', 'analytics.yahoo.com', 'api.pendo.io', 'c.clarity.ms', 'c.segment.com', 'chartbeat.com',
-    'clicktale.net', 'clicky.com', 'comscore.com', 'criteo.net', 'customer.io', 'data.investing.com',
-    'datadoghq.com', 'dynatrace.com', 'fullstory.com', 'heap.io', 'inspectlet.com', 'iterable.com',
-    'keen.io', 'kissmetrics.com', 'loggly.com', 'matomo.cloud', 'mgid.com', 'mouseflow.com',
-    'mparticle.com', 'mlytics.com', 'nr-data.net', 'oceanengine.com', 'openx.net', 'optimizely.com',
-    'piwik.pro', 'posthog.com', 'quantserve.com', 'revcontent.com', 'rudderstack.com', 'scorecardresearch.com',
-    'segment.com', 'semasio.net', 'snowplowanalytics.com', 'statcounter.com', 'statsig.com', 'static.ads-twitter.com',
-    'sumo.com', 'sumome.com', 'tealium.com', 'track.hubspot.com', 'track.tiara.daum.net', 'track.tiara.kakao.com',
-    'vwo.com', 'yieldlab.net', 'insight.linkedin.com', 'px.ads.linkedin.com', 'fingerprint.com', 'doubleverify.com',
-    'iasds.com', 'moat.com', 'moatads.com', 'sdk.iad-07.braze.com', 'serving-sys.com', 'tw.ad.doubleverify.com',
-    'agkn.com', 'id5-sync.com', 'liveramp.com', 'permutive.com', 'tags.tiqcdn.com', 'klaviyo.com',
-    'marketo.com', 'mktoresp.com', 'pardot.com', 'instana.io', 'launchdarkly.com', 'raygun.io',
-    'navify.com', 'cnzz.com', 'umeng.com', 'talkingdata.com', 'jiguang.cn', 'getui.com',
-    'mdap.alipay.com', 'loggw-ex.alipay.com', 'pgdt.gtimg.cn', 'afd.baidu.com', 'als.baidu.com', 'cpro.baidu.com',
-    'dlswbr.baidu.com', 'duclick.baidu.com', 'feed.baidu.com', 'h2tcbox.baidu.com', 'hm.baidu.com', 'hmma.baidu.com',
-    'mobads-logs.baidu.com', 'mobads.baidu.com', 'nadvideo2.baidu.com', 'nsclick.baidu.com', 'sp1.baidu.com', 'voice.baidu.com',
-    '3gimg.qq.com', 'fusion.qq.com', 'ios.bugly.qq.com', 'lives.l.qq.com', 'monitor.uu.qq.com', 'pingma.qq.com',
-    'sdk.e.qq.com', 'wup.imtt.qq.com', 'appcloud.zhihu.com', 'appcloud2.in.zhihu.com', 'crash2.zhihu.com', 'mqtt.zhihu.com',
-    'sugar.zhihu.com', 'agn.aty.sohu.com', 'apm.gotokeep.com', 'cn-huabei-1-lg.xf-yun.com', 'gs.getui.com', 'log.b612kaji.com',
-    'pc-mon.snssdk.com', 'sensorsdata.cn', 'stat.m.jd.com', 'trackapp.guahao.cn', 'traffic.mogujie.com', 'wmlog.meituan.com',
-    'zgsdk.zhugeio.com', 'admaster.com.cn', 'adview.cn', 'alimama.com', 'getui.net', 'gepush.com',
-    'gridsum.com', 'growingio.com', 'igexin.com', 'jpush.cn', 'kuaishou.com', 'miaozhen.com',
-    'mmstat.com', 'pangolin-sdk-toutiao.com', 'talkingdata.cn', 'tanx.com', 'umeng.cn', 'umeng.co',
-    'umengcloud.com', 'youmi.net', 'zhugeio.com', 'adnext-a.akamaihd.net', 'appnext.hs.llnwd.net', 'fusioncdn.com',
-    'toots-a.akamaihd.net', 'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com', 'events.tiktok.com', 'abema-adx.ameba.jp',
-    'ad.12306.cn', 'ad.360in.com', 'adroll.com', 'ads.yahoo.com', 'adserver.yahoo.com', 'appnexus.com',
-    'bluekai.com', 'casalemedia.com', 'criteo.com', 'doubleclick.net', 'googleadservices.com', 'googlesyndication.com',
-    'outbrain.com', 'taboola.com', 'rubiconproject.com', 'pubmatic.com', 'openx.com', 'smartadserver.com',
-    'spotx.tv', 'yandex.ru', 'addthis.com', 'disqus.com', 'onesignal.com', 'sharethis.com',
-    'bat.bing.com', 'clarity.ms', 'pinterest.com', 'reddit.com', 'snapchat.com', 'elads.kocpc.com.tw',
-    'app-ads-services.com', 'eservice.emarsys.net'
+    'cdn-edge-tracking.com', 'edge-analytics.amazonaws.com', 'edge-telemetry.akamai.com', 'edge-tracking.cloudflare.com', 'edgecompute-analytics.com', 'monitoring.edge-compute.io',
+    'realtime-edge.fastly.com', '2o7.net', 'everesttech.net', 'log.felo.ai', 'event.sc.gearupportal.com', 'pidetupop.com',
+    'adform.net', 'adsrvr.org', 'analytics.line.me', 'analytics.slashdotmedia.com', 'analytics.strava.com', 'analytics.twitter.com',
+    'analytics.yahoo.com', 'api.pendo.io', 'c.clarity.ms', 'c.segment.com', 'chartbeat.com', 'clicktale.net',
+    'clicky.com', 'comscore.com', 'criteo.net', 'customer.io', 'data.investing.com', 'datadoghq.com',
+    'dynatrace.com', 'fullstory.com', 'heap.io', 'inspectlet.com', 'iterable.com', 'keen.io',
+    'kissmetrics.com', 'loggly.com', 'matomo.cloud', 'mgid.com', 'mouseflow.com', 'mparticle.com',
+    'mlytics.com', 'nr-data.net', 'oceanengine.com', 'openx.net', 'optimizely.com', 'piwik.pro',
+    'posthog.com', 'quantserve.com', 'revcontent.com', 'rudderstack.com', 'scorecardresearch.com', 'segment.com',
+    'semasio.net', 'snowplowanalytics.com', 'statcounter.com', 'statsig.com', 'static.ads-twitter.com', 'sumo.com',
+    'sumome.com', 'tealium.com', 'track.hubspot.com', 'track.tiara.daum.net', 'track.tiara.kakao.com', 'vwo.com',
+    'yieldlab.net', 'insight.linkedin.com', 'px.ads.linkedin.com', 'fingerprint.com', 'doubleverify.com', 'iasds.com',
+    'moat.com', 'moatads.com', 'sdk.iad-07.braze.com', 'serving-sys.com', 'tw.ad.doubleverify.com', 'agkn.com',
+    'id5-sync.com', 'liveramp.com', 'permutive.com', 'tags.tiqcdn.com', 'klaviyo.com', 'marketo.com',
+    'mktoresp.com', 'pardot.com', 'instana.io', 'launchdarkly.com', 'raygun.io', 'navify.com',
+    'cnzz.com', 'umeng.com', 'talkingdata.com', 'jiguang.cn', 'getui.com', 'mdap.alipay.com',
+    'loggw-ex.alipay.com', 'pgdt.gtimg.cn', 'afd.baidu.com', 'als.baidu.com', 'cpro.baidu.com', 'dlswbr.baidu.com',
+    'duclick.baidu.com', 'feed.baidu.com', 'h2tcbox.baidu.com', 'hm.baidu.com', 'hmma.baidu.com', 'mobads-logs.baidu.com',
+    'mobads.baidu.com', 'nadvideo2.baidu.com', 'nsclick.baidu.com', 'sp1.baidu.com', 'voice.baidu.com', '3gimg.qq.com',
+    'fusion.qq.com', 'ios.bugly.qq.com', 'lives.l.qq.com', 'monitor.uu.qq.com', 'pingma.qq.com', 'sdk.e.qq.com',
+    'wup.imtt.qq.com', 'appcloud.zhihu.com', 'appcloud2.in.zhihu.com', 'crash2.zhihu.com', 'mqtt.zhihu.com', 'sugar.zhihu.com',
+    'agn.aty.sohu.com', 'apm.gotokeep.com', 'cn-huabei-1-lg.xf-yun.com', 'gs.getui.com', 'log.b612kaji.com', 'pc-mon.snssdk.com',
+    'sensorsdata.cn', 'stat.m.jd.com', 'trackapp.guahao.cn', 'traffic.mogujie.com', 'wmlog.meituan.com', 'zgsdk.zhugeio.com',
+    'admaster.com.cn', 'adview.cn', 'alimama.com', 'getui.net', 'gepush.com', 'gridsum.com',
+    'growingio.com', 'igexin.com', 'jpush.cn', 'kuaishou.com', 'miaozhen.com', 'mmstat.com',
+    'pangolin-sdk-toutiao.com', 'talkingdata.cn', 'tanx.com', 'umeng.cn', 'umeng.co', 'umengcloud.com',
+    'youmi.net', 'zhugeio.com', 'adnext-a.akamaihd.net', 'appnext.hs.llnwd.net', 'fusioncdn.com', 'toots-a.akamaihd.net',
+    'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com', 'events.tiktok.com', 'abema-adx.ameba.jp', 'ad.12306.cn',
+    'ad.360in.com', 'adroll.com', 'ads.yahoo.com', 'adserver.yahoo.com', 'appnexus.com', 'bluekai.com',
+    'casalemedia.com', 'criteo.com', 'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'outbrain.com',
+    'taboola.com', 'rubiconproject.com', 'pubmatic.com', 'openx.com', 'smartadserver.com', 'spotx.tv',
+    'yandex.ru', 'addthis.com', 'disqus.com', 'onesignal.com', 'sharethis.com', 'bat.bing.com',
+    'clarity.ms', 'pinterest.com', 'reddit.com', 'snapchat.com', 'elads.kocpc.com.tw', 'eservice.emarsys.net'
   ]),
   BLOCK_DOMAINS_WILDCARDS: new Set([
     'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io', 'aotter.net', 'ssp.yahoo.com',
-    'pbs.yahoo.com', 'ay.delivery', 'cootlogix.com', 'ottadvisors.com', 'newaddiscover.com'
+    'pbs.yahoo.com', 'ay.delivery', 'cootlogix.com', 'ottadvisors.com', 'newaddiscover.com', 'app-ads-services.com'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
@@ -955,22 +954,22 @@ function processRequest(request) {
     if (blockedPaths && blockedPaths !== false) {
       for (const badPath of blockedPaths) {
         if (badPath && pathLower.includes(badPath)) {
-          stats.blocks++;
-          return { response: { status: 403, body: 'Blocked by Map' } };
-        }
-      }
+      stats.blocks++;
+      return { response: { status: 403, body: 'Blocked by Map' } };
     }
+  }
+}
 
-    if (OAUTH_SAFE_HARBOR.DOMAINS.has(hostname) && hostname !== 'accounts.youtube.com') {
-        stats.allows++; return null;
-    }
+if (OAUTH_SAFE_HARBOR.DOMAINS.has(hostname) && hostname !== 'accounts.youtube.com') {
+    stats.allows++; return null;
+}
 
-    if (isDomainMatch(FINANCE_SAFE_HARBOR.EXACT, FINANCE_SAFE_HARBOR.WILDCARDS, hostname)) {
-        stats.allows++; return null;
-    }
+if (isDomainMatch(FINANCE_SAFE_HARBOR.EXACT, FINANCE_SAFE_HARBOR.WILDCARDS, hostname)) {
+    stats.allows++; return null;
+}
 
-    const performCleaning = () => {
-        const cleanResult = HELPERS.cleanTrackingParams(url, hostname, pathLower);
+const performCleaning = () => {
+    const cleanResult = HELPERS.cleanTrackingParams(url, hostname, pathLower);
         if (cleanResult) {
             stats.allows++;
             if (cleanResult.type === 'REWRITE') return { url: cleanResult.url }; 
@@ -984,15 +983,15 @@ function processRequest(request) {
     }
 
     if (HELPERS.isPathExemptedForDomain(hostname, pathLower)) {
-        stats.allows++; return performCleaning();
-    }
+    stats.allows++; return performCleaning();
+}
 
-    const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathLower);
-    const isStatic = HELPERS.isStaticFile(pathLower);
-    const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
+const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathLower);
+const isStatic = HELPERS.isStaticFile(pathLower);
+const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
 
-    if (!isExplicitlyAllowed && !isStatic) {
-      for (const k of RULES.KEYWORDS.PRIORITY_DROP) {
+if (!isExplicitlyAllowed && !isStatic) {
+  for (const k of RULES.KEYWORDS.PRIORITY_DROP) {
         if (pathLower.includes(k)) {
           stats.blocks++; return { response: { status: 204 } };
         }
@@ -1012,21 +1011,21 @@ function processRequest(request) {
     }
 
     if (hostname === 'cmapi.tw.coupang.com') {
-      if (/\/.*-ads\//.test(pathLower)) {
-        stats.blocks++;
-        return { response: { status: 403, body: 'Blocked by Coupang Omni-Block' } };
-      }
-    }
+  if (/\/.*-ads\//.test(pathLower)) {
+    stats.blocks++;
+    return { response: { status: 403, body: 'Blocked by Coupang Omni-Block' } };
+  }
+}
 
-    if (!isSoftWhitelisted) {
-      if (isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
-        stats.blocks++; return { response: { status: 403, body: 'Blocked by Domain' } };
-      }
-    }
+if (!isSoftWhitelisted) {
+  if (isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
+    stats.blocks++; return { response: { status: 403, body: 'Blocked by Domain' } };
+  }
+}
 
-    if (!isSoftWhitelisted || (isSoftWhitelisted && !isStatic)) {
-      if (!isExplicitlyAllowed && !isStatic) { 
-        if (pathScanner.matches(pathLower)) {
+if (!isSoftWhitelisted || (isSoftWhitelisted && !isStatic)) {
+  if (!isExplicitlyAllowed && !isStatic) { 
+    if (pathScanner.matches(pathLower)) {
           stats.blocks++; return { response: { status: 403, body: 'Blocked by Keyword' } };
         }
         if (COMBINED_PATH_REGEX.some(r => r.test(pathLower))) {
