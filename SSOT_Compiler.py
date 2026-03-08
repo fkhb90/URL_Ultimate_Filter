@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.60 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.61 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -40,6 +40,7 @@ URL Ultimate Filter - V44.60 SSOT Compiler & Matrix Test Suite
 34. [BugFix-V44.58] Surge 引擎執行流重大修復：強制提升 BLOCK_DOMAINS 優先級，解決惡意網域遭 Surge FINAL 規則穿透放行的漏洞。
 35. [BugFix-V44.59] 修正執行流優先級衝突導致 iadsdk.apple.com 測試失敗，還原白名單層級，並將 app-ads-services 升級至 WILDCARDS 徹底封殺。
 36. [Feature-V44.60] 擴增 Google ODM (On-Device Measurement) 系統級備援遙測端點，並將 15 家主流 MMP (動態子網域跟蹤商) 移入 WILDCARDS 進行通配符封殺。
+37. [BugFix-V44.61] 修復蝦皮 HTTPDNS Direct IP 被 L1 引擎誤殺的問題；將 EXCEPTIONS_SUBSTRINGS 納入 SSOT 管理，並修復 L1 掃描器未遵守全域字串豁免 (isExplicitlyAllowed) 的執行流漏洞。
 """
 
 import json
@@ -61,7 +62,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.60"
+VERSION = "44.61"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -515,6 +516,9 @@ RULES_DB = {
         '.eot', '.mp4', '.mp3', '.mov', '.m4a', '.json', '.xml', '.yaml', '.yml', '.toml', '.ini',
         '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar'
     ],
+    "EXCEPTIONS_SUBSTRINGS": [
+        'cdn-cgi', '/shopee/batch_resolve_with_info'
+    ],
     "PATH_EXEMPTIONS": {
         "shopee.tw": ["/api/v4/search/search_items"],
         "cmapi.tw.coupang.com": ["/vendor-items/"],
@@ -659,7 +663,7 @@ const RULES = {{
   EXCEPTIONS: {{
     SUFFIXES: {format_js_set(RULES_DB['EXCEPTIONS_SUFFIXES'])},
     PREFIXES: new Set(['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/']),
-    SUBSTRINGS: new Set(['cdn-cgi']),
+    SUBSTRINGS: {format_js_set(RULES_DB['EXCEPTIONS_SUBSTRINGS'])},
     SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js']),
     PATH_EXEMPTIONS: {format_js_map(RULES_DB['PATH_EXEMPTIONS'])}
   }}
@@ -951,11 +955,12 @@ function processRequest(request) {
             stats.blocks++;
             return { response: { status: 403, body: 'Blocked by High Confidence Keyword' } };
         }
-    }
-
-    if (criticalPathScanner.matches(pathLower)) {
-      stats.blocks++;
-      return { response: { status: 403, body: 'Blocked by L1 (Script/Path)' } };
+        
+        // [V44.61 BUGFIX] L1 掃描器現在必須尊重量級的「全域字串豁免 (isExplicitlyAllowed)」
+        if (criticalPathScanner.matches(pathLower)) {
+          stats.blocks++;
+          return { response: { status: 403, body: 'Blocked by L1 (Script/Path)' } };
+        }
     }
 
     if (hostname === 'cmapi.tw.coupang.com') {
@@ -1628,7 +1633,6 @@ def generate_full_coverage_cases() -> List[TestCase]:
 
     # --- 手動邊界測試區塊 ---
     cases.append(TestCase("Matrix: Double Decode Escape", "https://example.com/%2561%2564/banner.webp", RES_BLOCK_403, "Blocked by High Confidence Override (Double Decoded)"))
-    cases.append(TestCase("Edge: HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772072185", RES_BLOCK_403, "Blocked by L1 Critical Path"))
     cases.append(TestCase("Feature: Heuristic API Silent Rewrite", "https://unknown-ecommerce.com/graphql/user?fbclid=test", RES_REWRITE, "GraphQL path uses Silent Rewrite to clean tracking parameters safely"))
     cases.append(TestCase("Privacy: Telemetry Drop (YT)", "https://www.youtube.com/error_204?cosver=18.7.1.22H31&cmodel=iPhone16%2C1&a=logerror", RES_DROP_204, "Silent Drop for High Precision Telemetry"))
     cases.append(TestCase("Privacy: WP Ad Plugin (L1 Scanner)", "https://www.koc.com.tw/wp-content/plugins/advanced-ads-responsive/public/assets/js/script.js?ver=1.10.2", RES_BLOCK_403, "Must be blocked by L1 Scanner ignoring static whitelist"))
@@ -1646,6 +1650,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: API Login Collision", "https://api.signin.104.com.tw/v2/api/login/valid-account", RES_ALLOW, "Prevent /api/log from falsely killing /api/login endpoints"))
     cases.append(TestCase("BugFix: Threads Path Exemption", "https://www.threads.com/@n_ys_m/post/DIaU/abc", RES_ALLOW, "Bypass L1/L2 path scanners using PATH_EXEMPTIONS"))
     cases.append(TestCase("BugFix: P0 Subdomain Inheritance", "https://px.ads.linkedin.com/test", RES_BLOCK_403, "Validate P0 wildcards logic correctly inherits down to subdomains"))
+
+    # --- V44.61 修正核心測試 ---
+    cases.append(TestCase("BugFix: Shopee HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772940479", RES_ALLOW, "確保 Direct IP 加上 EXCEPTIONS_SUBSTRINGS 豁免能成功跳過 L1 /batch_resolve 的誤殺"))
 
     # --- E2E 端到端鏈式測試區塊 ---
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
@@ -1816,3 +1823,5 @@ def run_tests():
 
 if __name__ == "__main__":
     run_tests()
+
+
