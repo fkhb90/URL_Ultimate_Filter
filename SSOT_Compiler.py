@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.61 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.62 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -40,7 +40,8 @@ URL Ultimate Filter - V44.61 SSOT Compiler & Matrix Test Suite
 34. [BugFix-V44.58] Surge 引擎執行流重大修復：強制提升 BLOCK_DOMAINS 優先級，解決惡意網域遭 Surge FINAL 規則穿透放行的漏洞。
 35. [BugFix-V44.59] 修正執行流優先級衝突導致 iadsdk.apple.com 測試失敗，還原白名單層級，並將 app-ads-services 升級至 WILDCARDS 徹底封殺。
 36. [Feature-V44.60] 擴增 Google ODM (On-Device Measurement) 系統級備援遙測端點，並將 15 家主流 MMP (動態子網域跟蹤商) 移入 WILDCARDS 進行通配符封殺。
-37. [BugFix-V44.61] 修復蝦皮 HTTPDNS Direct IP 被 L1 引擎誤殺的問題；將 EXCEPTIONS_SUBSTRINGS 納入 SSOT 管理，並修復 L1 掃描器未遵守全域字串豁免 (isExplicitlyAllowed) 的執行流漏洞。
+37. [BugFix-V44.61] 修復蝦皮 HTTPDNS Direct IP 被 L1 引擎誤殺的問題；將 EXCEPTIONS_SUBSTRINGS 納入 SSOT 管理。
+38. [BugFix-V44.62] 搶修 107 FAILED 災難。解耦 L1 掃描器與全域靜態白名單 (isExplicitlyAllowed) 的綁定，建立專屬 isL1Exempted 豁免機制，還原 L1 無情擊殺追蹤腳本的能力。
 """
 
 import json
@@ -62,7 +63,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.61"
+VERSION = "44.62"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -746,6 +747,13 @@ const HELPERS = {
     for (const seg of RULES.EXCEPTIONS.SEGMENTS) if (pathLower.includes('/' + seg + '/')) return true;
     return false;
   },
+  
+  isL1Exempted: (pathLower) => {
+    for (const sub of RULES.EXCEPTIONS.SUBSTRINGS) {
+        if (pathLower.includes(sub)) return true;
+    }
+    return false;
+  },
 
   isPathExemptedForDomain: (hostname, pathLower) => {
     for (const [domain, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
@@ -905,7 +913,6 @@ function processRequest(request) {
       }
     }
 
-    // [V44.58 BUGFIX] 強制提升 Domain Block 優先級，必須放在 isExplicitlyAllowed 之前，以防止 Surge FINAL 穿透
     const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
     if (!isSoftWhitelisted) {
       if (isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
@@ -955,12 +962,12 @@ function processRequest(request) {
             stats.blocks++;
             return { response: { status: 403, body: 'Blocked by High Confidence Keyword' } };
         }
-        
-        // [V44.61 BUGFIX] L1 掃描器現在必須尊重量級的「全域字串豁免 (isExplicitlyAllowed)」
-        if (criticalPathScanner.matches(pathLower)) {
-          stats.blocks++;
-          return { response: { status: 403, body: 'Blocked by L1 (Script/Path)' } };
-        }
+    }
+
+    // [V44.62 BUGFIX] 恢復 L1 獨立執行流。L1 僅受重量級字串豁免 (isL1Exempted) 節制，絕不向一般靜態路徑妥協。
+    if (!HELPERS.isL1Exempted(pathLower) && criticalPathScanner.matches(pathLower)) {
+      stats.blocks++;
+      return { response: { status: 403, body: 'Blocked by L1 (Script/Path)' } };
     }
 
     if (hostname === 'cmapi.tw.coupang.com') {
@@ -1650,8 +1657,6 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: API Login Collision", "https://api.signin.104.com.tw/v2/api/login/valid-account", RES_ALLOW, "Prevent /api/log from falsely killing /api/login endpoints"))
     cases.append(TestCase("BugFix: Threads Path Exemption", "https://www.threads.com/@n_ys_m/post/DIaU/abc", RES_ALLOW, "Bypass L1/L2 path scanners using PATH_EXEMPTIONS"))
     cases.append(TestCase("BugFix: P0 Subdomain Inheritance", "https://px.ads.linkedin.com/test", RES_BLOCK_403, "Validate P0 wildcards logic correctly inherits down to subdomains"))
-
-    # --- V44.61 修正核心測試 ---
     cases.append(TestCase("BugFix: Shopee HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772940479", RES_ALLOW, "確保 Direct IP 加上 EXCEPTIONS_SUBSTRINGS 豁免能成功跳過 L1 /batch_resolve 的誤殺"))
 
     # --- E2E 端到端鏈式測試區塊 ---
@@ -1823,5 +1828,3 @@ def run_tests():
 
 if __name__ == "__main__":
     run_tests()
-
-
