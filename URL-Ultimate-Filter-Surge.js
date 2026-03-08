@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.60 (SSOT Compilation)
+ * @version   44.62 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.60';
+const SCRIPT_VERSION = '44.62';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -701,7 +701,9 @@ const RULES = {
     '.zip', '.rar'
   ]),
     PREFIXES: new Set(['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/']),
-    SUBSTRINGS: new Set(['cdn-cgi']),
+    SUBSTRINGS: new Set([
+    'cdn-cgi', '/shopee/batch_resolve_with_info'
+  ]),
     SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js']),
     PATH_EXEMPTIONS: new Map([
     ['shopee.tw', new Set([
@@ -801,6 +803,13 @@ const HELPERS = {
     for (const prefix of RULES.EXCEPTIONS.PREFIXES) if (pathLower.startsWith(prefix)) return true;
     for (const sub of RULES.EXCEPTIONS.SUBSTRINGS) if (pathLower.includes(sub)) return true;
     for (const seg of RULES.EXCEPTIONS.SEGMENTS) if (pathLower.includes('/' + seg + '/')) return true;
+    return false;
+  },
+  
+  isL1Exempted: (pathLower) => {
+    for (const sub of RULES.EXCEPTIONS.SUBSTRINGS) {
+        if (pathLower.includes(sub)) return true;
+    }
     return false;
   },
 
@@ -962,7 +971,6 @@ function processRequest(request) {
       }
     }
 
-    // [V44.58 BUGFIX] 強制提升 Domain Block 優先級，必須放在 isExplicitlyAllowed 之前，以防止 Surge FINAL 穿透
     const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
     if (!isSoftWhitelisted) {
       if (isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
@@ -1014,7 +1022,8 @@ function processRequest(request) {
         }
     }
 
-    if (criticalPathScanner.matches(pathLower)) {
+    // [V44.62 BUGFIX] 恢復 L1 獨立執行流。L1 僅受重量級字串豁免 (isL1Exempted) 節制，絕不向一般靜態路徑妥協。
+    if (!HELPERS.isL1Exempted(pathLower) && criticalPathScanner.matches(pathLower)) {
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked by L1 (Script/Path)' } };
     }
