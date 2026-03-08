@@ -74,8 +74,7 @@ RULES_DB = {
         'appleid.apple.com', 'idmsa.apple.com',
         'facebook.com', 'www.facebook.com', 'm.facebook.com',
         'login.microsoftonline.com', 'login.live.com',
-        'github.com', 'api.twitter.com', 'api.x.com',
-        'shopee.tw'
+        'github.com', 'api.twitter.com', 'api.x.com'
     ],
     "OAUTH_SAFE_HARBOR_PATHS": [
         '/oauth', '/oauth2', '/authorize', '/login', '/signin', '/session'
@@ -85,7 +84,7 @@ RULES_DB = {
             'shopback.com.tw', 'extrabux.com', 'buy.line.me'
         ],
         "WILDCARDS": [
-            'feedly.com', 
+            'feedly.com', 'shopee.tw',
             's3.amazonaws.com', 'storage.googleapis.com', 'core.windows.net',
             'api.line.me', 'api.newebpay.com', 'api.tappayapis.com',
             'api.stripe.com', 'api.github.com', 'api.twitch.tv',
