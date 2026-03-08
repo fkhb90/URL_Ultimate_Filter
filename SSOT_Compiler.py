@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.64a SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.60-R SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -40,10 +40,7 @@ URL Ultimate Filter - V44.64a SSOT Compiler & Matrix Test Suite
 34. [BugFix-V44.58] Surge 引擎執行流重大修復：強制提升 BLOCK_DOMAINS 優先級，解決惡意網域遭 Surge FINAL 規則穿透放行的漏洞。
 35. [BugFix-V44.59] 修正執行流優先級衝突導致 iadsdk.apple.com 測試失敗，還原白名單層級，並將 app-ads-services 升級至 WILDCARDS 徹底封殺。
 36. [Feature-V44.60] 擴增 Google ODM 系統級備援遙測端點，並將 15 家主流 MMP (動態子網域跟蹤商) 移入 WILDCARDS 進行通配符封殺。
-37. [BugFix-V44.61] 修復蝦皮 HTTPDNS Direct IP 被 L1 引擎誤殺的問題；將 EXCEPTIONS_SUBSTRINGS 納入 SSOT 管理。
-38. [BugFix-V44.62] 搶修 107 FAILED 災難。解耦 L1 掃描器與全域靜態白名單，建立專屬 isL1Exempted 豁免機制。
-39. [Feature-V44.63] 依據實戰回饋，將蝦皮商城 userstats_record 遙測端點自 CRITICAL_PATH_MAP 中拔除，主動放行。
-40. [Feature-V44.64] 依據實戰回饋，將蝦皮風控遙測端點 (patronus.idata) 自 CRITICAL_PATH_MAP 移除，並加入路徑豁免，主動放行以避免結帳或搶券時觸發 Anti-Bot 防護導致功能異常。
+37. [Revert-V44.60-R] 應實戰需求，將防護基線退回 V44.60 版本，並將 shopee.tw 移入 OAUTH_SAFE_HARBOR_DOMAINS，賦予其免除參數淨化與掃描之最高特權。
 """
 
 import json
@@ -65,7 +62,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.64"
+VERSION = "44.60-R"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -77,7 +74,8 @@ RULES_DB = {
         'appleid.apple.com', 'idmsa.apple.com',
         'facebook.com', 'www.facebook.com', 'm.facebook.com',
         'login.microsoftonline.com', 'login.live.com',
-        'github.com', 'api.twitter.com', 'api.x.com'
+        'github.com', 'api.twitter.com', 'api.x.com',
+        'shopee.tw'
     ],
     "OAUTH_SAFE_HARBOR_PATHS": [
         '/oauth', '/oauth2', '/authorize', '/login', '/signin', '/session'
@@ -116,7 +114,7 @@ RULES_DB = {
             'standardchartered.com.tw', 'tcb-bank.com.tw', 'paypal.com', 'stripe.com',
             'taiwanpay.com.tw', 'twca.com.tw', 'twmp.com.tw', 'pay.taipei',
             'momopay.com.tw', 'mymobibank.com.tw',
-            'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'org.tw', 'tdcc.com.tw', 'shopee.tw'
+            'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'org.tw', 'tdcc.com.tw'
         ]
     },
     "PRIORITY_BLOCK_DOMAINS": [
@@ -423,6 +421,8 @@ RULES_DB = {
         'discord.com': ['/api/v10/science', '/api/v9/science'],
         'vk.com': ['/rtrg'],
         'instagram.com': ['/logging_client_events'],
+        'mall.shopee.tw': ['/userstats_record/batchrecord'],
+        'patronus.idata.shopeemobile.com': ['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'],
         'dp.tracking.shopee.tw': ['/v4/event_batch'],
         'live-apm.shopee.tw': ['/apmapi/v1/event'],
         'cmapi.tw.coupang.com': ['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/']
@@ -517,12 +517,8 @@ RULES_DB = {
         '.eot', '.mp4', '.mp3', '.mov', '.m4a', '.json', '.xml', '.yaml', '.yml', '.toml', '.ini',
         '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar'
     ],
-    "EXCEPTIONS_SUBSTRINGS": [
-        'cdn-cgi', '/shopee/batch_resolve_with_info'
-    ],
     "PATH_EXEMPTIONS": {
         "shopee.tw": ["/api/v4/search/search_items"],
-        "shopeemobile.com": ["/event-receiver/api/v4/tw", "/log-receiver/api/v1/0/tw/event/batch"],
         "cmapi.tw.coupang.com": ["/vendor-items/"],
         "coupangcdn.com": ["/image/ccm/banner/"],
         "www.google.com": ["/url", "/search"],
@@ -665,7 +661,7 @@ const RULES = {{
   EXCEPTIONS: {{
     SUFFIXES: {format_js_set(RULES_DB['EXCEPTIONS_SUFFIXES'])},
     PREFIXES: new Set(['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/']),
-    SUBSTRINGS: {format_js_set(RULES_DB['EXCEPTIONS_SUBSTRINGS'])},
+    SUBSTRINGS: new Set(['cdn-cgi']),
     SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js']),
     PATH_EXEMPTIONS: {format_js_map(RULES_DB['PATH_EXEMPTIONS'])}
   }}
@@ -746,13 +742,6 @@ const HELPERS = {
     for (const prefix of RULES.EXCEPTIONS.PREFIXES) if (pathLower.startsWith(prefix)) return true;
     for (const sub of RULES.EXCEPTIONS.SUBSTRINGS) if (pathLower.includes(sub)) return true;
     for (const seg of RULES.EXCEPTIONS.SEGMENTS) if (pathLower.includes('/' + seg + '/')) return true;
-    return false;
-  },
-  
-  isL1Exempted: (pathLower) => {
-    for (const sub of RULES.EXCEPTIONS.SUBSTRINGS) {
-        if (pathLower.includes(sub)) return true;
-    }
     return false;
   },
 
@@ -914,6 +903,7 @@ function processRequest(request) {
       }
     }
 
+    // [V44.58 BUGFIX] 強制提升 Domain Block 優先級，解決 Surge FINAL 穿透漏洞
     const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
     if (!isSoftWhitelisted) {
       if (isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
@@ -921,6 +911,7 @@ function processRequest(request) {
       }
     }
 
+    // [OAUTH Bpypass] 最高特權階級：精確比對 shopee.tw，全域無條件放行且不清除參數
     if (OAUTH_SAFE_HARBOR.DOMAINS.has(hostname) && hostname !== 'accounts.youtube.com') {
         stats.allows++; return null;
     }
@@ -965,7 +956,7 @@ function processRequest(request) {
         }
     }
 
-    if (!HELPERS.isL1Exempted(pathLower) && criticalPathScanner.matches(pathLower)) {
+    if (criticalPathScanner.matches(pathLower)) {
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked by L1 (Script/Path)' } };
     }
@@ -1019,10 +1010,10 @@ if (typeof $request !== 'undefined') {
 
 def compile_tampermonkey() -> str:
     header = f"""// ==UserScript==
-// @name         URL Ultimate Filter V{VERSION}
+// @name         URL Ultimate Filter (Tampermonkey Edition)
 // @namespace    http://tampermonkey.net/
 // @version      {VERSION}
-// @description  SSOT 前端防護盾牌，專業級 UI：極簡盾牌圖示、獨立計數器、點擊外部自動收合機制。
+// @description  SSOT 核心規則庫之前端防護版本，導入分頁式展收盾牌，並整合 TM 選單開關與 Allowed 追蹤。
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -1035,233 +1026,134 @@ def compile_tampermonkey() -> str:
     js = get_js_rules_definition("Tampermonkey") + get_js_engine_logic()
     
     interceptor_logic = r"""
-    // --- Tampermonkey Interception Hooks & Professional UI ---
+    // --- Tampermonkey Interception Hooks & Tabbed UI Logic ---
     const tmStats = {
-        blocked: new Map(), // 記錄 { 網址: 出現次數 }
-        cleaned: new Map(), // 記錄 { 原始網址: { newUrl, count } }
-        allowed: new Map(), // 記錄 { 網址: 出現次數 }
-        countBlocked: 0,
-        countCleaned: 0,
-        countAllowed: 0,
-        
+        blocked: new Set(),
+        cleaned: new Map(),
+        allowed: new Set(),
+        totalCleaned: 0,
         recordBlock: function(u) { 
-            this.countBlocked++;
-            let c = 1;
-            // 刪除舊紀錄並重新插入，確保最新出現的網址排在 Map 迭代順序的最後面 (即渲染時的最上方)
-            if(this.blocked.has(u)) { c = this.blocked.get(u) + 1; this.blocked.delete(u); }
-            else if(this.blocked.size >= 50) this.blocked.delete(this.blocked.keys().next().value);
-            this.blocked.set(u, c); 
-            requestUpdate(); 
+            if(this.blocked.size >= 50) { const first = this.blocked.values().next().value; this.blocked.delete(first); }
+            this.blocked.add(u); 
+            updateBadge(); 
         },
         recordClean: function(o, n) { 
-            this.countCleaned++;
-            let c = 1;
-            if(this.cleaned.has(o)) { c = this.cleaned.get(o).count + 1; this.cleaned.delete(o); }
-            else if(this.cleaned.size >= 50) this.cleaned.delete(this.cleaned.keys().next().value);
-            this.cleaned.set(o, {newUrl: n, count: c}); 
-            requestUpdate(); 
+            this.totalCleaned++;
+            if(this.cleaned.size >= 50) { const first = this.cleaned.keys().next().value; this.cleaned.delete(first); }
+            this.cleaned.set(o, n); 
+            updateBadge(); 
         },
         recordAllow: function(u) {
-            this.countAllowed++;
-            let c = 1;
-            if(this.allowed.has(u)) { c = this.allowed.get(u) + 1; this.allowed.delete(u); }
-            else if(this.allowed.size >= 50) this.allowed.delete(this.allowed.keys().next().value);
-            this.allowed.set(u, c);
-            if(expanded && activeTab === 'allowed') requestUpdate(); 
+            if(this.allowed.size >= 50) { const first = this.allowed.values().next().value; this.allowed.delete(first); }
+            this.allowed.add(u);
+            if(activeTab === 'allowed') updateBadge(); 
         }
     };
 
-    let uiContainer, fab, panel, listContainer;
-    let expanded = false;
-    let activeTab = null; // 'blocked', 'cleaned', 'allowed', or null
-    let shieldVisible = true;
-    let updatePending = false;
+    let badge = null;
+    let shieldVisible = true; 
+    let activeTab = null;     
 
-    // TM 選單控制項
     if (typeof GM_registerMenuCommand !== 'undefined') {
-        GM_registerMenuCommand("🛡️ 切換 URL 盾牌顯示/隱藏", () => {
+        GM_registerMenuCommand("切換顯示/隱藏 URL 盾牌", () => {
             shieldVisible = !shieldVisible;
-            if (uiContainer) uiContainer.style.display = shieldVisible ? 'block' : 'none';
-        });
-    }
-
-    function initUI() {
-        if (document.getElementById('ssot-ui-root')) return;
-        
-        // 總容器
-        uiContainer = document.createElement('div');
-        uiContainer.id = 'ssot-ui-root';
-        uiContainer.style.cssText = 'position:fixed; bottom:20px; right:20px; z-index:2147483647; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; display: block;';
-        
-        // 1. FAB (浮動微型盾牌按鈕 - 預設顯示狀態)
-        fab = document.createElement('div');
-        fab.innerHTML = '\u{1F6E1}\uFE0F';
-        fab.title = 'URL Ultimate Filter';
-        fab.style.cssText = 'width:28px; height:28px; border-radius:50%; background:#0f172a; border: 1px solid #334155; display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5); user-select:none; transition: all 0.2s ease-out; opacity: 0.6;';
-        fab.onmouseover = () => { fab.style.transform = 'scale(1.1)'; fab.style.opacity = '1'; };
-        fab.onmouseout = () => { fab.style.transform = 'scale(1)'; fab.style.opacity = '0.6'; };
-        fab.onclick = () => { 
-            expanded = true; 
-            activeTab = null; // 點開面板時，預設不展開任何列表
-            renderUI(); 
-        };
-        
-        // 2. 專業控制面板
-        panel = document.createElement('div');
-        panel.style.cssText = 'display:none; position:absolute; bottom:0; right:0; width:360px; background:#0f172a; border: 1px solid #334155; border-radius:12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); overflow:hidden; flex-direction:column; color:#f8fafc;';
-        
-        // 面板頂部標題列
-        const header = document.createElement('div');
-        header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#1e293b; border-bottom:1px solid #334155; user-select:none;';
-        header.innerHTML = `<div style="font-weight:600; display:flex; align-items:center; gap:8px; color:#6366F1;"><span style="font-size:15px;">\u{1F6E1}\uFE0F</span> URL Ultimate Filter V${SCRIPT_VERSION}</div>`;
-        panel.appendChild(header);
-        
-        // 三態統計數據區塊 (Tabs)
-        const tabsRow = document.createElement('div');
-        tabsRow.style.cssText = 'display:flex; padding:8px; gap:8px; background:#0f172a; border-bottom:1px solid #334155;';
-        
-        const createTab = (id, label, color) => {
-            const t = document.createElement('div');
-            t.id = `ssot-tab-${id}`;
-            t.title = `點擊展開/收合 ${label} 列表`;
-            t.style.cssText = `flex:1; text-align:center; padding:8px 4px; cursor:pointer; border-radius:6px; transition:all 0.2s; border-bottom:2px solid transparent; user-select:none; background:transparent;`;
-            t.innerHTML = `<div style="color:${color}; font-weight:700; font-size:18px; line-height:1.2;" id="ssot-cnt-${id}">0</div><div style="color:#94a3b8; font-size:11px; margin-top:2px; font-weight:500;">${label}</div>`;
-            t.onclick = () => { 
-                // 若點擊當前已展開的分頁，則徹底收合面板恢復為預設單一盾牌
-                if (activeTab === id) {
-                    expanded = false;
-                    activeTab = null;
-                } else {
-                    activeTab = id;
-                }
-                renderUI(); 
-            };
-            return t;
-        };
-        
-        tabsRow.appendChild(createTab('blocked', 'Blocked', '#ef4444'));
-        tabsRow.appendChild(createTab('cleaned', 'Cleaned', '#10b981'));
-        tabsRow.appendChild(createTab('allowed', 'Allowed', '#cbd5e1'));
-        panel.appendChild(tabsRow);
-        
-        // 下方動態清單區塊 (僅在有 activeTab 時顯示)
-        listContainer = document.createElement('div');
-        listContainer.id = 'ssot-list-container';
-        listContainer.style.cssText = 'display:none; max-height:280px; overflow-y:auto; padding:0; background:#020617; overscroll-behavior: contain;';
-        
-        // 防止在清單內反白文字時意外觸發收合
-        listContainer.onclick = (e) => e.stopPropagation();
-        panel.appendChild(listContainer);
-        
-        uiContainer.appendChild(fab);
-        uiContainer.appendChild(panel);
-        (document.body || document.documentElement).appendChild(uiContainer);
-        
-        renderUI();
-    }
-
-    // 全域監聽器：點擊面板外部任意處自動收合
-    document.addEventListener('click', (e) => {
-        if (expanded && uiContainer && !uiContainer.contains(e.target)) {
-            expanded = false;
-            activeTab = null;
-            renderUI();
-        }
-    });
-
-    // 使用 requestAnimationFrame 節流更新，避免短時間大量攔截導致網頁卡頓
-    function requestUpdate() {
-        if (!updatePending) {
-            updatePending = true;
-            requestAnimationFrame(() => {
-                updatePending = false;
-                if (expanded) renderUI(); 
-            });
-        }
-    }
-
-    // 核心渲染邏輯 (UI State Sync)
-    function renderUI() {
-        if (!uiContainer) return;
-        uiContainer.style.display = shieldVisible ? 'block' : 'none';
-        if (!shieldVisible) return;
-
-        // 狀態 1: 收合狀態 (只顯示微型盾牌圖示)
-        if (!expanded) {
-            fab.style.display = 'flex';
-            panel.style.display = 'none';
-            return;
-        }
-
-        // 狀態 2: 展開控制面板狀態
-        fab.style.display = 'none';
-        panel.style.display = 'flex';
-
-        // 更新三個獨立的專屬計數器 (顯示真實發生的總請求次數)
-        document.getElementById('ssot-cnt-blocked').innerText = tmStats.countBlocked;
-        document.getElementById('ssot-cnt-cleaned').innerText = tmStats.countCleaned;
-        document.getElementById('ssot-cnt-allowed').innerText = tmStats.countAllowed;
-
-        // 根據 activeTab 更新 Tab 視覺狀態
-        ['blocked', 'cleaned', 'allowed'].forEach(t => {
-            const el = document.getElementById(`ssot-tab-${t}`);
-            if (!el) return;
-            if (activeTab === t) {
-                el.style.backgroundColor = '#1e293b';
-                el.style.borderBottom = `2px solid ${t==='blocked'?'#ef4444':t==='cleaned'?'#10b981':'#cbd5e1'}`;
+            if (shieldVisible) {
+                if (!badge) initBadge();
+                badge.style.display = 'block';
             } else {
-                el.style.backgroundColor = 'transparent';
-                el.style.borderBottom = '2px solid transparent';
+                if (badge) badge.style.display = 'none';
             }
         });
+    }
 
-        // 渲染或隱藏下方的網址清單列表
-        if (!activeTab) {
-            listContainer.style.display = 'none';
-            listContainer.innerHTML = '';
-        } else {
-            listContainer.style.display = 'block';
-            let listHtml = '';
-            const itemStyle = 'padding:8px 12px; border-bottom:1px solid #1e293b; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:11px; word-break:break-all; line-height:1.4;';
-            const badgeStyle = 'padding:2px 6px; border-radius:10px; font-size:10px; font-weight:bold; height:fit-content; white-space:nowrap; margin-left:8px;';
+    function initBadge() {
+        if (document.getElementById('ssot-shield-badge')) return;
+        badge = document.createElement('div');
+        badge.id = 'ssot-shield-badge';
+        badge.style.cssText = 'position:fixed; bottom:20px; right:20px; z-index:2147483647; background:rgba(17,24,39,0.95); color:#F9FAFB; padding:12px; border-radius:8px; font-family:monospace; box-shadow:0 4px 6px rgba(0,0,0,0.3); transition:all 0.2s ease-in-out; border: 1px solid #374151;';
+        (document.body || document.documentElement).appendChild(badge);
+        updateBadge();
+    }
+
+    function updateBadge() {
+        if (!badge || !document.body.contains(badge) || !shieldVisible) return;
+        
+        const getTabStyle = (tabName) => {
+            const isActive = activeTab === tabName;
+            return `cursor:pointer; padding:4px 8px; border-radius:4px; font-weight:600; background:${isActive ? '#374151' : 'transparent'}; transition:background 0.2s; user-select:none;`;
+        };
+
+        let html = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <strong style="color:#6366F1; font-size:14px;">\u{1F6E1}\uFE0F URL Filter V${SCRIPT_VERSION}</strong>
+            <span id="ssot-close-btn" style="font-size:16px; line-height:1; color:#9CA3AF; cursor:pointer; margin-left:24px;" title="隱藏盾牌 (可從 TM 選單重新開啟)">✖</span>
+        </div>
+        <div style="display:flex; gap:8px; font-size:12px;">
+            <div id="tab-blocked" style="${getTabStyle('blocked')} color:${activeTab === 'blocked' ? '#F87171' : '#FCA5A5'};">🚫 Blocked: ${stats.blocks}</div>
+            <div id="tab-cleaned" style="${getTabStyle('cleaned')} color:${activeTab === 'cleaned' ? '#34D399' : '#6EE7B7'};">✏️ Cleaned: ${tmStats.totalCleaned}</div>
+            <div id="tab-allowed" style="${getTabStyle('allowed')} color:${activeTab === 'allowed' ? '#D1D5DB' : '#9CA3AF'};">✅ Allowed: ${stats.allows}</div>
+        </div>
+        `;
+        
+        if (activeTab) {
+            html += `<hr style="border-color:#374151; margin:8px 0;"/>
+            <div id="ssot-panel-content" style="text-align:left; max-height:300px; max-width: 500px; overflow-y:auto; font-size:12px; line-height:1.5; padding-right:8px; cursor:text;">`;
             
             if (activeTab === 'blocked') {
-                if (tmStats.blocked.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無攔截紀錄</div>`;
-                else listHtml = Array.from(tmStats.blocked.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#fca5a5;">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <span>${u}</span>
-                        ${c > 1 ? `<span style="${badgeStyle} background:#7f1d1d; color:#fecaca;">x${c}</span>` : ''}
-                    </div>
-                </div>`).join('');
+                if (tmStats.blocked.size > 0) {
+                    html += `<ul style="margin:0; padding-left:16px; word-break:break-all; list-style-type: disc; color:#F87171;">`;
+                    for (const u of tmStats.blocked) html += `<li style="margin-bottom:4px;">${u}</li>`;
+                    html += `</ul>`;
+                } else {
+                    html += `<div style="color:#9CA3AF; text-align:center; padding:8px 0;">目前無攔截紀錄</div>`;
+                }
             } else if (activeTab === 'cleaned') {
-                if (tmStats.cleaned.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無淨化紀錄</div>`;
-                else listHtml = Array.from(tmStats.cleaned.entries()).reverse().map(([o, data]) => `<div style="${itemStyle}">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
-                        <div style="text-decoration:line-through; color:#475569;">${o}</div>
-                        ${data.count > 1 ? `<span style="${badgeStyle} background:#064e3b; color:#a7f3d0;">x${data.count}</span>` : ''}
-                    </div>
-                    <div style="color:#6ee7b7;">➔ ${data.newUrl}</div>
-                </div>`).join('');
+                if (tmStats.cleaned.size > 0) {
+                    html += `<ul style="margin:0; padding-left:16px; word-break:break-all; list-style-type: disc; color:#34D399;">`;
+                    for (const [o, n] of tmStats.cleaned) html += `<li style="margin-bottom:4px;"><del style="opacity:0.5; color:#9CA3AF">${o}</del><br/><span style="color:#D1D5DB;">&rarr; ${n}</span></li>`;
+                    html += `</ul>`;
+                } else {
+                    html += `<div style="color:#9CA3AF; text-align:center; padding:8px 0;">目前無淨化紀錄</div>`;
+                }
             } else if (activeTab === 'allowed') {
-                if (tmStats.allowed.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無放行紀錄</div>`;
-                else listHtml = Array.from(tmStats.allowed.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#94a3b8;">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <span>${u}</span>
-                        ${c > 1 ? `<span style="${badgeStyle} background:#334155; color:#cbd5e1;">x${c}</span>` : ''}
-                    </div>
-                </div>`).join('');
+                if (tmStats.allowed.size > 0) {
+                    html += `<ul style="margin:0; padding-left:16px; word-break:break-all; list-style-type: disc; color:#D1D5DB;">`;
+                    for (const u of tmStats.allowed) html += `<li style="margin-bottom:4px;">${u}</li>`;
+                    html += `</ul>`;
+                } else {
+                    html += `<div style="color:#9CA3AF; text-align:center; padding:8px 0;">目前無放行紀錄</div>`;
+                }
             }
-            listContainer.innerHTML = listHtml;
+            html += `</div>`;
+        }
+        
+        badge.innerHTML = html;
+
+        document.getElementById('ssot-close-btn').onclick = (e) => {
+            e.stopPropagation();
+            shieldVisible = false;
+            badge.style.display = 'none';
+        };
+
+        const toggleTab = (tabName) => {
+            activeTab = (activeTab === tabName) ? null : tabName;
+            updateBadge();
+        };
+
+        document.getElementById('tab-blocked').onclick = (e) => { e.stopPropagation(); toggleTab('blocked'); };
+        document.getElementById('tab-cleaned').onclick = (e) => { e.stopPropagation(); toggleTab('cleaned'); };
+        document.getElementById('tab-allowed').onclick = (e) => { e.stopPropagation(); toggleTab('allowed'); };
+        
+        if (document.getElementById('ssot-panel-content')) {
+            document.getElementById('ssot-panel-content').onclick = (e) => e.stopPropagation();
         }
     }
 
-    // 核心過濾分流控制器
     function applyFilter(url) {
         if (!url || typeof url !== 'string' || !url.startsWith('http')) return null;
         return processRequest({ url: url });
     }
 
-    // --- 掛鉤 (Hooks) 注入區 ---
     const origFetch = window.fetch;
     window.fetch = async function(...args) {
         let url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
@@ -1345,15 +1237,14 @@ def compile_tampermonkey() -> str:
         }
     });
     
-    // 初始化啟動序列
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             observer.observe(document.documentElement, { childList: true, subtree: true });
-            initUI();
+            initBadge();
         });
     } else {
         observer.observe(document.documentElement, { childList: true, subtree: true });
-        initUI();
+        initBadge();
     }
 })();
 """
@@ -1657,10 +1548,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: API Login Collision", "https://api.signin.104.com.tw/v2/api/login/valid-account", RES_ALLOW, "Prevent /api/log from falsely killing /api/login endpoints"))
     cases.append(TestCase("BugFix: Threads Path Exemption", "https://www.threads.com/@n_ys_m/post/DIaU/abc", RES_ALLOW, "Bypass L1/L2 path scanners using PATH_EXEMPTIONS"))
     cases.append(TestCase("BugFix: P0 Subdomain Inheritance", "https://px.ads.linkedin.com/test", RES_BLOCK_403, "Validate P0 wildcards logic correctly inherits down to subdomains"))
-    cases.append(TestCase("BugFix: Shopee HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772940479", RES_ALLOW, "確保 Direct IP 加上 EXCEPTIONS_SUBSTRINGS 豁免能成功跳過 L1 /batch_resolve 的誤殺"))
-    cases.append(TestCase("Feature: Shopee Stats Exemption", "https://mall.shopee.tw/userstats_record/batchrecord", RES_ALLOW, "使用者主動要求放行之蝦皮統計端點"))
-    cases.append(TestCase("Feature: Shopee Patronus Exemption", "https://patronus.idata.shopeemobile.com/event-receiver/api/v4/tw", RES_ALLOW, "放行蝦皮 Patronus 風控與遙測端點，避免結帳異常"))
-    cases.append(TestCase("Feature: Shopee Patronus Exemption", "https://patronus.idata.shopeemobile.com/log-receiver/api/v1/0/tw/event/batch", RES_ALLOW, "放行蝦皮 Patronus 風控與遙測端點，避免結帳異常"))
+    
+    # --- V44.60-R 蝦皮 OAuth 避風港專屬測試 ---
+    cases.append(TestCase("Feature: Shopee OAuth Bypass", "https://shopee.tw/api/v4/tracking/event?utm_source=fb", RES_ALLOW, "確認 shopee.tw 完全繞過所有掃描與參數淨化"))
 
     # --- E2E 端到端鏈式測試區塊 ---
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
