@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.62 (SSOT Compilation)
+ * @version   44.63 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.62';
+const SCRIPT_VERSION = '44.63';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -498,9 +498,6 @@ const RULES = {
       ])],
     ['instagram.com', new Set([
         '/logging_client_events'
-      ])],
-    ['mall.shopee.tw', new Set([
-        '/userstats_record/batchrecord'
       ])],
     ['patronus.idata.shopeemobile.com', new Set([
         '/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'
@@ -1022,7 +1019,6 @@ function processRequest(request) {
         }
     }
 
-    // [V44.62 BUGFIX] 恢復 L1 獨立執行流。L1 僅受重量級字串豁免 (isL1Exempted) 節制，絕不向一般靜態路徑妥協。
     if (!HELPERS.isL1Exempted(pathLower) && criticalPathScanner.matches(pathLower)) {
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked by L1 (Script/Path)' } };
