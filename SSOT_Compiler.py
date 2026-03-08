@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.64 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.64a SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -116,7 +116,7 @@ RULES_DB = {
             'standardchartered.com.tw', 'tcb-bank.com.tw', 'paypal.com', 'stripe.com',
             'taiwanpay.com.tw', 'twca.com.tw', 'twmp.com.tw', 'pay.taipei',
             'momopay.com.tw', 'mymobibank.com.tw',
-            'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'org.tw', 'tdcc.com.tw'
+            'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'org.tw', 'tdcc.com.tw', 'shopee.tw'
         ]
     },
     "PRIORITY_BLOCK_DOMAINS": [
@@ -189,7 +189,7 @@ RULES_DB = {
         ],
         "WILDCARDS": [
             'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com',
-            'shopee.tw', 'mitake.com.tw', 'money-link.com.tw', '591.com.tw', '104.com.tw',
+            ,'mitake.com.tw', 'money-link.com.tw', '591.com.tw', '104.com.tw',
             'icloud.com', 'apple.com', 'whatsapp.net', 'update.microsoft.com', 'windowsupdate.com',
             'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
             'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
