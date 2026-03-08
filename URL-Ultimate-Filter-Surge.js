@@ -45,7 +45,8 @@ const FINANCE_SAFE_HARBOR = {
     'firstbank.com.tw', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw', 'megabank.com.tw',
     'scsb.com.tw', 'sinopac.com', 'sinotrade.com.tw', 'standardchartered.com.tw', 'tcb-bank.com.tw', 'paypal.com',
     'stripe.com', 'taiwanpay.com.tw', 'twca.com.tw', 'twmp.com.tw', 'pay.taipei', 'momopay.com.tw',
-    'mymobibank.com.tw', 'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'org.tw', 'tdcc.com.tw'
+    'mymobibank.com.tw', 'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'org.tw', 'tdcc.com.tw',
+    'shopee.tw'
   ])
 };
 
@@ -108,12 +109,12 @@ const RULES = {
     'ewp.uber.com', 'copilot.microsoft.com', 'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net'
   ]),
     WILDCARDS: new Set([
-    'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com', 'shopee.tw', 'mitake.com.tw',
-    'money-link.com.tw', '591.com.tw', '104.com.tw', 'icloud.com', 'apple.com', 'whatsapp.net',
-    'update.microsoft.com', 'windowsupdate.com', 'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
-    'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
-    'perma.cc', 'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'googlevideo.com', 'app.goo.gl',
-    'goo.gl', 'browserleaks.com'
+    'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com', 'mitake.com.tw', 'money-link.com.tw',
+    '591.com.tw', '104.com.tw', 'icloud.com', 'apple.com', 'whatsapp.net', 'update.microsoft.com',
+    'windowsupdate.com', 'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io', 'archive.is',
+    'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com', 'perma.cc',
+    'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'googlevideo.com', 'app.goo.gl', 'goo.gl',
+    'browserleaks.com'
   ])
   },
 
