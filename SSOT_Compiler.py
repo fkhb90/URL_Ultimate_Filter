@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.60-A SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.60-R SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -41,6 +41,7 @@ URL Ultimate Filter - V44.60-A SSOT Compiler & Matrix Test Suite
 35. [BugFix-V44.59] 修正執行流優先級衝突導致 iadsdk.apple.com 測試失敗，還原白名單層級，並將 app-ads-services 升級至 WILDCARDS 徹底封殺。
 36. [Feature-V44.60] 擴增 Google ODM 系統級備援遙測端點，並將 15 家主流 MMP (動態子網域跟蹤商) 移入 WILDCARDS 進行通配符封殺。
 37. [Revert-V44.60-R] 應實戰需求，將防護基線退回 V44.60 版本，並將 shopee.tw 移入 OAUTH_SAFE_HARBOR_DOMAINS，賦予其免除參數淨化與掃描之最高特權。
+38. [Optimize-V44.61-R] 落實最小權限原則，將 shopee.tw 從 OAUTH 避風港移至 PARAM_CLEANING_EXEMPTED_DOMAINS，恢復其路徑掃描防護，僅保留參數免淨化特權。
 """
 
 import json
@@ -62,7 +63,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.60-A"
+VERSION = "44.61-R"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -84,11 +85,12 @@ RULES_DB = {
             'shopback.com.tw', 'extrabux.com', 'buy.line.me'
         ],
         "WILDCARDS": [
-            'feedly.com', 'shopee.tw',
+            'feedly.com', 
             's3.amazonaws.com', 'storage.googleapis.com', 'core.windows.net',
             'api.line.me', 'api.newebpay.com', 'api.tappayapis.com',
             'api.stripe.com', 'api.github.com', 'api.twitch.tv',
-            'cdn.discordapp.com', 'slack.com', 'cloudfunctions.net'
+            'cdn.discordapp.com', 'slack.com', 'cloudfunctions.net',
+            'shopee.tw'
         ]
     },
     "SILENT_REWRITE_DOMAINS": {
@@ -1548,8 +1550,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: Threads Path Exemption", "https://www.threads.com/@n_ys_m/post/DIaU/abc", RES_ALLOW, "Bypass L1/L2 path scanners using PATH_EXEMPTIONS"))
     cases.append(TestCase("BugFix: P0 Subdomain Inheritance", "https://px.ads.linkedin.com/test", RES_BLOCK_403, "Validate P0 wildcards logic correctly inherits down to subdomains"))
     
-    # --- V44.60-R 蝦皮 OAuth 避風港專屬測試 ---
-    cases.append(TestCase("Feature: Shopee OAuth Bypass", "https://shopee.tw/api/v4/tracking/event?utm_source=fb", RES_ALLOW, "確認 shopee.tw 完全繞過所有掃描與參數淨化"))
+    # --- V44.61-R 蝦皮參數淨化豁免與權限降級專屬測試 ---
+    cases.append(TestCase("Feature: Shopee Param Exemption", "https://shopee.tw/api/v4/tracking/event?utm_source=fb", RES_BLOCK_403, "確認 shopee.tw 被移出 OAuth 避風港後，其追蹤路徑會被正確攔截，但若為正常路徑則僅豁免參數淨化"))
 
     # --- E2E 端到端鏈式測試區塊 ---
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
