@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.62-R SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.65 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -40,9 +40,9 @@ URL Ultimate Filter - V44.62-R SSOT Compiler & Matrix Test Suite
 34. [BugFix-V44.58] Surge 引擎執行流重大修復：強制提升 BLOCK_DOMAINS 優先級，解決惡意網域遭 Surge FINAL 規則穿透放行的漏洞。
 35. [BugFix-V44.59] 修正執行流優先級衝突導致 iadsdk.apple.com 測試失敗，還原白名單層級，並將 app-ads-services 升級至 WILDCARDS 徹底封殺。
 36. [Feature-V44.60] 擴增 Google ODM 系統級備援遙測端點，並將 15 家主流 MMP (動態子網域跟蹤商) 移入 WILDCARDS 進行通配符封殺。
-37. [Revert-V44.60-R] 應實戰需求，將防護基線退回 V44.60 版本，並將 shopee.tw 移入 OAUTH_SAFE_HARBOR_DOMAINS，賦予其免除參數淨化與掃描之最高特權。
-38. [Optimize-V44.61-R] 落實最小權限原則，將 shopee.tw 從 OAUTH 避風港移至 PARAM_CLEANING_EXEMPTED_DOMAINS，恢復其路徑掃描防護，僅保留參數免淨化特權。
-39. [Optimize-V44.62-R] 縮小前端盾牌預設圖示、完善雙擊收合面板機制、優化 Map 狀態機陣列同步顯示 (最新排前)，並於面板明確標示版號與去重邏輯。
+37. [Optimize-V44.61] 落實最小權限原則，將 shopee.tw 納入 PARAM_CLEANING_EXEMPTED_DOMAINS，維持路徑防禦並豁免參數淨化。
+38. [Optimize-V44.62] 縮小前端盾牌預設圖示、完善雙擊收合面板機制、優化 Map 狀態機陣列同步顯示 (最新紀錄排前)。
+39. [Release-V44.65] 廢棄過渡期 R 版號分支，為確保 Tampermonkey 腳本管理器的遞增更新機制正常運作，主線版本號一舉推進並正規化為 V44.65。
 """
 
 import json
@@ -64,7 +64,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.62-R"
+VERSION = "44.65"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -1649,7 +1649,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: Threads Path Exemption", "https://www.threads.com/@n_ys_m/post/DIaU/abc", RES_ALLOW, "Bypass L1/L2 path scanners using PATH_EXEMPTIONS"))
     cases.append(TestCase("BugFix: P0 Subdomain Inheritance", "https://px.ads.linkedin.com/test", RES_BLOCK_403, "Validate P0 wildcards logic correctly inherits down to subdomains"))
     
-    # --- V44.61-R 蝦皮參數淨化豁免與權限降級專屬測試 ---
+    # --- V44.65 蝦皮參數淨化豁免與權限降級專屬測試 ---
     cases.append(TestCase("Feature: Shopee Param Exemption", "https://shopee.tw/api/v4/tracking/event?utm_source=fb", RES_BLOCK_403, "確認 shopee.tw 被移出 OAuth 避風港後，其追蹤路徑會被正確攔截，但若為正常路徑則僅豁免參數淨化"))
 
     # --- E2E 端到端鏈式測試區塊 ---
