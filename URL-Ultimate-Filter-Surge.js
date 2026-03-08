@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.63 (SSOT Compilation)
+ * @version   44.64 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.63';
+const SCRIPT_VERSION = '44.64';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -499,9 +499,6 @@ const RULES = {
     ['instagram.com', new Set([
         '/logging_client_events'
       ])],
-    ['patronus.idata.shopeemobile.com', new Set([
-        '/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'
-      ])],
     ['dp.tracking.shopee.tw', new Set([
         '/v4/event_batch'
       ])],
@@ -705,6 +702,9 @@ const RULES = {
     PATH_EXEMPTIONS: new Map([
     ['shopee.tw', new Set([
         '/api/v4/search/search_items'
+      ])],
+    ['shopeemobile.com', new Set([
+        '/event-receiver/api/v4/tw', '/log-receiver/api/v1/0/tw/event/batch'
       ])],
     ['cmapi.tw.coupang.com', new Set([
         '/vendor-items/'
