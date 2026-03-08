@@ -189,7 +189,7 @@ RULES_DB = {
         ],
         "WILDCARDS": [
             'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com',
-            ,'mitake.com.tw', 'money-link.com.tw', '591.com.tw', '104.com.tw',
+            'mitake.com.tw', 'money-link.com.tw', '591.com.tw', '104.com.tw',
             'icloud.com', 'apple.com', 'whatsapp.net', 'update.microsoft.com', 'windowsupdate.com',
             'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
             'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
