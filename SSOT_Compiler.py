@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.60-R SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.62-R SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -42,6 +42,7 @@ URL Ultimate Filter - V44.60-R SSOT Compiler & Matrix Test Suite
 36. [Feature-V44.60] 擴增 Google ODM 系統級備援遙測端點，並將 15 家主流 MMP (動態子網域跟蹤商) 移入 WILDCARDS 進行通配符封殺。
 37. [Revert-V44.60-R] 應實戰需求，將防護基線退回 V44.60 版本，並將 shopee.tw 移入 OAUTH_SAFE_HARBOR_DOMAINS，賦予其免除參數淨化與掃描之最高特權。
 38. [Optimize-V44.61-R] 落實最小權限原則，將 shopee.tw 從 OAUTH 避風港移至 PARAM_CLEANING_EXEMPTED_DOMAINS，恢復其路徑掃描防護，僅保留參數免淨化特權。
+39. [Optimize-V44.62-R] 縮小前端盾牌預設圖示、完善雙擊收合面板機制、優化 Map 狀態機陣列同步顯示 (最新排前)，並於面板明確標示版號與去重邏輯。
 """
 
 import json
@@ -63,7 +64,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.61-R"
+VERSION = "44.62-R"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -422,7 +423,6 @@ RULES_DB = {
         'discord.com': ['/api/v10/science', '/api/v9/science'],
         'vk.com': ['/rtrg'],
         'instagram.com': ['/logging_client_events'],
-        'mall.shopee.tw': ['/userstats_record/batchrecord'],
         'patronus.idata.shopeemobile.com': ['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'],
         'dp.tracking.shopee.tw': ['/v4/event_batch'],
         'live-apm.shopee.tw': ['/apmapi/v1/event'],
@@ -517,6 +517,9 @@ RULES_DB = {
         '.css', '.js', '.jpg', '.jpeg', '.gif', '.png', '.ico', '.svg', '.webp', '.woff', '.woff2', '.ttf',
         '.eot', '.mp4', '.mp3', '.mov', '.m4a', '.json', '.xml', '.yaml', '.yml', '.toml', '.ini',
         '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar'
+    ],
+    "EXCEPTIONS_SUBSTRINGS": [
+        'cdn-cgi', '/shopee/batch_resolve_with_info'
     ],
     "PATH_EXEMPTIONS": {
         "shopee.tw": ["/api/v4/search/search_items"],
@@ -662,7 +665,7 @@ const RULES = {{
   EXCEPTIONS: {{
     SUFFIXES: {format_js_set(RULES_DB['EXCEPTIONS_SUFFIXES'])},
     PREFIXES: new Set(['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/']),
-    SUBSTRINGS: new Set(['cdn-cgi']),
+    SUBSTRINGS: {format_js_set(RULES_DB['EXCEPTIONS_SUBSTRINGS'])},
     SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js']),
     PATH_EXEMPTIONS: {format_js_map(RULES_DB['PATH_EXEMPTIONS'])}
   }}
@@ -743,6 +746,13 @@ const HELPERS = {
     for (const prefix of RULES.EXCEPTIONS.PREFIXES) if (pathLower.startsWith(prefix)) return true;
     for (const sub of RULES.EXCEPTIONS.SUBSTRINGS) if (pathLower.includes(sub)) return true;
     for (const seg of RULES.EXCEPTIONS.SEGMENTS) if (pathLower.includes('/' + seg + '/')) return true;
+    return false;
+  },
+  
+  isL1Exempted: (pathLower) => {
+    for (const sub of RULES.EXCEPTIONS.SUBSTRINGS) {
+        if (pathLower.includes(sub)) return true;
+    }
     return false;
   },
 
@@ -904,7 +914,6 @@ function processRequest(request) {
       }
     }
 
-    // [V44.58 BUGFIX] 強制提升 Domain Block 優先級，解決 Surge FINAL 穿透漏洞
     const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
     if (!isSoftWhitelisted) {
       if (isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
@@ -912,7 +921,6 @@ function processRequest(request) {
       }
     }
 
-    // [OAUTH Bpypass] 最高特權階級：精確比對 shopee.tw，全域無條件放行且不清除參數
     if (OAUTH_SAFE_HARBOR.DOMAINS.has(hostname) && hostname !== 'accounts.youtube.com') {
         stats.allows++; return null;
     }
@@ -957,7 +965,7 @@ function processRequest(request) {
         }
     }
 
-    if (criticalPathScanner.matches(pathLower)) {
+    if (!HELPERS.isL1Exempted(pathLower) && criticalPathScanner.matches(pathLower)) {
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked by L1 (Script/Path)' } };
     }
@@ -1011,10 +1019,10 @@ if (typeof $request !== 'undefined') {
 
 def compile_tampermonkey() -> str:
     header = f"""// ==UserScript==
-// @name         URL Ultimate Filter (Tampermonkey Edition)
+// @name         URL Ultimate Filter V{VERSION}
 // @namespace    http://tampermonkey.net/
 // @version      {VERSION}
-// @description  SSOT 核心規則庫之前端防護版本，導入分頁式展收盾牌，並整合 TM 選單開關與 Allowed 追蹤。
+// @description  SSOT 前端防護盾牌，專業級 UI：極簡盾牌圖示、獨立計數器、點擊外部自動收合機制。
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -1027,126 +1035,217 @@ def compile_tampermonkey() -> str:
     js = get_js_rules_definition("Tampermonkey") + get_js_engine_logic()
     
     interceptor_logic = r"""
-    // --- Tampermonkey Interception Hooks & Tabbed UI Logic ---
+    // --- Tampermonkey Interception Hooks & Professional UI ---
     const tmStats = {
-        blocked: new Set(),
-        cleaned: new Map(),
-        allowed: new Set(),
-        totalCleaned: 0,
+        blocked: new Map(), // 記錄 { 網址: 出現次數 }
+        cleaned: new Map(), // 記錄 { 原始網址: { newUrl, count } }
+        allowed: new Map(), // 記錄 { 網址: 出現次數 }
+        countBlocked: 0,
+        countCleaned: 0,
+        countAllowed: 0,
+        
         recordBlock: function(u) { 
-            if(this.blocked.size >= 50) { const first = this.blocked.values().next().value; this.blocked.delete(first); }
-            this.blocked.add(u); 
-            updateBadge(); 
+            this.countBlocked++;
+            let c = 1;
+            if(this.blocked.has(u)) { c = this.blocked.get(u) + 1; this.blocked.delete(u); }
+            else if(this.blocked.size >= 50) this.blocked.delete(this.blocked.keys().next().value);
+            this.blocked.set(u, c); 
+            requestUpdate(); 
         },
         recordClean: function(o, n) { 
-            this.totalCleaned++;
-            if(this.cleaned.size >= 50) { const first = this.cleaned.keys().next().value; this.cleaned.delete(first); }
-            this.cleaned.set(o, n); 
-            updateBadge(); 
+            this.countCleaned++;
+            let c = 1;
+            if(this.cleaned.has(o)) { c = this.cleaned.get(o).count + 1; this.cleaned.delete(o); }
+            else if(this.cleaned.size >= 50) this.cleaned.delete(this.cleaned.keys().next().value);
+            this.cleaned.set(o, {newUrl: n, count: c}); 
+            requestUpdate(); 
         },
         recordAllow: function(u) {
-            if(this.allowed.size >= 50) { const first = this.allowed.values().next().value; this.allowed.delete(first); }
-            this.allowed.add(u);
-            if(activeTab === 'allowed') updateBadge(); 
+            this.countAllowed++;
+            let c = 1;
+            if(this.allowed.has(u)) { c = this.allowed.get(u) + 1; this.allowed.delete(u); }
+            else if(this.allowed.size >= 50) this.allowed.delete(this.allowed.keys().next().value);
+            this.allowed.set(u, c);
+            if(expanded && activeTab === 'allowed') requestUpdate(); 
         }
     };
 
-    let badge = null;
-    let shieldVisible = true; 
-    let activeTab = null;     
+    let uiContainer, fab, panel, listContainer;
+    let expanded = false;
+    let activeTab = null;
+    let shieldVisible = true;
+    let updatePending = false;
 
     if (typeof GM_registerMenuCommand !== 'undefined') {
-        GM_registerMenuCommand("切換顯示/隱藏 URL 盾牌", () => {
+        GM_registerMenuCommand("🛡️ 切換 URL 盾牌顯示/隱藏", () => {
             shieldVisible = !shieldVisible;
-            if (shieldVisible) {
-                if (!badge) initBadge();
-                badge.style.display = 'block';
-            } else {
-                if (badge) badge.style.display = 'none';
-            }
+            if (uiContainer) uiContainer.style.display = shieldVisible ? 'block' : 'none';
         });
     }
 
-    function initBadge() {
-        if (document.getElementById('ssot-shield-badge')) return;
-        badge = document.createElement('div');
-        badge.id = 'ssot-shield-badge';
-        badge.style.cssText = 'position:fixed; bottom:20px; right:20px; z-index:2147483647; background:rgba(17,24,39,0.95); color:#F9FAFB; padding:12px; border-radius:8px; font-family:monospace; box-shadow:0 4px 6px rgba(0,0,0,0.3); transition:all 0.2s ease-in-out; border: 1px solid #374151;';
-        (document.body || document.documentElement).appendChild(badge);
-        updateBadge();
+    function initUI() {
+        if (document.getElementById('ssot-ui-root')) return;
+        
+        uiContainer = document.createElement('div');
+        uiContainer.id = 'ssot-ui-root';
+        uiContainer.style.cssText = 'position:fixed; bottom:20px; right:20px; z-index:2147483647; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; display: block;';
+        
+        // 1. FAB (縮小版預設盾牌，加入透明度)
+        fab = document.createElement('div');
+        fab.innerHTML = '\u{1F6E1}\uFE0F';
+        fab.title = 'URL Ultimate Filter';
+        fab.style.cssText = 'width:24px; height:24px; border-radius:50%; background:#0f172a; border: 1px solid #334155; display:flex; align-items:center; justify-content:center; font-size:12px; cursor:pointer; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5); user-select:none; transition: all 0.2s ease-out; opacity: 0.4;';
+        fab.onmouseover = () => { fab.style.transform = 'scale(1.1)'; fab.style.opacity = '1'; };
+        fab.onmouseout = () => { fab.style.transform = 'scale(1)'; fab.style.opacity = '0.4'; };
+        fab.onclick = () => { 
+            expanded = true; 
+            activeTab = null;
+            renderUI(); 
+        };
+        
+        // 2. 專業控制面板
+        panel = document.createElement('div');
+        panel.style.cssText = 'display:none; position:absolute; bottom:0; right:0; width:360px; background:#0f172a; border: 1px solid #334155; border-radius:12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); overflow:hidden; flex-direction:column; color:#f8fafc;';
+        
+        const header = document.createElement('div');
+        header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#1e293b; border-bottom:1px solid #334155; user-select:none;';
+        header.innerHTML = `<div style="font-weight:600; display:flex; align-items:center; gap:8px; color:#6366F1;"><span style="font-size:15px;">\u{1F6E1}\uFE0F</span> URL Ultimate Filter <span style="font-size:11px; color:#64748b; margin-left:4px;">V${SCRIPT_VERSION}</span></div>`;
+        panel.appendChild(header);
+        
+        const tabsRow = document.createElement('div');
+        tabsRow.style.cssText = 'display:flex; padding:8px; gap:8px; background:#0f172a; border-bottom:1px solid #334155;';
+        
+        const createTab = (id, label, color) => {
+            const t = document.createElement('div');
+            t.id = `ssot-tab-${id}`;
+            t.title = `點擊展開/收合 ${label} 列表`;
+            t.style.cssText = `flex:1; text-align:center; padding:8px 4px; cursor:pointer; border-radius:6px; transition:all 0.2s; border-bottom:2px solid transparent; user-select:none; background:transparent;`;
+            t.innerHTML = `<div style="color:${color}; font-weight:700; font-size:18px; line-height:1.2;" id="ssot-cnt-${id}">0</div><div style="color:#94a3b8; font-size:11px; margin-top:2px; font-weight:500;">${label}</div>`;
+            t.onclick = (e) => { 
+                e.stopPropagation(); // 阻斷事件冒泡，防止觸發外部收合
+                if (activeTab === id) {
+                    expanded = false; // 雙擊同一個 tab 徹底收合面板
+                    activeTab = null;
+                } else {
+                    activeTab = id;
+                }
+                renderUI(); 
+            };
+            return t;
+        };
+        
+        tabsRow.appendChild(createTab('blocked', 'Blocked', '#ef4444'));
+        tabsRow.appendChild(createTab('cleaned', 'Cleaned', '#10b981'));
+        tabsRow.appendChild(createTab('allowed', 'Allowed', '#cbd5e1'));
+        panel.appendChild(tabsRow);
+        
+        listContainer = document.createElement('div');
+        listContainer.id = 'ssot-list-container';
+        listContainer.style.cssText = 'display:none; max-height:280px; overflow-y:auto; padding:0; background:#020617; overscroll-behavior: contain;';
+        
+        listContainer.onclick = (e) => e.stopPropagation();
+        panel.appendChild(listContainer);
+        
+        uiContainer.appendChild(fab);
+        uiContainer.appendChild(panel);
+        (document.body || document.documentElement).appendChild(uiContainer);
+        
+        renderUI();
     }
 
-    function updateBadge() {
-        if (!badge || !document.body.contains(badge) || !shieldVisible) return;
-        
-        const getTabStyle = (tabName) => {
-            const isActive = activeTab === tabName;
-            return `cursor:pointer; padding:4px 8px; border-radius:4px; font-weight:600; background:${isActive ? '#374151' : 'transparent'}; transition:background 0.2s; user-select:none;`;
-        };
+    document.addEventListener('click', (e) => {
+        if (expanded && uiContainer && !uiContainer.contains(e.target)) {
+            expanded = false;
+            activeTab = null;
+            renderUI();
+        }
+    });
 
-        let html = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <strong style="color:#6366F1; font-size:14px;">\u{1F6E1}\uFE0F URL Filter V${SCRIPT_VERSION}</strong>
-            <span id="ssot-close-btn" style="font-size:16px; line-height:1; color:#9CA3AF; cursor:pointer; margin-left:24px;" title="隱藏盾牌 (可從 TM 選單重新開啟)">✖</span>
-        </div>
-        <div style="display:flex; gap:8px; font-size:12px;">
-            <div id="tab-blocked" style="${getTabStyle('blocked')} color:${activeTab === 'blocked' ? '#F87171' : '#FCA5A5'};">🚫 Blocked: ${stats.blocks}</div>
-            <div id="tab-cleaned" style="${getTabStyle('cleaned')} color:${activeTab === 'cleaned' ? '#34D399' : '#6EE7B7'};">✏️ Cleaned: ${tmStats.totalCleaned}</div>
-            <div id="tab-allowed" style="${getTabStyle('allowed')} color:${activeTab === 'allowed' ? '#D1D5DB' : '#9CA3AF'};">✅ Allowed: ${stats.allows}</div>
-        </div>
-        `;
-        
-        if (activeTab) {
-            html += `<hr style="border-color:#374151; margin:8px 0;"/>
-            <div id="ssot-panel-content" style="text-align:left; max-height:300px; max-width: 500px; overflow-y:auto; font-size:12px; line-height:1.5; padding-right:8px; cursor:text;">`;
+    function requestUpdate() {
+        if (!updatePending) {
+            updatePending = true;
+            requestAnimationFrame(() => {
+                updatePending = false;
+                if (expanded) renderUI(); 
+            });
+        }
+    }
+
+    function renderUI() {
+        if (!uiContainer) return;
+        uiContainer.style.display = shieldVisible ? 'block' : 'none';
+        if (!shieldVisible) return;
+
+        if (!expanded) {
+            fab.style.display = 'flex';
+            panel.style.display = 'none';
+            return;
+        }
+
+        fab.style.display = 'none';
+        panel.style.display = 'flex';
+
+        document.getElementById('ssot-cnt-blocked').innerText = tmStats.countBlocked;
+        document.getElementById('ssot-cnt-cleaned').innerText = tmStats.countCleaned;
+        document.getElementById('ssot-cnt-allowed').innerText = tmStats.countAllowed;
+
+        ['blocked', 'cleaned', 'allowed'].forEach(t => {
+            const el = document.getElementById(`ssot-tab-${t}`);
+            if (!el) return;
+            if (activeTab === t) {
+                el.style.backgroundColor = '#1e293b';
+                el.style.borderBottom = `2px solid ${t==='blocked'?'#ef4444':t==='cleaned'?'#10b981':'#cbd5e1'}`;
+            } else {
+                el.style.backgroundColor = 'transparent';
+                el.style.borderBottom = '2px solid transparent';
+            }
+        });
+
+        if (!activeTab) {
+            listContainer.style.display = 'none';
+            listContainer.innerHTML = '';
+        } else {
+            listContainer.style.display = 'block';
+            let listHtml = '';
+            const itemStyle = 'padding:8px 12px; border-bottom:1px solid #1e293b; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:11px; word-break:break-all; line-height:1.4;';
+            const badgeStyle = 'padding:2px 6px; border-radius:10px; font-size:10px; font-weight:bold; height:fit-content; white-space:nowrap; margin-left:8px;';
             
             if (activeTab === 'blocked') {
-                if (tmStats.blocked.size > 0) {
-                    html += `<ul style="margin:0; padding-left:16px; word-break:break-all; list-style-type: disc; color:#F87171;">`;
-                    for (const u of tmStats.blocked) html += `<li style="margin-bottom:4px;">${u}</li>`;
-                    html += `</ul>`;
-                } else {
-                    html += `<div style="color:#9CA3AF; text-align:center; padding:8px 0;">目前無攔截紀錄</div>`;
+                if (tmStats.blocked.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無攔截紀錄</div>`;
+                else {
+                    listHtml = Array.from(tmStats.blocked.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#fca5a5;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                            <span>${u}</span>
+                            ${c > 1 ? `<span style="${badgeStyle} background:#7f1d1d; color:#fecaca;" title="總攔截次數">x${c}</span>` : ''}
+                        </div>
+                    </div>`).join('');
+                    if (tmStats.blocked.size >= 50) listHtml += `<div style="text-align:center; padding:6px; font-size:10px; color:#475569;">已達 50 筆不重複網址顯示上限</div>`;
                 }
             } else if (activeTab === 'cleaned') {
-                if (tmStats.cleaned.size > 0) {
-                    html += `<ul style="margin:0; padding-left:16px; word-break:break-all; list-style-type: disc; color:#34D399;">`;
-                    for (const [o, n] of tmStats.cleaned) html += `<li style="margin-bottom:4px;"><del style="opacity:0.5; color:#9CA3AF">${o}</del><br/><span style="color:#D1D5DB;">&rarr; ${n}</span></li>`;
-                    html += `</ul>`;
-                } else {
-                    html += `<div style="color:#9CA3AF; text-align:center; padding:8px 0;">目前無淨化紀錄</div>`;
+                if (tmStats.cleaned.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無淨化紀錄</div>`;
+                else {
+                    listHtml = Array.from(tmStats.cleaned.entries()).reverse().map(([o, data]) => `<div style="${itemStyle}">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+                            <div style="text-decoration:line-through; color:#475569;">${o}</div>
+                            ${data.count > 1 ? `<span style="${badgeStyle} background:#064e3b; color:#a7f3d0;" title="總淨化次數">x${data.count}</span>` : ''}
+                        </div>
+                        <div style="color:#6ee7b7;">➔ ${data.newUrl}</div>
+                    </div>`).join('');
+                    if (tmStats.cleaned.size >= 50) listHtml += `<div style="text-align:center; padding:6px; font-size:10px; color:#475569;">已達 50 筆不重複網址顯示上限</div>`;
                 }
             } else if (activeTab === 'allowed') {
-                if (tmStats.allowed.size > 0) {
-                    html += `<ul style="margin:0; padding-left:16px; word-break:break-all; list-style-type: disc; color:#D1D5DB;">`;
-                    for (const u of tmStats.allowed) html += `<li style="margin-bottom:4px;">${u}</li>`;
-                    html += `</ul>`;
-                } else {
-                    html += `<div style="color:#9CA3AF; text-align:center; padding:8px 0;">目前無放行紀錄</div>`;
+                if (tmStats.allowed.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無放行紀錄</div>`;
+                else {
+                    listHtml = Array.from(tmStats.allowed.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#94a3b8;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                            <span>${u}</span>
+                            ${c > 1 ? `<span style="${badgeStyle} background:#334155; color:#cbd5e1;" title="總放行次數">x${c}</span>` : ''}
+                        </div>
+                    </div>`).join('');
+                    if (tmStats.allowed.size >= 50) listHtml += `<div style="text-align:center; padding:6px; font-size:10px; color:#475569;">已達 50 筆不重複網址顯示上限</div>`;
                 }
             }
-            html += `</div>`;
-        }
-        
-        badge.innerHTML = html;
-
-        document.getElementById('ssot-close-btn').onclick = (e) => {
-            e.stopPropagation();
-            shieldVisible = false;
-            badge.style.display = 'none';
-        };
-
-        const toggleTab = (tabName) => {
-            activeTab = (activeTab === tabName) ? null : tabName;
-            updateBadge();
-        };
-
-        document.getElementById('tab-blocked').onclick = (e) => { e.stopPropagation(); toggleTab('blocked'); };
-        document.getElementById('tab-cleaned').onclick = (e) => { e.stopPropagation(); toggleTab('cleaned'); };
-        document.getElementById('tab-allowed').onclick = (e) => { e.stopPropagation(); toggleTab('allowed'); };
-        
-        if (document.getElementById('ssot-panel-content')) {
-            document.getElementById('ssot-panel-content').onclick = (e) => e.stopPropagation();
+            listContainer.innerHTML = listHtml;
         }
     }
 
@@ -1241,11 +1340,11 @@ def compile_tampermonkey() -> str:
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             observer.observe(document.documentElement, { childList: true, subtree: true });
-            initBadge();
+            initUI();
         });
     } else {
         observer.observe(document.documentElement, { childList: true, subtree: true });
-        initBadge();
+        initUI();
     }
 })();
 """
