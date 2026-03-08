@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.61-R (SSOT Compilation)
+ * @version   44.62-R (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.61-R';
+const SCRIPT_VERSION = '44.62-R';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -499,9 +499,6 @@ const RULES = {
     ['instagram.com', new Set([
         '/logging_client_events'
       ])],
-    ['mall.shopee.tw', new Set([
-        '/userstats_record/batchrecord'
-      ])],
     ['patronus.idata.shopeemobile.com', new Set([
         '/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'
       ])],
@@ -701,7 +698,9 @@ const RULES = {
     '.zip', '.rar'
   ]),
     PREFIXES: new Set(['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/']),
-    SUBSTRINGS: new Set(['cdn-cgi']),
+    SUBSTRINGS: new Set([
+    'cdn-cgi', '/shopee/batch_resolve_with_info'
+  ]),
     SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js']),
     PATH_EXEMPTIONS: new Map([
     ['shopee.tw', new Set([
@@ -801,6 +800,13 @@ const HELPERS = {
     for (const prefix of RULES.EXCEPTIONS.PREFIXES) if (pathLower.startsWith(prefix)) return true;
     for (const sub of RULES.EXCEPTIONS.SUBSTRINGS) if (pathLower.includes(sub)) return true;
     for (const seg of RULES.EXCEPTIONS.SEGMENTS) if (pathLower.includes('/' + seg + '/')) return true;
+    return false;
+  },
+  
+  isL1Exempted: (pathLower) => {
+    for (const sub of RULES.EXCEPTIONS.SUBSTRINGS) {
+        if (pathLower.includes(sub)) return true;
+    }
     return false;
   },
 
@@ -962,7 +968,6 @@ function processRequest(request) {
       }
     }
 
-    // [V44.58 BUGFIX] 強制提升 Domain Block 優先級，解決 Surge FINAL 穿透漏洞
     const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
     if (!isSoftWhitelisted) {
       if (isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
@@ -970,7 +975,6 @@ function processRequest(request) {
       }
     }
 
-    // [OAUTH Bpypass] 最高特權階級：精確比對 shopee.tw，全域無條件放行且不清除參數
     if (OAUTH_SAFE_HARBOR.DOMAINS.has(hostname) && hostname !== 'accounts.youtube.com') {
         stats.allows++; return null;
     }
@@ -1015,7 +1019,7 @@ function processRequest(request) {
         }
     }
 
-    if (criticalPathScanner.matches(pathLower)) {
+    if (!HELPERS.isL1Exempted(pathLower) && criticalPathScanner.matches(pathLower)) {
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked by L1 (Script/Path)' } };
     }
