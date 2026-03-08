@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.63 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.64 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -41,8 +41,9 @@ URL Ultimate Filter - V44.63 SSOT Compiler & Matrix Test Suite
 35. [BugFix-V44.59] 修正執行流優先級衝突導致 iadsdk.apple.com 測試失敗，還原白名單層級，並將 app-ads-services 升級至 WILDCARDS 徹底封殺。
 36. [Feature-V44.60] 擴增 Google ODM 系統級備援遙測端點，並將 15 家主流 MMP (動態子網域跟蹤商) 移入 WILDCARDS 進行通配符封殺。
 37. [BugFix-V44.61] 修復蝦皮 HTTPDNS Direct IP 被 L1 引擎誤殺的問題；將 EXCEPTIONS_SUBSTRINGS 納入 SSOT 管理。
-38. [BugFix-V44.62] 搶修 107 FAILED 災難。解耦 L1 掃描器與全域靜態白名單 (isExplicitlyAllowed) 的綁定，建立專屬 isL1Exempted 豁免機制。
-39. [Feature-V44.63] 依據實戰回饋，將蝦皮商城 userstats_record 遙測端點自 CRITICAL_PATH_MAP 中拔除，主動放行以避免潛在的前端效能與風控驗證異常。
+38. [BugFix-V44.62] 搶修 107 FAILED 災難。解耦 L1 掃描器與全域靜態白名單，建立專屬 isL1Exempted 豁免機制。
+39. [Feature-V44.63] 依據實戰回饋，將蝦皮商城 userstats_record 遙測端點自 CRITICAL_PATH_MAP 中拔除，主動放行。
+40. [Feature-V44.64] 依據實戰回饋，將蝦皮風控遙測端點 (patronus.idata) 自 CRITICAL_PATH_MAP 移除，並加入路徑豁免，主動放行以避免結帳或搶券時觸發 Anti-Bot 防護導致功能異常。
 """
 
 import json
@@ -64,7 +65,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.63"
+VERSION = "44.64"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -422,7 +423,6 @@ RULES_DB = {
         'discord.com': ['/api/v10/science', '/api/v9/science'],
         'vk.com': ['/rtrg'],
         'instagram.com': ['/logging_client_events'],
-        'patronus.idata.shopeemobile.com': ['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'],
         'dp.tracking.shopee.tw': ['/v4/event_batch'],
         'live-apm.shopee.tw': ['/apmapi/v1/event'],
         'cmapi.tw.coupang.com': ['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/']
@@ -522,6 +522,7 @@ RULES_DB = {
     ],
     "PATH_EXEMPTIONS": {
         "shopee.tw": ["/api/v4/search/search_items"],
+        "shopeemobile.com": ["/event-receiver/api/v4/tw", "/log-receiver/api/v1/0/tw/event/batch"],
         "cmapi.tw.coupang.com": ["/vendor-items/"],
         "coupangcdn.com": ["/image/ccm/banner/"],
         "www.google.com": ["/url", "/search"],
@@ -1658,7 +1659,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: P0 Subdomain Inheritance", "https://px.ads.linkedin.com/test", RES_BLOCK_403, "Validate P0 wildcards logic correctly inherits down to subdomains"))
     cases.append(TestCase("BugFix: Shopee HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772940479", RES_ALLOW, "確保 Direct IP 加上 EXCEPTIONS_SUBSTRINGS 豁免能成功跳過 L1 /batch_resolve 的誤殺"))
     cases.append(TestCase("Feature: Shopee Stats Exemption", "https://mall.shopee.tw/userstats_record/batchrecord", RES_ALLOW, "使用者主動要求放行之蝦皮統計端點"))
-    cases.append(TestCase("Feature: Shopee Stats Exemption", "https://mall.shopee.tw/userstats_record/record", RES_ALLOW, "使用者主動要求放行之蝦皮統計端點"))
+    cases.append(TestCase("Feature: Shopee Patronus Exemption", "https://patronus.idata.shopeemobile.com/event-receiver/api/v4/tw", RES_ALLOW, "放行蝦皮 Patronus 風控與遙測端點，避免結帳異常"))
+    cases.append(TestCase("Feature: Shopee Patronus Exemption", "https://patronus.idata.shopeemobile.com/log-receiver/api/v1/0/tw/event/batch", RES_ALLOW, "放行蝦皮 Patronus 風控與遙測端點，避免結帳異常"))
 
     # --- E2E 端到端鏈式測試區塊 ---
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
