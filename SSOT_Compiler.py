@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.60-R SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.60-A SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -62,7 +62,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.60-R"
+VERSION = "44.60-A"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
