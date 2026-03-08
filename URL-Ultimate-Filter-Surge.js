@@ -1,16 +1,16 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.60-R (SSOT Compilation)
+ * @version   44.61-R (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.60-R';
+const SCRIPT_VERSION = '44.61-R';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
     'accounts.google.com', 'accounts.google.com.tw', 'accounts.youtube.com', 'appleid.apple.com', 'idmsa.apple.com', 'facebook.com',
     'www.facebook.com', 'm.facebook.com', 'login.microsoftonline.com', 'login.live.com', 'github.com', 'api.twitter.com',
-    'api.x.com', 'shopee.tw'
+    'api.x.com'
   ]),
     PATHS: [
     '/oauth', '/oauth2', '/authorize', '/login', '/signin', '/session'
@@ -24,7 +24,7 @@ const PARAM_CLEANING_EXEMPTED_DOMAINS = {
     WILDCARDS: new Set([
     'feedly.com', 's3.amazonaws.com', 'storage.googleapis.com', 'core.windows.net', 'api.line.me', 'api.newebpay.com',
     'api.tappayapis.com', 'api.stripe.com', 'api.github.com', 'api.twitch.tv', 'cdn.discordapp.com', 'slack.com',
-    'cloudfunctions.net'
+    'cloudfunctions.net', 'shopee.tw'
   ])
 };
 
