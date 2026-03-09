@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.64 (SSOT Compilation)
+ * @version   44.65 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.64';
+const SCRIPT_VERSION = '44.65';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -74,19 +74,29 @@ const RULES = {
     'analytics.shopee.tw', 'dmp.shopee.tw', 'iadsdk.apple.com', 'privacysandbox.googleapis.com', 'measurement.adservices.google.com'
   ]),
   REDIRECTOR_HOSTS: new Set([
-    '1ink.cc', 'adfoc.us', 'adsafelink.com', 'adshnk.com', 'adz7short.space', 'aylink.co',
-    'bc.vc', 'bcvc.ink', 'birdurls.com', 'boost.ink', 'ceesty.com', 'clik.pw',
-    'clk.sh', 'cpmlink.net', 'cpmlink.pro', 'cutpaid.com', 'dlink3.com', 'dz4link.com',
-    'earnlink.io', 'exe-links.com', 'exeo.app', 'fc-lc.com', 'fir3.net', 'gestyy.com',
-    'gitlink.pro', 'gplinks.co', 'hotshorturl.com', 'icutlink.com', 'kimochi.info', 'kingofshrink.com',
-    'linegee.net', 'link1s.com', 'linkmoni.com', 'linkpoi.me', 'linkshrink.net', 'linksly.co',
-    'lnk2.cc', 'mangalist.org', 'megalink.pro', 'met.bz', 'oke.io', 'oko.sh',
-    'oni.vn', 'onlinefreecourse.net', 'ouo.io', 'ouo.press', 'pahe.plus', 'payskip.org',
-    'pingit.im', 'shortlinkto.biz', 'shortmoz.link', 'shrt10.com', 'similarsites.com', 'smilinglinks.com',
-    'spacetica.com', 'spaste.com', 'stfly.me', 'stfly.xyz', 'supercheats.com', 'techgeek.digital',
-    'techstudify.com', 'techtrendmakers.com', 'thinfi.com', 'tnshort.net', 'tribuntekno.com', 'turdown.com',
-    'tutwuri.id', 'urlcash.com', 'urlcash.org', 'vinaurl.net', 'vzturl.com', 'xpshort.com',
-    'zegtrends.com'
+    'adf.ly', 'ay.gy', 'gloyah.net', 'j.gs', 'q.gs', 'zo.ee',
+    'direct-link.net', 'file-link.net', 'filemedia.net', 'link-center.net', 'link-hub.net', 'link-target.net',
+    'link-to.net', 'linkvertise.com', 'linkvertise.download', 'up-to-down.net', 'links-loot.com', 'linksloot.net',
+    'loot-link.com', 'loot-links.com', 'lootdest.com', 'lootdest.info', 'lootdest.org', 'lootlabs.gg',
+    'lootlink.org', 'lootlinks.co', 'boost.ink', 'booo.st', 'bst.gg', 'bst.wtf',
+    'letsboost.net', 'mboost.me', 'rekonise.com', 'sub2get.com', 'sub2unlock.com', 'sub4unlock.io',
+    'subfinal.com', 'filecrypt.cc', 'filecrypt.co', 'keeplinks.org', 'lockr.so', 'adpaylink.com',
+    'adshrink.com', 'adyou.me', 'clicksfly.com', 'cutwin.com', 'cuty.io', 'droplink.co',
+    'exe.io', 'linkpays.in', 'paster.so', 'pubiza.com', 'safelinku.com', 'shorte.st',
+    'shortzon.com', 'shrink.pe', 'shrinkearn.com', 'shrinkme.io', 'shrtfly.com', 'smoner.com',
+    'try2link.com', 'uii.io', 'v2links.com', 'work.ink', 'za.gl', '1ink.cc',
+    'adfoc.us', 'adsafelink.com', 'adshnk.com', 'adz7short.space', 'aylink.co', 'bc.vc',
+    'bcvc.ink', 'birdurls.com', 'ceesty.com', 'clik.pw', 'clk.sh', 'cpmlink.net',
+    'cpmlink.pro', 'cutpaid.com', 'dlink3.com', 'dz4link.com', 'earnlink.io', 'exe-links.com',
+    'exeo.app', 'fc-lc.com', 'fir3.net', 'gestyy.com', 'gitlink.pro', 'gplinks.co',
+    'hotshorturl.com', 'icutlink.com', 'kimochi.info', 'kingofshrink.com', 'linegee.net', 'link1s.com',
+    'linkmoni.com', 'linkpoi.me', 'linkshrink.net', 'linksly.co', 'lnk2.cc', 'mangalist.org',
+    'megalink.pro', 'met.bz', 'oke.io', 'oko.sh', 'oni.vn', 'onlinefreecourse.net',
+    'ouo.io', 'ouo.press', 'pahe.plus', 'payskip.org', 'pingit.im', 'shortlinkto.biz',
+    'shortmoz.link', 'shrt10.com', 'similarsites.com', 'smilinglinks.com', 'spacetica.com', 'spaste.com',
+    'stfly.me', 'stfly.xyz', 'supercheats.com', 'techgeek.digital', 'techstudify.com', 'techtrendmakers.com',
+    'thinfi.com', 'tnshort.net', 'tribuntekno.com', 'turdown.com', 'tutwuri.id', 'urlcash.com',
+    'urlcash.org', 'vinaurl.net', 'vzturl.com', 'xpshort.com', 'zegtrends.com'
   ]),
 
   HARD_WHITELIST: {
