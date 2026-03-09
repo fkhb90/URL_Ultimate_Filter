@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.65 (SSOT Compilation)
+ * @version   44.62 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.65';
+const SCRIPT_VERSION = '44.62';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -12,9 +12,8 @@ const OAUTH_SAFE_HARBOR = {
     'www.facebook.com', 'm.facebook.com', 'login.microsoftonline.com', 'login.live.com', 'github.com', 'api.twitter.com',
     'api.x.com'
   ]),
-    PATHS: [
-    '/oauth', '/oauth2', '/authorize', '/login', '/signin', '/session'
-  ]
+    // V44.62: 升級為嚴格 Regex 邊界，避免惡意追蹤路徑使用 '/login_tracker' 等字串蹭白名單
+    PATHS_REGEX: [ /\/(login|oauth|oauth2|authorize|signin|session)(\/|\?|$)/i ]
 };
 
 const PARAM_CLEANING_EXEMPTED_DOMAINS = {
@@ -22,9 +21,9 @@ const PARAM_CLEANING_EXEMPTED_DOMAINS = {
     'shopback.com.tw', 'extrabux.com', 'buy.line.me'
   ]),
     WILDCARDS: new Set([
-    'feedly.com', 's3.amazonaws.com', 'storage.googleapis.com', 'core.windows.net', 'api.line.me', 'api.newebpay.com',
-    'api.tappayapis.com', 'api.stripe.com', 'api.github.com', 'api.twitch.tv', 'cdn.discordapp.com', 'slack.com',
-    'cloudfunctions.net', 'shopee.tw'
+    'feedly.com', 'shopee.tw', 's3.amazonaws.com', 'storage.googleapis.com', 'core.windows.net', 'api.line.me',
+    'api.newebpay.com', 'api.tappayapis.com', 'api.stripe.com', 'api.github.com', 'api.twitch.tv', 'cdn.discordapp.com',
+    'slack.com', 'cloudfunctions.net'
   ])
 };
 
@@ -499,6 +498,9 @@ const RULES = {
     ['instagram.com', new Set([
         '/logging_client_events'
       ])],
+    ['mall.shopee.tw', new Set([
+        '/userstats_record/batchrecord'
+      ])],
     ['patronus.idata.shopeemobile.com', new Set([
         '/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'
       ])],
@@ -698,9 +700,7 @@ const RULES = {
     '.zip', '.rar'
   ]),
     PREFIXES: new Set(['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/']),
-    SUBSTRINGS: new Set([
-    'cdn-cgi', '/shopee/batch_resolve_with_info'
-  ]),
+    SUBSTRINGS: new Set(['cdn-cgi']),
     SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js']),
     PATH_EXEMPTIONS: new Map([
     ['shopee.tw', new Set([
@@ -802,13 +802,6 @@ const HELPERS = {
     for (const seg of RULES.EXCEPTIONS.SEGMENTS) if (pathLower.includes('/' + seg + '/')) return true;
     return false;
   },
-  
-  isL1Exempted: (pathLower) => {
-    for (const sub of RULES.EXCEPTIONS.SUBSTRINGS) {
-        if (pathLower.includes(sub)) return true;
-    }
-    return false;
-  },
 
   isPathExemptedForDomain: (hostname, pathLower) => {
     for (const [domain, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
@@ -841,8 +834,14 @@ const HELPERS = {
   cleanTrackingParams: (urlStr, hostname, pathLower) => {
     if (!urlStr.includes('?')) return null;
 
+    // HMAC Signature Edge Case Bypass
+    if (/[?&](signature|sig|hmac)=/i.test(pathLower)) return null;
+
     if (OAUTH_SAFE_HARBOR.DOMAINS.has(hostname) && hostname !== 'accounts.youtube.com') return null;
-    for (const keyword of OAUTH_SAFE_HARBOR.PATHS) if (pathLower.includes(keyword)) return null;
+    
+    // V44.62: 升級為嚴格的正則邊界防護，避免誤放行 '/api/login_tracker'
+    if (OAUTH_SAFE_HARBOR.PATHS_REGEX.some(r => r.test(pathLower))) return null;
+
     if (isDomainMatch(PARAM_CLEANING_EXEMPTED_DOMAINS.EXACT, PARAM_CLEANING_EXEMPTED_DOMAINS.WILDCARDS, hostname)) return null;
     
     let rewriteType = '302';
@@ -857,10 +856,14 @@ const HELPERS = {
       if (_qi < 0) return null;
       const _hi = urlStr.indexOf('#', _qi);
       const base = urlStr.substring(0, _qi);
-      const qs = _hi >= 0 ? urlStr.substring(_qi + 1, _hi) : urlStr.substring(_qi + 1);
+      let qs = _hi >= 0 ? urlStr.substring(_qi + 1, _hi) : urlStr.substring(_qi + 1);
       const hash = _hi >= 0 ? urlStr.substring(_hi) : '';
 
       if (!qs) return null;
+      
+      // Handle non-standard parameter separators
+      qs = qs.replace(/;/g, '&');
+      
       const pairs = qs.split('&');
       const kept = [];
       let changed = false;
@@ -1019,7 +1022,7 @@ function processRequest(request) {
         }
     }
 
-    if (!HELPERS.isL1Exempted(pathLower) && criticalPathScanner.matches(pathLower)) {
+    if (criticalPathScanner.matches(pathLower)) {
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked by L1 (Script/Path)' } };
     }
