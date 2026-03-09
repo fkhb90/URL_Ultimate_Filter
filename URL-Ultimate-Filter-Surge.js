@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.63 (SSOT Compilation)
+ * @version   44.64 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.63';
+const SCRIPT_VERSION = '44.64';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -183,8 +183,8 @@ const RULES = {
     'connect.facebook.net', 'graph.facebook.com', 'events.tiktok.com', 'abema-adx.ameba.jp', 'ad.12306.cn', 'ad.360in.com',
     'adroll.com', 'ads.yahoo.com', 'adserver.yahoo.com', 'appnexus.com', 'bluekai.com', 'casalemedia.com',
     'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'outbrain.com', 'taboola.com', 'rubiconproject.com',
-    'pubmatic.com', 'openx.com', 'smartadserver.com', 'spotx.tv', 'yandex.ru', 'onesignal.com',
-    'sharethis.com', 'bat.bing.com', 'clarity.ms', 'elads.kocpc.com.tw', 'eservice.emarsys.net'
+    'pubmatic.com', 'openx.com', 'smartadserver.com', 'spotx.tv', 'yandex.ru', 'addthis.com',
+    'onesignal.com', 'sharethis.com', 'bat.bing.com', 'clarity.ms', 'elads.kocpc.com.tw', 'eservice.emarsys.net'
   ]),
   BLOCK_DOMAINS_WILDCARDS: new Set([
     'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io', 'aotter.net', 'ssp.yahoo.com',
@@ -509,10 +509,7 @@ const RULES = {
         '/category-banner-ads/', '/plp-ads/'
       ])],
     ['disqus.com', new Set([
-        '/api/telemetry', '/embed/tracking.js', '/recommendations/', '/api/discovery/'
-      ])],
-    ['addthis.com', new Set([
-        '/live/', '/at.js', '/red/', '/pub/'
+        '/api/3.0/users/events', '/j/', '/tracking_pixel/'
       ])]
   ])
   },
