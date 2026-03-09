@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.66 (SSOT Compilation)
+ * @version   44.67 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.66';
+const SCRIPT_VERSION = '44.67';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -12,7 +12,6 @@ const OAUTH_SAFE_HARBOR = {
     'www.facebook.com', 'm.facebook.com', 'login.microsoftonline.com', 'login.live.com', 'github.com', 'api.twitter.com',
     'api.x.com'
   ]),
-    // V44.62: 升級為嚴格 Regex 邊界，避免惡意追蹤路徑使用 '/login_tracker' 等字串蹭白名單
     PATHS_REGEX: [ /\/(login|oauth|oauth2|authorize|signin|session)(\/|\?|$)/i ]
 };
 
@@ -721,7 +720,7 @@ const RULES = {
         '/vendor-items/'
       ])],
     ['coupangcdn.com', new Set([
-        '/image/ccm/banner/'
+        '/image/ccm/banner/', '/image/cmg/oms/banner/'
       ])],
     ['www.google.com', new Set([
         '/url', '/search'
@@ -845,12 +844,10 @@ const HELPERS = {
   cleanTrackingParams: (urlStr, hostname, pathLower) => {
     if (!urlStr.includes('?')) return null;
 
-    // HMAC Signature Edge Case Bypass
     if (/[?&](signature|sig|hmac)=/i.test(pathLower)) return null;
 
     if (OAUTH_SAFE_HARBOR.DOMAINS.has(hostname) && hostname !== 'accounts.youtube.com') return null;
     
-    // V44.62: 升級為嚴格的正則邊界防護，避免誤放行 '/api/login_tracker'
     if (OAUTH_SAFE_HARBOR.PATHS_REGEX.some(r => r.test(pathLower))) return null;
 
     if (isDomainMatch(PARAM_CLEANING_EXEMPTED_DOMAINS.EXACT, PARAM_CLEANING_EXEMPTED_DOMAINS.WILDCARDS, hostname)) return null;
@@ -872,7 +869,6 @@ const HELPERS = {
 
       if (!qs) return null;
       
-      // Handle non-standard parameter separators
       qs = qs.replace(/;/g, '&');
       
       const pairs = qs.split('&');
@@ -972,10 +968,6 @@ function processRequest(request) {
       return { response: { status: 403, body: 'Blocked Redirector' } };
     }
 
-    // --- 階段 1：高優先級 Map 精準狙擊 (凌駕於常規白名單) ---
-    // [Architecture Note] 優先檢查 CRITICAL_PATH_MAP。
-    // 即便目標網域 (如 googlevideo.com) 存在於 HARD_WHITELIST 中，
-    // 只要命中了此處定義的惡意路徑，依然會被強制 403 阻擋，確保不會因白名單覆蓋而產生隱私破口。
     const blockedPaths = getCriticalBlockedPaths(hostname);
     if (blockedPaths && blockedPaths !== false) {
       for (const badPath of blockedPaths) {
@@ -986,7 +978,6 @@ function processRequest(request) {
       }
     }
 
-    // --- 階段 2：常規網域阻擋 ---
     const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
     if (!isSoftWhitelisted) {
       if (isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
@@ -1012,8 +1003,6 @@ function processRequest(request) {
         return null;
     };
 
-    // --- 階段 3：全域絕對白名單放行 ---
-    // 若前方未被 CRITICAL_PATH_MAP 狙擊，且網域符合絕對白名單，則在此處全域放行 (僅作參數淨化)。
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
       stats.allows++; return performCleaning(); 
     }
