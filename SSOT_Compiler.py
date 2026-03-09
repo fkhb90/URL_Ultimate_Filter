@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.64 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.65 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -52,6 +52,11 @@ URL Ultimate Filter - V44.64 SSOT Compiler & Matrix Test Suite
 40. [Refine-V44.64] disqus.com 防護策略精修：採「保功能、斬遙測」架構，精準狙擊
     /api/3.0/users/events、/j/、/tracking_pixel/ 三條遙測路徑，保留留言板 UI 載入；
     addthis.com 確認為 Oracle 2023 年已終止的殭屍服務，還原至 BLOCK_DOMAINS 全域封殺。
+41. [Feature-V44.65] REDIRECTOR_HOSTS 大規模擴充 (77→137 條)：新增六大家族共 60 個活躍廣告短網址網域。
+    涵蓋 AdFly 鏡像 (6)、Linkvertise 全家族 (10)、LootLabs 遊戲社群短連結 (10)、
+    Boost.ink 社交解鎖變體 (5)、Sub2Unlock/Rekonise 社交鎖 (5)、FileCrypt/KeepLinks 連結保護 (4)、
+    以及 shrinkme.io/clicksfly/work.ink 等 25 個主流 CPM 廣告短網址平台。
+    清單依家族分類加註中文說明，方便季度存活性審查。
 """
 
 import json
@@ -73,7 +78,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.64"
+VERSION = "44.65"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -157,12 +162,40 @@ RULES_DB = {
         'iadsdk.apple.com', 'privacysandbox.googleapis.com', 'measurement.adservices.google.com'
     ],
     "REDIRECTOR_HOSTS": [
-        # [Lifecycle] 上次審查：V44.63。已移除 27 個已確認失效的網域 (bitcosite, blogbux, clkmein, cllkme, corneey, destyy,
-        #  fc-lc.xyz, fcd.su, festyy, forex-trnd, getthot, loaninsurehub, lolinez, miniurl.pw, mitly.us,
-        #  noweconomy.live, realsht.mobi, rlu.ru, sh.st, short.am, shrinkcash, srt.am, swzz.xyz,
-        #  thotpacks.xyz, tmearn.net, uplinkto.hair, urlbluemedia.shop)。建議每季度驗證存活性。
+        # [Lifecycle] 上次審查：V44.63→V45 擴充。已移除 27 個已確認失效的網域 (詳見 git log)。
+        #  V45 新增 ~60 個活躍廣告短網址/社交鎖/連結保護服務。建議每季度驗證存活性。
+
+        # --- AdFly 家族 (已被 Linkvertise 收購，鏡像仍在野外流通) ---
+        'adf.ly', 'ay.gy', 'gloyah.net', 'j.gs', 'q.gs', 'zo.ee',
+
+        # --- Linkvertise 家族 (2025 年最大廣告短網址平台之一) ---
+        'direct-link.net', 'file-link.net', 'filemedia.net', 'link-center.net',
+        'link-hub.net', 'link-target.net', 'link-to.net', 'linkvertise.com',
+        'linkvertise.download', 'up-to-down.net',
+
+        # --- LootLabs / Loot-Link 家族 (遊戲社群常見) ---
+        'links-loot.com', 'linksloot.net', 'loot-link.com', 'loot-links.com',
+        'lootdest.com', 'lootdest.info', 'lootdest.org', 'lootlabs.gg', 'lootlink.org', 'lootlinks.co',
+
+        # --- Boost.ink 家族 / 社交解鎖器 ---
+        'boost.ink', 'booo.st', 'bst.gg', 'bst.wtf', 'letsboost.net', 'mboost.me',
+
+        # --- 社交鎖 (Sub2Unlock / Rekonise 等) ---
+        'rekonise.com', 'sub2get.com', 'sub2unlock.com', 'sub4unlock.io', 'subfinal.com',
+
+        # --- 連結保護 / 內容鎖 ---
+        'filecrypt.cc', 'filecrypt.co', 'keeplinks.org', 'lockr.so',
+
+        # --- 主流 CPM 廣告短網址平台 ---
+        'adpaylink.com', 'adshrink.com', 'adyou.me', 'clicksfly.com', 'cutwin.com',
+        'cuty.io', 'droplink.co', 'exe.io', 'linkpays.in',
+        'paster.so', 'pubiza.com', 'safelinku.com', 'shorte.st', 'shortzon.com',
+        'shrink.pe', 'shrinkearn.com', 'shrinkme.io', 'shrtfly.com', 'smoner.com',
+        'try2link.com', 'uii.io', 'v2links.com', 'work.ink', 'za.gl',
+
+        # --- 其他已知廣告短網址 (依字母排序) ---
         '1ink.cc', 'adfoc.us', 'adsafelink.com', 'adshnk.com', 'adz7short.space', 'aylink.co',
-        'bc.vc', 'bcvc.ink', 'birdurls.com', 'boost.ink', 'ceesty.com',
+        'bc.vc', 'bcvc.ink', 'birdurls.com', 'ceesty.com',
         'clik.pw', 'clk.sh', 'cpmlink.net', 'cpmlink.pro',
         'cutpaid.com', 'dlink3.com', 'dz4link.com', 'earnlink.io', 'exe-links.com', 'exeo.app',
         'fc-lc.com', 'fir3.net', 'gestyy.com',
