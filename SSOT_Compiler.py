@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.66 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.67 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -57,16 +57,8 @@ URL Ultimate Filter - V44.66 SSOT Compiler & Matrix Test Suite
     Boost.ink 社交解鎖變體 (5)、Sub2Unlock/Rekonise 社交鎖 (5)、FileCrypt/KeepLinks 連結保護 (4)、
     以及 shrinkme.io/clicksfly/work.ink 等 25 個主流 CPM 廣告短網址平台。
     清單依家族分類加註中文說明，方便季度存活性審查。
-42. [Security-V44.66] PRIORITY_BLOCK_DOMAINS 全面重構與擴充 (131→168 條)：
-    【安全修復】發現並修復 15 個因 SOFT_WHITELIST 通配覆蓋而完全失效的 BLOCK_DOMAINS 條目
-    (momoshop×5, facebook×2, linkedin×2, akamaihd×2, twitter×1, tiktok×1, amazonaws×1, cloudflare×1)，
-    提升至 P0 層級確保攔截不被白名單穿透；
-    【優化】移除 6 個冗餘子網域 (已被父層通配覆蓋: api/www.penphone92, www.cdn-path, ad.impactify.media 等)；
-    【提升】將 connect.facebook.net、2o7.net、everesttech.net 從 BLOCK_DOMAINS 提升至 P0；
-    【新增】25 個國際主流廣告技術基礎設施：Adobe 生態系 (demdex.net/omtrdc.net/adobedc.net)、
-    程式化交易 (adnxs.com/amazon-adsystem.com/indexexchange.com/bidswitch.net 等)、
-    DMP (krxd.net/lotame.com/eyeota.com)、跨裝置身份追蹤 (rlcdn.com/tapad.com/liadm.com)、
-    以及 Google adservice 端點。清單依功能分類加註說明，方便季度審查。
+42. [Security-V44.66] PRIORITY_BLOCK_DOMAINS 全面重構與擴充 (131→168 條)。
+43. [Feature-V44.67] 擴充 PATH_EXEMPTIONS 支援 Coupang CDN 新舊目錄雙軌豁免 (ccm & cmg/oms)；並補齊對應之 E2E 遙測阻擋測試案例。
 """
 
 import json
@@ -88,7 +80,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.66"
+VERSION = "44.67"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -102,7 +94,6 @@ RULES_DB = {
         'login.microsoftonline.com', 'login.live.com',
         'github.com', 'api.twitter.com', 'api.x.com'
     ],
-    # V44.62: OAUTH_SAFE_HARBOR_PATHS 已被淘汰，全面升級至 REGEX 模組進行邊界防護
     "PARAM_CLEANING_EXEMPTED_DOMAINS": {
         "EXACT": [
             'shopback.com.tw', 'extrabux.com', 'buy.line.me'
@@ -141,143 +132,73 @@ RULES_DB = {
         ]
     },
     "PRIORITY_BLOCK_DOMAINS": [
-        # [Lifecycle] V44.65→V46 重構。移除 6 個內部冗餘子網域 (子網域已被父層通配覆蓋)；
-        #  修復 15 個因 SOFT_WHITELIST 通配覆蓋而失效的 BLOCK_DOMAINS 條目 (提升至 P0)；
-        #  提升 3 個重要追蹤網域 (connect.facebook.net, 2o7.net, everesttech.net)；
-        #  新增 25 個國際主流廣告交易/DMP/身份追蹤基礎設施。建議每季度驗證。
-
-        # --- 可疑/惡意追蹤網域 (Suspicious Trackers) ---
         'cdn-path.com', 'doorphone92.com', 'easytomessage.com',
         'penphone92.com', 'sir90hl.com', 'uymgg1.com',
-
-        # --- Microsoft 遙測 (Microsoft Telemetry) ---
         'browser.events.data.microsoft.com', 'mobile.events.data.microsoft.com', 'self.events.data.microsoft.com',
         'onecollector.cloudapp.aria.akadns.net', 'watson.telemetry.microsoft.com',
-
-        # --- Google 廣告基礎設施 (Google Ads Infrastructure) ---
         'admob.com', 'ads.google.com', 'adservice.google.com', 'adservice.google.com.tw',
         'doubleclick.net', 'googleadservices.com', 'googlesyndication.com',
         'crashlyticsreports-pa.googleapis.com', 'firebaselogging-pa.googleapis.com',
         'imasdk.googleapis.com', 'measurement.adservices.google.com', 'privacysandbox.googleapis.com',
-
-        # --- Meta 追蹤 (Meta/Facebook Tracking) [V46 提升: 修復 facebook.com SOFT_WL 穿透] ---
         'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com',
-
-        # --- Adobe 追蹤生態系 (Adobe Tracking Ecosystem) [V46 新增+提升] ---
         '2o7.net', 'adobedc.net', 'demdex.net', 'everesttech.net', 'omtrdc.net',
-
-        # --- 國際程式化廣告交易 / SSP / DSP (Programmatic Exchanges) [V46 新增] ---
         '3lift.com', 'adnxs.com', 'advertising.com', 'amazon-adsystem.com',
         'bidswitch.net', 'indexexchange.com', 'media.net', 'sharethrough.com', 'teads.tv',
-
-        # --- DMP / 受眾數據平台 (Data Management Platforms) [V46 新增] ---
         'crwdcntrl.net', 'exelator.com', 'eyeota.com', 'krxd.net', 'lotame.com',
-
-        # --- 跨裝置身份追蹤 (Cross-Device Identity Resolution) [V46 新增] ---
         'liadm.com', 'rlcdn.com', 'tapad.com',
-
-        # --- 其他國際 DSP / 廣告技術 [V46 新增] ---
         'contextweb.com', 'mathtag.com', 'rfihub.com',
-
-        # --- 主要行動廣告網路 (Mobile Ad Networks) ---
         'adcolony.com', 'applovin.com', 'chartboost.com', 'ironsrc.com',
         'pangle.io', 'popads.net', 'tapjoy.com', 'unityads.unity3d.com', 'vungle.com',
-
-        # --- 主要廣告平台 (Major Ad Platforms) ---
         'outbrain.com', 'taboola.com',
-
-        # --- 行動歸因 / MMP (Mobile Attribution) ---
         'app-measurement.com', 'branch.io', 'singular.net',
-
-        # --- 社群平台廣告端點 (Social Platform Ads) ---
         'ad.etmall.com.tw', 'ad.line.me', 'ad-history.line.me',
         'ads.linkedin.com', 'ads.tiktok.com', 'analytics.tiktok.com',
-
-        # --- 分析/監控 SaaS (Analytics SaaS) ---
         'cdn.segment.com', 'clarity.ms', 'fullstory.com',
         'inmobi.com', 'inner-active.mobi', 'launchdarkly.com', 'split.io',
-
-        # --- Apple / iCloud 追蹤 ---
         'iadsdk.apple.com', 'metrics.icloud.com',
-
-        # --- Impactify 廣告 ---
         'ad.impactify.io', 'impactify.media',
-
-        # --- 其他 P0 雜項 ---
         'adsv.omgrmn.tw', 'browser.sentry-cdn.com', 'caid.china-caa.org', 'slackb.com',
-
-        # --- TikTok / ByteDance 追蹤 ---
         'events.tiktok.com', 'ibytedtos.com',
         'log.tiktokv.com', 'log16-normal-c-useast1a.tiktokv.com',
         'mon.tiktokv.com', 'mon-va.tiktokv.com',
-
-        # --- 跨境電商追蹤 (Cross-Border E-Commerce) ---
         'analysis.shein.com', 'dc.shein.com', 'st.shein.com', 'report.temu.com',
-
-        # --- 中國追蹤基礎設施 (China Tracking Infrastructure) ---
         'alimama.com', 'hm.baidu.com', 'mmstat.com', 'pos.baidu.com', 'sm.cn',
         'sofire.baidu.com', 'sp0.baidu.com', 'sp1.baidu.com', 'tanx.com',
         'uc.cn', 'ucweb.com', 'uczzd.cn', 'ynuf.alipay.com',
         'cms-statistics.quark.cn', 'stat.quark.cn', 'unpm-upaas.quark.cn',
         'browser.360.cn', 's.360.cn', 'shouji.360.cn', 'stat.360.cn',
         'inte.sogou.com', 'lu.sogou.com', 'pb.sogou.com', 'ping.sogou.com',
-
-        # --- 蝦皮追蹤子網域 (Shopee Tracking Subdomains) ---
         'analytics.shopee.tw', 'apm.tracking.shopee.tw', 'dem.shopee.com',
         'dmp.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
-
-        # --- 台灣電商追蹤 [含 V46 提升: 修復 momoshop.com.tw SOFT_WL 穿透] ---
         'analysis.momoshop.com.tw', 'ecdmp.momoshop.com.tw', 'event.momoshop.com.tw',
         'log.momoshop.com.tw', 'pixel.momoshop.com.tw', 'rtb.momoshop.com.tw',
         'sspap.momoshop.com.tw', 'trace.momoshop.com.tw', 'trk.momoshop.com.tw',
         'jslog.coupang.com', 'mercury.coupang.com',
-
-        # --- 台灣本土廣告聯播網 (Taiwan Ad Networks) ---
         'ad.gamer.com.tw', 'ad-geek.net', 'ad-hub.net', 'ad-serv.teepr.com', 'ad-tracking.dcard.tw',
         'analysis.tw', 'appier.net', 'b.bridgewell.com', 'cacafly.com', 'clickforce.com.tw',
         'fast-trk.com', 'funp.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com',
         'itad.linetv.tw', 'likr.tw', 'scupio.com', 'sitetag.us',
         'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com',
-
-        # --- V46 提升: 修復 SOFT_WL 通配穿透 (CDN/社群平台追蹤子網域) ---
         'adnext-a.akamaihd.net', 'toots-a.akamaihd.net',
         'analytics.twitter.com',
         'edge-analytics.amazonaws.com', 'edge-tracking.cloudflare.com',
         'insight.linkedin.com', 'px.ads.linkedin.com'
     ],
     "REDIRECTOR_HOSTS": [
-        # [Lifecycle] 上次審查：V44.63→V45 擴充。已移除 27 個已確認失效的網域 (詳見 git log)。
-        #  V45 新增 ~60 個活躍廣告短網址/社交鎖/連結保護服務。建議每季度驗證存活性。
-
-        # --- AdFly 家族 (已被 Linkvertise 收購，鏡像仍在野外流通) ---
         'adf.ly', 'ay.gy', 'gloyah.net', 'j.gs', 'q.gs', 'zo.ee',
-
-        # --- Linkvertise 家族 (2025 年最大廣告短網址平台之一) ---
         'direct-link.net', 'file-link.net', 'filemedia.net', 'link-center.net',
         'link-hub.net', 'link-target.net', 'link-to.net', 'linkvertise.com',
         'linkvertise.download', 'up-to-down.net',
-
-        # --- LootLabs / Loot-Link 家族 (遊戲社群常見) ---
         'links-loot.com', 'linksloot.net', 'loot-link.com', 'loot-links.com',
         'lootdest.com', 'lootdest.info', 'lootdest.org', 'lootlabs.gg', 'lootlink.org', 'lootlinks.co',
-
-        # --- Boost.ink 家族 / 社交解鎖器 ---
         'boost.ink', 'booo.st', 'bst.gg', 'bst.wtf', 'letsboost.net', 'mboost.me',
-
-        # --- 社交鎖 (Sub2Unlock / Rekonise 等) ---
         'rekonise.com', 'sub2get.com', 'sub2unlock.com', 'sub4unlock.io', 'subfinal.com',
-
-        # --- 連結保護 / 內容鎖 ---
         'filecrypt.cc', 'filecrypt.co', 'keeplinks.org', 'lockr.so',
-
-        # --- 主流 CPM 廣告短網址平台 ---
         'adpaylink.com', 'adshrink.com', 'adyou.me', 'clicksfly.com', 'cutwin.com',
         'cuty.io', 'droplink.co', 'exe.io', 'linkpays.in',
         'paster.so', 'pubiza.com', 'safelinku.com', 'shorte.st', 'shortzon.com',
         'shrink.pe', 'shrinkearn.com', 'shrinkme.io', 'shrtfly.com', 'smoner.com',
         'try2link.com', 'uii.io', 'v2links.com', 'work.ink', 'za.gl',
-
-        # --- 其他已知廣告短網址 (依字母排序) ---
         '1ink.cc', 'adfoc.us', 'adsafelink.com', 'adshnk.com', 'adz7short.space', 'aylink.co',
         'bc.vc', 'bcvc.ink', 'birdurls.com', 'ceesty.com',
         'clik.pw', 'clk.sh', 'cpmlink.net', 'cpmlink.pro',
@@ -466,9 +387,6 @@ RULES_DB = {
         '/plugins/advanced-ads', '/plugins/adrotate'
     ],
     "CRITICAL_PATH_MAP": {
-        # [Priority Design] 此 Map 攔截機制的優先級高於 HARD_WHITELIST。
-        # 用於實作「大放行、小封殺」策略。例如 googlevideo.com 雖列於全域軟/硬白名單中以防破圖，
-        # 但透過此 Map，仍可精準狙擊其底層特定的遙測路徑 (如 /ptracking)，防止白名單遭濫用穿透。
         'o.alicdn.com': ['/tongyi-fe/lib/cnzz/c.js', '/tongyi-fe/lib/cnzz/z.js'],
         'qwen-api.zaodian.com': ['/api/app/template/v1/feed'],
         'file.chinatimes.com': ['/ad-param.json'],
@@ -651,7 +569,8 @@ RULES_DB = {
     "PATH_EXEMPTIONS": {
         "shopee.tw": ["/api/v4/search/search_items"],
         "cmapi.tw.coupang.com": ["/vendor-items/"],
-        "coupangcdn.com": ["/image/ccm/banner/"],
+        # [Feature-V44.67] 擴充為雙軌陣列，精準豁免 ccm 與 cmg/oms 兩個版本的 banner
+        "coupangcdn.com": ["/image/ccm/banner/", "/image/cmg/oms/banner/"],
         "www.google.com": ["/url", "/search"],
         "play.googleapis.com": ["/log/batch"],
         "threads.com": ["/post/"],
@@ -720,7 +639,6 @@ const SCRIPT_VERSION = '{VERSION}';
 
 const OAUTH_SAFE_HARBOR = {{
     DOMAINS: {format_js_set(RULES_DB['OAUTH_SAFE_HARBOR_DOMAINS'])},
-    // V44.62: 升級為嚴格 Regex 邊界，避免惡意追蹤路徑使用 '/login_tracker' 等字串蹭白名單
     PATHS_REGEX: [ /\\/(login|oauth|oauth2|authorize|signin|session)(\\/|\\?|$)/i ]
 }};
 
@@ -908,12 +826,10 @@ const HELPERS = {
   cleanTrackingParams: (urlStr, hostname, pathLower) => {
     if (!urlStr.includes('?')) return null;
 
-    // HMAC Signature Edge Case Bypass
     if (/[?&](signature|sig|hmac)=/i.test(pathLower)) return null;
 
     if (OAUTH_SAFE_HARBOR.DOMAINS.has(hostname) && hostname !== 'accounts.youtube.com') return null;
     
-    // V44.62: 升級為嚴格的正則邊界防護，避免誤放行 '/api/login_tracker'
     if (OAUTH_SAFE_HARBOR.PATHS_REGEX.some(r => r.test(pathLower))) return null;
 
     if (isDomainMatch(PARAM_CLEANING_EXEMPTED_DOMAINS.EXACT, PARAM_CLEANING_EXEMPTED_DOMAINS.WILDCARDS, hostname)) return null;
@@ -935,7 +851,6 @@ const HELPERS = {
 
       if (!qs) return null;
       
-      // Handle non-standard parameter separators
       qs = qs.replace(/;/g, '&');
       
       const pairs = qs.split('&');
@@ -1035,10 +950,6 @@ function processRequest(request) {
       return { response: { status: 403, body: 'Blocked Redirector' } };
     }
 
-    // --- 階段 1：高優先級 Map 精準狙擊 (凌駕於常規白名單) ---
-    // [Architecture Note] 優先檢查 CRITICAL_PATH_MAP。
-    // 即便目標網域 (如 googlevideo.com) 存在於 HARD_WHITELIST 中，
-    // 只要命中了此處定義的惡意路徑，依然會被強制 403 阻擋，確保不會因白名單覆蓋而產生隱私破口。
     const blockedPaths = getCriticalBlockedPaths(hostname);
     if (blockedPaths && blockedPaths !== false) {
       for (const badPath of blockedPaths) {
@@ -1049,7 +960,6 @@ function processRequest(request) {
       }
     }
 
-    // --- 階段 2：常規網域阻擋 ---
     const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
     if (!isSoftWhitelisted) {
       if (isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
@@ -1075,8 +985,6 @@ function processRequest(request) {
         return null;
     };
 
-    // --- 階段 3：全域絕對白名單放行 ---
-    // 若前方未被 CRITICAL_PATH_MAP 狙擊，且網域符合絕對白名單，則在此處全域放行 (僅作參數淨化)。
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
       stats.allows++; return performCleaning(); 
     }
@@ -1173,7 +1081,6 @@ def compile_tampermonkey() -> str:
     js = get_js_rules_definition("Tampermonkey") + get_js_engine_logic()
     
     interceptor_logic = r"""
-    // --- Tampermonkey Interception Hooks & Professional UI ---
     const tmStats = {
         blocked: new Map(),
         cleaned: new Map(),
@@ -1701,7 +1608,6 @@ def generate_full_coverage_cases() -> List[TestCase]:
     dynamic_hard_wl = RULES_DB["HARD_WHITELIST"]["WILDCARDS"][0] if RULES_DB["HARD_WHITELIST"]["WILDCARDS"] else "apple.com"
     exempt_domain_exact = RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["EXACT"][0] if RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["EXACT"] else "shopback.com.tw"
 
-    # --- 自動展開區塊 ---
     for d in RULES_DB["PRIORITY_BLOCK_DOMAINS"]:
         cases.append(TestCase("Auto: Priority", f"https://{d}/api", RES_BLOCK_403, "Blocked by L2"))
     
@@ -1755,7 +1661,6 @@ def generate_full_coverage_cases() -> List[TestCase]:
          expected_shop = RES_BLOCK_403 if is_path_keyword_blocked(test_path) else RES_ALLOW
          cases.append(TestCase("Privacy: Exemption (Shop)", f"https://{exempt_domain_exact}{test_path}", expected_shop, "Exempted from cleaning"))
 
-    # --- 手動邊界測試區塊 ---
     cases.append(TestCase("Matrix: Double Decode Escape", "https://example.com/%2561%2564/banner.webp", RES_BLOCK_403, "Blocked by High Confidence Override (Double Decoded)"))
     cases.append(TestCase("Edge: HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772072185", RES_BLOCK_403, "Blocked by L1 Critical Path"))
     cases.append(TestCase("Feature: Heuristic API Silent Rewrite", "https://unknown-ecommerce.com/graphql/user?fbclid=test", RES_REWRITE, "GraphQL path uses Silent Rewrite to clean tracking parameters safely"))
@@ -1771,22 +1676,24 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Fix: 104 App internal /ad/ path", "https://appapi.104.com.tw/2.0/ad/search/hashtag?device_type=0&device_id=6CCC0850&ad_type=full", RES_REWRITE, "Bypasses HIGH_CONFIDENCE /ad/ block via HARD_WHITELIST and strips device_id silently"))
     cases.append(TestCase("Privacy: Exemption (API Auth)", "https://api.feedly.com/v3/streams?device_id=abc&source=ios", RES_ALLOW, "Exempted to protect HMAC signatures"))
     cases.append(TestCase("Edge: Finance Safe Harbor Bypass", "https://api.ecpay.com.tw/pay?source=web&ref=123", RES_ALLOW, "Finance Safe Harbor stops scanning immediately"))
-    cases.append(TestCase("BugFix: Coupang Banner Image", "https://image2.coupangcdn.com/image/ccm/banner/e5d4619754089a7b25a763ac8700bc01.jpg", RES_ALLOW, "Exempted from HIGH_CONFIDENCE /banner/ block via PATH_EXEMPTIONS"))
     cases.append(TestCase("BugFix: API Login Collision", "https://api.signin.104.com.tw/v2/api/login/valid-account", RES_ALLOW, "Prevent /api/log from falsely killing /api/login endpoints"))
     cases.append(TestCase("BugFix: Threads Path Exemption", "https://www.threads.com/@n_ys_m/post/DIaU/abc", RES_ALLOW, "Bypass L1/L2 path scanners using PATH_EXEMPTIONS"))
     cases.append(TestCase("BugFix: P0 Subdomain Inheritance", "https://px.ads.linkedin.com/test", RES_BLOCK_403, "Validate P0 wildcards logic correctly inherits down to subdomains"))
 
-    # --- 修正：V44.62 網域特化參數白名單 (SCOPED_PARAM_EXEMPTIONS) 測試矩陣 ---
     cases.append(TestCase("Matrix: Scoped Exemption (Positive)", "https://appapi.104.com.tw/api/login?device_id=A1B2", RES_ALLOW, "參數與路徑皆吻合，精準放行"))
     cases.append(TestCase("Matrix: Scoped Exemption (Domain Mismatch)", "https://api.example.com/api/profile?device_id=A1B2", RES_REWRITE, "路徑與參數吻合但網域非授權目標，剝離參數"))
     cases.append(TestCase("Matrix: Scoped Exemption (Param Mismatch)", "https://appapi.104.com.tw/api/profile?utm_source=fb", RES_REWRITE, "命中路徑但該參數不在白名單內，剝離參數"))
     cases.append(TestCase("Matrix: Scoped Exemption (Cross Mixed)", "https://appapi.104.com.tw/api/data?device_id=A1B2&fbclid=XYZ", RES_REWRITE, "混雜合法與非法參數，執行局部淨化"))
     
-    # --- 修正：V44.62 靜默重寫 (Silent Rewrite) 邊界測試矩陣 ---
     cases.append(TestCase("Edge: HMAC Signature Bypass", "https://api.example.com/data?utm_source=test&signature=12345abcde", RES_ALLOW, "防護數位簽章免遭剝離導致 403"))
     cases.append(TestCase("Edge: Non-Standard Separator", "https://example.com/page?utm_source=fb;fbclid=123", RES_CLEAN_302, "解析分號作為分隔符，一般網域觸發 302 淨化"))
 
-    # --- E2E 端到端鏈式測試區塊 ---
+    # --- [Feature-V44.67] Coupang CDN 雙軌豁免與遙測阻擋回歸測試 ---
+    cases.append(TestCase("BugFix: Coupang Banner Image (Legacy)", "https://image2.coupangcdn.com/image/ccm/banner/e5d4619754089a7b25a763ac8700bc01.jpg", RES_ALLOW, "Exempted from HIGH_CONFIDENCE /banner/ block via PATH_EXEMPTIONS"))
+    cases.append(TestCase("BugFix: Coupang Banner Image (New OMS)", "https://image11.coupangcdn.com/image/cmg/oms/banner/9133e5bb-7468-4613-90f3-9ee18cafa072_720x1900.png", RES_ALLOW, "Exempted from HIGH_CONFIDENCE /banner/ block via PATH_EXEMPTIONS"))
+    cases.append(TestCase("Privacy: Coupang JSError Log", "https://asset2.coupangcdn.com/customjs/jserror/2.5.1/jslog.min.js", RES_BLOCK_403, "Blocked by CRITICAL_PATH_SCRIPT_ROOTS"))
+    cases.append(TestCase("Privacy: Coupang FeatureFlag Telemetry", "https://cmapi.tw.coupang.com/modular/v1/endpoints/12900/ff/v1/featureFlag/batchTracking", RES_BLOCK_403, "Blocked by CRITICAL_PATH_MAP precise targeting"))
+
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
     cases.append(TestCase("E2E: Malicious Payload Block", "https://static.104.com.tw/ad.json", RES_BLOCK_403, "模擬 JSON 內遭植入第三方追蹤並點擊，觸發 L1 攔截", is_e2e=True, e2e_target_url="https://googleadservices.com/track/click"))
