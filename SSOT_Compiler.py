@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.65 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.66 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -57,6 +57,16 @@ URL Ultimate Filter - V44.65 SSOT Compiler & Matrix Test Suite
     Boost.ink 社交解鎖變體 (5)、Sub2Unlock/Rekonise 社交鎖 (5)、FileCrypt/KeepLinks 連結保護 (4)、
     以及 shrinkme.io/clicksfly/work.ink 等 25 個主流 CPM 廣告短網址平台。
     清單依家族分類加註中文說明，方便季度存活性審查。
+42. [Security-V44.66] PRIORITY_BLOCK_DOMAINS 全面重構與擴充 (131→168 條)：
+    【安全修復】發現並修復 15 個因 SOFT_WHITELIST 通配覆蓋而完全失效的 BLOCK_DOMAINS 條目
+    (momoshop×5, facebook×2, linkedin×2, akamaihd×2, twitter×1, tiktok×1, amazonaws×1, cloudflare×1)，
+    提升至 P0 層級確保攔截不被白名單穿透；
+    【優化】移除 6 個冗餘子網域 (已被父層通配覆蓋: api/www.penphone92, www.cdn-path, ad.impactify.media 等)；
+    【提升】將 connect.facebook.net、2o7.net、everesttech.net 從 BLOCK_DOMAINS 提升至 P0；
+    【新增】25 個國際主流廣告技術基礎設施：Adobe 生態系 (demdex.net/omtrdc.net/adobedc.net)、
+    程式化交易 (adnxs.com/amazon-adsystem.com/indexexchange.com/bidswitch.net 等)、
+    DMP (krxd.net/lotame.com/eyeota.com)、跨裝置身份追蹤 (rlcdn.com/tapad.com/liadm.com)、
+    以及 Google adservice 端點。清單依功能分類加註說明，方便季度審查。
 """
 
 import json
@@ -78,7 +88,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.65"
+VERSION = "44.66"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -131,35 +141,109 @@ RULES_DB = {
         ]
     },
     "PRIORITY_BLOCK_DOMAINS": [
-        'penphone92.com', 'api.penphone92.com', 'www.penphone92.com', 
-        'cdn-path.com', 'www.cdn-path.com', 
-        'mobile.events.data.microsoft.com', 'browser.events.data.microsoft.com', 'self.events.data.microsoft.com',
+        # [Lifecycle] V44.65→V46 重構。移除 6 個內部冗餘子網域 (子網域已被父層通配覆蓋)；
+        #  修復 15 個因 SOFT_WHITELIST 通配覆蓋而失效的 BLOCK_DOMAINS 條目 (提升至 P0)；
+        #  提升 3 個重要追蹤網域 (connect.facebook.net, 2o7.net, everesttech.net)；
+        #  新增 25 個國際主流廣告交易/DMP/身份追蹤基礎設施。建議每季度驗證。
+
+        # --- 可疑/惡意追蹤網域 (Suspicious Trackers) ---
+        'cdn-path.com', 'doorphone92.com', 'easytomessage.com',
+        'penphone92.com', 'sir90hl.com', 'uymgg1.com',
+
+        # --- Microsoft 遙測 (Microsoft Telemetry) ---
+        'browser.events.data.microsoft.com', 'mobile.events.data.microsoft.com', 'self.events.data.microsoft.com',
         'onecollector.cloudapp.aria.akadns.net', 'watson.telemetry.microsoft.com',
-        'ad.impactify.io', 'ad.impactify.media', 'impactify.media',
-        'firebaselogging-pa.googleapis.com', 'crashlyticsreports-pa.googleapis.com',
-        's.360.cn', 'stat.360.cn', 'shouji.360.cn', 'browser.360.cn',
-        'ping.sogou.com', 'pb.sogou.com', 'inte.sogou.com', 'lu.sogou.com',
-        'hm.baidu.com', 'pos.baidu.com', 'wn.pos.baidu.com', 'sp0.baidu.com', 'sp1.baidu.com', 'sofire.baidu.com',
-        'sm.cn', 'uczzd.cn', 'tanx.com', 'alimama.com', 'mmstat.com', 'ynuf.alipay.com',
-        'uc.cn', 'ucweb.com', 'stat.quark.cn', 'unpm-upaas.quark.cn', 'cms-statistics.quark.cn',
-        'mon.tiktokv.com', 'mon-va.tiktokv.com', 'log.tiktokv.com', 'log16-normal-c-useast1a.tiktokv.com',
-        'ibytedtos.com', 'dc.shein.com', 'analysis.shein.com', 'st.shein.com', 'report.temu.com',
-        'doorphone92.com', 'browser.sentry-cdn.com', 'adsv.omgrmn.tw', 'imasdk.googleapis.com', 'metrics.icloud.com', 'slackb.com',
-        'applog.uc.cn', 'ecdmp.momoshop.com.tw', 'log.momoshop.com.tw', 'trk.momoshop.com.tw',
-        'rtb.momoshop.com.tw', 'mercury.coupang.com', 'jslog.coupang.com',
-        'ad.gamer.com.tw', 'ad-tracking.dcard.tw', 'b.bridgewell.com', 'scupio.com',
-        'ad-geek.net', 'ad-hub.net', 'analysis.tw', 'cacafly.com', 'clickforce.com.tw', 'fast-trk.com',
-        'funp.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com', 'likr.tw', 'sitetag.us',
-        'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com', 'ad-serv.teepr.com', 'appier.net', 'itad.linetv.tw',
-        'sir90hl.com', 'uymgg1.com', 'easytomessage.com', 'caid.china-caa.org',
-        'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'admob.com', 'ads.google.com',
-        'branch.io', 'app-measurement.com', 'singular.net',
-        'unityads.unity3d.com', 'applovin.com', 'ironsrc.com', 'vungle.com', 'adcolony.com', 'chartboost.com',
-        'tapjoy.com', 'pangle.io', 'taboola.com', 'outbrain.com', 'popads.net', 'ads.tiktok.com',
-        'analytics.tiktok.com', 'ads.linkedin.com', 'ad.etmall.com.tw', 'ad.line.me', 'ad-history.line.me',
-        'inmobi.com', 'inner-active.mobi', 'split.io', 'launchdarkly.com', 'clarity.ms', 'fullstory.com', 'cdn.segment.com',
-        'dem.shopee.com', 'apm.tracking.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw', 'analytics.shopee.tw', 'dmp.shopee.tw',
-        'iadsdk.apple.com', 'privacysandbox.googleapis.com', 'measurement.adservices.google.com'
+
+        # --- Google 廣告基礎設施 (Google Ads Infrastructure) ---
+        'admob.com', 'ads.google.com', 'adservice.google.com', 'adservice.google.com.tw',
+        'doubleclick.net', 'googleadservices.com', 'googlesyndication.com',
+        'crashlyticsreports-pa.googleapis.com', 'firebaselogging-pa.googleapis.com',
+        'imasdk.googleapis.com', 'measurement.adservices.google.com', 'privacysandbox.googleapis.com',
+
+        # --- Meta 追蹤 (Meta/Facebook Tracking) [V46 提升: 修復 facebook.com SOFT_WL 穿透] ---
+        'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com',
+
+        # --- Adobe 追蹤生態系 (Adobe Tracking Ecosystem) [V46 新增+提升] ---
+        '2o7.net', 'adobedc.net', 'demdex.net', 'everesttech.net', 'omtrdc.net',
+
+        # --- 國際程式化廣告交易 / SSP / DSP (Programmatic Exchanges) [V46 新增] ---
+        '3lift.com', 'adnxs.com', 'advertising.com', 'amazon-adsystem.com',
+        'bidswitch.net', 'indexexchange.com', 'media.net', 'sharethrough.com', 'teads.tv',
+
+        # --- DMP / 受眾數據平台 (Data Management Platforms) [V46 新增] ---
+        'crwdcntrl.net', 'exelator.com', 'eyeota.com', 'krxd.net', 'lotame.com',
+
+        # --- 跨裝置身份追蹤 (Cross-Device Identity Resolution) [V46 新增] ---
+        'liadm.com', 'rlcdn.com', 'tapad.com',
+
+        # --- 其他國際 DSP / 廣告技術 [V46 新增] ---
+        'contextweb.com', 'mathtag.com', 'rfihub.com',
+
+        # --- 主要行動廣告網路 (Mobile Ad Networks) ---
+        'adcolony.com', 'applovin.com', 'chartboost.com', 'ironsrc.com',
+        'pangle.io', 'popads.net', 'tapjoy.com', 'unityads.unity3d.com', 'vungle.com',
+
+        # --- 主要廣告平台 (Major Ad Platforms) ---
+        'outbrain.com', 'taboola.com',
+
+        # --- 行動歸因 / MMP (Mobile Attribution) ---
+        'app-measurement.com', 'branch.io', 'singular.net',
+
+        # --- 社群平台廣告端點 (Social Platform Ads) ---
+        'ad.etmall.com.tw', 'ad.line.me', 'ad-history.line.me',
+        'ads.linkedin.com', 'ads.tiktok.com', 'analytics.tiktok.com',
+
+        # --- 分析/監控 SaaS (Analytics SaaS) ---
+        'cdn.segment.com', 'clarity.ms', 'fullstory.com',
+        'inmobi.com', 'inner-active.mobi', 'launchdarkly.com', 'split.io',
+
+        # --- Apple / iCloud 追蹤 ---
+        'iadsdk.apple.com', 'metrics.icloud.com',
+
+        # --- Impactify 廣告 ---
+        'ad.impactify.io', 'impactify.media',
+
+        # --- 其他 P0 雜項 ---
+        'adsv.omgrmn.tw', 'browser.sentry-cdn.com', 'caid.china-caa.org', 'slackb.com',
+
+        # --- TikTok / ByteDance 追蹤 ---
+        'events.tiktok.com', 'ibytedtos.com',
+        'log.tiktokv.com', 'log16-normal-c-useast1a.tiktokv.com',
+        'mon.tiktokv.com', 'mon-va.tiktokv.com',
+
+        # --- 跨境電商追蹤 (Cross-Border E-Commerce) ---
+        'analysis.shein.com', 'dc.shein.com', 'st.shein.com', 'report.temu.com',
+
+        # --- 中國追蹤基礎設施 (China Tracking Infrastructure) ---
+        'alimama.com', 'hm.baidu.com', 'mmstat.com', 'pos.baidu.com', 'sm.cn',
+        'sofire.baidu.com', 'sp0.baidu.com', 'sp1.baidu.com', 'tanx.com',
+        'uc.cn', 'ucweb.com', 'uczzd.cn', 'ynuf.alipay.com',
+        'cms-statistics.quark.cn', 'stat.quark.cn', 'unpm-upaas.quark.cn',
+        'browser.360.cn', 's.360.cn', 'shouji.360.cn', 'stat.360.cn',
+        'inte.sogou.com', 'lu.sogou.com', 'pb.sogou.com', 'ping.sogou.com',
+
+        # --- 蝦皮追蹤子網域 (Shopee Tracking Subdomains) ---
+        'analytics.shopee.tw', 'apm.tracking.shopee.tw', 'dem.shopee.com',
+        'dmp.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
+
+        # --- 台灣電商追蹤 [含 V46 提升: 修復 momoshop.com.tw SOFT_WL 穿透] ---
+        'analysis.momoshop.com.tw', 'ecdmp.momoshop.com.tw', 'event.momoshop.com.tw',
+        'log.momoshop.com.tw', 'pixel.momoshop.com.tw', 'rtb.momoshop.com.tw',
+        'sspap.momoshop.com.tw', 'trace.momoshop.com.tw', 'trk.momoshop.com.tw',
+        'jslog.coupang.com', 'mercury.coupang.com',
+
+        # --- 台灣本土廣告聯播網 (Taiwan Ad Networks) ---
+        'ad.gamer.com.tw', 'ad-geek.net', 'ad-hub.net', 'ad-serv.teepr.com', 'ad-tracking.dcard.tw',
+        'analysis.tw', 'appier.net', 'b.bridgewell.com', 'cacafly.com', 'clickforce.com.tw',
+        'fast-trk.com', 'funp.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com',
+        'itad.linetv.tw', 'likr.tw', 'scupio.com', 'sitetag.us',
+        'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com',
+
+        # --- V46 提升: 修復 SOFT_WL 通配穿透 (CDN/社群平台追蹤子網域) ---
+        'adnext-a.akamaihd.net', 'toots-a.akamaihd.net',
+        'analytics.twitter.com',
+        'edge-analytics.amazonaws.com', 'edge-tracking.cloudflare.com',
+        'insight.linkedin.com', 'px.ads.linkedin.com'
     ],
     "REDIRECTOR_HOSTS": [
         # [Lifecycle] 上次審查：V44.63→V45 擴充。已移除 27 個已確認失效的網域 (詳見 git log)。
@@ -282,18 +366,17 @@ RULES_DB = {
         'cdn.ad.plus', 'cdn.doublemax.net', 'udmserve.net', 'signal-snacks.gliastudios.com', 'adc.tamedia.com.tw',
         'log.zoom.us', 'metrics.uber.com', 'event-tracker.uber.com', 'cn-geo1.uber.com',
         'udp.yahoo.com', 'analytics.yahoo.com', 'effirst.com', 'px.effirst.com', 'simonsignal.com', 
-        'analysis.momoshop.com.tw', 'event.momoshop.com.tw', 'sspap.momoshop.com.tw',
-        'analytics.etmall.com.tw', 'pixel.momoshop.com.tw', 'trace.momoshop.com.tw',
+        'analytics.etmall.com.tw',
         'bam.nr-data.net', 'bam-cell.nr-data.net', 'lrkt-in.com',
         'cdn.lr-ingest.com', 'r.lr-ingest.io', 'api-iam.intercom.io', 'openfpcdn.io', 'fingerprintjs.com',
         'fundingchoicesmessages.google.com', 'hotjar.com', 'segment.io', 'mixpanel.com', 'amplitude.com',
         'crazyegg.com', 'bugsnag.com', 'sentry.io', 'newrelic.com', 'logrocket.com', 'fpjs.io', 'adunblock1.static-cloudflare.workers.dev',
         'guce.oath.com', 'app-site-association.cdn-apple.com', 'cdn-edge-tracking.com',
-        'edge-analytics.amazonaws.com', 'edge-telemetry.akamai.com', 'edge-tracking.cloudflare.com',
-        'edgecompute-analytics.com', 'monitoring.edge-compute.io', 'realtime-edge.fastly.com', '2o7.net',
-        'everesttech.net', 'log.felo.ai', 'event.sc.gearupportal.com', 'pidetupop.com', 'adform.net',
+        'edge-telemetry.akamai.com',
+        'edgecompute-analytics.com', 'monitoring.edge-compute.io', 'realtime-edge.fastly.com',
+        'log.felo.ai', 'event.sc.gearupportal.com', 'pidetupop.com', 'adform.net',
         'adsrvr.org', 'analytics.line.me', 'analytics.slashdotmedia.com', 'analytics.strava.com',
-        'analytics.twitter.com', 'analytics.yahoo.com', 'api.pendo.io', 'c.clarity.ms', 'c.segment.com',
+        'analytics.yahoo.com', 'api.pendo.io', 'c.clarity.ms', 'c.segment.com',
         'chartbeat.com', 'clicktale.net', 'clicky.com', 'comscore.com', 'customer.io',
         'data.investing.com', 'datadoghq.com', 'dynatrace.com', 'fullstory.com', 'heap.io', 'inspectlet.com',
         'iterable.com', 'keen.io', 'kissmetrics.com', 'loggly.com', 'matomo.cloud', 'mgid.com',
@@ -301,8 +384,8 @@ RULES_DB = {
         'optimizely.com', 'piwik.pro', 'posthog.com', 'quantserve.com', 'revcontent.com', 'rudderstack.com',
         'segment.com', 'semasio.net', 'snowplowanalytics.com', 'statcounter.com',
         'statsig.com', 'static.ads-twitter.com', 'sumo.com', 'sumome.com', 'tealium.com', 'track.hubspot.com',
-        'track.tiara.daum.net', 'track.tiara.kakao.com', 'vwo.com', 'yieldlab.net', 'insight.linkedin.com',
-        'px.ads.linkedin.com', 'fingerprint.com', 'doubleverify.com', 'iasds.com', 'moat.com', 'moatads.com',
+        'track.tiara.daum.net', 'track.tiara.kakao.com', 'vwo.com', 'yieldlab.net',
+        'fingerprint.com', 'doubleverify.com', 'iasds.com', 'moat.com', 'moatads.com',
         'sdk.iad-07.braze.com', 'serving-sys.com', 'tw.ad.doubleverify.com', 'agkn.com', 'id5-sync.com',
         'liveramp.com', 'permutive.com', 'tags.tiqcdn.com', 'klaviyo.com', 'marketo.com', 'mktoresp.com',
         'pardot.com', 'instana.io', 'launchdarkly.com', 'raygun.io', 'navify.com', 'cnzz.com', 'umeng.com',
@@ -318,9 +401,8 @@ RULES_DB = {
         'zgsdk.zhugeio.com', 'admaster.com.cn', 'adview.cn', 'alimama.com', 'getui.net', 'gepush.com',
         'gridsum.com', 'growingio.com', 'igexin.com', 'jpush.cn', 'kuaishou.com', 'miaozhen.com', 'mmstat.com',
         'pangolin-sdk-toutiao.com', 'talkingdata.cn', 'tanx.com', 'umeng.cn', 'umeng.co', 'umengcloud.com',
-        'youmi.net', 'zhugeio.com', 'adnext-a.akamaihd.net', 'appnext.hs.llnwd.net', 'fusioncdn.com',
-        'toots-a.akamaihd.net', 'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com',
-        'events.tiktok.com', 'abema-adx.ameba.jp', 'ad.12306.cn', 'ad.360in.com', 'adroll.com', 'ads.yahoo.com',
+        'youmi.net', 'zhugeio.com', 'appnext.hs.llnwd.net', 'fusioncdn.com',
+        'abema-adx.ameba.jp', 'ad.12306.cn', 'ad.360in.com', 'adroll.com', 'ads.yahoo.com',
         'adserver.yahoo.com', 'appnexus.com', 'bluekai.com', 'casalemedia.com', 'doubleclick.net',
         'googleadservices.com', 'googlesyndication.com', 'outbrain.com', 'taboola.com', 'rubiconproject.com',
         'pubmatic.com', 'openx.com', 'smartadserver.com', 'spotx.tv', 'yandex.ru', 'addthis.com',
