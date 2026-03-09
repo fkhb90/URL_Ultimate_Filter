@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.65 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.62 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -39,10 +39,9 @@ URL Ultimate Filter - V44.65 SSOT Compiler & Matrix Test Suite
 33. [Feature-V44.57] Tampermonkey UX 最佳化：實作「點擊面板外部任意處自動收合」功能，提升操作直覺性。
 34. [BugFix-V44.58] Surge 引擎執行流重大修復：強制提升 BLOCK_DOMAINS 優先級，解決惡意網域遭 Surge FINAL 規則穿透放行的漏洞。
 35. [BugFix-V44.59] 修正執行流優先級衝突導致 iadsdk.apple.com 測試失敗，還原白名單層級，並將 app-ads-services 升級至 WILDCARDS 徹底封殺。
-36. [Feature-V44.60] 擴增 Google ODM 系統級備援遙測端點，並將 15 家主流 MMP (動態子網域跟蹤商) 移入 WILDCARDS 進行通配符封殺。
-37. [Optimize-V44.61] 落實最小權限原則，將 shopee.tw 納入 PARAM_CLEANING_EXEMPTED_DOMAINS，維持路徑防禦並豁免參數淨化。
-38. [Optimize-V44.62] 縮小前端盾牌預設圖示、完善雙擊收合面板機制、優化 Map 狀態機陣列同步顯示 (最新紀錄排前)。
-39. [Release-V44.65] 廢棄過渡期 R 版號分支，為確保 Tampermonkey 腳本管理器的遞增更新機制正常運作，主線版本號一舉推進並正規化為 V44.65。
+36. [Feature-V44.60] 擴增 Google ODM (On-Device Measurement) 系統級備援遙測端點，並將 15 家主流 MMP (動態子網域跟蹤商) 移入 WILDCARDS 進行通配符封殺。
+37. [Architecture-V44.61] 將 shopee.tw 移至 PARAM_CLEANING_EXEMPTED_DOMAINS 通配符；實作 HMAC 簽章防護與分號參數分隔符解析；擴增進階邊界測試矩陣。
+38. [BugFix-V44.62] 修正 Matrix Test Suite 中 OAUTH_SAFE_HARBOR 碰撞問題；升級 OAuth 路徑比對為嚴格 Regex 邊界防護，避免惡意追蹤蹭白名單。
 """
 
 import json
@@ -64,7 +63,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.65"
+VERSION = "44.62"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -78,20 +77,17 @@ RULES_DB = {
         'login.microsoftonline.com', 'login.live.com',
         'github.com', 'api.twitter.com', 'api.x.com'
     ],
-    "OAUTH_SAFE_HARBOR_PATHS": [
-        '/oauth', '/oauth2', '/authorize', '/login', '/signin', '/session'
-    ],
+    # V44.62: OAUTH_SAFE_HARBOR_PATHS 已被淘汰，全面升級至 REGEX 模組進行邊界防護
     "PARAM_CLEANING_EXEMPTED_DOMAINS": {
         "EXACT": [
             'shopback.com.tw', 'extrabux.com', 'buy.line.me'
         ],
         "WILDCARDS": [
-            'feedly.com', 
+            'feedly.com', 'shopee.tw', 
             's3.amazonaws.com', 'storage.googleapis.com', 'core.windows.net',
             'api.line.me', 'api.newebpay.com', 'api.tappayapis.com',
             'api.stripe.com', 'api.github.com', 'api.twitch.tv',
-            'cdn.discordapp.com', 'slack.com', 'cloudfunctions.net',
-            'shopee.tw'
+            'cdn.discordapp.com', 'slack.com', 'cloudfunctions.net'
         ]
     },
     "SILENT_REWRITE_DOMAINS": {
@@ -423,6 +419,7 @@ RULES_DB = {
         'discord.com': ['/api/v10/science', '/api/v9/science'],
         'vk.com': ['/rtrg'],
         'instagram.com': ['/logging_client_events'],
+        'mall.shopee.tw': ['/userstats_record/batchrecord'],
         'patronus.idata.shopeemobile.com': ['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'],
         'dp.tracking.shopee.tw': ['/v4/event_batch'],
         'live-apm.shopee.tw': ['/apmapi/v1/event'],
@@ -518,9 +515,6 @@ RULES_DB = {
         '.eot', '.mp4', '.mp3', '.mov', '.m4a', '.json', '.xml', '.yaml', '.yml', '.toml', '.ini',
         '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar'
     ],
-    "EXCEPTIONS_SUBSTRINGS": [
-        'cdn-cgi', '/shopee/batch_resolve_with_info'
-    ],
     "PATH_EXEMPTIONS": {
         "shopee.tw": ["/api/v4/search/search_items"],
         "cmapi.tw.coupang.com": ["/vendor-items/"],
@@ -593,7 +587,8 @@ const SCRIPT_VERSION = '{VERSION}';
 
 const OAUTH_SAFE_HARBOR = {{
     DOMAINS: {format_js_set(RULES_DB['OAUTH_SAFE_HARBOR_DOMAINS'])},
-    PATHS: {format_js_array(RULES_DB['OAUTH_SAFE_HARBOR_PATHS'])}
+    // V44.62: 升級為嚴格 Regex 邊界，避免惡意追蹤路徑使用 '/login_tracker' 等字串蹭白名單
+    PATHS_REGEX: [ /\\/(login|oauth|oauth2|authorize|signin|session)(\\/|\\?|$)/i ]
 }};
 
 const PARAM_CLEANING_EXEMPTED_DOMAINS = {{
@@ -665,7 +660,7 @@ const RULES = {{
   EXCEPTIONS: {{
     SUFFIXES: {format_js_set(RULES_DB['EXCEPTIONS_SUFFIXES'])},
     PREFIXES: new Set(['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/']),
-    SUBSTRINGS: {format_js_set(RULES_DB['EXCEPTIONS_SUBSTRINGS'])},
+    SUBSTRINGS: new Set(['cdn-cgi']),
     SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js']),
     PATH_EXEMPTIONS: {format_js_map(RULES_DB['PATH_EXEMPTIONS'])}
   }}
@@ -748,13 +743,6 @@ const HELPERS = {
     for (const seg of RULES.EXCEPTIONS.SEGMENTS) if (pathLower.includes('/' + seg + '/')) return true;
     return false;
   },
-  
-  isL1Exempted: (pathLower) => {
-    for (const sub of RULES.EXCEPTIONS.SUBSTRINGS) {
-        if (pathLower.includes(sub)) return true;
-    }
-    return false;
-  },
 
   isPathExemptedForDomain: (hostname, pathLower) => {
     for (const [domain, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
@@ -787,8 +775,14 @@ const HELPERS = {
   cleanTrackingParams: (urlStr, hostname, pathLower) => {
     if (!urlStr.includes('?')) return null;
 
+    // HMAC Signature Edge Case Bypass
+    if (/[?&](signature|sig|hmac)=/i.test(pathLower)) return null;
+
     if (OAUTH_SAFE_HARBOR.DOMAINS.has(hostname) && hostname !== 'accounts.youtube.com') return null;
-    for (const keyword of OAUTH_SAFE_HARBOR.PATHS) if (pathLower.includes(keyword)) return null;
+    
+    // V44.62: 升級為嚴格的正則邊界防護，避免誤放行 '/api/login_tracker'
+    if (OAUTH_SAFE_HARBOR.PATHS_REGEX.some(r => r.test(pathLower))) return null;
+
     if (isDomainMatch(PARAM_CLEANING_EXEMPTED_DOMAINS.EXACT, PARAM_CLEANING_EXEMPTED_DOMAINS.WILDCARDS, hostname)) return null;
     
     let rewriteType = '302';
@@ -803,10 +797,14 @@ const HELPERS = {
       if (_qi < 0) return null;
       const _hi = urlStr.indexOf('#', _qi);
       const base = urlStr.substring(0, _qi);
-      const qs = _hi >= 0 ? urlStr.substring(_qi + 1, _hi) : urlStr.substring(_qi + 1);
+      let qs = _hi >= 0 ? urlStr.substring(_qi + 1, _hi) : urlStr.substring(_qi + 1);
       const hash = _hi >= 0 ? urlStr.substring(_hi) : '';
 
       if (!qs) return null;
+      
+      // Handle non-standard parameter separators
+      qs = qs.replace(/;/g, '&');
+      
       const pairs = qs.split('&');
       const kept = [];
       let changed = false;
@@ -965,7 +963,7 @@ function processRequest(request) {
         }
     }
 
-    if (!HELPERS.isL1Exempted(pathLower) && criticalPathScanner.matches(pathLower)) {
+    if (criticalPathScanner.matches(pathLower)) {
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked by L1 (Script/Path)' } };
     }
@@ -1037,9 +1035,9 @@ def compile_tampermonkey() -> str:
     interceptor_logic = r"""
     // --- Tampermonkey Interception Hooks & Professional UI ---
     const tmStats = {
-        blocked: new Map(), // 記錄 { 網址: 出現次數 }
-        cleaned: new Map(), // 記錄 { 原始網址: { newUrl, count } }
-        allowed: new Map(), // 記錄 { 網址: 出現次數 }
+        blocked: new Map(),
+        cleaned: new Map(),
+        allowed: new Map(),
         countBlocked: 0,
         countCleaned: 0,
         countAllowed: 0,
@@ -1090,26 +1088,24 @@ def compile_tampermonkey() -> str:
         uiContainer.id = 'ssot-ui-root';
         uiContainer.style.cssText = 'position:fixed; bottom:20px; right:20px; z-index:2147483647; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; display: block;';
         
-        // 1. FAB (縮小版預設盾牌，加入透明度)
         fab = document.createElement('div');
         fab.innerHTML = '\u{1F6E1}\uFE0F';
         fab.title = 'URL Ultimate Filter';
-        fab.style.cssText = 'width:24px; height:24px; border-radius:50%; background:#0f172a; border: 1px solid #334155; display:flex; align-items:center; justify-content:center; font-size:12px; cursor:pointer; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5); user-select:none; transition: all 0.2s ease-out; opacity: 0.4;';
+        fab.style.cssText = 'width:28px; height:28px; border-radius:50%; background:#0f172a; border: 1px solid #334155; display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.5); user-select:none; transition: all 0.2s ease-out; opacity: 0.6;';
         fab.onmouseover = () => { fab.style.transform = 'scale(1.1)'; fab.style.opacity = '1'; };
-        fab.onmouseout = () => { fab.style.transform = 'scale(1)'; fab.style.opacity = '0.4'; };
+        fab.onmouseout = () => { fab.style.transform = 'scale(1)'; fab.style.opacity = '0.6'; };
         fab.onclick = () => { 
             expanded = true; 
             activeTab = null;
             renderUI(); 
         };
         
-        // 2. 專業控制面板
         panel = document.createElement('div');
         panel.style.cssText = 'display:none; position:absolute; bottom:0; right:0; width:360px; background:#0f172a; border: 1px solid #334155; border-radius:12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); overflow:hidden; flex-direction:column; color:#f8fafc;';
         
         const header = document.createElement('div');
         header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#1e293b; border-bottom:1px solid #334155; user-select:none;';
-        header.innerHTML = `<div style="font-weight:600; display:flex; align-items:center; gap:8px; color:#6366F1;"><span style="font-size:15px;">\u{1F6E1}\uFE0F</span> URL Ultimate Filter <span style="font-size:11px; color:#64748b; margin-left:4px;">V${SCRIPT_VERSION}</span></div>`;
+        header.innerHTML = `<div style="font-weight:600; display:flex; align-items:center; gap:8px; color:#6366F1;"><span style="font-size:15px;">\u{1F6E1}\uFE0F</span> URL Ultimate Filter V${SCRIPT_VERSION}</div>`;
         panel.appendChild(header);
         
         const tabsRow = document.createElement('div');
@@ -1121,10 +1117,9 @@ def compile_tampermonkey() -> str:
             t.title = `點擊展開/收合 ${label} 列表`;
             t.style.cssText = `flex:1; text-align:center; padding:8px 4px; cursor:pointer; border-radius:6px; transition:all 0.2s; border-bottom:2px solid transparent; user-select:none; background:transparent;`;
             t.innerHTML = `<div style="color:${color}; font-weight:700; font-size:18px; line-height:1.2;" id="ssot-cnt-${id}">0</div><div style="color:#94a3b8; font-size:11px; margin-top:2px; font-weight:500;">${label}</div>`;
-            t.onclick = (e) => { 
-                e.stopPropagation(); // 阻斷事件冒泡，防止觸發外部收合
+            t.onclick = () => { 
                 if (activeTab === id) {
-                    expanded = false; // 雙擊同一個 tab 徹底收合面板
+                    expanded = false;
                     activeTab = null;
                 } else {
                     activeTab = id;
@@ -1212,38 +1207,29 @@ def compile_tampermonkey() -> str:
             
             if (activeTab === 'blocked') {
                 if (tmStats.blocked.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無攔截紀錄</div>`;
-                else {
-                    listHtml = Array.from(tmStats.blocked.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#fca5a5;">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                            <span>${u}</span>
-                            ${c > 1 ? `<span style="${badgeStyle} background:#7f1d1d; color:#fecaca;" title="總攔截次數">x${c}</span>` : ''}
-                        </div>
-                    </div>`).join('');
-                    if (tmStats.blocked.size >= 50) listHtml += `<div style="text-align:center; padding:6px; font-size:10px; color:#475569;">已達 50 筆不重複網址顯示上限</div>`;
-                }
+                else listHtml = Array.from(tmStats.blocked.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#fca5a5;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <span>${u}</span>
+                        ${c > 1 ? `<span style="${badgeStyle} background:#7f1d1d; color:#fecaca;">x${c}</span>` : ''}
+                    </div>
+                </div>`).join('');
             } else if (activeTab === 'cleaned') {
                 if (tmStats.cleaned.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無淨化紀錄</div>`;
-                else {
-                    listHtml = Array.from(tmStats.cleaned.entries()).reverse().map(([o, data]) => `<div style="${itemStyle}">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
-                            <div style="text-decoration:line-through; color:#475569;">${o}</div>
-                            ${data.count > 1 ? `<span style="${badgeStyle} background:#064e3b; color:#a7f3d0;" title="總淨化次數">x${data.count}</span>` : ''}
-                        </div>
-                        <div style="color:#6ee7b7;">➔ ${data.newUrl}</div>
-                    </div>`).join('');
-                    if (tmStats.cleaned.size >= 50) listHtml += `<div style="text-align:center; padding:6px; font-size:10px; color:#475569;">已達 50 筆不重複網址顯示上限</div>`;
-                }
+                else listHtml = Array.from(tmStats.cleaned.entries()).reverse().map(([o, data]) => `<div style="${itemStyle}">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+                        <div style="text-decoration:line-through; color:#475569;">${o}</div>
+                        ${data.count > 1 ? `<span style="${badgeStyle} background:#064e3b; color:#a7f3d0;">x${data.count}</span>` : ''}
+                    </div>
+                    <div style="color:#6ee7b7;">➔ ${data.newUrl}</div>
+                </div>`).join('');
             } else if (activeTab === 'allowed') {
                 if (tmStats.allowed.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無放行紀錄</div>`;
-                else {
-                    listHtml = Array.from(tmStats.allowed.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#94a3b8;">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                            <span>${u}</span>
-                            ${c > 1 ? `<span style="${badgeStyle} background:#334155; color:#cbd5e1;" title="總放行次數">x${c}</span>` : ''}
-                        </div>
-                    </div>`).join('');
-                    if (tmStats.allowed.size >= 50) listHtml += `<div style="text-align:center; padding:6px; font-size:10px; color:#475569;">已達 50 筆不重複網址顯示上限</div>`;
-                }
+                else listHtml = Array.from(tmStats.allowed.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#94a3b8;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <span>${u}</span>
+                        ${c > 1 ? `<span style="${badgeStyle} background:#334155; color:#cbd5e1;">x${c}</span>` : ''}
+                    </div>
+                </div>`).join('');
             }
             listContainer.innerHTML = listHtml;
         }
@@ -1631,6 +1617,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
 
     # --- 手動邊界測試區塊 ---
     cases.append(TestCase("Matrix: Double Decode Escape", "https://example.com/%2561%2564/banner.webp", RES_BLOCK_403, "Blocked by High Confidence Override (Double Decoded)"))
+    cases.append(TestCase("Edge: HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772072185", RES_BLOCK_403, "Blocked by L1 Critical Path"))
     cases.append(TestCase("Feature: Heuristic API Silent Rewrite", "https://unknown-ecommerce.com/graphql/user?fbclid=test", RES_REWRITE, "GraphQL path uses Silent Rewrite to clean tracking parameters safely"))
     cases.append(TestCase("Privacy: Telemetry Drop (YT)", "https://www.youtube.com/error_204?cosver=18.7.1.22H31&cmodel=iPhone16%2C1&a=logerror", RES_DROP_204, "Silent Drop for High Precision Telemetry"))
     cases.append(TestCase("Privacy: WP Ad Plugin (L1 Scanner)", "https://www.koc.com.tw/wp-content/plugins/advanced-ads-responsive/public/assets/js/script.js?ver=1.10.2", RES_BLOCK_403, "Must be blocked by L1 Scanner ignoring static whitelist"))
@@ -1648,9 +1635,16 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: API Login Collision", "https://api.signin.104.com.tw/v2/api/login/valid-account", RES_ALLOW, "Prevent /api/log from falsely killing /api/login endpoints"))
     cases.append(TestCase("BugFix: Threads Path Exemption", "https://www.threads.com/@n_ys_m/post/DIaU/abc", RES_ALLOW, "Bypass L1/L2 path scanners using PATH_EXEMPTIONS"))
     cases.append(TestCase("BugFix: P0 Subdomain Inheritance", "https://px.ads.linkedin.com/test", RES_BLOCK_403, "Validate P0 wildcards logic correctly inherits down to subdomains"))
+
+    # --- 修正：V44.62 網域特化參數白名單 (SCOPED_PARAM_EXEMPTIONS) 測試矩陣 ---
+    cases.append(TestCase("Matrix: Scoped Exemption (Positive)", "https://appapi.104.com.tw/api/login?device_id=A1B2", RES_ALLOW, "參數與路徑皆吻合，精準放行"))
+    cases.append(TestCase("Matrix: Scoped Exemption (Domain Mismatch)", "https://api.example.com/api/profile?device_id=A1B2", RES_REWRITE, "路徑與參數吻合但網域非授權目標，剝離參數"))
+    cases.append(TestCase("Matrix: Scoped Exemption (Param Mismatch)", "https://appapi.104.com.tw/api/profile?utm_source=fb", RES_REWRITE, "命中路徑但該參數不在白名單內，剝離參數"))
+    cases.append(TestCase("Matrix: Scoped Exemption (Cross Mixed)", "https://appapi.104.com.tw/api/data?device_id=A1B2&fbclid=XYZ", RES_REWRITE, "混雜合法與非法參數，執行局部淨化"))
     
-    # --- V44.65 蝦皮參數淨化豁免與權限降級專屬測試 ---
-    cases.append(TestCase("Feature: Shopee Param Exemption", "https://shopee.tw/api/v4/tracking/event?utm_source=fb", RES_BLOCK_403, "確認 shopee.tw 被移出 OAuth 避風港後，其追蹤路徑會被正確攔截，但若為正常路徑則僅豁免參數淨化"))
+    # --- 修正：V44.62 靜默重寫 (Silent Rewrite) 邊界測試矩陣 ---
+    cases.append(TestCase("Edge: HMAC Signature Bypass", "https://api.example.com/data?utm_source=test&signature=12345abcde", RES_ALLOW, "防護數位簽章免遭剝離導致 403"))
+    cases.append(TestCase("Edge: Non-Standard Separator", "https://example.com/page?utm_source=fb;fbclid=123", RES_CLEAN_302, "解析分號作為分隔符，一般網域觸發 302 淨化"))
 
     # --- E2E 端到端鏈式測試區塊 ---
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
