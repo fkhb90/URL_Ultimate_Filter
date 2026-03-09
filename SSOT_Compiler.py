@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.63 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.64 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -43,11 +43,15 @@ URL Ultimate Filter - V44.63 SSOT Compiler & Matrix Test Suite
 37. [Architecture-V44.61] 將 shopee.tw 移至 PARAM_CLEANING_EXEMPTED_DOMAINS 通配符；實作 HMAC 簽章防護與分號參數分隔符解析；擴增進階邊界測試矩陣。
 38. [BugFix-V44.62] 修正 Matrix Test Suite 中 OAUTH_SAFE_HARBOR 碰撞問題；升級 OAuth 路徑比對為嚴格 Regex 邊界防護，避免惡意追蹤蹭白名單。
 39. [Audit-V44.63] 全面規則矩陣安全審查：移除 FINANCE_SAFE_HARBOR 中的高危 org.tw 通配；
-    將 reddit/pinterest/snapchat/disqus/addthis 從 BLOCK_DOMAINS 遷移至 CRITICAL_PATH_MAP 精準攔截；
+    將 reddit/pinterest/snapchat/disqus 從 BLOCK_DOMAINS 遷移至 CRITICAL_PATH_MAP 精準攔截；
+    addthis.com 維持 BLOCK_DOMAINS 全域封殺 (Oracle 已於 2023 年終止服務，屬殭屍網域)；
     消除 browser.sentry-cdn.com 與 OAUTH/HARD_WHITELIST 的冗餘重複；
     修正 PATH_BLOCK 中 canvas/webgl 無邊界匹配誤殺；修正 DROP 中 batch/.log 過寬匹配；
     清理 27 個失效 REDIRECTOR_HOSTS；移除 3 個用途不明的中國 OA 平台白名單；
     新增 CRITICAL_PATH_MAP 架構優先級設計文檔註釋。
+40. [Refine-V44.64] disqus.com 防護策略精修：採「保功能、斬遙測」架構，精準狙擊
+    /api/3.0/users/events、/j/、/tracking_pixel/ 三條遙測路徑，保留留言板 UI 載入；
+    addthis.com 確認為 Oracle 2023 年已終止的殭屍服務，還原至 BLOCK_DOMAINS 全域封殺。
 """
 
 import json
@@ -69,7 +73,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.63"
+VERSION = "44.64"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -286,7 +290,7 @@ RULES_DB = {
         'events.tiktok.com', 'abema-adx.ameba.jp', 'ad.12306.cn', 'ad.360in.com', 'adroll.com', 'ads.yahoo.com',
         'adserver.yahoo.com', 'appnexus.com', 'bluekai.com', 'casalemedia.com', 'doubleclick.net',
         'googleadservices.com', 'googlesyndication.com', 'outbrain.com', 'taboola.com', 'rubiconproject.com',
-        'pubmatic.com', 'openx.com', 'smartadserver.com', 'spotx.tv', 'yandex.ru',
+        'pubmatic.com', 'openx.com', 'smartadserver.com', 'spotx.tv', 'yandex.ru', 'addthis.com',
         'onesignal.com', 'sharethis.com', 'bat.bing.com', 'clarity.ms',
         'elads.kocpc.com.tw', 'eservice.emarsys.net'
     ],
@@ -437,8 +441,7 @@ RULES_DB = {
         'dp.tracking.shopee.tw': ['/v4/event_batch'],
         'live-apm.shopee.tw': ['/apmapi/v1/event'],
         'cmapi.tw.coupang.com': ['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/'],
-        'disqus.com': ['/api/telemetry', '/embed/tracking.js', '/recommendations/', '/api/discovery/'],
-        'addthis.com': ['/live/', '/at.js', '/red/', '/pub/']
+        'disqus.com': ['/api/3.0/users/events', '/j/', '/tracking_pixel/']
     },
     "HIGH_CONFIDENCE": [
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
