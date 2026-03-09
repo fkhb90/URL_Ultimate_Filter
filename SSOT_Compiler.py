@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.62 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.63 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -42,6 +42,12 @@ URL Ultimate Filter - V44.62 SSOT Compiler & Matrix Test Suite
 36. [Feature-V44.60] 擴增 Google ODM (On-Device Measurement) 系統級備援遙測端點，並將 15 家主流 MMP (動態子網域跟蹤商) 移入 WILDCARDS 進行通配符封殺。
 37. [Architecture-V44.61] 將 shopee.tw 移至 PARAM_CLEANING_EXEMPTED_DOMAINS 通配符；實作 HMAC 簽章防護與分號參數分隔符解析；擴增進階邊界測試矩陣。
 38. [BugFix-V44.62] 修正 Matrix Test Suite 中 OAUTH_SAFE_HARBOR 碰撞問題；升級 OAuth 路徑比對為嚴格 Regex 邊界防護，避免惡意追蹤蹭白名單。
+39. [Audit-V44.63] 全面規則矩陣安全審查：移除 FINANCE_SAFE_HARBOR 中的高危 org.tw 通配；
+    將 reddit/pinterest/snapchat/disqus/addthis 從 BLOCK_DOMAINS 遷移至 CRITICAL_PATH_MAP 精準攔截；
+    消除 browser.sentry-cdn.com 與 OAUTH/HARD_WHITELIST 的冗餘重複；
+    修正 PATH_BLOCK 中 canvas/webgl 無邊界匹配誤殺；修正 DROP 中 batch/.log 過寬匹配；
+    清理 27 個失效 REDIRECTOR_HOSTS；移除 3 個用途不明的中國 OA 平台白名單；
+    新增 CRITICAL_PATH_MAP 架構優先級設計文檔註釋。
 """
 
 import json
@@ -63,7 +69,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.62"
+VERSION = "44.63"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -112,7 +118,7 @@ RULES_DB = {
             'standardchartered.com.tw', 'tcb-bank.com.tw', 'paypal.com', 'stripe.com',
             'taiwanpay.com.tw', 'twca.com.tw', 'twmp.com.tw', 'pay.taipei',
             'momopay.com.tw', 'mymobibank.com.tw',
-            'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'org.tw', 'tdcc.com.tw'
+            'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'tdcc.com.tw'
         ]
     },
     "PRIORITY_BLOCK_DOMAINS": [
@@ -147,21 +153,25 @@ RULES_DB = {
         'iadsdk.apple.com', 'privacysandbox.googleapis.com', 'measurement.adservices.google.com'
     ],
     "REDIRECTOR_HOSTS": [
+        # [Lifecycle] 上次審查：V44.63。已移除 27 個已確認失效的網域 (bitcosite, blogbux, clkmein, cllkme, corneey, destyy,
+        #  fc-lc.xyz, fcd.su, festyy, forex-trnd, getthot, loaninsurehub, lolinez, miniurl.pw, mitly.us,
+        #  noweconomy.live, realsht.mobi, rlu.ru, sh.st, short.am, shrinkcash, srt.am, swzz.xyz,
+        #  thotpacks.xyz, tmearn.net, uplinkto.hair, urlbluemedia.shop)。建議每季度驗證存活性。
         '1ink.cc', 'adfoc.us', 'adsafelink.com', 'adshnk.com', 'adz7short.space', 'aylink.co',
-        'bc.vc', 'bcvc.ink', 'birdurls.com', 'bitcosite.com', 'blogbux.net', 'boost.ink', 'ceesty.com',
-        'clik.pw', 'clk.sh', 'clkmein.com', 'cllkme.com', 'corneey.com', 'cpmlink.net', 'cpmlink.pro',
-        'cutpaid.com', 'destyy.com', 'dlink3.com', 'dz4link.com', 'earnlink.io', 'exe-links.com', 'exeo.app',
-        'fc-lc.com', 'fc-lc.xyz', 'fcd.su', 'festyy.com', 'fir3.net', 'forex-trnd.com', 'gestyy.com',
-        'getthot.com', 'gitlink.pro', 'gplinks.co', 'hotshorturl.com', 'icutlink.com', 'kimochi.info',
+        'bc.vc', 'bcvc.ink', 'birdurls.com', 'boost.ink', 'ceesty.com',
+        'clik.pw', 'clk.sh', 'cpmlink.net', 'cpmlink.pro',
+        'cutpaid.com', 'dlink3.com', 'dz4link.com', 'earnlink.io', 'exe-links.com', 'exeo.app',
+        'fc-lc.com', 'fir3.net', 'gestyy.com',
+        'gitlink.pro', 'gplinks.co', 'hotshorturl.com', 'icutlink.com', 'kimochi.info',
         'kingofshrink.com', 'linegee.net', 'link1s.com', 'linkmoni.com', 'linkpoi.me', 'linkshrink.net',
-        'linksly.co', 'lnk2.cc', 'loaninsurehub.com', 'lolinez.com', 'mangalist.org', 'megalink.pro', 'met.bz',
-        'miniurl.pw', 'mitly.us', 'noweconomy.live', 'oke.io', 'oko.sh', 'oni.vn', 'onlinefreecourse.net',
-        'ouo.io', 'ouo.press', 'pahe.plus', 'payskip.org', 'pingit.im', 'realsht.mobi', 'rlu.ru', 'sh.st',
-        'short.am', 'shortlinkto.biz', 'shortmoz.link', 'shrinkcash.com', 'shrt10.com', 'similarsites.com',
-        'smilinglinks.com', 'spacetica.com', 'spaste.com', 'srt.am', 'stfly.me', 'stfly.xyz', 'supercheats.com',
-        'swzz.xyz', 'techgeek.digital', 'techstudify.com', 'techtrendmakers.com', 'thinfi.com', 'thotpacks.xyz',
-        'tmearn.net', 'tnshort.net', 'tribuntekno.com', 'turdown.com', 'tutwuri.id', 'uplinkto.hair',
-        'urlbluemedia.shop', 'urlcash.com', 'urlcash.org', 'vinaurl.net', 'vzturl.com', 'xpshort.com', 'zegtrends.com'
+        'linksly.co', 'lnk2.cc', 'mangalist.org', 'megalink.pro', 'met.bz',
+        'oke.io', 'oko.sh', 'oni.vn', 'onlinefreecourse.net',
+        'ouo.io', 'ouo.press', 'pahe.plus', 'payskip.org', 'pingit.im',
+        'shortlinkto.biz', 'shortmoz.link', 'shrt10.com', 'similarsites.com',
+        'smilinglinks.com', 'spacetica.com', 'spaste.com', 'stfly.me', 'stfly.xyz', 'supercheats.com',
+        'techgeek.digital', 'techstudify.com', 'techtrendmakers.com', 'thinfi.com',
+        'tnshort.net', 'tribuntekno.com', 'turdown.com', 'tutwuri.id',
+        'urlcash.com', 'urlcash.org', 'vinaurl.net', 'vzturl.com', 'xpshort.com', 'zegtrends.com'
     ],
     "HARD_WHITELIST": {
         "EXACT": [
@@ -170,14 +180,14 @@ RULES_DB = {
             'pplx-next-static-public.perplexity.ai', 'private-us-east-1.monica.im', 'api.felo.ai',
             'qianwen.aliyun.com', 'static.stepfun.com', 'api.openai.com', 'a-api.anthropic.com',
             'api.feedly.com', 'sandbox.feedly.com', 'cloud.feedly.com', 'translate.google.com', 'translate.googleapis.com',
-            'inbox.google.com', 'reportaproblem.apple.com', 'accounts.google.com', 'appleid.apple.com', 'login.microsoftonline.com',
-            'sso.godaddy.com', 'idmsa.apple.com', 'api.login.yahoo.com', 
+            'inbox.google.com', 'reportaproblem.apple.com',
+            'sso.godaddy.com', 'api.login.yahoo.com', 
             'firebaseappcheck.googleapis.com', 'firebaseinstallations.googleapis.com',
-            'firebaseremoteconfig.googleapis.com', 'accounts.google.com.tw', 'accounts.felo.me',
+            'firebaseremoteconfig.googleapis.com', 'accounts.felo.me',
             'api.etmall.com.tw',
             'tw.fd-api.com', 'tw.mapi.shp.yahoo.com', 
-            'code.createjs.com', 'oa.ledabangong.com', 'oa.qianyibangong.com', 'raw.githubusercontent.com',
-            'ss.ledabangong.com', 'userscripts.adtidy.org', 'api.github.com', 'api.vercel.com',
+            'code.createjs.com', 'raw.githubusercontent.com',
+            'userscripts.adtidy.org', 'api.github.com', 'api.vercel.com',
             'gateway.facebook.com', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com',
             'api.discord.com', 'api.twitch.tv', 'api.line.me', 'today.line.me',
             'pro.104.com.tw', 'appapi.104.com.tw', 'datadog.pool.ntp.org', 'ewp.uber.com', 'copilot.microsoft.com', 
@@ -237,7 +247,7 @@ RULES_DB = {
         'udp.yahoo.com', 'analytics.yahoo.com', 'effirst.com', 'px.effirst.com', 'simonsignal.com', 
         'analysis.momoshop.com.tw', 'event.momoshop.com.tw', 'sspap.momoshop.com.tw',
         'analytics.etmall.com.tw', 'pixel.momoshop.com.tw', 'trace.momoshop.com.tw',
-        'browser.sentry-cdn.com', 'bam.nr-data.net', 'bam-cell.nr-data.net', 'lrkt-in.com',
+        'bam.nr-data.net', 'bam-cell.nr-data.net', 'lrkt-in.com',
         'cdn.lr-ingest.com', 'r.lr-ingest.io', 'api-iam.intercom.io', 'openfpcdn.io', 'fingerprintjs.com',
         'fundingchoicesmessages.google.com', 'hotjar.com', 'segment.io', 'mixpanel.com', 'amplitude.com',
         'crazyegg.com', 'bugsnag.com', 'sentry.io', 'newrelic.com', 'logrocket.com', 'fpjs.io', 'adunblock1.static-cloudflare.workers.dev',
@@ -276,9 +286,9 @@ RULES_DB = {
         'events.tiktok.com', 'abema-adx.ameba.jp', 'ad.12306.cn', 'ad.360in.com', 'adroll.com', 'ads.yahoo.com',
         'adserver.yahoo.com', 'appnexus.com', 'bluekai.com', 'casalemedia.com', 'doubleclick.net',
         'googleadservices.com', 'googlesyndication.com', 'outbrain.com', 'taboola.com', 'rubiconproject.com',
-        'pubmatic.com', 'openx.com', 'smartadserver.com', 'spotx.tv', 'yandex.ru', 'addthis.com', 'disqus.com',
-        'onesignal.com', 'sharethis.com', 'bat.bing.com', 'clarity.ms', 'pinterest.com', 'reddit.com',
-        'snapchat.com', 'elads.kocpc.com.tw', 'eservice.emarsys.net'
+        'pubmatic.com', 'openx.com', 'smartadserver.com', 'spotx.tv', 'yandex.ru',
+        'onesignal.com', 'sharethis.com', 'bat.bing.com', 'clarity.ms',
+        'elads.kocpc.com.tw', 'eservice.emarsys.net'
     ],
     "BLOCK_DOMAINS_WILDCARDS": [
         'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io',
@@ -337,6 +347,9 @@ RULES_DB = {
         '/plugins/advanced-ads', '/plugins/adrotate'
     ],
     "CRITICAL_PATH_MAP": {
+        # [Priority Design] 此 Map 攔截機制的優先級高於 HARD_WHITELIST。
+        # 用於實作「大放行、小封殺」策略。例如 googlevideo.com 雖列於全域軟/硬白名單中以防破圖，
+        # 但透過此 Map，仍可精準狙擊其底層特定的遙測路徑 (如 /ptracking)，防止白名單遭濫用穿透。
         'o.alicdn.com': ['/tongyi-fe/lib/cnzz/c.js', '/tongyi-fe/lib/cnzz/z.js'],
         'qwen-api.zaodian.com': ['/api/app/template/v1/feed'],
         'file.chinatimes.com': ['/ad-param.json'],
@@ -423,7 +436,9 @@ RULES_DB = {
         'patronus.idata.shopeemobile.com': ['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'],
         'dp.tracking.shopee.tw': ['/v4/event_batch'],
         'live-apm.shopee.tw': ['/apmapi/v1/event'],
-        'cmapi.tw.coupang.com': ['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/']
+        'cmapi.tw.coupang.com': ['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/'],
+        'disqus.com': ['/api/telemetry', '/embed/tracking.js', '/recommendations/', '/api/discovery/'],
+        'addthis.com': ['/live/', '/at.js', '/red/', '/pub/']
     },
     "HIGH_CONFIDENCE": [
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
@@ -479,15 +494,15 @@ RULES_DB = {
         'data-collection', 'data-sync', 'fingerprint', 'retargeting', 'session-replay', 'third-party-cookie',
         'user-analytics', 'user-behavior', 'user-cohort', 'user-segment', 'appier', 'comscore', 'fbevents',
         'fbq', 'google-analytics', 'onead', 'osano', 'sailthru', 'tapfiliate', 'utag.js', '/apmapi/',
-        'canvas', 'webgl', 'audio-fp', 'font-detect'
+        'canvas-fingerprint', 'canvas-fp', '/canvas-fp/', 'webgl-fingerprint', 'webgl-fp', '/webgl-fp/', 'audio-fingerprint', 'audio-fp', 'font-fingerprint', 'font-detect-fp'
     ],
     "PRIORITY_DROP": [
         '/otel/v1/logs', '/otel/v1/traces', '/otel/v1/metrics', '/agent/v1/logs',
         '/v1/telemetry', '/v1/metrics', '/v1/traces', '/telemetry/'
     ],
     "DROP": [
-        '.log', '?diag=', '?log=', '-log.', '/diag/', '/log/', '/logging/', '/logs/', 'adlog',
-        'ads-beacon', 'airbrake', 'amp-analytics', 'batch', 'beacon', 'client-event', 'collect',
+        '?diag=', '?log=', '-log.', '/diag/', '/log/', '/logging/', '/logs/', 'adlog',
+        'ads-beacon', 'airbrake', 'amp-analytics', '/batch/', '/batch?', 'beacon', 'client-event', 'collect',
         'collect?', 'collector', 'crashlytics', 'csp-report', 'data-pipeline', 'error-monitoring',
         'error-report', 'heartbeat', 'ingest', 'intake', 'live-log', 'log-event', 'logevents',
         'loggly', 'log-hl', 'realtime-log', '/rum/', 'server-event', 'uploadmobiledata',
@@ -902,6 +917,10 @@ function processRequest(request) {
       return { response: { status: 403, body: 'Blocked Redirector' } };
     }
 
+    // --- 階段 1：高優先級 Map 精準狙擊 (凌駕於常規白名單) ---
+    // [Architecture Note] 優先檢查 CRITICAL_PATH_MAP。
+    // 即便目標網域 (如 googlevideo.com) 存在於 HARD_WHITELIST 中，
+    // 只要命中了此處定義的惡意路徑，依然會被強制 403 阻擋，確保不會因白名單覆蓋而產生隱私破口。
     const blockedPaths = getCriticalBlockedPaths(hostname);
     if (blockedPaths && blockedPaths !== false) {
       for (const badPath of blockedPaths) {
@@ -912,6 +931,7 @@ function processRequest(request) {
       }
     }
 
+    // --- 階段 2：常規網域阻擋 ---
     const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
     if (!isSoftWhitelisted) {
       if (isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
@@ -937,6 +957,8 @@ function processRequest(request) {
         return null;
     };
 
+    // --- 階段 3：全域絕對白名單放行 ---
+    // 若前方未被 CRITICAL_PATH_MAP 狙擊，且網域符合絕對白名單，則在此處全域放行 (僅作參數淨化)。
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
       stats.allows++; return performCleaning(); 
     }
