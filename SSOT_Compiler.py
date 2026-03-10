@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.67 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.68 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -58,7 +58,8 @@ URL Ultimate Filter - V44.67 SSOT Compiler & Matrix Test Suite
     以及 shrinkme.io/clicksfly/work.ink 等 25 個主流 CPM 廣告短網址平台。
     清單依家族分類加註中文說明，方便季度存活性審查。
 42. [Security-V44.66] PRIORITY_BLOCK_DOMAINS 全面重構與擴充 (131→168 條)。
-43. [Feature-V44.67] 擴充 PATH_EXEMPTIONS 支援 Coupang CDN 新舊目錄雙軌豁免 (ccm & cmg/oms)；並補齊對應之 E2E 遙測阻擋測試案例。
+43. [Feature-V44.67] 擴充 PATH_EXEMPTIONS 支援 Coupang CDN 新舊目錄雙軌豁免 (ccm & cmg/oms)。
+44. [Feature-V44.68] 擴充 PATH_EXEMPTIONS 支援 Google Favicon API，防止因目標網域夾帶廣告關鍵字 (如 hubspot) 而遭 L2 掃描器誤殺。
 """
 
 import json
@@ -80,7 +81,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.67"
+VERSION = "44.68"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -569,9 +570,9 @@ RULES_DB = {
     "PATH_EXEMPTIONS": {
         "shopee.tw": ["/api/v4/search/search_items"],
         "cmapi.tw.coupang.com": ["/vendor-items/"],
-        # [Feature-V44.67] 擴充為雙軌陣列，精準豁免 ccm 與 cmg/oms 兩個版本的 banner
         "coupangcdn.com": ["/image/ccm/banner/", "/image/cmg/oms/banner/"],
-        "www.google.com": ["/url", "/search"],
+        # [Feature-V44.68] 新增 /s2/favicons 以豁免夾帶廣告網域參數的 Google 代理請求
+        "www.google.com": ["/url", "/search", "/s2/favicons"],
         "play.googleapis.com": ["/log/batch"],
         "threads.com": ["/post/"],
         "threads.net": ["/post/"]
@@ -1684,15 +1685,16 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Matrix: Scoped Exemption (Domain Mismatch)", "https://api.example.com/api/profile?device_id=A1B2", RES_REWRITE, "路徑與參數吻合但網域非授權目標，剝離參數"))
     cases.append(TestCase("Matrix: Scoped Exemption (Param Mismatch)", "https://appapi.104.com.tw/api/profile?utm_source=fb", RES_REWRITE, "命中路徑但該參數不在白名單內，剝離參數"))
     cases.append(TestCase("Matrix: Scoped Exemption (Cross Mixed)", "https://appapi.104.com.tw/api/data?device_id=A1B2&fbclid=XYZ", RES_REWRITE, "混雜合法與非法參數，執行局部淨化"))
-    
     cases.append(TestCase("Edge: HMAC Signature Bypass", "https://api.example.com/data?utm_source=test&signature=12345abcde", RES_ALLOW, "防護數位簽章免遭剝離導致 403"))
     cases.append(TestCase("Edge: Non-Standard Separator", "https://example.com/page?utm_source=fb;fbclid=123", RES_CLEAN_302, "解析分號作為分隔符，一般網域觸發 302 淨化"))
 
-    # --- [Feature-V44.67] Coupang CDN 雙軌豁免與遙測阻擋回歸測試 ---
     cases.append(TestCase("BugFix: Coupang Banner Image (Legacy)", "https://image2.coupangcdn.com/image/ccm/banner/e5d4619754089a7b25a763ac8700bc01.jpg", RES_ALLOW, "Exempted from HIGH_CONFIDENCE /banner/ block via PATH_EXEMPTIONS"))
     cases.append(TestCase("BugFix: Coupang Banner Image (New OMS)", "https://image11.coupangcdn.com/image/cmg/oms/banner/9133e5bb-7468-4613-90f3-9ee18cafa072_720x1900.png", RES_ALLOW, "Exempted from HIGH_CONFIDENCE /banner/ block via PATH_EXEMPTIONS"))
     cases.append(TestCase("Privacy: Coupang JSError Log", "https://asset2.coupangcdn.com/customjs/jserror/2.5.1/jslog.min.js", RES_BLOCK_403, "Blocked by CRITICAL_PATH_SCRIPT_ROOTS"))
     cases.append(TestCase("Privacy: Coupang FeatureFlag Telemetry", "https://cmapi.tw.coupang.com/modular/v1/endpoints/12900/ff/v1/featureFlag/batchTracking", RES_BLOCK_403, "Blocked by CRITICAL_PATH_MAP precise targeting"))
+    
+    # --- [Feature-V44.68] Google Favicon API 雙軌豁免回歸測試 ---
+    cases.append(TestCase("Privacy: Favicon Proxy Exemption", "https://www.google.com/s2/favicons?domain=mcp.hubspot.com&sz=64", RES_ALLOW, "Bypass PATH_BLOCK 'hubspot' keyword via PATH_EXEMPTIONS"))
 
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
@@ -1862,3 +1864,5 @@ def run_tests():
 
 if __name__ == "__main__":
     run_tests()
+
+
