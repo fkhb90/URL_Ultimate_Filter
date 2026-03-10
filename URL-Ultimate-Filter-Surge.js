@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.67 (SSOT Compilation)
+ * @version   44.68 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.67';
+const SCRIPT_VERSION = '44.68';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -723,7 +723,7 @@ const RULES = {
         '/image/ccm/banner/', '/image/cmg/oms/banner/'
       ])],
     ['www.google.com', new Set([
-        '/url', '/search'
+        '/url', '/search', '/s2/favicons'
       ])],
     ['play.googleapis.com', new Set([
         '/log/batch'
