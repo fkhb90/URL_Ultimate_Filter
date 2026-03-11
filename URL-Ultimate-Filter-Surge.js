@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.68 (SSOT Compilation)
+ * @version   44.70 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.68';
+const SCRIPT_VERSION = '44.70';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -725,6 +725,9 @@ const RULES = {
     ['www.google.com', new Set([
         '/url', '/search', '/s2/favicons'
       ])],
+    ['143.92.', new Set([
+        '/shopee/batch_resolve_with_info'
+      ])],
     ['play.googleapis.com', new Set([
         '/log/batch'
       ])],
@@ -814,8 +817,16 @@ const HELPERS = {
   },
 
   isPathExemptedForDomain: (hostname, pathLower) => {
-    for (const [domain, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
-      if (hostname === domain || hostname.endsWith('.' + domain)) {
+    for (const [domainOrPrefix, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
+      // [Feature-V44.70] 實作 IP 字首匹配法 (Prefix Matching)
+      let isMatch = false;
+      if (domainOrPrefix.endsWith('.') && /^\d/.test(domainOrPrefix)) {
+          isMatch = hostname.startsWith(domainOrPrefix);
+      } else {
+          isMatch = (hostname === domainOrPrefix || hostname.endsWith('.' + domainOrPrefix));
+      }
+      
+      if (isMatch) {
         for (const exemptedPath of exemptedPaths) {
           if (pathLower.includes(exemptedPath)) return true;
         }
