@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.72 (SSOT Compilation)
+ * @version   44.73 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.72';
+const SCRIPT_VERSION = '44.73';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -22,7 +22,7 @@ const PARAM_CLEANING_EXEMPTED_DOMAINS = {
     WILDCARDS: new Set([
     'feedly.com', 's3.amazonaws.com', 'storage.googleapis.com', 'core.windows.net', 'api.line.me', 'api.newebpay.com',
     'api.tappayapis.com', 'api.stripe.com', 'api.github.com', 'api.twitch.tv', 'cdn.discordapp.com', 'slack.com',
-    'cloudfunctions.net', 'shopee.tw'
+    'cloudfunctions.net'
   ])
 };
 
@@ -33,17 +33,19 @@ const SILENT_REWRITE_DOMAINS = {
   ])
 };
 
-const FINANCE_SAFE_HARBOR = {
+// [Architecture-V44.73] 重構為 ABSOLUTE_BYPASS_DOMAINS
+const ABSOLUTE_BYPASS_DOMAINS = {
     EXACT: new Set([
     'api.ecpay.com.tw', 'payment.ecpay.com.tw', 'api.map.ecpay.com.tw', 'api.jkos.com'
   ]),
     WILDCARDS: new Set([
-    'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw', 'richart.tw',
-    'bot.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw', 'dawho.tw', 'dbs.com.tw',
-    'firstbank.com.tw', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw', 'megabank.com.tw',
-    'scsb.com.tw', 'sinopac.com', 'sinotrade.com.tw', 'standardchartered.com.tw', 'tcb-bank.com.tw', 'paypal.com',
-    'stripe.com', 'taiwanpay.com.tw', 'twca.com.tw', 'twmp.com.tw', 'pay.taipei', 'momopay.com.tw',
-    'mymobibank.com.tw', 'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'tdcc.com.tw'
+    'shopee.tw', 'shopee.com', 'shopeemobile.com', 'shopee.io', 'cathaybk.com.tw', 'ctbcbank.com',
+    'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw', 'richart.tw', 'bot.com.tw', 'cathaysec.com.tw',
+    'chb.com.tw', 'citibank.com.tw', 'dawho.tw', 'dbs.com.tw', 'firstbank.com.tw', 'hncb.com.tw',
+    'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw', 'megabank.com.tw', 'scsb.com.tw', 'sinopac.com',
+    'sinotrade.com.tw', 'standardchartered.com.tw', 'tcb-bank.com.tw', 'paypal.com', 'stripe.com', 'taiwanpay.com.tw',
+    'twca.com.tw', 'twmp.com.tw', 'pay.taipei', 'momopay.com.tw', 'mymobibank.com.tw', 'post.gov.tw',
+    'nhi.gov.tw', 'mohw.gov.tw', 'tdcc.com.tw'
   ])
 };
 
@@ -291,9 +293,6 @@ const RULES = {
       ])],
     ['cn-geo1.uber.com', new Set([
         '/ramen/v1/events', '/v3/mobile-event', '/monitor/v2/logs'
-      ])],
-    ['tw.mapi.shp.yahoo.com', new Set([
-        '/w/analytics', '/v1/instrumentation', '/ws/search/tracking', '/dw/tracker'
       ])],
     ['tw.buy.yahoo.com', new Set([
         '/b/ss/', '/ws/search/tracking', '/activity/record'
@@ -970,7 +969,8 @@ function processRequest(request) {
         stats.allows++; return null;
     }
 
-    if (isDomainMatch(FINANCE_SAFE_HARBOR.EXACT, FINANCE_SAFE_HARBOR.WILDCARDS, hostname)) {
+    // [Architecture-V44.73] 使用升級後的 ABSOLUTE_BYPASS_DOMAINS 進行絕對提早回傳
+    if (isDomainMatch(ABSOLUTE_BYPASS_DOMAINS.EXACT, ABSOLUTE_BYPASS_DOMAINS.WILDCARDS, hostname)) {
         stats.allows++; return null;
     }
 
