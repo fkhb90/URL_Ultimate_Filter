@@ -108,7 +108,7 @@ RULES_DB = {
             's3.amazonaws.com', 'storage.googleapis.com', 'core.windows.net',
             'api.line.me', 'api.newebpay.com', 'api.tappayapis.com',
             'api.stripe.com', 'api.github.com', 'api.twitch.tv',
-            'cdn.discordapp.com', 'slack.com', 'cloudfunctions.net'
+            'cdn.discordapp.com', 'slack.com', 'cloudfunctions.net', 'shopee.tw'
         ]
     },
     "SILENT_REWRITE_DOMAINS": {
