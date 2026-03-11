@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.70 (SSOT Compilation)
+ * @version   44.71 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.70';
+const SCRIPT_VERSION = '44.71';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -508,7 +508,7 @@ const RULES = {
         '/userstats_record/batchrecord'
       ])],
     ['patronus.idata.shopeemobile.com', new Set([
-        '/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'
+        '/log-receiver/api/v1/0/tw/event/batch'
       ])],
     ['dp.tracking.shopee.tw', new Set([
         '/v4/event_batch'
@@ -818,7 +818,6 @@ const HELPERS = {
 
   isPathExemptedForDomain: (hostname, pathLower) => {
     for (const [domainOrPrefix, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
-      // [Feature-V44.70] 實作 IP 字首匹配法 (Prefix Matching)
       let isMatch = false;
       if (domainOrPrefix.endsWith('.') && /^\d/.test(domainOrPrefix)) {
           isMatch = hostname.startsWith(domainOrPrefix);
