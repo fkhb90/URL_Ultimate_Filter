@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.71 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.72 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -62,7 +62,8 @@ URL Ultimate Filter - V44.71 SSOT Compiler & Matrix Test Suite
 44. [Feature-V44.68] 擴充 PATH_EXEMPTIONS 支援 Google Favicon API，防止因目標網域夾帶廣告關鍵字 (如 hubspot) 而遭 L2 掃描器誤殺。
 45. [Feature-V44.69] 擴充 PATH_EXEMPTIONS 支援蝦皮 HTTPDNS 直連 IP (143.92.88.1) 局部放行，修復 App 核心連線。
 46. [Architecture-V44.70] 實作字首匹配法 (Prefix Matching) 以支援蝦皮 143.92.x.x 等動態 HTTPDNS IP 網段豁免。
-47. [Refine-V44.71] 移除 CRITICAL_PATH_MAP 中對蝦皮 patronus.idata.shopeemobile.com/event-receiver/api/v4/tw 的精準狙擊，修復 App 內部活動與獎勵功能。
+47. [Refine-V44.71] 移除 CRITICAL_PATH_MAP 中對蝦皮 patronus.idata.shopeemobile.com 的精準狙擊，修復 App 內部活動與獎勵功能。
+48. [Architecture-V44.72] 全面解耦蝦皮 (Shopee) 相關規則，徹底移除其專屬網域、路徑與測試案例，將遙測阻擋與放行主導權移交 Surge Rule-Set 核心接管，提升系統靈活性與效能。
 """
 
 import json
@@ -84,7 +85,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.71"
+VERSION = "44.72"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -103,7 +104,7 @@ RULES_DB = {
             'shopback.com.tw', 'extrabux.com', 'buy.line.me'
         ],
         "WILDCARDS": [
-            'feedly.com', 'shopee.tw', 
+            'feedly.com', 
             's3.amazonaws.com', 'storage.googleapis.com', 'core.windows.net',
             'api.line.me', 'api.newebpay.com', 'api.tappayapis.com',
             'api.stripe.com', 'api.github.com', 'api.twitch.tv',
@@ -172,8 +173,6 @@ RULES_DB = {
         'cms-statistics.quark.cn', 'stat.quark.cn', 'unpm-upaas.quark.cn',
         'browser.360.cn', 's.360.cn', 'shouji.360.cn', 'stat.360.cn',
         'inte.sogou.com', 'lu.sogou.com', 'pb.sogou.com', 'ping.sogou.com',
-        'analytics.shopee.tw', 'apm.tracking.shopee.tw', 'dem.shopee.com',
-        'dmp.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
         'analysis.momoshop.com.tw', 'ecdmp.momoshop.com.tw', 'event.momoshop.com.tw',
         'log.momoshop.com.tw', 'pixel.momoshop.com.tw', 'rtb.momoshop.com.tw',
         'sspap.momoshop.com.tw', 'trace.momoshop.com.tw', 'trk.momoshop.com.tw',
@@ -263,7 +262,7 @@ RULES_DB = {
             'api.ipify.org', 'gcp-data-api.ltn.com.tw', 's.pinimg.com', 'cdn.shopify.com'
         ],
         "WILDCARDS": [
-            'chatgpt.com', 'shopee.com', 'shopeemobile.com', 'shopee.io',
+            'chatgpt.com', 
             'youtube.com', 'facebook.com', 'instagram.com', 'twitter.com', 'tiktok.com', 'spotify.com',
             'netflix.com', 'disney.com', 'linkedin.com', 'discord.com', 'googleapis.com', 'book.com.tw',
             'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com', 'm.youtube.com', 'momo.dm',
@@ -415,9 +414,6 @@ RULES_DB = {
         'js.stripe.com': ['/fingerprinted/'],
         'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr'],
         'tw.fd-api.com': ['/api/v5/action-log'],
-        'chatbot.shopee.tw': ['/report/v1/log'],
-        'data-rep.livetech.shopee.tw': ['/dataapi/dataweb/event/'],
-        'shopee.tw': ['/dataapi/dataweb/event/'],
         'api.tongyi.com': ['/qianwen/event/track'],
         'gw.alipayobjects.com': ['/config/loggw/'],
         'slack.com': ['/api/profiling.logging.enablement', '/api/telemetry'],
@@ -473,11 +469,6 @@ RULES_DB = {
         'discord.com': ['/api/v10/science', '/api/v9/science'],
         'vk.com': ['/rtrg'],
         'instagram.com': ['/logging_client_events'],
-        'mall.shopee.tw': ['/userstats_record/batchrecord'],
-        # [Refine-V44.71] 移除對 /event-receiver/api/v4/tw 的精準狙擊，僅保留 /log-receiver 確保 App 獎勵機制不被誤殺
-        'patronus.idata.shopeemobile.com': ['/log-receiver/api/v1/0/tw/event/batch'],
-        'dp.tracking.shopee.tw': ['/v4/event_batch'],
-        'live-apm.shopee.tw': ['/apmapi/v1/event'],
         'cmapi.tw.coupang.com': ['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/'],
         'disqus.com': ['/api/3.0/users/events', '/j/', '/tracking_pixel/']
     },
@@ -572,11 +563,9 @@ RULES_DB = {
         '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar'
     ],
     "PATH_EXEMPTIONS": {
-        "shopee.tw": ["/api/v4/search/search_items"],
         "cmapi.tw.coupang.com": ["/vendor-items/"],
         "coupangcdn.com": ["/image/ccm/banner/", "/image/cmg/oms/banner/"],
         "www.google.com": ["/url", "/search", "/s2/favicons"],
-        "143.92.": ["/shopee/batch_resolve_with_info"],
         "play.googleapis.com": ["/log/batch"],
         "threads.com": ["/post/"],
         "threads.net": ["/post/"]
@@ -1616,7 +1605,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases: List[TestCase] = []
     print(f"[TEST GENERATOR] Auto-expanding Python RULES_DB to Matrix Test Suite...")
 
-    dynamic_soft_wl = RULES_DB["SOFT_WHITELIST"]["WILDCARDS"][0] if RULES_DB["SOFT_WHITELIST"]["WILDCARDS"] else "shopee.com"
+    dynamic_soft_wl = RULES_DB["SOFT_WHITELIST"]["WILDCARDS"][0] if RULES_DB["SOFT_WHITELIST"]["WILDCARDS"] else "youtube.com"
     dynamic_hard_wl = RULES_DB["HARD_WHITELIST"]["WILDCARDS"][0] if RULES_DB["HARD_WHITELIST"]["WILDCARDS"] else "apple.com"
     exempt_domain_exact = RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["EXACT"][0] if RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["EXACT"] else "shopback.com.tw"
 
@@ -1674,12 +1663,6 @@ def generate_full_coverage_cases() -> List[TestCase]:
          cases.append(TestCase("Privacy: Exemption (Shop)", f"https://{exempt_domain_exact}{test_path}", expected_shop, "Exempted from cleaning"))
 
     cases.append(TestCase("Matrix: Double Decode Escape", "https://example.com/%2561%2564/banner.webp", RES_BLOCK_403, "Blocked by High Confidence Override (Double Decoded)"))
-    
-    cases.append(TestCase("Edge: HTTPDNS IP Range (Match 1)", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1", RES_ALLOW, "Exempted via IP prefix matching"))
-    cases.append(TestCase("Edge: HTTPDNS IP Range (Match 2)", "https://143.92.123.45/shopee/batch_resolve_with_info?timestamp=2", RES_ALLOW, "Exempted via IP prefix matching (Different IP in range)"))
-    cases.append(TestCase("Edge: HTTPDNS IP Range (Path Mismatch)", "https://143.92.88.1/api/v1/logs", RES_BLOCK_403, "IP matches but path doesn't, L1 blocks logs"))
-    cases.append(TestCase("Edge: HTTPDNS IP Range (IP Mismatch)", "https://143.93.88.1/shopee/batch_resolve_with_info", RES_BLOCK_403, "IP prefix out of bounds, L1 blocks batch_resolve"))
-    
     cases.append(TestCase("Feature: Heuristic API Silent Rewrite", "https://unknown-ecommerce.com/graphql/user?fbclid=test", RES_REWRITE, "GraphQL path uses Silent Rewrite to clean tracking parameters safely"))
     cases.append(TestCase("Privacy: Telemetry Drop (YT)", "https://www.youtube.com/error_204?cosver=18.7.1.22H31&cmodel=iPhone16%2C1&a=logerror", RES_DROP_204, "Silent Drop for High Precision Telemetry"))
     cases.append(TestCase("Privacy: WP Ad Plugin (L1 Scanner)", "https://www.koc.com.tw/wp-content/plugins/advanced-ads-responsive/public/assets/js/script.js?ver=1.10.2", RES_BLOCK_403, "Must be blocked by L1 Scanner ignoring static whitelist"))
@@ -1709,9 +1692,6 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Coupang JSError Log", "https://asset2.coupangcdn.com/customjs/jserror/2.5.1/jslog.min.js", RES_BLOCK_403, "Blocked by CRITICAL_PATH_SCRIPT_ROOTS"))
     cases.append(TestCase("Privacy: Coupang FeatureFlag Telemetry", "https://cmapi.tw.coupang.com/modular/v1/endpoints/12900/ff/v1/featureFlag/batchTracking", RES_BLOCK_403, "Blocked by CRITICAL_PATH_MAP precise targeting"))
     cases.append(TestCase("Privacy: Favicon Proxy Exemption", "https://www.google.com/s2/favicons?domain=mcp.hubspot.com&sz=64", RES_ALLOW, "Bypass PATH_BLOCK 'hubspot' keyword via PATH_EXEMPTIONS"))
-
-    # --- [Refine-V44.71] 移除 CRITICAL_PATH_MAP 狙擊後，手動注入的防護退讓斷言 ---
-    cases.append(TestCase("Privacy: Shopee Event Telemetry (Allowed)", "https://patronus.idata.shopeemobile.com/event-receiver/api/v4/tw", RES_ALLOW, "Removed from CRITICAL_PATH_MAP to avoid breaking app features"))
 
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
