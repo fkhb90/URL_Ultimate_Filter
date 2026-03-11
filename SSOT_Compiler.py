@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.74 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.75 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -60,7 +60,8 @@ URL Ultimate Filter - V44.74 SSOT Compiler & Matrix Test Suite
 42. [Security-V44.66] PRIORITY_BLOCK_DOMAINS 全面重構與擴充 (131→168 條)。
 43. [Feature-V44.67] 擴充 PATH_EXEMPTIONS 支援 Coupang CDN 新舊目錄雙軌豁免 (ccm & cmg/oms)。
 44. [Feature-V44.68] 擴充 PATH_EXEMPTIONS 支援 Google Favicon API，防止因目標網域夾帶廣告關鍵字 (如 hubspot) 而遭 L2 掃描器誤殺。
-50. [Architecture-V44.74] 策略回退與重構：回退至 V44.68 狀態，恢復腳本對蝦皮遙測的精準控管；將 FINANCE_SAFE_HARBOR 語意升級為 ABSOLUTE_BYPASS_DOMAINS；透過 PATH_EXEMPTIONS 精準豁免蝦皮 PDP 商品 API (/api/v4/pdp/get)，解決 ads_id 參數觸發正則掃描器的誤殺問題。
+45. [Architecture-V44.74] 策略回退與重構：回退至 V44.68 狀態，恢復腳本對蝦皮遙測的精準控管；將 FINANCE_SAFE_HARBOR 語意升級為 ABSOLUTE_BYPASS_DOMAINS；透過 PATH_EXEMPTIONS 精準豁免蝦皮 PDP 商品 API (/api/v4/pdp/get)，解決 ads_id 參數觸發正則掃描器的誤殺問題。
+46. [Privacy-V44.75] 精準狙擊蝦皮 A/B 測試與流量分配遙測端點 (/abtest/traffic/)，防止設備特徵分群。
 """
 
 import json
@@ -82,7 +83,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.74"
+VERSION = "44.75"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -118,7 +119,6 @@ RULES_DB = {
             "/v2/api/": ["device_id"]
         }
     },
-    # [Architecture-V44.74] 重構為 ABSOLUTE_BYPASS_DOMAINS，精確表達絕對豁免語意
     "ABSOLUTE_BYPASS_DOMAINS": {
         "EXACT": [
             'api.ecpay.com.tw', 'payment.ecpay.com.tw', 'api.map.ecpay.com.tw', 'api.jkos.com'
@@ -416,7 +416,7 @@ RULES_DB = {
         'tw.fd-api.com': ['/api/v5/action-log'],
         'chatbot.shopee.tw': ['/report/v1/log'],
         'data-rep.livetech.shopee.tw': ['/dataapi/dataweb/event/'],
-        'shopee.tw': ['/dataapi/dataweb/event/'],
+        'shopee.tw': ['/dataapi/dataweb/event/', '/abtest/traffic/'],
         'api.tongyi.com': ['/qianwen/event/track'],
         'gw.alipayobjects.com': ['/config/loggw/'],
         'slack.com': ['/api/profiling.logging.enablement', '/api/telemetry'],
@@ -570,7 +570,6 @@ RULES_DB = {
         '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar'
     ],
     "PATH_EXEMPTIONS": {
-        # [Architecture-V44.74] 精準豁免蝦皮 PDP API，避免內部 ads_id 參數觸發 Regex 誤殺
         "shopee.tw": ["/api/v4/search/search_items", "/api/v4/pdp/get"],
         "cmapi.tw.coupang.com": ["/vendor-items/"],
         "coupangcdn.com": ["/image/ccm/banner/", "/image/cmg/oms/banner/"],
@@ -799,8 +798,15 @@ const HELPERS = {
   },
 
   isPathExemptedForDomain: (hostname, pathLower) => {
-    for (const [domain, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
-      if (hostname === domain || hostname.endsWith('.' + domain)) {
+    for (const [domainOrPrefix, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
+      let isMatch = false;
+      if (domainOrPrefix.endsWith('.') && /^\d/.test(domainOrPrefix)) {
+          isMatch = hostname.startsWith(domainOrPrefix);
+      } else {
+          isMatch = (hostname === domainOrPrefix || hostname.endsWith('.' + domainOrPrefix));
+      }
+      
+      if (isMatch) {
         for (const exemptedPath of exemptedPaths) {
           if (pathLower.includes(exemptedPath)) return true;
         }
@@ -1678,10 +1684,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: Canvas Test Tool", "https://browserleaks.com/canvas", RES_ALLOW, "V44.38 Exempt browserleaks.com from PATH_BLOCK 'canvas' keyword"))
     cases.append(TestCase("Fix: 104 App internal /ad/ path", "https://appapi.104.com.tw/2.0/ad/search/hashtag?device_type=0&device_id=6CCC0850&ad_type=full", RES_REWRITE, "Bypasses HIGH_CONFIDENCE /ad/ block via HARD_WHITELIST and strips device_id silently"))
     cases.append(TestCase("Privacy: Exemption (API Auth)", "https://api.feedly.com/v3/streams?device_id=abc&source=ios", RES_ALLOW, "Exempted to protect HMAC signatures"))
-    
-    # [Architecture-V44.74] 同步更新 ABSOLUTE_BYPASS 的斷言名稱
     cases.append(TestCase("Edge: Absolute Bypass (Finance)", "https://api.ecpay.com.tw/pay?source=web&ref=123", RES_ALLOW, "Absolute bypass stops scanning immediately"))
-    
     cases.append(TestCase("BugFix: API Login Collision", "https://api.signin.104.com.tw/v2/api/login/valid-account", RES_ALLOW, "Prevent /api/log from falsely killing /api/login endpoints"))
     cases.append(TestCase("BugFix: Threads Path Exemption", "https://www.threads.com/@n_ys_m/post/DIaU/abc", RES_ALLOW, "Bypass L1/L2 path scanners using PATH_EXEMPTIONS"))
     cases.append(TestCase("BugFix: P0 Subdomain Inheritance", "https://px.ads.linkedin.com/test", RES_BLOCK_403, "Validate P0 wildcards logic correctly inherits down to subdomains"))
@@ -1699,9 +1702,11 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Coupang FeatureFlag Telemetry", "https://cmapi.tw.coupang.com/modular/v1/endpoints/12900/ff/v1/featureFlag/batchTracking", RES_BLOCK_403, "Blocked by CRITICAL_PATH_MAP precise targeting"))
     cases.append(TestCase("Privacy: Favicon Proxy Exemption", "https://www.google.com/s2/favicons?domain=mcp.hubspot.com&sz=64", RES_ALLOW, "Bypass PATH_BLOCK 'hubspot' keyword via PATH_EXEMPTIONS"))
 
-    # [Architecture-V44.74] 恢復 V44.68 對蝦皮遙測的精準阻擋，並新增對 PDP API 的豁免測試
     cases.append(TestCase("Privacy: Shopee Event Telemetry", "https://patronus.idata.shopeemobile.com/event-receiver/api/v4/tw", RES_BLOCK_403, "Blocked by CRITICAL_PATH_MAP (V44.68 Baseline)"))
     cases.append(TestCase("BugFix: Shopee PDP Regex Exemption", "https://mall.shopee.tw/api/v4/pdp/get?_pft=1047551&ads_id=159771735", RES_ALLOW, "Bypass heuristic regex block via PATH_EXEMPTIONS"))
+    
+    # [Privacy-V44.75] 精準狙擊蝦皮 A/B 測試遙測端點的防禦斷言
+    cases.append(TestCase("Privacy: Shopee AB Test Telemetry", "https://shopee.tw/api/v4/abtest/traffic/get_client_experiments", RES_BLOCK_403, "Blocked by CRITICAL_PATH_MAP precise targeting"))
 
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
