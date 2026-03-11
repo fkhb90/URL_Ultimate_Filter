@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.68 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.70 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -60,6 +60,8 @@ URL Ultimate Filter - V44.68 SSOT Compiler & Matrix Test Suite
 42. [Security-V44.66] PRIORITY_BLOCK_DOMAINS 全面重構與擴充 (131→168 條)。
 43. [Feature-V44.67] 擴充 PATH_EXEMPTIONS 支援 Coupang CDN 新舊目錄雙軌豁免 (ccm & cmg/oms)。
 44. [Feature-V44.68] 擴充 PATH_EXEMPTIONS 支援 Google Favicon API，防止因目標網域夾帶廣告關鍵字 (如 hubspot) 而遭 L2 掃描器誤殺。
+45. [Feature-V44.69] 擴充 PATH_EXEMPTIONS 支援蝦皮 HTTPDNS 直連 IP (143.92.88.1) 局部放行，修復 App 核心連線。
+46. [Architecture-V44.70] 實作字首匹配法 (Prefix Matching) 以支援蝦皮 143.92.x.x 等動態 HTTPDNS IP 網段豁免。
 """
 
 import json
@@ -81,7 +83,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.68"
+VERSION = "44.70"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -571,8 +573,9 @@ RULES_DB = {
         "shopee.tw": ["/api/v4/search/search_items"],
         "cmapi.tw.coupang.com": ["/vendor-items/"],
         "coupangcdn.com": ["/image/ccm/banner/", "/image/cmg/oms/banner/"],
-        # [Feature-V44.68] 新增 /s2/favicons 以豁免夾帶廣告網域參數的 Google 代理請求
         "www.google.com": ["/url", "/search", "/s2/favicons"],
+        # [Feature-V44.70] 重構為字首匹配法 (Prefix Matching)，涵蓋 143.92.x.x 網段的所有動態 HTTPDNS IP
+        "143.92.": ["/shopee/batch_resolve_with_info"],
         "play.googleapis.com": ["/log/batch"],
         "threads.com": ["/post/"],
         "threads.net": ["/post/"]
@@ -797,8 +800,16 @@ const HELPERS = {
   },
 
   isPathExemptedForDomain: (hostname, pathLower) => {
-    for (const [domain, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
-      if (hostname === domain || hostname.endsWith('.' + domain)) {
+    for (const [domainOrPrefix, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
+      // [Feature-V44.70] 實作 IP 字首匹配法 (Prefix Matching)
+      let isMatch = false;
+      if (domainOrPrefix.endsWith('.') && /^\d/.test(domainOrPrefix)) {
+          isMatch = hostname.startsWith(domainOrPrefix);
+      } else {
+          isMatch = (hostname === domainOrPrefix || hostname.endsWith('.' + domainOrPrefix));
+      }
+      
+      if (isMatch) {
         for (const exemptedPath of exemptedPaths) {
           if (pathLower.includes(exemptedPath)) return true;
         }
@@ -1663,7 +1674,13 @@ def generate_full_coverage_cases() -> List[TestCase]:
          cases.append(TestCase("Privacy: Exemption (Shop)", f"https://{exempt_domain_exact}{test_path}", expected_shop, "Exempted from cleaning"))
 
     cases.append(TestCase("Matrix: Double Decode Escape", "https://example.com/%2561%2564/banner.webp", RES_BLOCK_403, "Blocked by High Confidence Override (Double Decoded)"))
-    cases.append(TestCase("Edge: HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772072185", RES_BLOCK_403, "Blocked by L1 Critical Path"))
+    
+    # --- [Feature-V44.70] 動態 HTTPDNS IP 網段字首匹配測試 ---
+    cases.append(TestCase("Edge: HTTPDNS IP Range (Match 1)", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1", RES_ALLOW, "Exempted via IP prefix matching"))
+    cases.append(TestCase("Edge: HTTPDNS IP Range (Match 2)", "https://143.92.123.45/shopee/batch_resolve_with_info?timestamp=2", RES_ALLOW, "Exempted via IP prefix matching (Different IP in range)"))
+    cases.append(TestCase("Edge: HTTPDNS IP Range (Path Mismatch)", "https://143.92.88.1/api/v1/logs", RES_BLOCK_403, "IP matches but path doesn't, L1 blocks logs"))
+    cases.append(TestCase("Edge: HTTPDNS IP Range (IP Mismatch)", "https://143.93.88.1/shopee/batch_resolve_with_info", RES_BLOCK_403, "IP prefix out of bounds, L1 blocks batch_resolve"))
+    
     cases.append(TestCase("Feature: Heuristic API Silent Rewrite", "https://unknown-ecommerce.com/graphql/user?fbclid=test", RES_REWRITE, "GraphQL path uses Silent Rewrite to clean tracking parameters safely"))
     cases.append(TestCase("Privacy: Telemetry Drop (YT)", "https://www.youtube.com/error_204?cosver=18.7.1.22H31&cmodel=iPhone16%2C1&a=logerror", RES_DROP_204, "Silent Drop for High Precision Telemetry"))
     cases.append(TestCase("Privacy: WP Ad Plugin (L1 Scanner)", "https://www.koc.com.tw/wp-content/plugins/advanced-ads-responsive/public/assets/js/script.js?ver=1.10.2", RES_BLOCK_403, "Must be blocked by L1 Scanner ignoring static whitelist"))
@@ -1692,8 +1709,6 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: Coupang Banner Image (New OMS)", "https://image11.coupangcdn.com/image/cmg/oms/banner/9133e5bb-7468-4613-90f3-9ee18cafa072_720x1900.png", RES_ALLOW, "Exempted from HIGH_CONFIDENCE /banner/ block via PATH_EXEMPTIONS"))
     cases.append(TestCase("Privacy: Coupang JSError Log", "https://asset2.coupangcdn.com/customjs/jserror/2.5.1/jslog.min.js", RES_BLOCK_403, "Blocked by CRITICAL_PATH_SCRIPT_ROOTS"))
     cases.append(TestCase("Privacy: Coupang FeatureFlag Telemetry", "https://cmapi.tw.coupang.com/modular/v1/endpoints/12900/ff/v1/featureFlag/batchTracking", RES_BLOCK_403, "Blocked by CRITICAL_PATH_MAP precise targeting"))
-    
-    # --- [Feature-V44.68] Google Favicon API 雙軌豁免回歸測試 ---
     cases.append(TestCase("Privacy: Favicon Proxy Exemption", "https://www.google.com/s2/favicons?domain=mcp.hubspot.com&sz=64", RES_ALLOW, "Bypass PATH_BLOCK 'hubspot' keyword via PATH_EXEMPTIONS"))
 
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
@@ -1864,5 +1879,3 @@ def run_tests():
 
 if __name__ == "__main__":
     run_tests()
-
-
