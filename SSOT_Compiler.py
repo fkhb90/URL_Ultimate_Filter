@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.73 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.74 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -60,11 +60,7 @@ URL Ultimate Filter - V44.73 SSOT Compiler & Matrix Test Suite
 42. [Security-V44.66] PRIORITY_BLOCK_DOMAINS 全面重構與擴充 (131→168 條)。
 43. [Feature-V44.67] 擴充 PATH_EXEMPTIONS 支援 Coupang CDN 新舊目錄雙軌豁免 (ccm & cmg/oms)。
 44. [Feature-V44.68] 擴充 PATH_EXEMPTIONS 支援 Google Favicon API，防止因目標網域夾帶廣告關鍵字 (如 hubspot) 而遭 L2 掃描器誤殺。
-45. [Feature-V44.69] 擴充 PATH_EXEMPTIONS 支援蝦皮 HTTPDNS 直連 IP (143.92.88.1) 局部放行，修復 App 核心連線。
-46. [Architecture-V44.70] 實作字首匹配法 (Prefix Matching) 以支援蝦皮 143.92.x.x 等動態 HTTPDNS IP 網段豁免。
-47. [Refine-V44.71] 移除 CRITICAL_PATH_MAP 中對蝦皮 patronus.idata.shopeemobile.com 的精準狙擊，修復 App 內部活動與獎勵功能。
-48. [Architecture-V44.72] 全面解耦蝦皮 (Shopee) 相關規則，徹底移除其專屬網域、路徑與測試案例，將遙測阻擋與放行主導權移交 Surge Rule-Set 核心接管，提升系統靈活性與效能。
-49. [Architecture-V44.73] 規則語意學重構：將 FINANCE_SAFE_HARBOR 升級為 ABSOLUTE_BYPASS_DOMAINS (絕對豁免網域)；並將 shopee.tw 等蝦皮核心網域納入 WILDCARDS，徹底解決零信任架構下的正則誤殺悖論。
+50. [Architecture-V44.74] 策略回退與重構：回退至 V44.68 狀態，恢復腳本對蝦皮遙測的精準控管；將 FINANCE_SAFE_HARBOR 語意升級為 ABSOLUTE_BYPASS_DOMAINS；透過 PATH_EXEMPTIONS 精準豁免蝦皮 PDP 商品 API (/api/v4/pdp/get)，解決 ads_id 參數觸發正則掃描器的誤殺問題。
 """
 
 import json
@@ -86,7 +82,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.73"
+VERSION = "44.74"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -105,7 +101,7 @@ RULES_DB = {
             'shopback.com.tw', 'extrabux.com', 'buy.line.me'
         ],
         "WILDCARDS": [
-            'feedly.com', 
+            'feedly.com', 'shopee.tw', 
             's3.amazonaws.com', 'storage.googleapis.com', 'core.windows.net',
             'api.line.me', 'api.newebpay.com', 'api.tappayapis.com',
             'api.stripe.com', 'api.github.com', 'api.twitch.tv',
@@ -122,15 +118,12 @@ RULES_DB = {
             "/v2/api/": ["device_id"]
         }
     },
-    # [Architecture-V44.73] 重構為 ABSOLUTE_BYPASS_DOMAINS，統一管理金融關鍵與委派外部控制的網域
+    # [Architecture-V44.74] 重構為 ABSOLUTE_BYPASS_DOMAINS，精確表達絕對豁免語意
     "ABSOLUTE_BYPASS_DOMAINS": {
         "EXACT": [
             'api.ecpay.com.tw', 'payment.ecpay.com.tw', 'api.map.ecpay.com.tw', 'api.jkos.com'
         ],
         "WILDCARDS": [
-            # --- 委派 Surge 控制區 (Delegated to Surge Layer) ---
-            'shopee.tw', 'shopee.com', 'shopeemobile.com', 'shopee.io',
-            # --- 純金融避風港區 (Finance Critical) ---
             'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw',
             'richart.tw', 'bot.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw',
             'dawho.tw', 'dbs.com.tw', 'firstbank.com.tw', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw',
@@ -178,6 +171,8 @@ RULES_DB = {
         'cms-statistics.quark.cn', 'stat.quark.cn', 'unpm-upaas.quark.cn',
         'browser.360.cn', 's.360.cn', 'shouji.360.cn', 'stat.360.cn',
         'inte.sogou.com', 'lu.sogou.com', 'pb.sogou.com', 'ping.sogou.com',
+        'analytics.shopee.tw', 'apm.tracking.shopee.tw', 'dem.shopee.com',
+        'dmp.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
         'analysis.momoshop.com.tw', 'ecdmp.momoshop.com.tw', 'event.momoshop.com.tw',
         'log.momoshop.com.tw', 'pixel.momoshop.com.tw', 'rtb.momoshop.com.tw',
         'sspap.momoshop.com.tw', 'trace.momoshop.com.tw', 'trk.momoshop.com.tw',
@@ -267,7 +262,7 @@ RULES_DB = {
             'api.ipify.org', 'gcp-data-api.ltn.com.tw', 's.pinimg.com', 'cdn.shopify.com'
         ],
         "WILDCARDS": [
-            'chatgpt.com', 
+            'chatgpt.com', 'shopee.com', 'shopeemobile.com', 'shopee.io',
             'youtube.com', 'facebook.com', 'instagram.com', 'twitter.com', 'tiktok.com', 'spotify.com',
             'netflix.com', 'disney.com', 'linkedin.com', 'discord.com', 'googleapis.com', 'book.com.tw',
             'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com', 'm.youtube.com', 'momo.dm',
@@ -407,6 +402,7 @@ RULES_DB = {
         'api.uber.com': ['/ramen/v1/events', '/v3/mobile-event', '/advertising/v1/', '/eats/advertising/', '/rt/users/v1/device-info'],
         'api.ubereats.com': ['/v1/eats/advertising', '/ramen/v1/events'],
         'cn-geo1.uber.com': ['/ramen/v1/events', '/v3/mobile-event', '/monitor/v2/logs'],
+        'tw.mapi.shp.yahoo.com': ['/w/analytics', '/v1/instrumentation', '/ws/search/tracking', '/dw/tracker'],
         'tw.buy.yahoo.com': ['/b/ss/', '/ws/search/tracking', '/activity/record'],
         'unwire.hk': ['/mkgqaa1mfbon.js'],
         'asset2.coupangcdn.com': ['/jslog.min.js'],
@@ -418,6 +414,9 @@ RULES_DB = {
         'js.stripe.com': ['/fingerprinted/'],
         'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr'],
         'tw.fd-api.com': ['/api/v5/action-log'],
+        'chatbot.shopee.tw': ['/report/v1/log'],
+        'data-rep.livetech.shopee.tw': ['/dataapi/dataweb/event/'],
+        'shopee.tw': ['/dataapi/dataweb/event/'],
         'api.tongyi.com': ['/qianwen/event/track'],
         'gw.alipayobjects.com': ['/config/loggw/'],
         'slack.com': ['/api/profiling.logging.enablement', '/api/telemetry'],
@@ -473,6 +472,10 @@ RULES_DB = {
         'discord.com': ['/api/v10/science', '/api/v9/science'],
         'vk.com': ['/rtrg'],
         'instagram.com': ['/logging_client_events'],
+        'mall.shopee.tw': ['/userstats_record/batchrecord'],
+        'patronus.idata.shopeemobile.com': ['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'],
+        'dp.tracking.shopee.tw': ['/v4/event_batch'],
+        'live-apm.shopee.tw': ['/apmapi/v1/event'],
         'cmapi.tw.coupang.com': ['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/'],
         'disqus.com': ['/api/3.0/users/events', '/j/', '/tracking_pixel/']
     },
@@ -567,6 +570,8 @@ RULES_DB = {
         '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar'
     ],
     "PATH_EXEMPTIONS": {
+        # [Architecture-V44.74] 精準豁免蝦皮 PDP API，避免內部 ads_id 參數觸發 Regex 誤殺
+        "shopee.tw": ["/api/v4/search/search_items", "/api/v4/pdp/get"],
         "cmapi.tw.coupang.com": ["/vendor-items/"],
         "coupangcdn.com": ["/image/ccm/banner/", "/image/cmg/oms/banner/"],
         "www.google.com": ["/url", "/search", "/s2/favicons"],
@@ -650,7 +655,6 @@ const SILENT_REWRITE_DOMAINS = {{
     WILDCARDS: {format_js_set(RULES_DB['SILENT_REWRITE_DOMAINS']['WILDCARDS'])}
 }};
 
-// [Architecture-V44.73] 重構為 ABSOLUTE_BYPASS_DOMAINS
 const ABSOLUTE_BYPASS_DOMAINS = {{
     EXACT: {format_js_set(RULES_DB['ABSOLUTE_BYPASS_DOMAINS']['EXACT'])},
     WILDCARDS: {format_js_set(RULES_DB['ABSOLUTE_BYPASS_DOMAINS']['WILDCARDS'])}
@@ -795,15 +799,8 @@ const HELPERS = {
   },
 
   isPathExemptedForDomain: (hostname, pathLower) => {
-    for (const [domainOrPrefix, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
-      let isMatch = false;
-      if (domainOrPrefix.endsWith('.') && /^\d/.test(domainOrPrefix)) {
-          isMatch = hostname.startsWith(domainOrPrefix);
-      } else {
-          isMatch = (hostname === domainOrPrefix || hostname.endsWith('.' + domainOrPrefix));
-      }
-      
-      if (isMatch) {
+    for (const [domain, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
+      if (hostname === domain || hostname.endsWith('.' + domain)) {
         for (const exemptedPath of exemptedPaths) {
           if (pathLower.includes(exemptedPath)) return true;
         }
@@ -977,7 +974,6 @@ function processRequest(request) {
         stats.allows++; return null;
     }
 
-    // [Architecture-V44.73] 使用升級後的 ABSOLUTE_BYPASS_DOMAINS 進行絕對提早回傳
     if (isDomainMatch(ABSOLUTE_BYPASS_DOMAINS.EXACT, ABSOLUTE_BYPASS_DOMAINS.WILDCARDS, hostname)) {
         stats.allows++; return null;
     }
@@ -1669,6 +1665,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
          cases.append(TestCase("Privacy: Exemption (Shop)", f"https://{exempt_domain_exact}{test_path}", expected_shop, "Exempted from cleaning"))
 
     cases.append(TestCase("Matrix: Double Decode Escape", "https://example.com/%2561%2564/banner.webp", RES_BLOCK_403, "Blocked by High Confidence Override (Double Decoded)"))
+    cases.append(TestCase("Edge: HTTPDNS Direct IP", "https://143.92.88.1/shopee/batch_resolve_with_info?timestamp=1772072185", RES_BLOCK_403, "Blocked by L1 Critical Path"))
     cases.append(TestCase("Feature: Heuristic API Silent Rewrite", "https://unknown-ecommerce.com/graphql/user?fbclid=test", RES_REWRITE, "GraphQL path uses Silent Rewrite to clean tracking parameters safely"))
     cases.append(TestCase("Privacy: Telemetry Drop (YT)", "https://www.youtube.com/error_204?cosver=18.7.1.22H31&cmodel=iPhone16%2C1&a=logerror", RES_DROP_204, "Silent Drop for High Precision Telemetry"))
     cases.append(TestCase("Privacy: WP Ad Plugin (L1 Scanner)", "https://www.koc.com.tw/wp-content/plugins/advanced-ads-responsive/public/assets/js/script.js?ver=1.10.2", RES_BLOCK_403, "Must be blocked by L1 Scanner ignoring static whitelist"))
@@ -1682,7 +1679,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Fix: 104 App internal /ad/ path", "https://appapi.104.com.tw/2.0/ad/search/hashtag?device_type=0&device_id=6CCC0850&ad_type=full", RES_REWRITE, "Bypasses HIGH_CONFIDENCE /ad/ block via HARD_WHITELIST and strips device_id silently"))
     cases.append(TestCase("Privacy: Exemption (API Auth)", "https://api.feedly.com/v3/streams?device_id=abc&source=ios", RES_ALLOW, "Exempted to protect HMAC signatures"))
     
-    # [Architecture-V44.73] 同步更名測試案例
+    # [Architecture-V44.74] 同步更新 ABSOLUTE_BYPASS 的斷言名稱
     cases.append(TestCase("Edge: Absolute Bypass (Finance)", "https://api.ecpay.com.tw/pay?source=web&ref=123", RES_ALLOW, "Absolute bypass stops scanning immediately"))
     
     cases.append(TestCase("BugFix: API Login Collision", "https://api.signin.104.com.tw/v2/api/login/valid-account", RES_ALLOW, "Prevent /api/log from falsely killing /api/login endpoints"))
@@ -1702,8 +1699,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Coupang FeatureFlag Telemetry", "https://cmapi.tw.coupang.com/modular/v1/endpoints/12900/ff/v1/featureFlag/batchTracking", RES_BLOCK_403, "Blocked by CRITICAL_PATH_MAP precise targeting"))
     cases.append(TestCase("Privacy: Favicon Proxy Exemption", "https://www.google.com/s2/favicons?domain=mcp.hubspot.com&sz=64", RES_ALLOW, "Bypass PATH_BLOCK 'hubspot' keyword via PATH_EXEMPTIONS"))
 
-    # [Architecture-V44.73] 新增 Shopee 絕對豁免測試斷言，驗證是否能繞過 Regex 誤殺
-    cases.append(TestCase("Architecture: Absolute Bypass (Shopee)", "https://mall.shopee.tw/api/v4/pdp/get?ads_id=159771735", RES_ALLOW, "Shopee domain is absolutely bypassed and delegated to Surge"))
+    # [Architecture-V44.74] 恢復 V44.68 對蝦皮遙測的精準阻擋，並新增對 PDP API 的豁免測試
+    cases.append(TestCase("Privacy: Shopee Event Telemetry", "https://patronus.idata.shopeemobile.com/event-receiver/api/v4/tw", RES_BLOCK_403, "Blocked by CRITICAL_PATH_MAP (V44.68 Baseline)"))
+    cases.append(TestCase("BugFix: Shopee PDP Regex Exemption", "https://mall.shopee.tw/api/v4/pdp/get?_pft=1047551&ads_id=159771735", RES_ALLOW, "Bypass heuristic regex block via PATH_EXEMPTIONS"))
 
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
