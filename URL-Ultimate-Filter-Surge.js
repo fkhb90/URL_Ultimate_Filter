@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.74 (SSOT Compilation)
+ * @version   44.75 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.74';
+const SCRIPT_VERSION = '44.75';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -337,7 +337,7 @@ const RULES = {
         '/dataapi/dataweb/event/'
       ])],
     ['shopee.tw', new Set([
-        '/dataapi/dataweb/event/'
+        '/dataapi/dataweb/event/', '/abtest/traffic/'
       ])],
     ['api.tongyi.com', new Set([
         '/qianwen/event/track'
@@ -814,8 +814,15 @@ const HELPERS = {
   },
 
   isPathExemptedForDomain: (hostname, pathLower) => {
-    for (const [domain, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
-      if (hostname === domain || hostname.endsWith('.' + domain)) {
+    for (const [domainOrPrefix, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
+      let isMatch = false;
+      if (domainOrPrefix.endsWith('.') && /^\d/.test(domainOrPrefix)) {
+          isMatch = hostname.startsWith(domainOrPrefix);
+      } else {
+          isMatch = (hostname === domainOrPrefix || hostname.endsWith('.' + domainOrPrefix));
+      }
+      
+      if (isMatch) {
         for (const exemptedPath of exemptedPaths) {
           if (pathLower.includes(exemptedPath)) return true;
         }
