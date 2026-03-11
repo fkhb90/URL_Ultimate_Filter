@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.73 (SSOT Compilation)
+ * @version   44.74 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.73';
+const SCRIPT_VERSION = '44.74';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -20,9 +20,9 @@ const PARAM_CLEANING_EXEMPTED_DOMAINS = {
     'shopback.com.tw', 'extrabux.com', 'buy.line.me'
   ]),
     WILDCARDS: new Set([
-    'feedly.com', 's3.amazonaws.com', 'storage.googleapis.com', 'core.windows.net', 'api.line.me', 'api.newebpay.com',
-    'api.tappayapis.com', 'api.stripe.com', 'api.github.com', 'api.twitch.tv', 'cdn.discordapp.com', 'slack.com',
-    'cloudfunctions.net'
+    'feedly.com', 'shopee.tw', 's3.amazonaws.com', 'storage.googleapis.com', 'core.windows.net', 'api.line.me',
+    'api.newebpay.com', 'api.tappayapis.com', 'api.stripe.com', 'api.github.com', 'api.twitch.tv', 'cdn.discordapp.com',
+    'slack.com', 'cloudfunctions.net'
   ])
 };
 
@@ -33,19 +33,17 @@ const SILENT_REWRITE_DOMAINS = {
   ])
 };
 
-// [Architecture-V44.73] 重構為 ABSOLUTE_BYPASS_DOMAINS
 const ABSOLUTE_BYPASS_DOMAINS = {
     EXACT: new Set([
     'api.ecpay.com.tw', 'payment.ecpay.com.tw', 'api.map.ecpay.com.tw', 'api.jkos.com'
   ]),
     WILDCARDS: new Set([
-    'shopee.tw', 'shopee.com', 'shopeemobile.com', 'shopee.io', 'cathaybk.com.tw', 'ctbcbank.com',
-    'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw', 'richart.tw', 'bot.com.tw', 'cathaysec.com.tw',
-    'chb.com.tw', 'citibank.com.tw', 'dawho.tw', 'dbs.com.tw', 'firstbank.com.tw', 'hncb.com.tw',
-    'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw', 'megabank.com.tw', 'scsb.com.tw', 'sinopac.com',
-    'sinotrade.com.tw', 'standardchartered.com.tw', 'tcb-bank.com.tw', 'paypal.com', 'stripe.com', 'taiwanpay.com.tw',
-    'twca.com.tw', 'twmp.com.tw', 'pay.taipei', 'momopay.com.tw', 'mymobibank.com.tw', 'post.gov.tw',
-    'nhi.gov.tw', 'mohw.gov.tw', 'tdcc.com.tw'
+    'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw', 'richart.tw',
+    'bot.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw', 'dawho.tw', 'dbs.com.tw',
+    'firstbank.com.tw', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw', 'landbank.com.tw', 'megabank.com.tw',
+    'scsb.com.tw', 'sinopac.com', 'sinotrade.com.tw', 'standardchartered.com.tw', 'tcb-bank.com.tw', 'paypal.com',
+    'stripe.com', 'taiwanpay.com.tw', 'twca.com.tw', 'twmp.com.tw', 'pay.taipei', 'momopay.com.tw',
+    'mymobibank.com.tw', 'post.gov.tw', 'nhi.gov.tw', 'mohw.gov.tw', 'tdcc.com.tw'
   ])
 };
 
@@ -71,6 +69,7 @@ const RULES = {
     'sp0.baidu.com', 'sp1.baidu.com', 'tanx.com', 'uc.cn', 'ucweb.com', 'uczzd.cn',
     'ynuf.alipay.com', 'cms-statistics.quark.cn', 'stat.quark.cn', 'unpm-upaas.quark.cn', 'browser.360.cn', 's.360.cn',
     'shouji.360.cn', 'stat.360.cn', 'inte.sogou.com', 'lu.sogou.com', 'pb.sogou.com', 'ping.sogou.com',
+    'analytics.shopee.tw', 'apm.tracking.shopee.tw', 'dem.shopee.com', 'dmp.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
     'analysis.momoshop.com.tw', 'ecdmp.momoshop.com.tw', 'event.momoshop.com.tw', 'log.momoshop.com.tw', 'pixel.momoshop.com.tw', 'rtb.momoshop.com.tw',
     'sspap.momoshop.com.tw', 'trace.momoshop.com.tw', 'trk.momoshop.com.tw', 'jslog.coupang.com', 'mercury.coupang.com', 'ad.gamer.com.tw',
     'ad-geek.net', 'ad-hub.net', 'ad-serv.teepr.com', 'ad-tracking.dcard.tw', 'analysis.tw', 'appier.net',
@@ -138,22 +137,23 @@ const RULES = {
     'gcp-data-api.ltn.com.tw', 's.pinimg.com', 'cdn.shopify.com'
   ]),
     WILDCARDS: new Set([
-    'chatgpt.com', 'youtube.com', 'facebook.com', 'instagram.com', 'twitter.com', 'tiktok.com',
-    'spotify.com', 'netflix.com', 'disney.com', 'linkedin.com', 'discord.com', 'googleapis.com',
-    'book.com.tw', 'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com', 'm.youtube.com',
-    'momo.dm', 'momoshop.com.tw', 'pxmart.com.tw', 'pxpayplus.com', 'shopback.com.tw', 'akamaihd.net',
-    'amazonaws.com', 'cloudflare.com', 'cloudfront.net', 'fastly.net', 'fbcdn.net', 'gstatic.com',
-    'jsdelivr.net', 'cdnjs.cloudflare.com', 'twimg.com', 'unpkg.com', 'ytimg.com', 'new-reporter.com',
-    'wp.com', 'flipboard.com', 'inoreader.com', 'itofoo.com', 'newsblur.com', 'theoldreader.com',
-    'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com', 'github.io', 'gitlab.io', 'netlify.app',
-    'oraclecloud.com', 'pages.dev', 'vercel.app', 'windows.net', 'threads.net', 'threads.com',
-    'slack.com', 'feedly.com', 'ak.sv', 'bayimg.com', 'beeimg.com', 'binbox.io',
-    'casimages.com', 'cocoleech.com', 'cubeupload.com', 'dlupload.com', 'fastpic.org', 'fotosik.pl',
-    'gofile.download', 'ibb.co', 'imagebam.com', 'imageban.ru', 'imageshack.com', 'imagetwist.com',
-    'imagevenue.com', 'imgbb.com', 'imgbox.com', 'imgflip.com', 'imx.to', 'indishare.org',
-    'infidrive.net', 'k2s.cc', 'katfile.com', 'mirrored.to', 'multiup.io', 'nmac.to',
-    'noelshack.com', 'pic-upload.de', 'pixhost.to', 'postimg.cc', 'prnt.sc', 'sfile.mobi',
-    'thefileslocker.net', 'turboimagehost.com', 'uploadhaven.com', 'uploadrar.com', 'usersdrive.com', '__sbcdn'
+    'chatgpt.com', 'shopee.com', 'shopeemobile.com', 'shopee.io', 'youtube.com', 'facebook.com',
+    'instagram.com', 'twitter.com', 'tiktok.com', 'spotify.com', 'netflix.com', 'disney.com',
+    'linkedin.com', 'discord.com', 'googleapis.com', 'book.com.tw', 'citiesocial.com', 'coupang.com',
+    'iherb.biz', 'iherb.com', 'm.youtube.com', 'momo.dm', 'momoshop.com.tw', 'pxmart.com.tw',
+    'pxpayplus.com', 'shopback.com.tw', 'akamaihd.net', 'amazonaws.com', 'cloudflare.com', 'cloudfront.net',
+    'fastly.net', 'fbcdn.net', 'gstatic.com', 'jsdelivr.net', 'cdnjs.cloudflare.com', 'twimg.com',
+    'unpkg.com', 'ytimg.com', 'new-reporter.com', 'wp.com', 'flipboard.com', 'inoreader.com',
+    'itofoo.com', 'newsblur.com', 'theoldreader.com', 'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com',
+    'github.io', 'gitlab.io', 'netlify.app', 'oraclecloud.com', 'pages.dev', 'vercel.app',
+    'windows.net', 'threads.net', 'threads.com', 'slack.com', 'feedly.com', 'ak.sv',
+    'bayimg.com', 'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com', 'cubeupload.com',
+    'dlupload.com', 'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co', 'imagebam.com',
+    'imageban.ru', 'imageshack.com', 'imagetwist.com', 'imagevenue.com', 'imgbb.com', 'imgbox.com',
+    'imgflip.com', 'imx.to', 'indishare.org', 'infidrive.net', 'k2s.cc', 'katfile.com',
+    'mirrored.to', 'multiup.io', 'nmac.to', 'noelshack.com', 'pic-upload.de', 'pixhost.to',
+    'postimg.cc', 'prnt.sc', 'sfile.mobi', 'thefileslocker.net', 'turboimagehost.com', 'uploadhaven.com',
+    'uploadrar.com', 'usersdrive.com', '__sbcdn'
   ])
   },
 
@@ -294,6 +294,9 @@ const RULES = {
     ['cn-geo1.uber.com', new Set([
         '/ramen/v1/events', '/v3/mobile-event', '/monitor/v2/logs'
       ])],
+    ['tw.mapi.shp.yahoo.com', new Set([
+        '/w/analytics', '/v1/instrumentation', '/ws/search/tracking', '/dw/tracker'
+      ])],
     ['tw.buy.yahoo.com', new Set([
         '/b/ss/', '/ws/search/tracking', '/activity/record'
       ])],
@@ -326,6 +329,15 @@ const RULES = {
       ])],
     ['tw.fd-api.com', new Set([
         '/api/v5/action-log'
+      ])],
+    ['chatbot.shopee.tw', new Set([
+        '/report/v1/log'
+      ])],
+    ['data-rep.livetech.shopee.tw', new Set([
+        '/dataapi/dataweb/event/'
+      ])],
+    ['shopee.tw', new Set([
+        '/dataapi/dataweb/event/'
       ])],
     ['api.tongyi.com', new Set([
         '/qianwen/event/track'
@@ -491,6 +503,18 @@ const RULES = {
       ])],
     ['instagram.com', new Set([
         '/logging_client_events'
+      ])],
+    ['mall.shopee.tw', new Set([
+        '/userstats_record/batchrecord'
+      ])],
+    ['patronus.idata.shopeemobile.com', new Set([
+        '/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'
+      ])],
+    ['dp.tracking.shopee.tw', new Set([
+        '/v4/event_batch'
+      ])],
+    ['live-apm.shopee.tw', new Set([
+        '/apmapi/v1/event'
       ])],
     ['cmapi.tw.coupang.com', new Set([
         '/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/',
@@ -689,6 +713,9 @@ const RULES = {
     SUBSTRINGS: new Set(['cdn-cgi']),
     SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js']),
     PATH_EXEMPTIONS: new Map([
+    ['shopee.tw', new Set([
+        '/api/v4/search/search_items', '/api/v4/pdp/get'
+      ])],
     ['cmapi.tw.coupang.com', new Set([
         '/vendor-items/'
       ])],
@@ -787,15 +814,8 @@ const HELPERS = {
   },
 
   isPathExemptedForDomain: (hostname, pathLower) => {
-    for (const [domainOrPrefix, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
-      let isMatch = false;
-      if (domainOrPrefix.endsWith('.') && /^\d/.test(domainOrPrefix)) {
-          isMatch = hostname.startsWith(domainOrPrefix);
-      } else {
-          isMatch = (hostname === domainOrPrefix || hostname.endsWith('.' + domainOrPrefix));
-      }
-      
-      if (isMatch) {
+    for (const [domain, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
+      if (hostname === domain || hostname.endsWith('.' + domain)) {
         for (const exemptedPath of exemptedPaths) {
           if (pathLower.includes(exemptedPath)) return true;
         }
@@ -969,7 +989,6 @@ function processRequest(request) {
         stats.allows++; return null;
     }
 
-    // [Architecture-V44.73] 使用升級後的 ABSOLUTE_BYPASS_DOMAINS 進行絕對提早回傳
     if (isDomainMatch(ABSOLUTE_BYPASS_DOMAINS.EXACT, ABSOLUTE_BYPASS_DOMAINS.WILDCARDS, hostname)) {
         stats.allows++; return null;
     }
