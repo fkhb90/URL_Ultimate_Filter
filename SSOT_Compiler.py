@@ -1,67 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.75 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-架構更新：
-1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
-2. [Compiler] 實作 Pretty-Print 陣列排版引擎，恢復 JS 檔案多行可讀性。
-3. [Privacy] 實作 PARAM_CLEANING_EXEMPTED_DOMAINS，保護電商返利與歸因參數。
-4. [Feature] 升級蝦皮追蹤子網域為 P0，防範軟白名單覆蓋；新增 HTTPDNS 攔截。
-5. [Optimize] 導入「啟發式 API 簽章防護機制 (Heuristic API Signature Bypass)」。
-6. [Feature] 建立 FINANCE_SAFE_HARBOR (金融避風港) 機制，全域絕對放行銀行、支付網域。
-7. [Architecture-V44.27] 導入雙軌淨化機制「靜默網址重寫 (Silent URL Rewrite)」。
-8. [Architecture-V44.31] 建立「網域特化參數白名單」，豁免 104 API 嚴格校驗的 device_id。
-9. [BugFix-V44.32] 拔除 L1 掃描器中危險的無邊界特徵 '/api/log' 等，解決 104 登入失敗。
-10. [BugFix-V44.33] 修復 Matrix Test Suite 引擎中的陣列截斷問題。
-11. [BugFix-V44.34] 擴充 SOFT_WHITELIST 與 PATH_EXEMPTIONS，精準放行 threads。
-12. [Compatibility-V44.35] Surge JSC 引擎相容性修復。
-13. [Privacy-V44.36] 新增 OpenTelemetry (OTLP) 標準遙測端點防護。
-14. [BugFix-V44.37] 分離 PRIORITY_DROP 與常規 DROP 處理層級。
-15. [BugFix-V44.38] 將 browserleaks.com 納入 HARD_WHITELIST。
-16. [Optimize-V44.39] 重構 BLOCK_DOMAINS_REGEX 為混合式三層架構。
-17. [Optimize-V44.40] 重構 isPriorityDomain 為「後綴剝離 Set 查找」演算法。
-18. [Optimize-V44.41] 統一重構 isDomainMatch 為「後綴剝離 Set 查找」演算法。
-19. [BugFix-V44.42] 修復 cleanTrackingParams 中 Set 結構的效能 Bug。
-20. [Optimize-V44.43] 實作 PARAMS_PREFIX_BUCKETS (前綴分桶)，O(1) 查找提升效能。
-21. [BugFix-V44.44] 將 feedly.com 納入 PARAM_CLEANING_EXEMPTED_DOMAINS，防止 API 斷線。
-22. [Feature-V44.45] 擴增 12 項國際級數位簽章 API 至豁免清單 (AWS S3, GCS, Azure, Stripe 等)。
-23. [Architecture-V44.45] 導入模組化「路徑感知參數豁免 (SCOPED_PARAM_EXEMPTIONS)」。
-24. [Architecture-V44.46] 將 PATH_EXEMPTIONS 納入 SSOT，並精準放行 Coupang CDN /banner/ 靜態資源。
-25. [BugFix-V44.47] 修正 HTML_TEMPLATE 格式化 KeyError 錯誤，還原高階圖表測試報表儀表板。
-26. [BugFix-V44.48] 完整還原 Matrix Test Suite 的動態生成迴圈，恢復 800+ 條全方位回歸測試案例。
-27. [BugFix-V44.49] 修正 P0 子網域繼承失效 (px.ads.linkedin.com) 與還原 URL 雙重編碼解譯引擎。
-28. [BugFix-V44.50] 修復 Python f-string 反斜線編譯錯誤 (SyntaxError)，確保完全相容 CI/CD (Python < 3.12) 環境。
-29. [Feature-V44.51] 擴充 Matrix Test Suite 支援 E2E (End-to-End) 鏈式測試與 Hash 截斷物理模擬。
-30. [Architecture-V44.52] 實作「雙軌目標發佈」，同時生成 Surge 版與具備獨立防護 UI 的 Tampermonkey 版本。
-31. [Feature-V44.54] Tampermonkey 前端 UI 重構：導入分頁 (Tab) 切換展收清單，整合 TM 原生選單開關。
-32. [Feature-V44.56] Tampermonkey UI 再進化：縮小預設盾牌、修正重複請求計數 (採用 Map 狀態機 xN 次數標記)。
-33. [Feature-V44.57] Tampermonkey UX 最佳化：實作「點擊面板外部任意處自動收合」功能，提升操作直覺性。
-34. [BugFix-V44.58] Surge 引擎執行流重大修復：強制提升 BLOCK_DOMAINS 優先級，解決惡意網域遭 Surge FINAL 規則穿透放行的漏洞。
-35. [BugFix-V44.59] 修正執行流優先級衝突導致 iadsdk.apple.com 測試失敗，還原白名單層級，並將 app-ads-services 升級至 WILDCARDS 徹底封殺。
-36. [Feature-V44.60] 擴增 Google ODM (On-Device Measurement) 系統級備援遙測端點，並將 15 家主流 MMP (動態子網域跟蹤商) 移入 WILDCARDS 進行通配符封殺。
-37. [Architecture-V44.61] 將 shopee.tw 移至 PARAM_CLEANING_EXEMPTED_DOMAINS 通配符；實作 HMAC 簽章防護與分號參數分隔符解析；擴增進階邊界測試矩陣。
-38. [BugFix-V44.62] 修正 Matrix Test Suite 中 OAUTH_SAFE_HARBOR 碰撞問題；升級 OAuth 路徑比對為嚴格 Regex 邊界防護，避免惡意追蹤蹭白名單。
-39. [Audit-V44.63] 全面規則矩陣安全審查：移除 FINANCE_SAFE_HARBOR 中的高危 org.tw 通配；
-    將 reddit/pinterest/snapchat/disqus 從 BLOCK_DOMAINS 遷移至 CRITICAL_PATH_MAP 精準攔截；
-    addthis.com 維持 BLOCK_DOMAINS 全域封殺 (Oracle 已於 2023 年終止服務，屬殭屍網域)；
-    消除 browser.sentry-cdn.com 與 OAUTH/HARD_WHITELIST 的冗餘重複；
-    修正 PATH_BLOCK 中 canvas/webgl 無邊界匹配誤殺；修正 DROP 中 batch/.log 過寬匹配；
-    清理 27 個失效 REDIRECTOR_HOSTS；移除 3 個用途不明的中國 OA 平台白名單；
-    新增 CRITICAL_PATH_MAP 架構優先級設計文檔註釋。
-40. [Refine-V44.64] disqus.com 防護策略精修：採「保功能、斬遙測」架構，精準狙擊
-    /api/3.0/users/events、/j/、/tracking_pixel/ 三條遙測路徑，保留留言板 UI 載入；
-    addthis.com 確認為 Oracle 2023 年已終止的殭屍服務，還原至 BLOCK_DOMAINS 全域封殺。
-41. [Feature-V44.65] REDIRECTOR_HOSTS 大規模擴充 (77→137 條)：新增六大家族共 60 個活躍廣告短網址網域。
-    涵蓋 AdFly 鏡像 (6)、Linkvertise 全家族 (10)、LootLabs 遊戲社群短連結 (10)、
-    Boost.ink 社交解鎖變體 (5)、Sub2Unlock/Rekonise 社交鎖 (5)、FileCrypt/KeepLinks 連結保護 (4)、
-    以及 shrinkme.io/clicksfly/work.ink 等 25 個主流 CPM 廣告短網址平台。
-    清單依家族分類加註中文說明，方便季度存活性審查。
-42. [Security-V44.66] PRIORITY_BLOCK_DOMAINS 全面重構與擴充 (131→168 條)。
-43. [Feature-V44.67] 擴充 PATH_EXEMPTIONS 支援 Coupang CDN 新舊目錄雙軌豁免 (ccm & cmg/oms)。
-44. [Feature-V44.68] 擴充 PATH_EXEMPTIONS 支援 Google Favicon API，防止因目標網域夾帶廣告關鍵字 (如 hubspot) 而遭 L2 掃描器誤殺。
-45. [Architecture-V44.74] 策略回退與重構：回退至 V44.68 狀態，恢復腳本對蝦皮遙測的精準控管；將 FINANCE_SAFE_HARBOR 語意升級為 ABSOLUTE_BYPASS_DOMAINS；透過 PATH_EXEMPTIONS 精準豁免蝦皮 PDP 商品 API (/api/v4/pdp/get)，解決 ads_id 參數觸發正則掃描器的誤殺問題。
-46. [Privacy-V44.75] 精準狙擊蝦皮 A/B 測試與流量分配遙測端點 (/abtest/traffic/)，防止設備特徵分群。
+當前版本：V44.75
+最新架構更新：
+- [Privacy] 精準狙擊蝦皮 A/B 測試與流量分配遙測端點 (/abtest/traffic/)，防止設備特徵分群。
+
+近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V44.74: 策略回退與重構，精準豁免蝦皮 PDP 商品 API，升級 ABSOLUTE_BYPASS_DOMAINS。
+- V44.73: 規則語意學重構，將 shopee.tw 納入 ABSOLUTE_BYPASS_DOMAINS WILDCARDS。
+- V44.72: 全面解耦蝦皮相關規則，遙測阻擋與放行主導權移交 Surge 核心接管。
+- V44.71: 移除 CRITICAL_PATH_MAP 中對蝦皮 event-receiver 的精準狙擊。
+- V44.70: 實作字首匹配法 (Prefix Matching) 以支援動態 HTTPDNS IP 網段豁免。
 """
 
 import json
@@ -84,6 +35,11 @@ if sys.platform == "win32":
         pass
 
 VERSION = "44.75"
+
+# [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
+CURRENT_RELEASE_NOTES = """
+- [Privacy] 精準狙擊蝦皮 A/B 測試與流量分配遙測端點 (/abtest/traffic/)，防止設備特徵分群。
+"""
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -1704,8 +1660,6 @@ def generate_full_coverage_cases() -> List[TestCase]:
 
     cases.append(TestCase("Privacy: Shopee Event Telemetry", "https://patronus.idata.shopeemobile.com/event-receiver/api/v4/tw", RES_BLOCK_403, "Blocked by CRITICAL_PATH_MAP (V44.68 Baseline)"))
     cases.append(TestCase("BugFix: Shopee PDP Regex Exemption", "https://mall.shopee.tw/api/v4/pdp/get?_pft=1047551&ads_id=159771735", RES_ALLOW, "Bypass heuristic regex block via PATH_EXEMPTIONS"))
-    
-    # [Privacy-V44.75] 精準狙擊蝦皮 A/B 測試遙測端點的防禦斷言
     cases.append(TestCase("Privacy: Shopee AB Test Telemetry", "https://shopee.tw/api/v4/abtest/traffic/get_client_experiments", RES_BLOCK_403, "Blocked by CRITICAL_PATH_MAP precise targeting"))
 
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
@@ -1742,6 +1696,26 @@ def evaluate_result(actual: Any, expected_type: str) -> Tuple[bool, str, str]:
             return False, "REWRITE", str(actual["url"])[:200]
             
     return False, "INVALID", str(actual)[:200]
+
+def update_changelog():
+    changelog_path = Path("CHANGELOG.md")
+    today = datetime.now().strftime("%Y-%m-%d")
+    new_entry = f"## V{VERSION} - {today}\n{CURRENT_RELEASE_NOTES.strip()}\n\n"
+
+    if changelog_path.exists():
+        content = changelog_path.read_text(encoding="utf-8")
+        if f"## V{VERSION}" not in content:
+            header = "# URL Ultimate Filter - Changelog\n\n"
+            if content.startswith(header):
+                content = content.replace(header, header + new_entry, 1)
+            else:
+                content = header + new_entry + content
+            changelog_path.write_text(content, encoding="utf-8")
+            print(f"📝 CHANGELOG.md 已自動追加記錄 (Added V{VERSION})")
+    else:
+        header = "# URL Ultimate Filter - Changelog\n\n"
+        changelog_path.write_text(header + new_entry, encoding="utf-8")
+        print(f"📝 創建了新的 CHANGELOG.md 並寫入 V{VERSION} 記錄")
 
 def run_tests():
     print(f"1. [SSOT COMPILER] Compiling Python RULES_DB to Dual-Target JavaScript (V{VERSION})...")
@@ -1861,6 +1835,10 @@ def run_tests():
         if passed == total:
             with open(js_surge_filename, "w", encoding="utf-8") as f: f.write(js_surge_content)
             with open(js_tm_filename, "w", encoding="utf-8") as f: f.write(js_tampermonkey_content)
+            
+            # --- [Architecture-V44.75] 觸發自動更新日誌 ---
+            update_changelog()
+            
             print(f"\n✅  SSOT DUAL-TARGET BUILD & TEST PASSED")
             print(f"📄  Surge Edition Saved: {js_surge_filename}")
             print(f"📄  Tampermonkey Edition Saved: {js_tm_filename}")
