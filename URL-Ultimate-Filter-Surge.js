@@ -22,7 +22,7 @@ const PARAM_CLEANING_EXEMPTED_DOMAINS = {
     WILDCARDS: new Set([
     'feedly.com', 's3.amazonaws.com', 'storage.googleapis.com', 'core.windows.net', 'api.line.me', 'api.newebpay.com',
     'api.tappayapis.com', 'api.stripe.com', 'api.github.com', 'api.twitch.tv', 'cdn.discordapp.com', 'slack.com',
-    'cloudfunctions.net'
+    'cloudfunctions.net', 'shopee.tw'
   ])
 };
 
