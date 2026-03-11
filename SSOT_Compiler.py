@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-URL Ultimate Filter - V44.72 SSOT Compiler & Matrix Test Suite
+URL Ultimate Filter - V44.73 SSOT Compiler & Matrix Test Suite
 -------------------------
 架構更新：
 1. [Architecture] 引入 SSOT，規則資料庫轉移至 Python 端維護。
@@ -64,6 +64,7 @@ URL Ultimate Filter - V44.72 SSOT Compiler & Matrix Test Suite
 46. [Architecture-V44.70] 實作字首匹配法 (Prefix Matching) 以支援蝦皮 143.92.x.x 等動態 HTTPDNS IP 網段豁免。
 47. [Refine-V44.71] 移除 CRITICAL_PATH_MAP 中對蝦皮 patronus.idata.shopeemobile.com 的精準狙擊，修復 App 內部活動與獎勵功能。
 48. [Architecture-V44.72] 全面解耦蝦皮 (Shopee) 相關規則，徹底移除其專屬網域、路徑與測試案例，將遙測阻擋與放行主導權移交 Surge Rule-Set 核心接管，提升系統靈活性與效能。
+49. [Architecture-V44.73] 規則語意學重構：將 FINANCE_SAFE_HARBOR 升級為 ABSOLUTE_BYPASS_DOMAINS (絕對豁免網域)；並將 shopee.tw 等蝦皮核心網域納入 WILDCARDS，徹底解決零信任架構下的正則誤殺悖論。
 """
 
 import json
@@ -85,7 +86,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.72"
+VERSION = "44.73"
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -108,7 +109,7 @@ RULES_DB = {
             's3.amazonaws.com', 'storage.googleapis.com', 'core.windows.net',
             'api.line.me', 'api.newebpay.com', 'api.tappayapis.com',
             'api.stripe.com', 'api.github.com', 'api.twitch.tv',
-            'cdn.discordapp.com', 'slack.com', 'cloudfunctions.net', 'shopee.tw'
+            'cdn.discordapp.com', 'slack.com', 'cloudfunctions.net'
         ]
     },
     "SILENT_REWRITE_DOMAINS": {
@@ -121,11 +122,15 @@ RULES_DB = {
             "/v2/api/": ["device_id"]
         }
     },
-    "FINANCE_SAFE_HARBOR": {
+    # [Architecture-V44.73] 重構為 ABSOLUTE_BYPASS_DOMAINS，統一管理金融關鍵與委派外部控制的網域
+    "ABSOLUTE_BYPASS_DOMAINS": {
         "EXACT": [
             'api.ecpay.com.tw', 'payment.ecpay.com.tw', 'api.map.ecpay.com.tw', 'api.jkos.com'
         ],
         "WILDCARDS": [
+            # --- 委派 Surge 控制區 (Delegated to Surge Layer) ---
+            'shopee.tw', 'shopee.com', 'shopeemobile.com', 'shopee.io',
+            # --- 純金融避風港區 (Finance Critical) ---
             'cathaybk.com.tw', 'ctbcbank.com', 'esunbank.com.tw', 'fubon.com', 'taishinbank.com.tw',
             'richart.tw', 'bot.com.tw', 'cathaysec.com.tw', 'chb.com.tw', 'citibank.com.tw',
             'dawho.tw', 'dbs.com.tw', 'firstbank.com.tw', 'hncb.com.tw', 'hsbc.co.uk', 'hsbc.com.tw',
@@ -402,7 +407,6 @@ RULES_DB = {
         'api.uber.com': ['/ramen/v1/events', '/v3/mobile-event', '/advertising/v1/', '/eats/advertising/', '/rt/users/v1/device-info'],
         'api.ubereats.com': ['/v1/eats/advertising', '/ramen/v1/events'],
         'cn-geo1.uber.com': ['/ramen/v1/events', '/v3/mobile-event', '/monitor/v2/logs'],
-        'tw.mapi.shp.yahoo.com': ['/w/analytics', '/v1/instrumentation', '/ws/search/tracking', '/dw/tracker'],
         'tw.buy.yahoo.com': ['/b/ss/', '/ws/search/tracking', '/activity/record'],
         'unwire.hk': ['/mkgqaa1mfbon.js'],
         'asset2.coupangcdn.com': ['/jslog.min.js'],
@@ -646,9 +650,10 @@ const SILENT_REWRITE_DOMAINS = {{
     WILDCARDS: {format_js_set(RULES_DB['SILENT_REWRITE_DOMAINS']['WILDCARDS'])}
 }};
 
-const FINANCE_SAFE_HARBOR = {{
-    EXACT: {format_js_set(RULES_DB['FINANCE_SAFE_HARBOR']['EXACT'])},
-    WILDCARDS: {format_js_set(RULES_DB['FINANCE_SAFE_HARBOR']['WILDCARDS'])}
+// [Architecture-V44.73] 重構為 ABSOLUTE_BYPASS_DOMAINS
+const ABSOLUTE_BYPASS_DOMAINS = {{
+    EXACT: {format_js_set(RULES_DB['ABSOLUTE_BYPASS_DOMAINS']['EXACT'])},
+    WILDCARDS: {format_js_set(RULES_DB['ABSOLUTE_BYPASS_DOMAINS']['WILDCARDS'])}
 }};
 
 const RULES = {{
@@ -972,7 +977,8 @@ function processRequest(request) {
         stats.allows++; return null;
     }
 
-    if (isDomainMatch(FINANCE_SAFE_HARBOR.EXACT, FINANCE_SAFE_HARBOR.WILDCARDS, hostname)) {
+    // [Architecture-V44.73] 使用升級後的 ABSOLUTE_BYPASS_DOMAINS 進行絕對提早回傳
+    if (isDomainMatch(ABSOLUTE_BYPASS_DOMAINS.EXACT, ABSOLUTE_BYPASS_DOMAINS.WILDCARDS, hostname)) {
         stats.allows++; return null;
     }
 
@@ -1675,7 +1681,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: Canvas Test Tool", "https://browserleaks.com/canvas", RES_ALLOW, "V44.38 Exempt browserleaks.com from PATH_BLOCK 'canvas' keyword"))
     cases.append(TestCase("Fix: 104 App internal /ad/ path", "https://appapi.104.com.tw/2.0/ad/search/hashtag?device_type=0&device_id=6CCC0850&ad_type=full", RES_REWRITE, "Bypasses HIGH_CONFIDENCE /ad/ block via HARD_WHITELIST and strips device_id silently"))
     cases.append(TestCase("Privacy: Exemption (API Auth)", "https://api.feedly.com/v3/streams?device_id=abc&source=ios", RES_ALLOW, "Exempted to protect HMAC signatures"))
-    cases.append(TestCase("Edge: Finance Safe Harbor Bypass", "https://api.ecpay.com.tw/pay?source=web&ref=123", RES_ALLOW, "Finance Safe Harbor stops scanning immediately"))
+    
+    # [Architecture-V44.73] 同步更名測試案例
+    cases.append(TestCase("Edge: Absolute Bypass (Finance)", "https://api.ecpay.com.tw/pay?source=web&ref=123", RES_ALLOW, "Absolute bypass stops scanning immediately"))
+    
     cases.append(TestCase("BugFix: API Login Collision", "https://api.signin.104.com.tw/v2/api/login/valid-account", RES_ALLOW, "Prevent /api/log from falsely killing /api/login endpoints"))
     cases.append(TestCase("BugFix: Threads Path Exemption", "https://www.threads.com/@n_ys_m/post/DIaU/abc", RES_ALLOW, "Bypass L1/L2 path scanners using PATH_EXEMPTIONS"))
     cases.append(TestCase("BugFix: P0 Subdomain Inheritance", "https://px.ads.linkedin.com/test", RES_BLOCK_403, "Validate P0 wildcards logic correctly inherits down to subdomains"))
@@ -1692,6 +1701,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Coupang JSError Log", "https://asset2.coupangcdn.com/customjs/jserror/2.5.1/jslog.min.js", RES_BLOCK_403, "Blocked by CRITICAL_PATH_SCRIPT_ROOTS"))
     cases.append(TestCase("Privacy: Coupang FeatureFlag Telemetry", "https://cmapi.tw.coupang.com/modular/v1/endpoints/12900/ff/v1/featureFlag/batchTracking", RES_BLOCK_403, "Blocked by CRITICAL_PATH_MAP precise targeting"))
     cases.append(TestCase("Privacy: Favicon Proxy Exemption", "https://www.google.com/s2/favicons?domain=mcp.hubspot.com&sz=64", RES_ALLOW, "Bypass PATH_BLOCK 'hubspot' keyword via PATH_EXEMPTIONS"))
+
+    # [Architecture-V44.73] 新增 Shopee 絕對豁免測試斷言，驗證是否能繞過 Regex 誤殺
+    cases.append(TestCase("Architecture: Absolute Bypass (Shopee)", "https://mall.shopee.tw/api/v4/pdp/get?ads_id=159771735", RES_ALLOW, "Shopee domain is absolutely bypassed and delegated to Surge"))
 
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
