@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V44.78 - 2026-03-12
+- [BugFix & Strategy] 針對 104 APP 導入「防禦性預測擴充策略」。除修復 /2.0/recommend/ 外，預先豁免 /job/, /apply/, /resume/ 等潛在核心業務路徑的 device_id，以預防後續的白名單疲勞與未知的斷線破圖。
+
 ## V44.77 - 2026-03-12
 - [BugFix] 針對 104 工作快找 APP (v3.30.0) 新增局部參數豁免，精準放行 /2.0/notify/、/2.0/user/ 與 /2.0/company/ 路徑下的 device_id，修復 APP 啟動時報錯「必傳參數遺失」之異常。
 
