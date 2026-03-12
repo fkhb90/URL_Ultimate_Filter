@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.76 (SSOT Compilation)
+ * @version   44.77 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.76';
+const SCRIPT_VERSION = '44.77';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -688,6 +688,15 @@ const RULES = {
             'device_id', 'client_id'
           ])],
         ['/v2/api/', new Set([
+            'device_id'
+          ])],
+        ['/2.0/notify/', new Set([
+            'device_id'
+          ])],
+        ['/2.0/user/', new Set([
+            'device_id'
+          ])],
+        ['/2.0/company/', new Set([
             'device_id'
           ])]
         ])]

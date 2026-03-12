@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V44.77 - 2026-03-12
+- [BugFix] 針對 104 工作快找 APP (v3.30.0) 新增局部參數豁免，精準放行 /2.0/notify/、/2.0/user/ 與 /2.0/company/ 路徑下的 device_id，修復 APP 啟動時報錯「必傳參數遺失」之異常。
+
 ## V44.76 - 2026-03-12
 - [Architecture] 升級 CRITICAL_PATH_MAP 支援 Action Routing (動作路由) 標籤。
 - [Privacy] 針對 Slack 遙測端點 (/clog/track/) 實作 DROP 權重 (HTTP 204)，防範客戶端重試風暴 (Retry Storm)。
