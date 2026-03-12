@@ -3,16 +3,15 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V44.75
+當前版本：V44.76
 最新架構更新：
-- [Privacy] 精準狙擊蝦皮 A/B 測試與流量分配遙測端點 (/abtest/traffic/)，防止設備特徵分群。
+- [Architecture] 升級 CRITICAL_PATH_MAP 支援 Action Routing (動作路由) 標籤。
+- [Privacy] 針對 Slack 遙測端點 (/clog/track/) 實作 DROP 權重 (HTTP 204)，防範客戶端重試風暴 (Retry Storm)。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V44.75: 精準狙擊蝦皮 A/B 測試與流量分配遙測端點，防止設備特徵分群。
 - V44.74: 策略回退與重構，精準豁免蝦皮 PDP 商品 API，升級 ABSOLUTE_BYPASS_DOMAINS。
 - V44.73: 規則語意學重構，將 shopee.tw 納入 ABSOLUTE_BYPASS_DOMAINS WILDCARDS。
-- V44.72: 全面解耦蝦皮相關規則，遙測阻擋與放行主導權移交 Surge 核心接管。
-- V44.71: 移除 CRITICAL_PATH_MAP 中對蝦皮 event-receiver 的精準狙擊。
-- V44.70: 實作字首匹配法 (Prefix Matching) 以支援動態 HTTPDNS IP 網段豁免。
 """
 
 import json
@@ -34,11 +33,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.75"
+VERSION = "44.76"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 精準狙擊蝦皮 A/B 測試與流量分配遙測端點 (/abtest/traffic/)，防止設備特徵分群。
+- [Architecture] 升級 CRITICAL_PATH_MAP 支援 Action Routing (動作路由) 標籤。
+- [Privacy] 針對 Slack 遙測端點 (/clog/track/) 實作 DROP 權重 (HTTP 204)，防範客戶端重試風暴 (Retry Storm)。
 """
 
 # ==========================================
@@ -375,7 +375,7 @@ RULES_DB = {
         'shopee.tw': ['/dataapi/dataweb/event/', '/abtest/traffic/'],
         'api.tongyi.com': ['/qianwen/event/track'],
         'gw.alipayobjects.com': ['/config/loggw/'],
-        'slack.com': ['/api/profiling.logging.enablement', '/api/telemetry'],
+        'slack.com': ['/api/profiling.logging.enablement', '/api/telemetry', 'DROP:/clog/track/'],
         'graphql.ec.yahoo.com': ['/app/sas/v1/fullsitepromotions'],
         'prism.ec.yahoo.com': ['/api/prism/v2/streamwithads'],
         'analytics.google.com': ['/g/collect', '/j/collect'],
@@ -918,9 +918,16 @@ function processRequest(request) {
     const blockedPaths = getCriticalBlockedPaths(hostname);
     if (blockedPaths && blockedPaths !== false) {
       for (const badPath of blockedPaths) {
-        if (badPath && pathLower.includes(badPath)) {
-          stats.blocks++;
-          return { response: { status: 403, body: 'Blocked by Map' } };
+        if (badPath) {
+          const isDrop = badPath.startsWith('DROP:');
+          const checkPath = isDrop ? badPath.substring(5) : badPath;
+          if (pathLower.includes(checkPath)) {
+            stats.blocks++;
+            if (isDrop) {
+                return { response: { status: 204 } };
+            }
+            return { response: { status: 403, body: 'Blocked by Map' } };
+          }
         }
       }
     }
@@ -1592,9 +1599,14 @@ def generate_full_coverage_cases() -> List[TestCase]:
 
     for hostname, paths in RULES_DB["CRITICAL_PATH_MAP"].items():
         for p in paths:
-            url_base = f"https://{hostname}" + (p if p.startswith("/") else f"/{p}")
-            expected = RES_DROP_204 if "CheckConnection" in p else RES_BLOCK_403
-            cases.append(TestCase("Auto: Critical Map", url_base, expected, "Blocked by Map"))
+            if p.startswith("DROP:"):
+                clean_path = p.substring(5) if hasattr(p, 'substring') else p[5:]
+                url_base = f"https://{hostname}" + (clean_path if clean_path.startswith("/") else f"/{clean_path}")
+                cases.append(TestCase("Auto: Critical Map (Drop Routing)", url_base, RES_DROP_204, "Action Routing 支援 DROP 權重解析"))
+            else:
+                url_base = f"https://{hostname}" + (p if p.startswith("/") else f"/{p}")
+                expected = RES_DROP_204 if "CheckConnection" in p else RES_BLOCK_403
+                cases.append(TestCase("Auto: Critical Map", url_base, expected, "Blocked by Map"))
 
     for s in RULES_DB["CRITICAL_PATH_SCRIPT_ROOTS"]:
         cases.append(TestCase("Auto: Script Root Block", f"https://example.com/js/{s}1.0.js", RES_BLOCK_403, "Blocked by Root Keyword"))
@@ -1661,6 +1673,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Shopee Event Telemetry", "https://patronus.idata.shopeemobile.com/event-receiver/api/v4/tw", RES_BLOCK_403, "Blocked by CRITICAL_PATH_MAP (V44.68 Baseline)"))
     cases.append(TestCase("BugFix: Shopee PDP Regex Exemption", "https://mall.shopee.tw/api/v4/pdp/get?_pft=1047551&ads_id=159771735", RES_ALLOW, "Bypass heuristic regex block via PATH_EXEMPTIONS"))
     cases.append(TestCase("Privacy: Shopee AB Test Telemetry", "https://shopee.tw/api/v4/abtest/traffic/get_client_experiments", RES_BLOCK_403, "Blocked by CRITICAL_PATH_MAP precise targeting"))
+
+    cases.append(TestCase("Privacy: Slack Telemetry Drop", "https://clorastech.slack.com/clog/track/?data=1", RES_DROP_204, "V44.76 Action Routing 支援 DROP 權重解析"))
 
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
@@ -1836,7 +1850,7 @@ def run_tests():
             with open(js_surge_filename, "w", encoding="utf-8") as f: f.write(js_surge_content)
             with open(js_tm_filename, "w", encoding="utf-8") as f: f.write(js_tampermonkey_content)
             
-            # --- [Architecture-V44.75] 觸發自動更新日誌 ---
+            # --- [Architecture-V44.76] 觸發自動更新日誌 ---
             update_changelog()
             
             print(f"\n✅  SSOT DUAL-TARGET BUILD & TEST PASSED")
