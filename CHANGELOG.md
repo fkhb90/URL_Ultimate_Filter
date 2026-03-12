@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V44.76 - 2026-03-12
+- [Architecture] 升級 CRITICAL_PATH_MAP 支援 Action Routing (動作路由) 標籤。
+- [Privacy] 針對 Slack 遙測端點 (/clog/track/) 實作 DROP 權重 (HTTP 204)，防範客戶端重試風暴 (Retry Storm)。
+
 ## V44.75 - 2026-03-11
 - [Privacy] 精準狙擊蝦皮 A/B 測試與流量分配遙測端點 (/abtest/traffic/)，防止設備特徵分群。
 

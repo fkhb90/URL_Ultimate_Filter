@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V44.75
+// @name         URL Ultimate Filter V44.76
 // @namespace    http://tampermonkey.net/
-// @version      44.75
+// @version      44.76
 // @description  SSOT 前端防護盾牌，專業級 UI：極簡盾牌圖示、獨立計數器、點擊外部自動收合機制。
 // @author       Jerry
 // @match        *://*/*
@@ -13,11 +13,11 @@
     'use strict';
 /**
  * @file      URL-Ultimate-Filter-Tampermonkey.js
- * @version   44.75 (SSOT Compilation)
+ * @version   44.76 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.75';
+const SCRIPT_VERSION = '44.76';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -359,7 +359,7 @@ const RULES = {
         '/config/loggw/'
       ])],
     ['slack.com', new Set([
-        '/api/profiling.logging.enablement', '/api/telemetry'
+        '/api/profiling.logging.enablement', '/api/telemetry', 'DROP:/clog/track/'
       ])],
     ['graphql.ec.yahoo.com', new Set([
         '/app/sas/v1/fullsitepromotions'
@@ -991,9 +991,16 @@ function processRequest(request) {
     const blockedPaths = getCriticalBlockedPaths(hostname);
     if (blockedPaths && blockedPaths !== false) {
       for (const badPath of blockedPaths) {
-        if (badPath && pathLower.includes(badPath)) {
-          stats.blocks++;
-          return { response: { status: 403, body: 'Blocked by Map' } };
+        if (badPath) {
+          const isDrop = badPath.startsWith('DROP:');
+          const checkPath = isDrop ? badPath.substring(5) : badPath;
+          if (pathLower.includes(checkPath)) {
+            stats.blocks++;
+            if (isDrop) {
+                return { response: { status: 204 } };
+            }
+            return { response: { status: 403, body: 'Blocked by Map' } };
+          }
         }
       }
     }
