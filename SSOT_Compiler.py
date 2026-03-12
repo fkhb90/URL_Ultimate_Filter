@@ -3,15 +3,14 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V44.76
+當前版本：V44.77
 最新架構更新：
-- [Architecture] 升級 CRITICAL_PATH_MAP 支援 Action Routing (動作路由) 標籤。
-- [Privacy] 針對 Slack 遙測端點 (/clog/track/) 實作 DROP 權重 (HTTP 204)，防範客戶端重試風暴 (Retry Storm)。
+- [BugFix] 針對 104 工作快找 APP (v3.30.0) 新增局部參數豁免，精準放行 /2.0/notify/、/2.0/user/ 與 /2.0/company/ 路徑下的 device_id，修復 APP 啟動時報錯「必傳參數遺失」之異常。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V44.76: 升級 CRITICAL_PATH_MAP 支援 Action Routing，實作 Slack 遙測端點 DROP 權重。
 - V44.75: 精準狙擊蝦皮 A/B 測試與流量分配遙測端點，防止設備特徵分群。
 - V44.74: 策略回退與重構，精準豁免蝦皮 PDP 商品 API，升級 ABSOLUTE_BYPASS_DOMAINS。
-- V44.73: 規則語意學重構，將 shopee.tw 納入 ABSOLUTE_BYPASS_DOMAINS WILDCARDS。
 """
 
 import json
@@ -33,12 +32,11 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.76"
+VERSION = "44.77"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Architecture] 升級 CRITICAL_PATH_MAP 支援 Action Routing (動作路由) 標籤。
-- [Privacy] 針對 Slack 遙測端點 (/clog/track/) 實作 DROP 權重 (HTTP 204)，防範客戶端重試風暴 (Retry Storm)。
+- [BugFix] 針對 104 工作快找 APP (v3.30.0) 新增局部參數豁免，精準放行 /2.0/notify/、/2.0/user/ 與 /2.0/company/ 路徑下的 device_id，修復 APP 啟動時報錯「必傳參數遺失」之異常。
 """
 
 # ==========================================
@@ -72,7 +70,10 @@ RULES_DB = {
     "SCOPED_PARAM_EXEMPTIONS": {
         "104.com.tw": {
             "/api/": ["device_id", "client_id"],
-            "/v2/api/": ["device_id"]
+            "/v2/api/": ["device_id"],
+            "/2.0/notify/": ["device_id"],
+            "/2.0/user/": ["device_id"],
+            "/2.0/company/": ["device_id"]
         }
     },
     "ABSOLUTE_BYPASS_DOMAINS": {
@@ -1676,6 +1677,11 @@ def generate_full_coverage_cases() -> List[TestCase]:
 
     cases.append(TestCase("Privacy: Slack Telemetry Drop", "https://clorastech.slack.com/clog/track/?data=1", RES_DROP_204, "V44.76 Action Routing 支援 DROP 權重解析"))
 
+    # --- V44.77 104 APP 局部參數放行測試 ---
+    cases.append(TestCase("BugFix: 104 App Notify API", "https://appapi.104.com.tw/2.0/notify/v2/message/personal?device_type=0&app_version=3.30.0&device_id=TEST_ID&id_ck_n=$$:v1:abc", RES_ALLOW, "精準放行 104 APP Notify 路徑之 device_id"))
+    cases.append(TestCase("BugFix: 104 App User API", "https://appapi.104.com.tw/2.0/user/v2/info?device_type=0&app_version=3.30.0&device_id=TEST_ID&id_ck_n=$$:v1:abc", RES_ALLOW, "精準放行 104 APP User 路徑之 device_id"))
+    cases.append(TestCase("BugFix: 104 App Company API", "https://appapi.104.com.tw/2.0/company/search/view?device_type=0&app_version=3.30.0&device_id=TEST_ID&source=&jobNoList=123", RES_ALLOW, "精準放行 104 APP Company 路徑之 device_id"))
+
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
     cases.append(TestCase("E2E: Malicious Payload Block", "https://static.104.com.tw/ad.json", RES_BLOCK_403, "模擬 JSON 內遭植入第三方追蹤並點擊，觸發 L1 攔截", is_e2e=True, e2e_target_url="https://googleadservices.com/track/click"))
@@ -1850,7 +1856,7 @@ def run_tests():
             with open(js_surge_filename, "w", encoding="utf-8") as f: f.write(js_surge_content)
             with open(js_tm_filename, "w", encoding="utf-8") as f: f.write(js_tampermonkey_content)
             
-            # --- [Architecture-V44.76] 觸發自動更新日誌 ---
+            # --- [Architecture-V44.77] 觸發自動更新日誌 ---
             update_changelog()
             
             print(f"\n✅  SSOT DUAL-TARGET BUILD & TEST PASSED")
