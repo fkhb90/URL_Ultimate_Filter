@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V44.81 - 2026-03-13
+- [HotFix] 修復 V44.80 編譯器中的 RULES_DB 字典截斷錯誤 (KeyError: 'REDIRECTOR_HOSTS')，確保 CI/CD 流程正常執行。
+- [Architecture] 完整繼承 V44.79 的反向排除機制與 V44.80 的風傳媒 Nuxt 防崩潰策略。
+
 ## V44.79 - 2026-03-13
 - [Architecture] 於 SCOPED_PARAM_EXEMPTIONS 導入「反向排除 (Negative Exclusion)」雙層校驗機制 (支援 `!` 前綴)。
 - [Privacy] 針對 104 APP (v3.30.0) 實施寬鬆放行 /2.0/ 目錄，並透過 !/2.0/ad/ 精準狙擊內部廣告模組，徹底根除 API 變更引發的白名單疲勞現象。
