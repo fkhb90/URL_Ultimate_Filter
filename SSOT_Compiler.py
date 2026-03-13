@@ -3,14 +3,15 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V44.78
+當前版本：V44.79
 最新架構更新：
-- [BugFix & Strategy] 針對 104 APP 導入「防禦性預測擴充策略」。除修復 /2.0/recommend/ 外，預先豁免 /job/, /apply/, /resume/ 等潛在核心業務路徑的 device_id，防範未來未知的斷線破圖。
+- [Architecture] 於 SCOPED_PARAM_EXEMPTIONS 導入「反向排除 (Negative Exclusion)」雙層校驗機制 (支援 `!` 前綴)。
+- [Privacy] 針對 104 APP (v3.30.0) 實施寬鬆放行 /2.0/ 目錄，並透過 !/2.0/ad/ 精準狙擊內部廣告模組，一勞永逸解決白名單疲勞。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V44.78: 針對 104 APP 導入「防禦性預測擴充策略」，手動寫入核心求職路徑。
 - V44.77: 針對 104 APP (v3.30.0) 新增局部參數豁免 (/notify/, /user/, /company/)。
 - V44.76: 升級 CRITICAL_PATH_MAP 支援 Action Routing，實作 Slack 遙測端點 DROP 權重。
-- V44.75: 精準狙擊蝦皮 A/B 測試與流量分配遙測端點，防止設備特徵分群。
 """
 
 import json
@@ -32,11 +33,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.78"
+VERSION = "44.79"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [BugFix & Strategy] 針對 104 APP 導入「防禦性預測擴充策略」。除修復 /2.0/recommend/ 外，預先豁免 /job/, /apply/, /resume/ 等潛在核心業務路徑的 device_id，以預防後續的白名單疲勞與未知的斷線破圖。
+- [Architecture] 於 SCOPED_PARAM_EXEMPTIONS 導入「反向排除 (Negative Exclusion)」雙層校驗機制 (支援 `!` 前綴)。
+- [Privacy] 針對 104 APP (v3.30.0) 實施寬鬆放行 /2.0/ 目錄，並透過 !/2.0/ad/ 精準狙擊內部廣告模組，徹底根除 API 變更引發的白名單疲勞現象。
 """
 
 # ==========================================
@@ -71,16 +73,9 @@ RULES_DB = {
         "104.com.tw": {
             "/api/": ["device_id", "client_id"],
             "/v2/api/": ["device_id"],
-            "/2.0/notify/": ["device_id"],
-            "/2.0/user/": ["device_id"],
-            "/2.0/company/": ["device_id"],
-            "/2.0/recommend/": ["device_id"],
-            "/2.0/job/": ["device_id"],
-            "/2.0/apply/": ["device_id"],
-            "/2.0/resume/": ["device_id"],
-            "/2.0/collect/": ["device_id"],
-            "/2.0/favorite/": ["device_id"],
-            "/2.0/config/": ["device_id"]
+            # [V44.79 架構升級] 反向排除機制：寬鬆放行 /2.0/ 業務端點，但針對廣告端點優先否決
+            "/2.0/": ["device_id"],
+            "!/2.0/ad/": ["device_id"]
         }
     },
     "ABSOLUTE_BYPASS_DOMAINS": {
@@ -788,11 +783,25 @@ const HELPERS = {
     }
     if (!domainExemptions) return false;
 
+    // V44.79 雙層掃描第一階段：絕對否決 (Negative Exclusion)
     for (const [pathStr, allowedParamsSet] of domainExemptions) {
-        if (pathLower.includes(pathStr) && allowedParamsSet.has(lowerKey)) {
-            return true;
+        if (pathStr.startsWith('!')) {
+            const actualPath = pathStr.substring(1);
+            if (pathLower.includes(actualPath) && allowedParamsSet.has(lowerKey)) {
+                return false; // 命中黑名單，強制拒絕豁免，交由全域清洗
+            }
         }
     }
+
+    // V44.79 雙層掃描第二階段：寬鬆放行 (Positive Inclusion)
+    for (const [pathStr, allowedParamsSet] of domainExemptions) {
+        if (!pathStr.startsWith('!')) {
+            if (pathLower.includes(pathStr) && allowedParamsSet.has(lowerKey)) {
+                return true; // 命中白名單，安全放行
+            }
+        }
+    }
+    
     return false;
   },
 
@@ -1684,12 +1693,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
 
     cases.append(TestCase("Privacy: Slack Telemetry Drop", "https://clorastech.slack.com/clog/track/?data=1", RES_DROP_204, "V44.76 Action Routing 支援 DROP 權重解析"))
 
-    # --- V44.77/V44.78 104 APP 局部參數放行測試 ---
-    cases.append(TestCase("BugFix: 104 App Notify API", "https://appapi.104.com.tw/2.0/notify/v2/message/personal?device_type=0&app_version=3.30.0&device_id=TEST_ID&id_ck_n=$$:v1:abc", RES_ALLOW, "精準放行 104 APP Notify 路徑之 device_id"))
-    cases.append(TestCase("BugFix: 104 App User API", "https://appapi.104.com.tw/2.0/user/v2/info?device_type=0&app_version=3.30.0&device_id=TEST_ID&id_ck_n=$$:v1:abc", RES_ALLOW, "精準放行 104 APP User 路徑之 device_id"))
-    cases.append(TestCase("BugFix: 104 App Company API", "https://appapi.104.com.tw/2.0/company/search/view?device_type=0&app_version=3.30.0&device_id=TEST_ID&source=&jobNoList=123", RES_ALLOW, "精準放行 104 APP Company 路徑之 device_id"))
-    cases.append(TestCase("BugFix: 104 App Recommend API", "https://appapi.104.com.tw/2.0/recommend/lowApply/list?device_type=0&app_version=3.30.0&device_id=TEST_ID&recommendType=0", RES_ALLOW, "精準放行 104 APP Recommend 路徑之 device_id (V44.78 防禦性擴充)"))
-    cases.append(TestCase("Edge: 104 App Internal Ad Block", "https://appapi.104.com.tw/2.0/ad/search/hashtag?device_type=0&app_version=3.30.0&device_id=TEST_ID", RES_REWRITE, "確保防禦性擴充不會意外放行 /2.0/ad/ 廣告端點之 device_id，維持隱私邊界"))
+    # --- V44.79 104 APP 反向排除機制測試 ---
+    cases.append(TestCase("Strategy: 104 App Track API", "https://appapi.104.com.tw/2.0/track/company/post/view?device_id=TEST_ID", RES_ALLOW, "寬鬆放行 /2.0/ 目錄下未知業務路徑之 device_id"))
+    cases.append(TestCase("Strategy: 104 App Subscription API", "https://appapi.104.com.tw/2.0/subscription/news?device_id=TEST_ID", RES_ALLOW, "寬鬆放行 /2.0/ 目錄下未知業務路徑之 device_id"))
+    cases.append(TestCase("Strategy: 104 App Ad Override", "https://appapi.104.com.tw/2.0/ad/search/hashtag?device_id=TEST_ID", RES_REWRITE, "驗證 !/2.0/ad/ 絕對否決標籤成功狙擊廣告模組"))
 
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
@@ -1865,7 +1872,7 @@ def run_tests():
             with open(js_surge_filename, "w", encoding="utf-8") as f: f.write(js_surge_content)
             with open(js_tm_filename, "w", encoding="utf-8") as f: f.write(js_tampermonkey_content)
             
-            # --- [Architecture-V44.78] 觸發自動更新日誌 ---
+            # --- [Architecture-V44.79] 觸發自動更新日誌 ---
             update_changelog()
             
             print(f"\n✅  SSOT DUAL-TARGET BUILD & TEST PASSED")
