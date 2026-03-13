@@ -3,14 +3,14 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V44.81
+當前版本：V44.82
 最新架構更新：
-- [HotFix] 修復 V44.80 編譯器中的 RULES_DB 字典截斷錯誤 (KeyError: 'REDIRECTOR_HOSTS')，確保 CI/CD 流程正常執行。
+- [BugFix] 針對 Uber Eats 網頁版/WebView 新增路徑豁免 /go/_events，修復因 GraphQL 批次請求與遙測事件深度耦合，導致商品圖片無法顯示 (破圖) 之異常陷阱。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V44.81: 修復 RULES_DB 字典截斷錯誤 (KeyError: 'REDIRECTOR_HOSTS')，確保 CI/CD 流程正常執行。
 - V44.80: 針對風傳媒 (storm.mg) 新增路徑豁免 /_nuxt/track，修復因追蹤模組載入失敗導致的 404 陷阱。
-- V44.79: 於 SCOPED_PARAM_EXEMPTIONS 導入「反向排除 (Negative Exclusion)」雙層校驗機制 (支援 `!` 前綴)。
-- V44.78: 針對 104 APP 導入防禦性預測擴充策略。
+- V44.79: 於 SCOPED_PARAM_EXEMPTIONS 導入「反向排除」機制，徹底根除 104 APP 白名單疲勞。
 """
 
 import json
@@ -32,12 +32,11 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.81"
+VERSION = "44.82"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [HotFix] 修復 V44.80 編譯器中的 RULES_DB 字典截斷錯誤 (KeyError: 'REDIRECTOR_HOSTS')，確保 CI/CD 流程正常執行。
-- [Architecture] 完整繼承 V44.79 的反向排除機制與 V44.80 的風傳媒 Nuxt 防崩潰策略。
+- [BugFix] 針對 Uber Eats 網頁版/WebView 新增路徑豁免 /go/_events，修復因 GraphQL 批次請求與遙測事件深度耦合，導致商品圖片無法顯示 (破圖) 之異常陷阱。
 """
 
 # ==========================================
@@ -529,6 +528,7 @@ RULES_DB = {
     "PATH_EXEMPTIONS": {
         "storm.mg": ["/_nuxt/track"],
         "shopee.tw": ["/api/v4/search/search_items", "/api/v4/pdp/get"],
+        "uber.com": ["/go/_events"],
         "cmapi.tw.coupang.com": ["/vendor-items/"],
         "coupangcdn.com": ["/image/ccm/banner/", "/image/cmg/oms/banner/"],
         "www.google.com": ["/url", "/search", "/s2/favicons"],
@@ -782,21 +782,19 @@ const HELPERS = {
     }
     if (!domainExemptions) return false;
 
-    // V44.79 雙層掃描第一階段：絕對否決 (Negative Exclusion)
     for (const [pathStr, allowedParamsSet] of domainExemptions) {
         if (pathStr.startsWith('!')) {
             const actualPath = pathStr.substring(1);
             if (pathLower.includes(actualPath) && allowedParamsSet.has(lowerKey)) {
-                return false; // 命中黑名單，強制拒絕豁免，交由全域清洗
+                return false; 
             }
         }
     }
 
-    // V44.79 雙層掃描第二階段：寬鬆放行 (Positive Inclusion)
     for (const [pathStr, allowedParamsSet] of domainExemptions) {
         if (!pathStr.startsWith('!')) {
             if (pathLower.includes(pathStr) && allowedParamsSet.has(lowerKey)) {
-                return true; // 命中白名單，安全放行
+                return true; 
             }
         }
     }
@@ -1700,6 +1698,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V44.80 風傳媒 ChunkLoadError 防護 ---
     cases.append(TestCase("BugFix: Storm Media ChunkLoadError", "https://www.storm.mg/_nuxt/track.20260312-151014.BRJtw5_7.js", RES_ALLOW, "放行風傳媒追蹤腳本以避免 Vue Router 觸發 404 重定向防護網"))
 
+    # --- V44.82 Uber Eats GraphQL 批次請求破圖修復測試 ---
+    cases.append(TestCase("BugFix: Uber Eats GraphQL Batching", "https://helix-go-webview.uber.com/go/_events", RES_ALLOW, "放行 Uber Eats GraphQL 遙測與業務混合端點以修復菜單破圖"))
+
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
     cases.append(TestCase("E2E: Malicious Payload Block", "https://static.104.com.tw/ad.json", RES_BLOCK_403, "模擬 JSON 內遭植入第三方追蹤並點擊，觸發 L1 攔截", is_e2e=True, e2e_target_url="https://googleadservices.com/track/click"))
@@ -1874,7 +1875,7 @@ def run_tests():
             with open(js_surge_filename, "w", encoding="utf-8") as f: f.write(js_surge_content)
             with open(js_tm_filename, "w", encoding="utf-8") as f: f.write(js_tampermonkey_content)
             
-            # --- [Architecture-V44.81] 觸發自動更新日誌 ---
+            # --- [Architecture-V44.82] 觸發自動更新日誌 ---
             update_changelog()
             
             print(f"\n✅  SSOT DUAL-TARGET BUILD & TEST PASSED")
