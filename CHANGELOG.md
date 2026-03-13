@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V44.79 - 2026-03-13
+- [Architecture] 於 SCOPED_PARAM_EXEMPTIONS 導入「反向排除 (Negative Exclusion)」雙層校驗機制 (支援 `!` 前綴)。
+- [Privacy] 針對 104 APP (v3.30.0) 實施寬鬆放行 /2.0/ 目錄，並透過 !/2.0/ad/ 精準狙擊內部廣告模組，徹底根除 API 變更引發的白名單疲勞現象。
+
 ## V44.78 - 2026-03-12
 - [BugFix & Strategy] 針對 104 APP 導入「防禦性預測擴充策略」。除修復 /2.0/recommend/ 外，預先豁免 /job/, /apply/, /resume/ 等潛在核心業務路徑的 device_id，以預防後續的白名單疲勞與未知的斷線破圖。
 

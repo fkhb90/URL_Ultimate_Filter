@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.78 (SSOT Compilation)
+ * @version   44.79 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.78';
+const SCRIPT_VERSION = '44.79';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -690,34 +690,10 @@ const RULES = {
         ['/v2/api/', new Set([
             'device_id'
           ])],
-        ['/2.0/notify/', new Set([
+        ['/2.0/', new Set([
             'device_id'
           ])],
-        ['/2.0/user/', new Set([
-            'device_id'
-          ])],
-        ['/2.0/company/', new Set([
-            'device_id'
-          ])],
-        ['/2.0/recommend/', new Set([
-            'device_id'
-          ])],
-        ['/2.0/job/', new Set([
-            'device_id'
-          ])],
-        ['/2.0/apply/', new Set([
-            'device_id'
-          ])],
-        ['/2.0/resume/', new Set([
-            'device_id'
-          ])],
-        ['/2.0/collect/', new Set([
-            'device_id'
-          ])],
-        ['/2.0/favorite/', new Set([
-            'device_id'
-          ])],
-        ['/2.0/config/', new Set([
+        ['!/2.0/ad/', new Set([
             'device_id'
           ])]
         ])]
@@ -870,11 +846,25 @@ const HELPERS = {
     }
     if (!domainExemptions) return false;
 
+    // V44.79 雙層掃描第一階段：絕對否決 (Negative Exclusion)
     for (const [pathStr, allowedParamsSet] of domainExemptions) {
-        if (pathLower.includes(pathStr) && allowedParamsSet.has(lowerKey)) {
-            return true;
+        if (pathStr.startsWith('!')) {
+            const actualPath = pathStr.substring(1);
+            if (pathLower.includes(actualPath) && allowedParamsSet.has(lowerKey)) {
+                return false; // 命中黑名單，強制拒絕豁免，交由全域清洗
+            }
         }
     }
+
+    // V44.79 雙層掃描第二階段：寬鬆放行 (Positive Inclusion)
+    for (const [pathStr, allowedParamsSet] of domainExemptions) {
+        if (!pathStr.startsWith('!')) {
+            if (pathLower.includes(pathStr) && allowedParamsSet.has(lowerKey)) {
+                return true; // 命中白名單，安全放行
+            }
+        }
+    }
+    
     return false;
   },
 
