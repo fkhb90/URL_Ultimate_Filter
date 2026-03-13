@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.81 (SSOT Compilation)
+ * @version   44.82 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.81';
+const SCRIPT_VERSION = '44.82';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -725,6 +725,9 @@ const RULES = {
     ['shopee.tw', new Set([
         '/api/v4/search/search_items', '/api/v4/pdp/get'
       ])],
+    ['uber.com', new Set([
+        '/go/_events'
+      ])],
     ['cmapi.tw.coupang.com', new Set([
         '/vendor-items/'
       ])],
@@ -849,21 +852,19 @@ const HELPERS = {
     }
     if (!domainExemptions) return false;
 
-    // V44.79 雙層掃描第一階段：絕對否決 (Negative Exclusion)
     for (const [pathStr, allowedParamsSet] of domainExemptions) {
         if (pathStr.startsWith('!')) {
             const actualPath = pathStr.substring(1);
             if (pathLower.includes(actualPath) && allowedParamsSet.has(lowerKey)) {
-                return false; // 命中黑名單，強制拒絕豁免，交由全域清洗
+                return false; 
             }
         }
     }
 
-    // V44.79 雙層掃描第二階段：寬鬆放行 (Positive Inclusion)
     for (const [pathStr, allowedParamsSet] of domainExemptions) {
         if (!pathStr.startsWith('!')) {
             if (pathLower.includes(pathStr) && allowedParamsSet.has(lowerKey)) {
-                return true; // 命中白名單，安全放行
+                return true; 
             }
         }
     }
