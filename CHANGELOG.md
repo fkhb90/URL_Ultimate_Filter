@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V44.82 - 2026-03-13
+- [BugFix] 針對 Uber Eats 網頁版/WebView 新增路徑豁免 /go/_events，修復因 GraphQL 批次請求與遙測事件深度耦合，導致商品圖片無法顯示 (破圖) 之異常陷阱。
+
 ## V44.81 - 2026-03-13
 - [HotFix] 修復 V44.80 編譯器中的 RULES_DB 字典截斷錯誤 (KeyError: 'REDIRECTOR_HOSTS')，確保 CI/CD 流程正常執行。
 - [Architecture] 完整繼承 V44.79 的反向排除機制與 V44.80 的風傳媒 Nuxt 防崩潰策略。
