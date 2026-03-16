@@ -3,14 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V44.82
+當前版本：V44.84
 最新架構更新：
-- [BugFix] 針對 Uber Eats 網頁版/WebView 新增路徑豁免 /go/_events，修復因 GraphQL 批次請求與遙測事件深度耦合，導致商品圖片無法顯示 (破圖) 之異常陷阱。
+- [HotFix] 修復 V44.83 編譯器中的 RULES_DB 字典截斷錯誤 (KeyError: 'BLOCK_DOMAINS')，確保 GitHub Actions CI 流程正常執行。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
-- V44.81: 修復 RULES_DB 字典截斷錯誤 (KeyError: 'REDIRECTOR_HOSTS')，確保 CI/CD 流程正常執行。
-- V44.80: 針對風傳媒 (storm.mg) 新增路徑豁免 /_nuxt/track，修復因追蹤模組載入失敗導致的 404 陷阱。
-- V44.79: 於 SCOPED_PARAM_EXEMPTIONS 導入「反向排除」機制，徹底根除 104 APP 白名單疲勞。
+- V44.83: 針對 Foodpanda 核心遙測端點 (/api/v5/action-log) 導入 DROP 動作路由，實施 204 靜默拋棄。
+- V44.82: 針對 Uber Eats 新增路徑豁免 /go/_events，修復 GraphQL 批次請求破圖。
+- V44.81: 修復 REDIRECTOR_HOSTS 字典截斷錯誤。
+- V44.80: 針對風傳媒 (storm.mg) 新增路徑豁免 /_nuxt/track，修復 404 陷阱。
+- V44.79: 於 SCOPED_PARAM_EXEMPTIONS 導入「反向排除 (Negative Exclusion)」雙層校驗機制 (支援 `!` 前綴)。
 """
 
 import json
@@ -32,11 +34,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.82"
+VERSION = "44.84"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [BugFix] 針對 Uber Eats 網頁版/WebView 新增路徑豁免 /go/_events，修復因 GraphQL 批次請求與遙測事件深度耦合，導致商品圖片無法顯示 (破圖) 之異常陷阱。
+- [HotFix] 修復 V44.83 編譯器中的 RULES_DB 字典截斷錯誤 (KeyError: 'BLOCK_DOMAINS')，完整還原黑名單陣列以確保 GitHub Actions CI/CD 流程正常執行。
+- [Architecture] 完整保留前述所有隱私防護與動作路由 (Action Routing) 策略。
 """
 
 # ==========================================
@@ -287,7 +290,7 @@ RULES_DB = {
         'googleadservices.com', 'googlesyndication.com', 'outbrain.com', 'taboola.com', 'rubiconproject.com',
         'pubmatic.com', 'openx.com', 'smartadserver.com', 'spotx.tv', 'yandex.ru', 'addthis.com',
         'onesignal.com', 'sharethis.com', 'bat.bing.com', 'clarity.ms',
-        'elads.kocpc.com.tw', 'eservice.emarsys.net'
+        'elads.kocpc.com.tw', 'eservice.emarsys.net', 'at-display-as.deliveryhero.io'
     ],
     "BLOCK_DOMAINS_WILDCARDS": [
         'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io',
@@ -369,7 +372,7 @@ RULES_DB = {
         'www.google.com': ['/log', '/pagead/1p-user-list/'],
         'js.stripe.com': ['/fingerprinted/'],
         'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr'],
-        'tw.fd-api.com': ['/api/v5/action-log'],
+        'tw.fd-api.com': ['DROP:/api/v5/action-log'],
         'chatbot.shopee.tw': ['/report/v1/log'],
         'data-rep.livetech.shopee.tw': ['/dataapi/dataweb/event/'],
         'shopee.tw': ['/dataapi/dataweb/event/', '/abtest/traffic/'],
@@ -782,6 +785,7 @@ const HELPERS = {
     }
     if (!domainExemptions) return false;
 
+    // 雙層掃描第一階段：絕對否決 (Negative Exclusion)
     for (const [pathStr, allowedParamsSet] of domainExemptions) {
         if (pathStr.startsWith('!')) {
             const actualPath = pathStr.substring(1);
@@ -791,6 +795,7 @@ const HELPERS = {
         }
     }
 
+    // 雙層掃描第二階段：寬鬆放行 (Positive Inclusion)
     for (const [pathStr, allowedParamsSet] of domainExemptions) {
         if (!pathStr.startsWith('!')) {
             if (pathLower.includes(pathStr) && allowedParamsSet.has(lowerKey)) {
@@ -1700,6 +1705,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
 
     # --- V44.82 Uber Eats GraphQL 批次請求破圖修復測試 ---
     cases.append(TestCase("BugFix: Uber Eats GraphQL Batching", "https://helix-go-webview.uber.com/go/_events", RES_ALLOW, "放行 Uber Eats GraphQL 遙測與業務混合端點以修復菜單破圖"))
+    
+    # --- V44.83 Foodpanda 動作路由 (靜默拋棄) 測試 ---
+    cases.append(TestCase("Strategy: Foodpanda Action Log Drop", "https://tw.fd-api.com/api/v5/action-log?device_id=test", RES_DROP_204, "將 Foodpanda 遙測升級為 204 靜默拋棄，徹底避免 APP 重試風暴"))
 
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
@@ -1875,7 +1883,7 @@ def run_tests():
             with open(js_surge_filename, "w", encoding="utf-8") as f: f.write(js_surge_content)
             with open(js_tm_filename, "w", encoding="utf-8") as f: f.write(js_tampermonkey_content)
             
-            # --- [Architecture-V44.82] 觸發自動更新日誌 ---
+            # --- [Architecture-V44.84] 觸發自動更新日誌 ---
             update_changelog()
             
             print(f"\n✅  SSOT DUAL-TARGET BUILD & TEST PASSED")
