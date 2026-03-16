@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.82 (SSOT Compilation)
+ * @version   44.84 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.82';
+const SCRIPT_VERSION = '44.84';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -196,7 +196,8 @@ const RULES = {
     'adroll.com', 'ads.yahoo.com', 'adserver.yahoo.com', 'appnexus.com', 'bluekai.com', 'casalemedia.com',
     'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'outbrain.com', 'taboola.com', 'rubiconproject.com',
     'pubmatic.com', 'openx.com', 'smartadserver.com', 'spotx.tv', 'yandex.ru', 'addthis.com',
-    'onesignal.com', 'sharethis.com', 'bat.bing.com', 'clarity.ms', 'elads.kocpc.com.tw', 'eservice.emarsys.net'
+    'onesignal.com', 'sharethis.com', 'bat.bing.com', 'clarity.ms', 'elads.kocpc.com.tw', 'eservice.emarsys.net',
+    'at-display-as.deliveryhero.io'
   ]),
   BLOCK_DOMAINS_WILDCARDS: new Set([
     'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io', 'aotter.net', 'ssp.yahoo.com',
@@ -328,7 +329,7 @@ const RULES = {
         '/ces/statsc/flush', '/v1/rgstr'
       ])],
     ['tw.fd-api.com', new Set([
-        '/api/v5/action-log'
+        'DROP:/api/v5/action-log'
       ])],
     ['chatbot.shopee.tw', new Set([
         '/report/v1/log'
@@ -852,6 +853,7 @@ const HELPERS = {
     }
     if (!domainExemptions) return false;
 
+    // 雙層掃描第一階段：絕對否決 (Negative Exclusion)
     for (const [pathStr, allowedParamsSet] of domainExemptions) {
         if (pathStr.startsWith('!')) {
             const actualPath = pathStr.substring(1);
@@ -861,6 +863,7 @@ const HELPERS = {
         }
     }
 
+    // 雙層掃描第二階段：寬鬆放行 (Positive Inclusion)
     for (const [pathStr, allowedParamsSet] of domainExemptions) {
         if (!pathStr.startsWith('!')) {
             if (pathLower.includes(pathStr) && allowedParamsSet.has(lowerKey)) {

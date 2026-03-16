@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V44.84 - 2026-03-16
+- [HotFix] 修復 V44.83 編譯器中的 RULES_DB 字典截斷錯誤 (KeyError: 'BLOCK_DOMAINS')，完整還原黑名單陣列以確保 GitHub Actions CI/CD 流程正常執行。
+- [Architecture] 完整保留前述所有隱私防護與動作路由 (Action Routing) 策略。
+
 ## V44.82 - 2026-03-13
 - [BugFix] 針對 Uber Eats 網頁版/WebView 新增路徑豁免 /go/_events，修復因 GraphQL 批次請求與遙測事件深度耦合，導致商品圖片無法顯示 (破圖) 之異常陷阱。
 
