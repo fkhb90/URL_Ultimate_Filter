@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.86 (SSOT Compilation)
+ * @version   44.87 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.86';
+const SCRIPT_VERSION = '44.87';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -233,7 +233,8 @@ const RULES = {
     '/plugins/easy-social-share-buttons/', '/event_report', '/log/aplus', '/v.gif', '/ad-sw.js', '/ads-sw.js',
     '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/',
     '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc',
-    '/user-profile/', 'cacafly/track', '/api/v1/t', '/sa.gif', '/api/v2/rum', '/batch_resolve'
+    '/user-profile/', 'cacafly/track', '/api/v1/t', '/sa.gif', '/api/v2/rum', '/batch_resolve',
+    '/acookie/', '/cookie-sync/'
   ],
     SCRIPT_ROOTS: [
     '/prebid', '/sentry.', 'sentry-', '/analytics.', 'ga-init.', 'gtag.',
@@ -523,6 +524,9 @@ const RULES = {
       ])],
     ['disqus.com', new Set([
         '/api/3.0/users/events', '/j/', '/tracking_pixel/'
+      ])],
+    ['yahooapis.jp', new Set([
+        '/v2/acookie/lookup', '/acookie/'
       ])]
   ])
   },
