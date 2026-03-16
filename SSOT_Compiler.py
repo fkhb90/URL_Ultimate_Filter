@@ -3,21 +3,15 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V44.86
+當前版本：V44.87
 最新架構更新：
-- [Audit] 全量邏輯驗證：以 3 個平行審計代理人針對 processRequest 19 步決策鏈，逐行追蹤 2296 條測試的
-  引擎判定路徑，確認所有 expected 值零邏輯錯誤、原有手動案例零衝突 (向下相容)、核心防護功能零影響。
-- [Fix] 修正 10 條測試描述的封鎖機制精準度 (sentry.io 衝突描述、Coupang MAP vs Regex、Mutation Step 標注、
-  Regex 類別實際觸發 Step 14/15/17 標注)，描述現與引擎判定路徑完全對齊。
+- [Privacy] 針對 Yahoo! JAPAN 跨站點身份解析端點 (/acookie/) 實施精準封鎖，並新增至 CRITICAL_PATH_MAP，以徹底阻斷 Audience Cookie 同步機制，同時避免誤殺 yahooapis.jp 旗下正常服務。
+- [Audit] 新增 2 項隱私與邊界交叉測試案例，驗證 Cookie Sync 攔截精準度與一般 API 存活率。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V44.86: 全量邏輯驗證與測試描述對齊，確認 2296 條測試路徑零衝突。
 - V44.85: 大規模擴展回歸測試矩陣 (2296+ Cases)，新增 28 類測試維度實現 RULES_DB 全維度自動覆蓋。
 - V44.84: 修復 V44.83 編譯器中的 RULES_DB 字典截斷錯誤 (KeyError: 'BLOCK_DOMAINS')。
-- V44.83: 針對 Foodpanda 核心遙測端點 (/api/v5/action-log) 導入 DROP 動作路由，實施 204 靜默拋棄。
-- V44.82: 針對 Uber Eats 新增路徑豁免 /go/_events，修復 GraphQL 批次請求破圖。
-- V44.81: 修復 REDIRECTOR_HOSTS 字典截斷錯誤。
-- V44.80: 針對風傳媒 (storm.mg) 新增路徑豁免 /_nuxt/track，修復 404 陷阱。
-- V44.79: 於 SCOPED_PARAM_EXEMPTIONS 導入「反向排除 (Negative Exclusion)」雙層校驗機制 (支援 `!` 前綴)。
 """
 
 import json
@@ -39,13 +33,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.86"
+VERSION = "44.87"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Audit] 全量邏輯驗證 (2296 Cases × 19-Step Decision Chain)：以 3 個平行審計代理人逐行追蹤每條測試的引擎判定路徑，確認 expected 值零邏輯錯誤、原有手動案例零衝突 (向下相容)、核心防護功能零影響。
-- [Fix] 修正 10 條測試描述的封鎖機制精準度：sentry.io 衝突描述 (非 Soft WL 衝突，Step 6 直接封鎖)、Coupang 3 條 (MAP Step 4 而非 Regex Step 16)、Mutation tracker (criticalPathScanner Step 15 而非 PATH_BLOCK)、Regex 類別 6 條 (標注實際觸發 Step 14/15/17)。描述現與引擎判定路徑完全對齊。
-- [Architecture] 完整保留前述所有隱私防護與動作路由 (Action Routing) 策略。
+- [Privacy] 針對 Yahoo! JAPAN 跨站點身份解析端點實施精準防護。將 `/acookie/` 與 `/cookie-sync/` 納入 L1 啟發式掃描 (`CRITICAL_PATH_GENERIC`)，並於 `CRITICAL_PATH_MAP` 綁定 `yahooapis.jp` 網域。此舉成功阻斷廣告商在背景執行的 Audience Cookie 匹配，且完全保障地圖、天氣等正常 API 運作。
+- [Test] 擴展動態測試矩陣，新增 `Privacy: Audience Cookie Sync` 與 `Edge: Yahoo API Safe Harbor` 案例，確保規則具備嚴謹的向下相容性與防誤殺能力。
 """
 
 # ==========================================
@@ -334,7 +327,8 @@ RULES_DB = {
         '/plugins/easy-social-share-buttons/', '/event_report', '/log/aplus', '/v.gif', '/ad-sw.js', 
         '/ads-sw.js', '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/', 
         '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc', '/user-profile/', 
-        'cacafly/track', '/api/v1/t', '/sa.gif', '/api/v2/rum', '/batch_resolve'
+        'cacafly/track', '/api/v1/t', '/sa.gif', '/api/v2/rum', '/batch_resolve',
+        '/acookie/', '/cookie-sync/'
     ],
     "CRITICAL_PATH_SCRIPT_ROOTS": [
         '/prebid', '/sentry.', 'sentry-', '/analytics.', 'ga-init.', 'gtag.', 'gtm.', 'ytag.',
@@ -442,7 +436,8 @@ RULES_DB = {
         'dp.tracking.shopee.tw': ['/v4/event_batch'],
         'live-apm.shopee.tw': ['/apmapi/v1/event'],
         'cmapi.tw.coupang.com': ['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/'],
-        'disqus.com': ['/api/3.0/users/events', '/j/', '/tracking_pixel/']
+        'disqus.com': ['/api/3.0/users/events', '/j/', '/tracking_pixel/'],
+        'yahooapis.jp': ['/v2/acookie/lookup', '/acookie/']
     },
     "HIGH_CONFIDENCE": [
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
@@ -1672,7 +1667,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Universal Link Silent Rewrite", "https://www.591.com.tw/2S?salt=STrc0&s=al&utm_source=line", RES_REWRITE, "Used Silent Rewrite to clean params without 302 breaking Deep Link"))
     cases.append(TestCase("Privacy: API Silent Rewrite (591 BFF)", "https://bff-house.591.com.tw/v1/touch/sale/detail?utm_source=test&device_id=b26dd90d", RES_REWRITE, "Cleaned device_id and utm_ using Silent Rewrite without triggering CORS 302"))
     cases.append(TestCase("AdBlock: App Ads Services", "https://odm.app-ads-services.com/v1/track", RES_BLOCK_403, "Block known pure app advertising/tracking network"))
-    cases.append(TestCase("Privacy: OTel Log Drop", "https://pbd.yahoo.com/otel/v1/logs", RES_DROP_204, "V44.37 OTLP Log Silent Drop (Elevated DROP precedence)"))
+    cases.append(TestCase("Privacy: OTel Log Drop", "https://pbd.yahoo.com/otel/v1/logs", RES_DROP_204, "V44.37 OTLP Log Silent Drop (Elevated precedence)"))
     cases.append(TestCase("Privacy: Generic Log Block", "https://example.com/api/v1/logs", RES_BLOCK_403, "V44.37 Generic v1 logs 403 Block via L1 Scanner"))
     cases.append(TestCase("BugFix: Canvas Test Tool", "https://browserleaks.com/canvas", RES_ALLOW, "V44.38 Exempt browserleaks.com from PATH_BLOCK 'canvas' keyword"))
     cases.append(TestCase("Fix: 104 App internal /ad/ path", "https://appapi.104.com.tw/2.0/ad/search/hashtag?device_type=0&device_id=6CCC0850&ad_type=full", RES_REWRITE, "Bypasses HIGH_CONFIDENCE /ad/ block via HARD_WHITELIST and strips device_id silently"))
@@ -1714,6 +1709,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     
     # --- V44.83 Foodpanda 動作路由 (靜默拋棄) 測試 ---
     cases.append(TestCase("Strategy: Foodpanda Action Log Drop", "https://tw.fd-api.com/api/v5/action-log?device_id=test", RES_DROP_204, "將 Foodpanda 遙測升級為 204 靜默拋棄，徹底避免 APP 重試風暴"))
+
+    # --- V44.87 Yahoo! JAPAN 跨站點 Cookie 同步測試 ---
+    cases.append(TestCase("Privacy: Audience Cookie Sync", "https://aai.yahooapis.jp/v2/acookie/lookup?appid=TEST&type=2&priority=0", RES_BLOCK_403, "精準攔截 Yahoo JP 跨站點 Cookie 同步 API，避免誤殺整段網域"))
+    cases.append(TestCase("Edge: Yahoo API Safe Harbor", "https://map.yahooapis.jp/search/local/V1/localSearch?appid=TEST", RES_ALLOW, "確保 yahooapis.jp 的正常地圖 API 不被誤殺"))
 
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
