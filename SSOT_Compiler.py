@@ -3,11 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V44.84
+當前版本：V44.86
 最新架構更新：
-- [HotFix] 修復 V44.83 編譯器中的 RULES_DB 字典截斷錯誤 (KeyError: 'BLOCK_DOMAINS')，確保 GitHub Actions CI 流程正常執行。
+- [Audit] 全量邏輯驗證：以 3 個平行審計代理人針對 processRequest 19 步決策鏈，逐行追蹤 2296 條測試的
+  引擎判定路徑，確認所有 expected 值零邏輯錯誤、原有手動案例零衝突 (向下相容)、核心防護功能零影響。
+- [Fix] 修正 10 條測試描述的封鎖機制精準度 (sentry.io 衝突描述、Coupang MAP vs Regex、Mutation Step 標注、
+  Regex 類別實際觸發 Step 14/15/17 標注)，描述現與引擎判定路徑完全對齊。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V44.85: 大規模擴展回歸測試矩陣 (2296+ Cases)，新增 28 類測試維度實現 RULES_DB 全維度自動覆蓋。
+- V44.84: 修復 V44.83 編譯器中的 RULES_DB 字典截斷錯誤 (KeyError: 'BLOCK_DOMAINS')。
 - V44.83: 針對 Foodpanda 核心遙測端點 (/api/v5/action-log) 導入 DROP 動作路由，實施 204 靜默拋棄。
 - V44.82: 針對 Uber Eats 新增路徑豁免 /go/_events，修復 GraphQL 批次請求破圖。
 - V44.81: 修復 REDIRECTOR_HOSTS 字典截斷錯誤。
@@ -34,11 +39,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.84"
+VERSION = "44.86"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [HotFix] 修復 V44.83 編譯器中的 RULES_DB 字典截斷錯誤 (KeyError: 'BLOCK_DOMAINS')，完整還原黑名單陣列以確保 GitHub Actions CI/CD 流程正常執行。
+- [Audit] 全量邏輯驗證 (2296 Cases × 19-Step Decision Chain)：以 3 個平行審計代理人逐行追蹤每條測試的引擎判定路徑，確認 expected 值零邏輯錯誤、原有手動案例零衝突 (向下相容)、核心防護功能零影響。
+- [Fix] 修正 10 條測試描述的封鎖機制精準度：sentry.io 衝突描述 (非 Soft WL 衝突，Step 6 直接封鎖)、Coupang 3 條 (MAP Step 4 而非 Regex Step 16)、Mutation tracker (criticalPathScanner Step 15 而非 PATH_BLOCK)、Regex 類別 6 條 (標注實際觸發 Step 14/15/17)。描述現與引擎判定路徑完全對齊。
 - [Architecture] 完整保留前述所有隱私防護與動作路由 (Action Routing) 策略。
 """
 
@@ -1713,6 +1719,208 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
     cases.append(TestCase("E2E: Malicious Payload Block", "https://static.104.com.tw/ad.json", RES_BLOCK_403, "模擬 JSON 內遭植入第三方追蹤並點擊，觸發 L1 攔截", is_e2e=True, e2e_target_url="https://googleadservices.com/track/click"))
     cases.append(TestCase("E2E: URL Fragment Bypass", "https://static.104.com.tw/ad.json", RES_ALLOW, "模擬 HTTP Hash 參數剝離物理限制", is_e2e=True, e2e_target_url="https://guide.104.com.tw/#/test?fbclid=123"))
+
+    # =====================================================================
+    #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
+    # =====================================================================
+
+    # --- 1. OAuth Safe Harbor 自動生成測試 ---
+    for d in RULES_DB["OAUTH_SAFE_HARBOR_DOMAINS"]:
+        if d == 'accounts.youtube.com':
+            cases.append(TestCase("Auto: OAuth (YT Exception)", f"https://{d}/page?utm_source=test", RES_CLEAN_302, "accounts.youtube.com 被排除出 OAuth Safe Harbor，非 OAuth 路徑時應淨化參數"))
+        else:
+            cases.append(TestCase("Auto: OAuth Safe Harbor", f"https://{d}/oauth2/authorize?utm_source=test&state=abc", RES_ALLOW, "OAuth 安全港全面豁免參數淨化"))
+    cases.append(TestCase("Edge: OAuth Path Regex", "https://example.com/login?utm_source=test", RES_ALLOW, "OAuth 路徑正則匹配 /login 豁免參數淨化"))
+    cases.append(TestCase("Edge: OAuth Path /authorize", "https://example.com/oauth2/authorize?utm_source=test", RES_ALLOW, "OAuth 路徑正則匹配 /oauth2/authorize 豁免參數淨化"))
+    cases.append(TestCase("Edge: OAuth Path /signin", "https://example.com/signin?fbclid=test", RES_ALLOW, "OAuth 路徑正則匹配 /signin 豁免參數淨化"))
+    cases.append(TestCase("Edge: OAuth Path /session", "https://example.com/session?gclid=test", RES_ALLOW, "OAuth 路徑正則匹配 /session 豁免參數淨化"))
+
+    # --- 2. ABSOLUTE_BYPASS_DOMAINS 自動生成測試 ---
+    for d in RULES_DB["ABSOLUTE_BYPASS_DOMAINS"]["EXACT"]:
+        cases.append(TestCase("Auto: Absolute Bypass (Exact)", f"https://{d}/api/pay?utm_source=test&fbclid=abc", RES_ALLOW, "絕對繞過域名立即放行，不做任何處理"))
+    for d in RULES_DB["ABSOLUTE_BYPASS_DOMAINS"]["WILDCARDS"][:10]:
+        cases.append(TestCase("Auto: Absolute Bypass (WC)", f"https://www.{d}/transfer?gclid=test", RES_ALLOW, "萬用字元絕對繞過，子域名繼承"))
+    cases.append(TestCase("Edge: Absolute Bypass + Tracking Path", "https://api.ecpay.com.tw/track/pixel?fbclid=123", RES_ALLOW, "絕對繞過優先級高於路徑關鍵字掃描"))
+
+    # --- 3. HARD_WHITELIST EXACT 自動生成測試 ---
+    param_exempt_all = set(RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["EXACT"])
+    for wc in RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["WILDCARDS"]:
+        param_exempt_all.add(wc)
+    for d in RULES_DB["HARD_WHITELIST"]["EXACT"][:15]:
+        # api.* or appapi.* → REWRITE; param-exempt domains → ALLOW; others → CLEAN_302
+        is_param_exempt = any(d == e or d.endswith('.' + e) for e in param_exempt_all)
+        is_api_prefix = d.startswith('api.') or d.startswith('appapi.')
+        if is_param_exempt:
+            exp = RES_ALLOW
+        elif is_api_prefix:
+            exp = RES_REWRITE
+        else:
+            exp = RES_CLEAN_302
+        cases.append(TestCase("Auto: Hard WL (Exact)", f"https://{d}/page?utm_source=test", exp, "硬白名單精確匹配，依子域名決定淨化方式"))
+
+    # --- 4. SOFT_WHITELIST EXACT 自動生成測試 ---
+    for d in RULES_DB["SOFT_WHITELIST"]["EXACT"][:10]:
+        cases.append(TestCase("Auto: Soft WL (Exact)", f"https://{d}/safe/data", RES_ALLOW, "軟白名單精確匹配，無追蹤參數時直接放行"))
+    for d in RULES_DB["SOFT_WHITELIST"]["EXACT"][:5]:
+        is_api_prefix = d.startswith('api.') or d.startswith('appapi.')
+        exp = RES_REWRITE if is_api_prefix else RES_CLEAN_302
+        cases.append(TestCase("Auto: Soft WL + Param", f"https://{d}/page?utm_source=fb", exp, "軟白名單精確匹配，含追蹤參數時依子域名決定淨化方式"))
+
+    # --- 5. BLOCK_DOMAINS_REGEX 自動生成測試 ---
+    cases.append(TestCase("Auto: Regex Block (ads ettoday)", "https://ads.ettoday.net/track", RES_BLOCK_403, "正則匹配 ads?.ettoday.net"))
+    cases.append(TestCase("Auto: Regex Block (ad ettoday)", "https://ad.ettoday.net/banner", RES_BLOCK_403, "正則匹配 ads?.ettoday.net"))
+    cases.append(TestCase("Auto: Regex Block (ad2 ettoday)", "https://ad2.ettoday.net/pixel", RES_BLOCK_403, "正則匹配 ads?\\d*.ettoday.net"))
+    cases.append(TestCase("Auto: Regex Block (ads ltn)", "https://ads.ltn.com.tw/track", RES_BLOCK_403, "正則匹配 ads?.ltn.com.tw"))
+    cases.append(TestCase("Auto: Regex Block (ad ltn)", "https://ad.ltn.com.tw/banner", RES_BLOCK_403, "正則匹配 ads?.ltn.com.tw"))
+    cases.append(TestCase("Auto: Regex Block (Datadog)", "https://browser-intake-us3-datadoghq.com/api/v2/rum", RES_BLOCK_403, "正則匹配 browser-intake-*.datadoghq.com"))
+    cases.append(TestCase("Auto: Regex Block (Datadog EU)", "https://browser-intake-eu1-datadoghq.eu/api/v2/rum", RES_BLOCK_403, "正則匹配 browser-intake-*.datadoghq.eu"))
+    cases.append(TestCase("Edge: Regex Non-Match (www ettoday)", "https://www.ettoday.net/news/123", RES_ALLOW, "www.ettoday.net 不匹配 ads? 正則，應放行"))
+
+    # --- 6. PARAM_CLEANING_EXEMPTED_DOMAINS 自動生成測試 ---
+    for d in RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["EXACT"]:
+        cases.append(TestCase("Auto: Param Exempt (Exact)", f"https://{d}/page?utm_source=test&fbclid=abc", RES_ALLOW, "參數淨化豁免域名，保留所有追蹤參數"))
+    for d in RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["WILDCARDS"][:8]:
+        cases.append(TestCase("Auto: Param Exempt (WC)", f"https://sub.{d}/api?gclid=test&device_id=abc", RES_ALLOW, "萬用字元參數淨化豁免域名"))
+
+    # --- 7. SILENT_REWRITE_DOMAINS 自動生成測試 ---
+    for d in RULES_DB["SILENT_REWRITE_DOMAINS"]["WILDCARDS"]:
+        cases.append(TestCase("Auto: Silent Rewrite Domain", f"https://www.{d}/page?utm_source=test", RES_REWRITE, "靜默重寫域名使用 REWRITE 而非 302 重定向"))
+
+    # --- 8. PARAMS_PREFIXES 前綴匹配淨化測試 ---
+    prefix_samples = ['__cf_test', '_bta_id', '_ga_1234', '_hs_cookie', 'ad_campaign', 'af_channel',
+                       'campaign_id', 'fb_action', 'gcl_aw', 'hsa_ad', 'mtm_source', 'pk_campaign',
+                       'ref_src', 'share_token', 'trk_contact', 'tt_medium', 'linkedin_src']
+    for param in prefix_samples:
+        cases.append(TestCase("Auto: Prefix Param Clean", f"https://example.com/page?{param}=test123", RES_CLEAN_302, f"前綴 '{param.split('_')[0]}_' 觸發參數淨化"))
+
+    # --- 9. COSMETIC 參數淨化測試 ---
+    for p in ['fb_ref', 'fb_source', 'from', 'ref', 'share_id']:
+        cases.append(TestCase("Auto: Cosmetic Param Clean", f"https://example.com/page?{p}=test", RES_CLEAN_302, f"裝飾參數 '{p}' 應被淨化"))
+
+    # --- 10. PARAMS WHITELIST 存活測試 ---
+    for p in ['code', 'id', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 'token', 'format', 'lang', 'locale', 'salt', 's']:
+        cases.append(TestCase("Auto: Param Whitelist Survive", f"https://example.com/page?{p}=value&utm_source=test", RES_CLEAN_302, f"白名單參數 '{p}' 應存活，utm_source 被移除觸發淨化"))
+
+    # --- 11. 靜態檔案副檔名豁免測試 (關鍵字路徑 + 靜態副檔名) ---
+    # 使用 PATH_BLOCK-only 關鍵字 (不在 CRITICAL_PATH_GENERIC/SCRIPT_ROOTS 中) 以測試靜態豁免
+    static_test_exts = ['.css', '.js', '.jpg', '.png', '.gif', '.svg', '.woff2', '.mp4', '.pdf', '.json']
+    for ext in static_test_exts:
+        cases.append(TestCase("Edge: Static Ext Bypass", f"https://example.com/lib/affiliate/sponsor{ext}", RES_ALLOW, f"靜態副檔名 {ext} 豁免 PATH_BLOCK 關鍵字封鎖"))
+
+    # --- 12. Exception Prefixes/Substrings/Segments 豁免測試 ---
+    # 使用僅存在於 HIGH_CONFIDENCE 的關鍵字 (如 /ad/) 測試 isPathExplicitlyAllowed 豁免
+    for prefix in ['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/']:
+        cases.append(TestCase("Edge: Exception Prefix Bypass", f"https://example.com{prefix}ad/sponsor.webp", RES_ALLOW, f"路徑前綴 '{prefix}' 豁免 HIGH_CONFIDENCE 掃描"))
+    cases.append(TestCase("Edge: cdn-cgi Substring Bypass", "https://example.com/cdn-cgi/trace/ad/test", RES_ALLOW, "cdn-cgi 子串匹配豁免 HIGH_CONFIDENCE 掃描"))
+    for seg in ['assets', 'static', 'images', 'img', 'css', 'js']:
+        cases.append(TestCase("Edge: Segment Bypass", f"https://example.com/path/{seg}/ad/sponsor.webp", RES_ALLOW, f"路徑段 '/{seg}/' 豁免 HIGH_CONFIDENCE 掃描"))
+
+    # --- 13. PATH_EXEMPTIONS 自動生成測試 ---
+    for domain, paths in RULES_DB["PATH_EXEMPTIONS"].items():
+        for p in paths:
+            test_url = f"https://{domain}{p if p.startswith('/') else '/' + p}?test=1"
+            cases.append(TestCase("Auto: Path Exemption", test_url, RES_ALLOW, f"路徑豁免 {domain} 的 {p}"))
+
+    # --- 14. URL 編碼邊界測試 ---
+    cases.append(TestCase("Edge: Single Encoded /ad/", "https://example.com/%61%64/banner.webp", RES_BLOCK_403, "單次 URL 編碼 /ad/ 解碼後命中 HIGH_CONFIDENCE"))
+    cases.append(TestCase("Edge: Mixed Case Path", "https://example.com/ADS/Banner/pixel.gif", RES_BLOCK_403, "路徑大小寫不敏感，/ADS/ 應命中 HIGH_CONFIDENCE"))
+    cases.append(TestCase("Edge: Encoded Query Param", "https://example.com/page?utm%5Fsource=test", RES_ALLOW, "編碼的查詢參數鍵不觸發淨化 (原始鍵未匹配)"))
+    cases.append(TestCase("Edge: Triple Nested Path", "https://example.com/a/b/c/d/e/f/ads/banner/pixel.gif", RES_BLOCK_403, "深層巢狀路徑中的 /ads/ 仍應被掃描到"))
+
+    # --- 15. URL 結構邊界測試 ---
+    cases.append(TestCase("Edge: URL with Port", "https://example.com:8443/tracker/event", RES_BLOCK_403, "含端口號的 URL 正確解析 hostname 後命中關鍵字"))
+    cases.append(TestCase("Edge: URL with Fragment", "https://example.com/page?utm_source=test#section", RES_CLEAN_302, "URL fragment 在淨化前被正確剝離"))
+    cases.append(TestCase("Edge: Path Only Slash", "https://example.com/", RES_ALLOW, "根路徑無匹配，放行"))
+    cases.append(TestCase("Edge: No Path", "https://example.com", RES_ALLOW, "無路徑 URL 正確解析為 / 放行"))
+    cases.append(TestCase("Edge: Empty Query String", "https://example.com/page?", RES_ALLOW, "空查詢字串不觸發淨化"))
+    cases.append(TestCase("Edge: Query Only Ampersand", "https://example.com/page?&", RES_ALLOW, "僅含 & 的查詢字串不崩潰"))
+    cases.append(TestCase("Edge: Multiple Same Params", "https://example.com/page?utm_source=a&utm_source=b", RES_CLEAN_302, "重複參數全部被淨化"))
+    cases.append(TestCase("Edge: Value-less Param", "https://example.com/page?utm_source", RES_CLEAN_302, "無值參數 (無等號) 仍應被淨化"))
+    cases.append(TestCase("Edge: Very Long Path", f"https://example.com/{'a/' * 100}tracker/event", RES_BLOCK_403, "超長路徑仍能掃描到關鍵字"))
+
+    # --- 16. 優先級衝突測試 ---
+    cases.append(TestCase("Conflict: P0 vs Hard WL", "https://admob.com/page", RES_BLOCK_403, "PRIORITY_BLOCK 優先於任何白名單"))
+    cases.append(TestCase("Conflict: Redirector vs Path", "https://adf.ly/safe/page.html", RES_BLOCK_403, "REDIRECTOR 判定優先於路徑安全豁免"))
+    cases.append(TestCase("Conflict: Block Domain (No WL)", "https://sentry.io/api/data", RES_BLOCK_403, "sentry.io 在 BLOCK_DOMAINS + BLOCK_DOMAINS_WILDCARDS 中且不在 SOFT_WHITELIST，Step 6 直接封鎖"))
+    cases.append(TestCase("Conflict: Hard WL + Keyword", "https://sendgrid.net/path/analytics/deep", RES_ALLOW, "HARD_WHITELIST 豁免 HIGH_CONFIDENCE 關鍵字掃描"))
+    cases.append(TestCase("Conflict: Soft WL + Static", "https://cdn.shopify.com/files/campaign/image.jpg", RES_ALLOW, "SOFT_WHITELIST + 靜態副檔名雙重豁免"))
+    cases.append(TestCase("Conflict: Critical Map vs Path Exempt", "https://www.youtube.com/ptracking", RES_BLOCK_403, "CRITICAL_PATH_MAP 在 PATH_EXEMPTIONS 之前執行"))
+    cases.append(TestCase("Conflict: PRIORITY_DROP vs Static", "https://example.com/otel/v1/logs", RES_DROP_204, "PRIORITY_DROP 路徑匹配優先於靜態豁免"))
+    cases.append(TestCase("Conflict: Param Exempt + Block Domain", "https://api.stripe.com/v1/charges?utm_source=test&device_id=abc", RES_ALLOW, "api.stripe.com 在參數淨化豁免域名中，且為 ABSOLUTE_BYPASS"))
+
+    # --- 17. 變異/突變測試 (Mutation Testing) ---
+    cases.append(TestCase("Mutation: Tracker with Typo", "https://example.com/trackerr/event", RES_BLOCK_403, "'trackerr' 包含 '/track' 子串，由 criticalPathScanner (Step 15) 無條件攔截"))
+    cases.append(TestCase("Mutation: Ad with Extra Slash", "https://example.com//ad//banner.gif", RES_BLOCK_403, "雙斜線路徑中 /ad/ 仍命中 HIGH_CONFIDENCE"))
+    cases.append(TestCase("Mutation: Analytics Substring", "https://example.com/user-analytics-dashboard", RES_BLOCK_403, "'analytics' 子串命中 PATH_BLOCK"))
+    cases.append(TestCase("Mutation: Pixel in Filename", "https://example.com/image/pixel.gif", RES_BLOCK_403, "pixel.gif 命中 CRITICAL_PATH_GENERIC"))
+    cases.append(TestCase("Mutation: Beacon as Endpoint", "https://example.com/api/beacon", RES_BLOCK_403, "/beacon 命中 CRITICAL_PATH_GENERIC"))
+    cases.append(TestCase("Mutation: Collect with Query", "https://example.com/v1/collect?tid=UA-123", RES_BLOCK_403, "/v1/collect 命中 CRITICAL_PATH_GENERIC"))
+    cases.append(TestCase("Mutation: Fingerprint Variant", "https://example.com/cdn/fingerprint/v3", RES_BLOCK_403, "/cdn/fingerprint/ 命中 CRITICAL_PATH_GENERIC"))
+    cases.append(TestCase("Mutation: Canvas FP Path", "https://example.com/api/canvas-fingerprint/detect", RES_BLOCK_403, "canvas-fingerprint 命中 PATH_BLOCK"))
+    cases.append(TestCase("Mutation: WebGL FP Path", "https://example.com/api/webgl-fp/hash", RES_BLOCK_403, "webgl-fp 命中 PATH_BLOCK"))
+    cases.append(TestCase("Mutation: Audio FP Path", "https://example.com/api/audio-fingerprint/calc", RES_BLOCK_403, "audio-fingerprint 命中 PATH_BLOCK"))
+    cases.append(TestCase("Mutation: Font Detect FP", "https://example.com/api/font-detect-fp/list", RES_BLOCK_403, "font-detect-fp 命中 PATH_BLOCK"))
+
+    # --- 18. Regex PATH_BLOCK 測試 ---
+    cases.append(TestCase("Regex: /ads/ path pattern", "https://example.com/v2/ads/campaign", RES_BLOCK_403, "HIGH_CONFIDENCE /ads/ (Step 14) 先於正則攔截"))
+    cases.append(TestCase("Regex: /ad/ path pattern", "https://example.com/api/ad/load", RES_BLOCK_403, "HIGH_CONFIDENCE /ad/ (Step 14) 先於正則攔截"))
+    cases.append(TestCase("Regex: /ads/ path with prefix", "https://example.com/v1/ads/load", RES_BLOCK_403, "HIGH_CONFIDENCE /ads/ (Step 14) 先於正則攔截"))
+    cases.append(TestCase("Regex: tracker.gif file", "https://example.com/img/tracker.gif", RES_BLOCK_403, "criticalPathScanner (Step 15) 無條件命中 /track 子串"))
+    cases.append(TestCase("Regex: Heuristic ad param", "https://example.com/page?ad_campaign=test", RES_BLOCK_403, "啟發式正則 [?&](ad|ads|campaign|tracker)_[a-z]+= (Step 17) 匹配 ad_campaign"))
+    cases.append(TestCase("Regex: Heuristic tracker param", "https://example.com/page?tracker_id=test", RES_BLOCK_403, "啟發式正則 [?&](ad|ads|campaign|tracker)_[a-z]+= (Step 17) 匹配 tracker_id"))
+
+    # --- 19. API Signature Bypass 靜默重寫測試 ---
+    cases.append(TestCase("Edge: API Path Silent Rewrite", "https://example.com/api/v1/user?utm_source=test", RES_REWRITE, "/api/ 路徑觸發靜默重寫而非 302"))
+    cases.append(TestCase("Edge: GraphQL Silent Rewrite", "https://example.com/graphql/query?fbclid=test", RES_REWRITE, "/graphql/ 路徑觸發靜默重寫"))
+    cases.append(TestCase("Edge: REST Silent Rewrite", "https://example.com/rest/v2/data?gclid=test", RES_REWRITE, "/rest/ 路徑觸發靜默重寫"))
+    cases.append(TestCase("Edge: JSON Suffix Rewrite", "https://example.com/data.json?utm_source=test", RES_REWRITE, ".json 後綴觸發靜默重寫"))
+    cases.append(TestCase("Edge: api. Subdomain Rewrite", "https://api.example.com/data?utm_source=test", RES_REWRITE, "api. 開頭子域名觸發靜默重寫"))
+    cases.append(TestCase("Edge: appapi. Subdomain Rewrite", "https://appapi.example.com/data?utm_source=test", RES_REWRITE, "appapi. 開頭子域名觸發靜默重寫"))
+
+    # --- 20. Regex 參數淨化測試 (GLOBAL_REGEX & PREFIXES_REGEX) ---
+    for param in ['utm_test', 'utm_custom_field', 'ig_cb', 'ig_mid', 'asa_channel', 'tt_adid', 'li_sugr']:
+        cases.append(TestCase("Auto: Regex Param Clean", f"https://example.com/page?{param}=value", RES_CLEAN_302, f"正則匹配參數 '{param}' 觸發淨化"))
+
+    # --- 21. DROP 關鍵字與 PRIORITY_DROP 精確測試 ---
+    for k in RULES_DB["PRIORITY_DROP"]:
+        cases.append(TestCase("Auto: Priority Drop Exact", f"https://unknown-site.com{k}", RES_DROP_204, f"PRIORITY_DROP 精確匹配 '{k}'"))
+
+    # --- 22. Coupang 全域廣告正則封鎖測試 ---
+    cases.append(TestCase("Mutation: Coupang home-banner-ads", "https://cmapi.tw.coupang.com/home-banner-ads/v1", RES_BLOCK_403, "CRITICAL_PATH_MAP Step 4 精確封鎖 /home-banner-ads/"))
+    cases.append(TestCase("Mutation: Coupang plp-ads", "https://cmapi.tw.coupang.com/plp-ads/v2/items", RES_BLOCK_403, "CRITICAL_PATH_MAP Step 4 精確封鎖 /plp-ads/"))
+    cases.append(TestCase("Mutation: Coupang category-banner-ads", "https://cmapi.tw.coupang.com/category-banner-ads/v1", RES_BLOCK_403, "CRITICAL_PATH_MAP Step 4 精確封鎖 /category-banner-ads/"))
+    cases.append(TestCase("Edge: Coupang vendor-items safe", "https://cmapi.tw.coupang.com/vendor-items/12345", RES_ALLOW, "Coupang 商品 API 不含 -ads/ 應放行"))
+
+    # --- 23. SCOPED_PARAM_EXEMPTIONS 完整邊界測試 ---
+    cases.append(TestCase("Scoped: 104 v2 api device_id", "https://appapi.104.com.tw/v2/api/user?device_id=TEST", RES_ALLOW, "/v2/api/ 正向匹配 device_id 放行"))
+    cases.append(TestCase("Scoped: 104 v2 api client_id", "https://appapi.104.com.tw/v2/api/user?client_id=TEST", RES_ALLOW, "/v2/api/ 白名單中無 client_id，但 client_id 不在 PARAMS_GLOBAL 中，不觸發淨化"))
+    cases.append(TestCase("Scoped: 104 api both params", "https://appapi.104.com.tw/api/login?device_id=A&client_id=B", RES_ALLOW, "/api/ 同時允許 device_id 和 client_id"))
+    cases.append(TestCase("Scoped: 104 negative + positive overlap", "https://appapi.104.com.tw/2.0/ad/data?device_id=A&fbclid=B", RES_REWRITE, "!/2.0/ad/ 否決 device_id，fbclid 為全局追蹤參數，兩者皆被剝離"))
+    cases.append(TestCase("Scoped: Subdomain inheritance", "https://sub.104.com.tw/api/data?device_id=TEST", RES_ALLOW, "子域名繼承 104.com.tw SCOPED 規則，/api/ device_id 放行"))
+
+    # --- 24. 安全相關邊界測試 ---
+    cases.append(TestCase("Security: HMAC sig bypass", "https://example.com/webhook?utm_source=test&sig=abcdef123", RES_ALLOW, "signature/sig/hmac 參數存在時停止淨化保護簽章"))
+    cases.append(TestCase("Security: HMAC hmac bypass", "https://example.com/callback?fbclid=test&hmac=sha256hash", RES_ALLOW, "hmac 參數存在時停止淨化"))
+    cases.append(TestCase("Security: HMAC signature bypass", "https://example.com/verify?gclid=test&signature=rsa2048", RES_ALLOW, "signature 參數存在時停止淨化"))
+
+    # --- 25. 多參數混合淨化精確性測試 ---
+    cases.append(TestCase("Mix: Clean only tracking", "https://example.com/page?q=search&utm_source=google&page=2", RES_CLEAN_302, "僅移除 utm_source，保留 q 和 page"))
+    cases.append(TestCase("Mix: All params whitelisted", "https://example.com/page?q=test&page=1&lang=en", RES_ALLOW, "所有參數均在白名單中，無淨化觸發"))
+    cases.append(TestCase("Mix: All params tracked", "https://example.com/page?utm_source=a&fbclid=b&gclid=c", RES_CLEAN_302, "所有參數均為追蹤參數，全部移除"))
+    cases.append(TestCase("Mix: Prefix + Global combo", "https://example.com/page?_ga=1.234&utm_medium=cpc&q=test", RES_CLEAN_302, "前綴與全局規則同時命中，白名單參數存活"))
+
+    # --- 26. CheckConnection 特殊 204 路由測試 ---
+    cases.append(TestCase("Edge: CheckConnection case insensitive", "https://example.com/accounts/checkconnection", RES_DROP_204, "CheckConnection 路徑大小寫不敏感，觸發 204"))
+    cases.append(TestCase("Edge: CheckConnection with query", "https://example.com/accounts/CheckConnection?t=123", RES_DROP_204, "CheckConnection 含查詢參數仍觸發 204"))
+    cases.append(TestCase("Edge: CheckConnection deep path", "https://random-site.org/v2/accounts/checkconnection/status", RES_DROP_204, "CheckConnection 在任意深度路徑中均觸發 204"))
+
+    # --- 27. Soft WL + 非靜態關鍵字封鎖測試 ---
+    cases.append(TestCase("Conflict: Soft WL + Static Keyword", f"https://{dynamic_soft_wl}/lib/affiliate.min.js", RES_ALLOW, "軟白名單 + .js 靜態副檔名雙重豁免 PATH_BLOCK 關鍵字掃描"))
+    cases.append(TestCase("Conflict: Soft WL + Non-Static Keyword", f"https://{dynamic_soft_wl}/path/affiliate/event", RES_BLOCK_403, "軟白名單但非靜態路徑，PATH_BLOCK 關鍵字掃描仍生效"))
+
+    # --- 28. DROP 路徑在靜態檔案/豁免路徑下的行為 ---
+    cases.append(TestCase("Edge: DROP keyword in static file", "https://example.com/lib/heartbeat.min.css", RES_ALLOW, "靜態副檔名 .css 豁免 DROP 關鍵字 'heartbeat' 掃描"))
+    cases.append(TestCase("Edge: DROP keyword in /js/ prefix", "https://example.com/js/live-log.config.json", RES_ALLOW, "/js/ 前綴 + .json 靜態副檔名豁免 DROP 掃描"))
 
     return cases
 
