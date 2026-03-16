@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V44.87 - 2026-03-16
+- [Privacy] 針對 Yahoo! JAPAN 跨站點身份解析端點實施精準防護。將 `/acookie/` 與 `/cookie-sync/` 納入 L1 啟發式掃描 (`CRITICAL_PATH_GENERIC`)，並於 `CRITICAL_PATH_MAP` 綁定 `yahooapis.jp` 網域。此舉成功阻斷廣告商在背景執行的 Audience Cookie 匹配，且完全保障地圖、天氣等正常 API 運作。
+- [Test] 擴展動態測試矩陣，新增 `Privacy: Audience Cookie Sync` 與 `Edge: Yahoo API Safe Harbor` 案例，確保規則具備嚴謹的向下相容性與防誤殺能力。
+
 ## V44.86 - 2026-03-16
 - [Audit] 全量邏輯驗證 (2296 Cases × 19-Step Decision Chain)：以 3 個平行審計代理人逐行追蹤每條測試的引擎判定路徑，確認 expected 值零邏輯錯誤、原有手動案例零衝突 (向下相容)、核心防護功能零影響。
 - [Fix] 修正 10 條測試描述的封鎖機制精準度：sentry.io 衝突描述 (非 Soft WL 衝突，Step 6 直接封鎖)、Coupang 3 條 (MAP Step 4 而非 Regex Step 16)、Mutation tracker (criticalPathScanner Step 15 而非 PATH_BLOCK)、Regex 類別 6 條 (標注實際觸發 Step 14/15/17)。描述現與引擎判定路徑完全對齊。
