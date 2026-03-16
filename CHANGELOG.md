@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V44.86 - 2026-03-16
+- [Audit] 全量邏輯驗證 (2296 Cases × 19-Step Decision Chain)：以 3 個平行審計代理人逐行追蹤每條測試的引擎判定路徑，確認 expected 值零邏輯錯誤、原有手動案例零衝突 (向下相容)、核心防護功能零影響。
+- [Fix] 修正 10 條測試描述的封鎖機制精準度：sentry.io 衝突描述 (非 Soft WL 衝突，Step 6 直接封鎖)、Coupang 3 條 (MAP Step 4 而非 Regex Step 16)、Mutation tracker (criticalPathScanner Step 15 而非 PATH_BLOCK)、Regex 類別 6 條 (標注實際觸發 Step 14/15/17)。描述現與引擎判定路徑完全對齊。
+- [Architecture] 完整保留前述所有隱私防護與動作路由 (Action Routing) 策略。
+
 ## V44.84 - 2026-03-16
 - [HotFix] 修復 V44.83 編譯器中的 RULES_DB 字典截斷錯誤 (KeyError: 'BLOCK_DOMAINS')，完整還原黑名單陣列以確保 GitHub Actions CI/CD 流程正常執行。
 - [Architecture] 完整保留前述所有隱私防護與動作路由 (Action Routing) 策略。
