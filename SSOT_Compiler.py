@@ -3,15 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V44.88
+當前版本：V44.89
 最新架構更新：
-- [Architecture] 升級 Tampermonkey 前端攔截器（Fetch / XHR）。針對 204 狀態碼（如 Slack 的 DROP:/clog/track/）實施真實的 Mock Response 偽造，取代原有的 Error Reject，徹底消滅因網路阻擋造成的客戶端重試風暴 (Retry Storm)。
-- [Privacy] 延續 V44.87 的 Yahoo! JAPAN 跨站點身份解析端點 (/acookie/) 封鎖。
+- [Architecture] 完善 XHR 204 Mock 機制，補齊 getAllResponseHeaders 與 responseURL，徹底相容 Axios 等第三方封裝庫。
+- [Architecture] 新增 navigator.sendBeacon 頂層攔截器，阻斷背景遙測並回傳 true (204 偽造)，消除防護破口。
+- [Strategy] 將 Microsoft Teams 與 Discord 核心遙測端點從 403 阻擋全面升級為 204 靜默拋棄 (DROP)，降低系統資源消耗。
+- [UI] 於 Tampermonkey 介面新增獨立的「Dropped (204)」紫色分類標籤與計數器，提升專業可觀測性。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
-- V44.87: 針對 Yahoo! JAPAN 跨站點 Cookie 同步 API 實施 CRITICAL_PATH_MAP 精準封鎖。
+- V44.88: 升級 TM 攔截器，針對 204 狀態碼實施真實 Mock Response 偽造，消除重試風暴。
+- V44.87: 針對 Yahoo! JAPAN 跨站點 Cookie 同步 API 實施精準封鎖。
 - V44.86: 全量邏輯驗證與測試描述對齊，確認 2296 條測試路徑零衝突。
-- V44.85: 大規模擴展回歸測試矩陣 (2296+ Cases)，新增 28 類測試維度實現 RULES_DB 全維度自動覆蓋。
 """
 
 import json
@@ -33,12 +35,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.88"
+VERSION = "44.89"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Architecture] 升級 Tampermonkey 前端攔截器。針對 Fetch API 與 XMLHttpRequest 實作 204 (No Content) 完美偽造機制。當觸發 DROP 權重時，不再拋出網路錯誤，而是回傳虛擬的 204 成功狀態，欺騙 Slack 等具備 Exponential Backoff 重試機制的 SPA 客戶端，節省設備資源並避免 Console 紅字污染。
-- [Audit] 驗證 Slack `/clog/track/` 在雙平台下的動作路由均能穩定輸出 204 靜默拋棄。
+- [Architecture] XHR 204 Mock 機制完美適配 Axios，補足 `getAllResponseHeaders` 與 `responseURL` 偽造，防止前端框架解析崩潰。
+- [Architecture] 導入 `navigator.sendBeacon` 原生攔截，完美防堵背景遙測外洩，針對 DROP 權重直接回傳 `true` 以靜默欺騙客戶端。
+- [Strategy] 擴展 204 DROP 應用範圍至 Microsoft Teams (`*.events.data.microsoft.com`) 與 Discord (`/api/v*/science`)。
+- [UI] 實裝獨立的「Dropped」監控面板（紫色視覺），精準區分惡意阻擋與效能拋棄。
 """
 
 # ==========================================
@@ -95,8 +99,6 @@ RULES_DB = {
     "PRIORITY_BLOCK_DOMAINS": [
         'cdn-path.com', 'doorphone92.com', 'easytomessage.com',
         'penphone92.com', 'sir90hl.com', 'uymgg1.com',
-        'browser.events.data.microsoft.com', 'mobile.events.data.microsoft.com', 'self.events.data.microsoft.com',
-        'onecollector.cloudapp.aria.akadns.net', 'watson.telemetry.microsoft.com',
         'admob.com', 'ads.google.com', 'adservice.google.com', 'adservice.google.com.tw',
         'doubleclick.net', 'googleadservices.com', 'googlesyndication.com',
         'crashlyticsreports-pa.googleapis.com', 'firebaselogging-pa.googleapis.com',
@@ -379,6 +381,11 @@ RULES_DB = {
         'api.tongyi.com': ['/qianwen/event/track'],
         'gw.alipayobjects.com': ['/config/loggw/'],
         'slack.com': ['/api/profiling.logging.enablement', '/api/telemetry', 'DROP:/clog/track/'],
+        'discord.com': ['DROP:/api/v10/science', 'DROP:/api/v9/science'],
+        'browser.events.data.microsoft.com': ['DROP:/'],
+        'mobile.events.data.microsoft.com': ['DROP:/'],
+        'self.events.data.microsoft.com': ['DROP:/'],
+        'watson.telemetry.microsoft.com': ['DROP:/'],
         'graphql.ec.yahoo.com': ['/app/sas/v1/fullsitepromotions'],
         'prism.ec.yahoo.com': ['/api/prism/v2/streamwithads'],
         'analytics.google.com': ['/g/collect', '/j/collect'],
@@ -428,7 +435,6 @@ RULES_DB = {
         'events.redditmedia.com': ['/v1'],
         's.pinimg.com': ['/ct/core.js'],
         'www.redditstatic.com': ['/ads/pixel.js'],
-        'discord.com': ['/api/v10/science', '/api/v9/science'],
         'vk.com': ['/rtrg'],
         'instagram.com': ['/logging_client_events'],
         'mall.shopee.tw': ['/userstats_record/batchrecord'],
@@ -1075,9 +1081,11 @@ def compile_tampermonkey() -> str:
     interceptor_logic = r"""
     const tmStats = {
         blocked: new Map(),
+        dropped: new Map(),
         cleaned: new Map(),
         allowed: new Map(),
         countBlocked: 0,
+        countDropped: 0,
         countCleaned: 0,
         countAllowed: 0,
         
@@ -1087,6 +1095,14 @@ def compile_tampermonkey() -> str:
             if(this.blocked.has(u)) { c = this.blocked.get(u) + 1; this.blocked.delete(u); }
             else if(this.blocked.size >= 50) this.blocked.delete(this.blocked.keys().next().value);
             this.blocked.set(u, c); 
+            requestUpdate(); 
+        },
+        recordDrop: function(u) { 
+            this.countDropped++;
+            let c = 1;
+            if(this.dropped.has(u)) { c = this.dropped.get(u) + 1; this.dropped.delete(u); }
+            else if(this.dropped.size >= 50) this.dropped.delete(this.dropped.keys().next().value);
+            this.dropped.set(u, c); 
             requestUpdate(); 
         },
         recordClean: function(o, n) { 
@@ -1140,7 +1156,7 @@ def compile_tampermonkey() -> str:
         };
         
         panel = document.createElement('div');
-        panel.style.cssText = 'display:none; position:absolute; bottom:0; right:0; width:360px; background:#0f172a; border: 1px solid #334155; border-radius:12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); overflow:hidden; flex-direction:column; color:#f8fafc;';
+        panel.style.cssText = 'display:none; position:absolute; bottom:0; right:0; width:400px; background:#0f172a; border: 1px solid #334155; border-radius:12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); overflow:hidden; flex-direction:column; color:#f8fafc;';
         
         const header = document.createElement('div');
         header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#1e293b; border-bottom:1px solid #334155; user-select:none;';
@@ -1148,14 +1164,14 @@ def compile_tampermonkey() -> str:
         panel.appendChild(header);
         
         const tabsRow = document.createElement('div');
-        tabsRow.style.cssText = 'display:flex; padding:8px; gap:8px; background:#0f172a; border-bottom:1px solid #334155;';
+        tabsRow.style.cssText = 'display:flex; padding:8px; gap:6px; background:#0f172a; border-bottom:1px solid #334155;';
         
         const createTab = (id, label, color) => {
             const t = document.createElement('div');
             t.id = `ssot-tab-${id}`;
             t.title = `點擊展開/收合 ${label} 列表`;
-            t.style.cssText = `flex:1; text-align:center; padding:8px 4px; cursor:pointer; border-radius:6px; transition:all 0.2s; border-bottom:2px solid transparent; user-select:none; background:transparent;`;
-            t.innerHTML = `<div style="color:${color}; font-weight:700; font-size:18px; line-height:1.2;" id="ssot-cnt-${id}">0</div><div style="color:#94a3b8; font-size:11px; margin-top:2px; font-weight:500;">${label}</div>`;
+            t.style.cssText = `flex:1; text-align:center; padding:8px 2px; cursor:pointer; border-radius:6px; transition:all 0.2s; border-bottom:2px solid transparent; user-select:none; background:transparent;`;
+            t.innerHTML = `<div style="color:${color}; font-weight:700; font-size:16px; line-height:1.2;" id="ssot-cnt-${id}">0</div><div style="color:#94a3b8; font-size:10px; margin-top:2px; font-weight:600; text-transform:uppercase;">${label}</div>`;
             t.onclick = () => { 
                 if (activeTab === id) {
                     expanded = false;
@@ -1169,6 +1185,7 @@ def compile_tampermonkey() -> str:
         };
         
         tabsRow.appendChild(createTab('blocked', 'Blocked', '#ef4444'));
+        tabsRow.appendChild(createTab('dropped', 'Dropped', '#8b5cf6'));
         tabsRow.appendChild(createTab('cleaned', 'Cleaned', '#10b981'));
         tabsRow.appendChild(createTab('allowed', 'Allowed', '#cbd5e1'));
         panel.appendChild(tabsRow);
@@ -1220,15 +1237,17 @@ def compile_tampermonkey() -> str:
         panel.style.display = 'flex';
 
         document.getElementById('ssot-cnt-blocked').innerText = tmStats.countBlocked;
+        document.getElementById('ssot-cnt-dropped').innerText = tmStats.countDropped;
         document.getElementById('ssot-cnt-cleaned').innerText = tmStats.countCleaned;
         document.getElementById('ssot-cnt-allowed').innerText = tmStats.countAllowed;
 
-        ['blocked', 'cleaned', 'allowed'].forEach(t => {
+        ['blocked', 'dropped', 'cleaned', 'allowed'].forEach(t => {
             const el = document.getElementById(`ssot-tab-${t}`);
             if (!el) return;
             if (activeTab === t) {
                 el.style.backgroundColor = '#1e293b';
-                el.style.borderBottom = `2px solid ${t==='blocked'?'#ef4444':t==='cleaned'?'#10b981':'#cbd5e1'}`;
+                const colors = { blocked:'#ef4444', dropped:'#8b5cf6', cleaned:'#10b981', allowed:'#cbd5e1' };
+                el.style.borderBottom = `2px solid ${colors[t]}`;
             } else {
                 el.style.backgroundColor = 'transparent';
                 el.style.borderBottom = '2px solid transparent';
@@ -1250,6 +1269,14 @@ def compile_tampermonkey() -> str:
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                         <span>${u}</span>
                         ${c > 1 ? `<span style="${badgeStyle} background:#7f1d1d; color:#fecaca;">x${c}</span>` : ''}
+                    </div>
+                </div>`).join('');
+            } else if (activeTab === 'dropped') {
+                if (tmStats.dropped.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無拋棄紀錄</div>`;
+                else listHtml = Array.from(tmStats.dropped.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#c4b5fd;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <span>${u}</span>
+                        ${c > 1 ? `<span style="${badgeStyle} background:#4c1d95; color:#ddd6fe;">x${c}</span>` : ''}
                     </div>
                 </div>`).join('');
             } else if (activeTab === 'cleaned') {
@@ -1279,7 +1306,7 @@ def compile_tampermonkey() -> str:
         return processRequest({ url: url });
     }
 
-    // [Architecture Upgrade V44.88] 真正支援 Fetch 的 204 Mock Response 偽造
+    // [Architecture Upgrade V44.89] 真正支援 Fetch 的 204 Mock Response 偽造
     const origFetch = window.fetch;
     window.fetch = async function(...args) {
         let url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
@@ -1293,9 +1320,8 @@ def compile_tampermonkey() -> str:
                         if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Blocked: ${url}`);
                         return Promise.reject(new Error("Blocked by URL Ultimate Filter SSOT"));
                     } else if (action.response.status === 204) {
-                        tmStats.recordBlock(url);
+                        tmStats.recordDrop(url);
                         if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Dropped (204 Mock): ${url}`);
-                        // 欺騙前端發送成功，消除重試風暴
                         return Promise.resolve(new Response(null, { status: 204, statusText: 'No Content' }));
                     }
                 } else if (action.url) {
@@ -1313,13 +1339,15 @@ def compile_tampermonkey() -> str:
         return origFetch.apply(this, args);
     };
 
-    // [Architecture Upgrade V44.88] 真正支援 XHR 的 204 Mock Response 偽造
+    // [Architecture Upgrade V44.89] XHR 相容 Axios 的完全偽造
     const origOpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function(method, url, ...rest) {
         this._ssotAction = null;
+        this._ssotUrl = '';
         if (url) {
             try {
                 let absoluteUrl = new URL(url, location.origin).href;
+                this._ssotUrl = absoluteUrl;
                 const action = applyFilter(absoluteUrl);
                 if (action) {
                     if (action.response) {
@@ -1327,7 +1355,7 @@ def compile_tampermonkey() -> str:
                             tmStats.recordBlock(absoluteUrl);
                             this._ssotAction = 403;
                         } else if (action.response.status === 204) {
-                            tmStats.recordBlock(absoluteUrl);
+                            tmStats.recordDrop(absoluteUrl);
                             this._ssotAction = 204;
                         }
                     } else if (action.url) {
@@ -1350,15 +1378,17 @@ def compile_tampermonkey() -> str:
             this.dispatchEvent(new Event('error'));
             return;
         } else if (this._ssotAction === 204) {
-            // 利用 defineProperties 覆寫實例上的 getter 來偽造請求完成的狀態
+            const mockUrl = this._ssotUrl;
             Object.defineProperties(this, {
                 readyState: { get: () => 4 },
                 status: { get: () => 204 },
                 statusText: { get: () => 'No Content' },
                 response: { get: () => '' },
-                responseText: { get: () => '' }
+                responseText: { get: () => '' },
+                responseURL: { get: () => mockUrl },
+                getAllResponseHeaders: { value: () => 'content-length: 0\r\n' },
+                getResponseHeader: { value: (name) => null }
             });
-            // 延遲觸發事件，完美模擬非同步請求網路生命週期
             setTimeout(() => {
                 this.dispatchEvent(new Event('readystatechange'));
                 this.dispatchEvent(new Event('load'));
@@ -1368,6 +1398,31 @@ def compile_tampermonkey() -> str:
         }
         return origSend.apply(this, args);
     };
+
+    // [Architecture Upgrade V44.89] navigator.sendBeacon 頂層防護
+    if (navigator.sendBeacon) {
+        const origSendBeacon = navigator.sendBeacon;
+        navigator.sendBeacon = function(url, data) {
+            if (url) {
+                try {
+                    let absoluteUrl = new URL(url, location.origin).href;
+                    const action = applyFilter(absoluteUrl);
+                    if (action && action.response) {
+                        if (action.response.status === 403) {
+                            tmStats.recordBlock(absoluteUrl);
+                            if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Beacon Blocked: ${absoluteUrl}`);
+                            return false; 
+                        } else if (action.response.status === 204) {
+                            tmStats.recordDrop(absoluteUrl);
+                            if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Beacon Dropped (Fake Success): ${absoluteUrl}`);
+                            return true; 
+                        }
+                    }
+                } catch(e){}
+            }
+            return origSendBeacon.apply(this, arguments);
+        };
+    }
     
     const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
@@ -1376,9 +1431,14 @@ def compile_tampermonkey() -> str:
                     if (node.src) {
                         try {
                             const action = applyFilter(node.src);
-                            if (action && action.response && [403, 204].includes(action.response.status)) {
-                                tmStats.recordBlock(node.src);
-                                node.remove(); 
+                            if (action && action.response) {
+                                if (action.response.status === 403) {
+                                    tmStats.recordBlock(node.src);
+                                    node.remove();
+                                } else if (action.response.status === 204) {
+                                    tmStats.recordDrop(node.src);
+                                    node.remove();
+                                }
                             } else if (action && action.url && node.src !== action.url) {
                                 tmStats.recordClean(node.src, action.url);
                                 node.src = action.url; 
@@ -1743,6 +1803,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V44.87 Yahoo! JAPAN 跨站點 Cookie 同步測試 ---
     cases.append(TestCase("Privacy: Audience Cookie Sync", "https://aai.yahooapis.jp/v2/acookie/lookup?appid=TEST&type=2&priority=0", RES_BLOCK_403, "精準攔截 Yahoo JP 跨站點 Cookie 同步 API，避免誤殺整段網域"))
     cases.append(TestCase("Edge: Yahoo API Safe Harbor", "https://map.yahooapis.jp/search/local/V1/localSearch?appid=TEST", RES_ALLOW, "確保 yahooapis.jp 的正常地圖 API 不被誤殺"))
+
+    # --- V44.89 Teams & Discord 204 DROP 測試 ---
+    cases.append(TestCase("Strategy: Teams Event Telemetry Drop", "https://browser.events.data.microsoft.com/OneCollector/1.0", RES_DROP_204, "將 Teams 高頻遙測從 P0 網域轉移至 204 DROP 拋棄"))
+    cases.append(TestCase("Strategy: Discord Science Telemetry Drop", "https://discord.com/api/v9/science", RES_DROP_204, "將 Discord v9/v10 科學大數據遙測轉換為 204 靜默拋棄"))
 
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
