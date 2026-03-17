@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V44.92 - 2026-03-17
+- [Anti-Tampering] iframe 沙箱防護：攔截 createElement('iframe') + MutationObserver 同步 patch 所有同源 iframe 的 sendBeacon/fetch，杜絕乾淨 contentWindow 繞過攻擊。
+- [Performance] ACScanner → CompiledScanner：SSOT 編譯階段預建置 3 組 RegExp 字面量取代 641 次逐一 String.includes() 線性掃描。pathScanner 加速 69.9x (11.5µs→0.16µs/URL)。
+
 ## V44.91 - 2026-03-17
 - [Anti-Tampering] navigator.sendBeacon 反篡改防護：偵測 Object.defineProperty 鎖定狀態，自動降級為 Proxy 代理攔截，封堵廣告腳本屬性鎖定攻擊向量。
 - [Privacy] 新增 CSS background-image No-JS 追蹤攔截：MutationObserver 即時偵測 inline style url() 指向追蹤域名並清除。
