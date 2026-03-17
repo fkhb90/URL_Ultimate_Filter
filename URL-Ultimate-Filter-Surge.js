@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.88 (SSOT Compilation)
+ * @version   44.89 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.88';
+const SCRIPT_VERSION = '44.89';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -50,33 +50,33 @@ const ABSOLUTE_BYPASS_DOMAINS = {
 const RULES = {
   PRIORITY_BLOCK_DOMAINS: new Set([
     'cdn-path.com', 'doorphone92.com', 'easytomessage.com', 'penphone92.com', 'sir90hl.com', 'uymgg1.com',
-    'browser.events.data.microsoft.com', 'mobile.events.data.microsoft.com', 'self.events.data.microsoft.com', 'onecollector.cloudapp.aria.akadns.net', 'watson.telemetry.microsoft.com', 'admob.com',
-    'ads.google.com', 'adservice.google.com', 'adservice.google.com.tw', 'doubleclick.net', 'googleadservices.com', 'googlesyndication.com',
-    'crashlyticsreports-pa.googleapis.com', 'firebaselogging-pa.googleapis.com', 'imasdk.googleapis.com', 'measurement.adservices.google.com', 'privacysandbox.googleapis.com', 'business.facebook.com',
-    'connect.facebook.net', 'graph.facebook.com', '2o7.net', 'adobedc.net', 'demdex.net', 'everesttech.net',
-    'omtrdc.net', '3lift.com', 'adnxs.com', 'advertising.com', 'amazon-adsystem.com', 'bidswitch.net',
-    'indexexchange.com', 'media.net', 'sharethrough.com', 'teads.tv', 'crwdcntrl.net', 'exelator.com',
-    'eyeota.com', 'krxd.net', 'lotame.com', 'liadm.com', 'rlcdn.com', 'tapad.com',
-    'contextweb.com', 'mathtag.com', 'rfihub.com', 'adcolony.com', 'applovin.com', 'chartboost.com',
-    'ironsrc.com', 'pangle.io', 'popads.net', 'tapjoy.com', 'unityads.unity3d.com', 'vungle.com',
-    'outbrain.com', 'taboola.com', 'app-measurement.com', 'branch.io', 'singular.net', 'ad.etmall.com.tw',
-    'ad.line.me', 'ad-history.line.me', 'ads.linkedin.com', 'ads.tiktok.com', 'analytics.tiktok.com', 'cdn.segment.com',
-    'clarity.ms', 'fullstory.com', 'inmobi.com', 'inner-active.mobi', 'launchdarkly.com', 'split.io',
-    'iadsdk.apple.com', 'metrics.icloud.com', 'ad.impactify.io', 'impactify.media', 'adsv.omgrmn.tw', 'browser.sentry-cdn.com',
-    'caid.china-caa.org', 'slackb.com', 'events.tiktok.com', 'ibytedtos.com', 'log.tiktokv.com', 'log16-normal-c-useast1a.tiktokv.com',
-    'mon.tiktokv.com', 'mon-va.tiktokv.com', 'analysis.shein.com', 'dc.shein.com', 'st.shein.com', 'report.temu.com',
-    'alimama.com', 'hm.baidu.com', 'mmstat.com', 'pos.baidu.com', 'sm.cn', 'sofire.baidu.com',
-    'sp0.baidu.com', 'sp1.baidu.com', 'tanx.com', 'uc.cn', 'ucweb.com', 'uczzd.cn',
-    'ynuf.alipay.com', 'cms-statistics.quark.cn', 'stat.quark.cn', 'unpm-upaas.quark.cn', 'browser.360.cn', 's.360.cn',
-    'shouji.360.cn', 'stat.360.cn', 'inte.sogou.com', 'lu.sogou.com', 'pb.sogou.com', 'ping.sogou.com',
-    'analytics.shopee.tw', 'apm.tracking.shopee.tw', 'dem.shopee.com', 'dmp.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
-    'analysis.momoshop.com.tw', 'ecdmp.momoshop.com.tw', 'event.momoshop.com.tw', 'log.momoshop.com.tw', 'pixel.momoshop.com.tw', 'rtb.momoshop.com.tw',
-    'sspap.momoshop.com.tw', 'trace.momoshop.com.tw', 'trk.momoshop.com.tw', 'jslog.coupang.com', 'mercury.coupang.com', 'ad.gamer.com.tw',
-    'ad-geek.net', 'ad-hub.net', 'ad-serv.teepr.com', 'ad-tracking.dcard.tw', 'analysis.tw', 'appier.net',
-    'b.bridgewell.com', 'cacafly.com', 'clickforce.com.tw', 'fast-trk.com', 'funp.com', 'guoshipartners.com',
-    'imedia.com.tw', 'is-tracking.com', 'itad.linetv.tw', 'likr.tw', 'scupio.com', 'sitetag.us',
-    'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com', 'adnext-a.akamaihd.net',
-    'toots-a.akamaihd.net', 'analytics.twitter.com', 'edge-analytics.amazonaws.com', 'edge-tracking.cloudflare.com', 'insight.linkedin.com', 'px.ads.linkedin.com'
+    'admob.com', 'ads.google.com', 'adservice.google.com', 'adservice.google.com.tw', 'doubleclick.net', 'googleadservices.com',
+    'googlesyndication.com', 'crashlyticsreports-pa.googleapis.com', 'firebaselogging-pa.googleapis.com', 'imasdk.googleapis.com', 'measurement.adservices.google.com', 'privacysandbox.googleapis.com',
+    'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com', '2o7.net', 'adobedc.net', 'demdex.net',
+    'everesttech.net', 'omtrdc.net', '3lift.com', 'adnxs.com', 'advertising.com', 'amazon-adsystem.com',
+    'bidswitch.net', 'indexexchange.com', 'media.net', 'sharethrough.com', 'teads.tv', 'crwdcntrl.net',
+    'exelator.com', 'eyeota.com', 'krxd.net', 'lotame.com', 'liadm.com', 'rlcdn.com',
+    'tapad.com', 'contextweb.com', 'mathtag.com', 'rfihub.com', 'adcolony.com', 'applovin.com',
+    'chartboost.com', 'ironsrc.com', 'pangle.io', 'popads.net', 'tapjoy.com', 'unityads.unity3d.com',
+    'vungle.com', 'outbrain.com', 'taboola.com', 'app-measurement.com', 'branch.io', 'singular.net',
+    'ad.etmall.com.tw', 'ad.line.me', 'ad-history.line.me', 'ads.linkedin.com', 'ads.tiktok.com', 'analytics.tiktok.com',
+    'cdn.segment.com', 'clarity.ms', 'fullstory.com', 'inmobi.com', 'inner-active.mobi', 'launchdarkly.com',
+    'split.io', 'iadsdk.apple.com', 'metrics.icloud.com', 'ad.impactify.io', 'impactify.media', 'adsv.omgrmn.tw',
+    'browser.sentry-cdn.com', 'caid.china-caa.org', 'slackb.com', 'events.tiktok.com', 'ibytedtos.com', 'log.tiktokv.com',
+    'log16-normal-c-useast1a.tiktokv.com', 'mon.tiktokv.com', 'mon-va.tiktokv.com', 'analysis.shein.com', 'dc.shein.com', 'st.shein.com',
+    'report.temu.com', 'alimama.com', 'hm.baidu.com', 'mmstat.com', 'pos.baidu.com', 'sm.cn',
+    'sofire.baidu.com', 'sp0.baidu.com', 'sp1.baidu.com', 'tanx.com', 'uc.cn', 'ucweb.com',
+    'uczzd.cn', 'ynuf.alipay.com', 'cms-statistics.quark.cn', 'stat.quark.cn', 'unpm-upaas.quark.cn', 'browser.360.cn',
+    's.360.cn', 'shouji.360.cn', 'stat.360.cn', 'inte.sogou.com', 'lu.sogou.com', 'pb.sogou.com',
+    'ping.sogou.com', 'analytics.shopee.tw', 'apm.tracking.shopee.tw', 'dem.shopee.com', 'dmp.shopee.tw', 'live-apm.shopee.tw',
+    'log-collector.shopee.tw', 'analysis.momoshop.com.tw', 'ecdmp.momoshop.com.tw', 'event.momoshop.com.tw', 'log.momoshop.com.tw', 'pixel.momoshop.com.tw',
+    'rtb.momoshop.com.tw', 'sspap.momoshop.com.tw', 'trace.momoshop.com.tw', 'trk.momoshop.com.tw', 'jslog.coupang.com', 'mercury.coupang.com',
+    'ad.gamer.com.tw', 'ad-geek.net', 'ad-hub.net', 'ad-serv.teepr.com', 'ad-tracking.dcard.tw', 'analysis.tw',
+    'appier.net', 'b.bridgewell.com', 'cacafly.com', 'clickforce.com.tw', 'fast-trk.com', 'funp.com',
+    'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com', 'itad.linetv.tw', 'likr.tw', 'scupio.com',
+    'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com',
+    'adnext-a.akamaihd.net', 'toots-a.akamaihd.net', 'analytics.twitter.com', 'edge-analytics.amazonaws.com', 'edge-tracking.cloudflare.com', 'insight.linkedin.com',
+    'px.ads.linkedin.com'
   ]),
   REDIRECTOR_HOSTS: new Set([
     'adf.ly', 'ay.gy', 'gloyah.net', 'j.gs', 'q.gs', 'zo.ee',
@@ -350,6 +350,21 @@ const RULES = {
     ['slack.com', new Set([
         '/api/profiling.logging.enablement', '/api/telemetry', 'DROP:/clog/track/'
       ])],
+    ['discord.com', new Set([
+        'DROP:/api/v10/science', 'DROP:/api/v9/science'
+      ])],
+    ['browser.events.data.microsoft.com', new Set([
+        'DROP:/'
+      ])],
+    ['mobile.events.data.microsoft.com', new Set([
+        'DROP:/'
+      ])],
+    ['self.events.data.microsoft.com', new Set([
+        'DROP:/'
+      ])],
+    ['watson.telemetry.microsoft.com', new Set([
+        'DROP:/'
+      ])],
     ['graphql.ec.yahoo.com', new Set([
         '/app/sas/v1/fullsitepromotions'
       ])],
@@ -496,9 +511,6 @@ const RULES = {
       ])],
     ['www.redditstatic.com', new Set([
         '/ads/pixel.js'
-      ])],
-    ['discord.com', new Set([
-        '/api/v10/science', '/api/v9/science'
       ])],
     ['vk.com', new Set([
         '/rtrg'

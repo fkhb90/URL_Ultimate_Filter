@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V44.89 - 2026-03-17
+- [Architecture] XHR 204 Mock 機制完美適配 Axios，補足 `getAllResponseHeaders` 與 `responseURL` 偽造，防止前端框架解析崩潰。
+- [Architecture] 導入 `navigator.sendBeacon` 原生攔截，完美防堵背景遙測外洩，針對 DROP 權重直接回傳 `true` 以靜默欺騙客戶端。
+- [Strategy] 擴展 204 DROP 應用範圍至 Microsoft Teams (`*.events.data.microsoft.com`) 與 Discord (`/api/v*/science`)。
+- [UI] 實裝獨立的「Dropped」監控面板（紫色視覺），精準區分惡意阻擋與效能拋棄。
+
 ## V44.88 - 2026-03-17
 - [Architecture] 升級 Tampermonkey 前端攔截器。針對 Fetch API 與 XMLHttpRequest 實作 204 (No Content) 完美偽造機制。當觸發 DROP 權重時，不再拋出網路錯誤，而是回傳虛擬的 204 成功狀態，欺騙 Slack 等具備 Exponential Backoff 重試機制的 SPA 客戶端，節省設備資源並避免 Console 紅字污染。
 - [Audit] 驗證 Slack `/clog/track/` 在雙平台下的動作路由均能穩定輸出 204 靜默拋棄。
