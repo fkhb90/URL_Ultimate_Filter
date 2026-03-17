@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V44.89
+// @name         URL Ultimate Filter V44.91
 // @namespace    http://tampermonkey.net/
-// @version      44.89
+// @version      44.91
 // @description  SSOT 前端防護盾牌，專業級 UI：極簡盾牌圖示、獨立計數器、點擊外部自動收合機制。
 // @author       Jerry
 // @match        *://*/*
@@ -13,11 +13,11 @@
     'use strict';
 /**
  * @file      URL-Ultimate-Filter-Tampermonkey.js
- * @version   44.89 (SSOT Compilation)
+ * @version   44.91 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.89';
+const SCRIPT_VERSION = '44.91';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -1366,7 +1366,10 @@ function processRequest(request) {
         return processRequest({ url: url });
     }
 
-    // [Architecture Upgrade V44.89] 真正支援 Fetch 的 204 Mock Response 偽造
+    // [Architecture Upgrade V44.91] Fetch 204 Mock Response 偽造 + 延遲拋棄 + 記憶體安全閥
+    // 防止高頻遙測場景下大量 pending Promise/setTimeout 累積造成低階設備 GC 壓力
+    let _pendingDrops = 0;
+    const MAX_PENDING_DROPS = 64; // 同時最多 64 個延遲中的 Drop Promise
     const origFetch = window.fetch;
     window.fetch = async function(...args) {
         let url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
@@ -1381,8 +1384,18 @@ function processRequest(request) {
                         return Promise.reject(new Error("Blocked by URL Ultimate Filter SSOT"));
                     } else if (action.response.status === 204) {
                         tmStats.recordDrop(url);
-                        if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Dropped (204 Mock): ${url}`);
-                        return Promise.resolve(new Response(null, { status: 204, statusText: 'No Content' }));
+                        if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Dropped (Delayed Mock): ${url}`);
+                        const mock204 = () => new Response(null, { status: 204, statusText: 'No Content' });
+                        // 記憶體安全閥：超過上限時立即回應，不再排入 setTimeout 佇列
+                        if (_pendingDrops >= MAX_PENDING_DROPS) return Promise.resolve(mock204());
+                        const delay = Math.floor(Math.random() * 100) + 50;
+                        _pendingDrops++;
+                        return new Promise(resolve => {
+                            setTimeout(() => {
+                                _pendingDrops--;
+                                resolve(mock204());
+                            }, delay);
+                        });
                     }
                 } else if (action.url) {
                     tmStats.recordClean(url, action.url);
@@ -1399,7 +1412,7 @@ function processRequest(request) {
         return origFetch.apply(this, args);
     };
 
-    // [Architecture Upgrade V44.89] XHR 相容 Axios 的完全偽造
+    // [Architecture Upgrade V44.91] XHR 相容 Axios 的完全偽造 + 延遲拋棄 + 記憶體安全閥
     const origOpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function(method, url, ...rest) {
         this._ssotAction = null;
@@ -1449,20 +1462,30 @@ function processRequest(request) {
                 getAllResponseHeaders: { value: () => 'content-length: 0\r\n' },
                 getResponseHeader: { value: (name) => null }
             });
-            setTimeout(() => {
+            // 記憶體安全閥：超過上限時立即觸發事件，不排入延遲佇列
+            const fireXhrEvents = () => {
                 this.dispatchEvent(new Event('readystatechange'));
                 this.dispatchEvent(new Event('load'));
                 this.dispatchEvent(new Event('loadend'));
-            }, 0);
+            };
+            if (_pendingDrops >= MAX_PENDING_DROPS) { fireXhrEvents(); return; }
+            const delay = Math.floor(Math.random() * 100) + 50;
+            _pendingDrops++;
+            setTimeout(() => {
+                _pendingDrops--;
+                fireXhrEvents();
+            }, delay);
             return;
         }
         return origSend.apply(this, args);
     };
 
-    // [Architecture Upgrade V44.89] navigator.sendBeacon 頂層防護
+    // [Architecture Upgrade V44.91] navigator.sendBeacon Anti-Tampering 頂層防護
+    // 策略：先檢測 sendBeacon 是否被 Object.defineProperty 鎖死 (configurable:false / writable:false)
+    // 若已鎖死，改用 Proxy 代理 navigator 物件進行攔截 (Anti-Tampering Defusion)
     if (navigator.sendBeacon) {
-        const origSendBeacon = navigator.sendBeacon;
-        navigator.sendBeacon = function(url, data) {
+        const origSendBeacon = navigator.sendBeacon.bind(navigator);
+        const beaconInterceptor = function(url, data) {
             if (url) {
                 try {
                     let absoluteUrl = new URL(url, location.origin).href;
@@ -1471,22 +1494,116 @@ function processRequest(request) {
                         if (action.response.status === 403) {
                             tmStats.recordBlock(absoluteUrl);
                             if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Beacon Blocked: ${absoluteUrl}`);
-                            return false; 
+                            return false;
                         } else if (action.response.status === 204) {
                             tmStats.recordDrop(absoluteUrl);
                             if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Beacon Dropped (Fake Success): ${absoluteUrl}`);
-                            return true; 
+                            return true;
                         }
                     }
                 } catch(e){}
             }
-            return origSendBeacon.apply(this, arguments);
+            return origSendBeacon(url, data);
         };
+
+        // Phase 1: 嘗試直接覆寫 (最高效方案)
+        const desc = Object.getOwnPropertyDescriptor(navigator, 'sendBeacon');
+        const isLocked = desc && (desc.configurable === false || desc.writable === false);
+
+        if (!isLocked) {
+            try {
+                navigator.sendBeacon = beaconInterceptor;
+            } catch(e) {
+                // 靜默失敗 → 降級至 Phase 2
+            }
+        }
+
+        // Phase 2: 若直接覆寫失敗或屬性被鎖死，使用 Proxy 進行反制
+        if (navigator.sendBeacon !== beaconInterceptor && typeof Proxy !== 'undefined') {
+            try {
+                const navProxy = new Proxy(navigator, {
+                    get(target, prop, receiver) {
+                        if (prop === 'sendBeacon') return beaconInterceptor;
+                        const val = Reflect.get(target, prop, receiver);
+                        return typeof val === 'function' ? val.bind(target) : val;
+                    }
+                });
+                // 將 Proxy 注入至全局 navigator 參照 (僅在 window 層級可寫時生效)
+                Object.defineProperty(window, 'navigator', {
+                    get: () => navProxy,
+                    configurable: true
+                });
+                if (CONFIG.DEBUG_MODE) console.log('[SSOT-TM] ⚔️ sendBeacon Anti-Tampering: Proxy Defusion Active');
+            } catch(e) {
+                if (CONFIG.DEBUG_MODE) console.log('[SSOT-TM] ⚠️ sendBeacon Anti-Tampering: Proxy fallback failed, beacon may leak');
+            }
+        }
     }
     
+    // [Architecture Upgrade V44.91] HTML5 <a ping> 屬性物理剝離 (事件委派 + 主動巡邏)
+    // Phase 1: 點擊時捕獲階段最後防線
+    document.addEventListener('click', (e) => {
+        const target = e.target.closest('a[ping]');
+        if (target) {
+            target.removeAttribute('ping');
+            if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🔪 Ping Attribute Defused on click`);
+        }
+    }, true);
+
+    // Phase 2: 主動巡邏 — 剝離 DOM 中任何新插入/已存在的 <a ping> 屬性
+    function defuseAllPingAttributes(root) {
+        try {
+            const anchors = (root || document).querySelectorAll('a[ping]');
+            for (const a of anchors) {
+                a.removeAttribute('ping');
+            }
+        } catch(e) {}
+    }
+
+    // [Architecture Upgrade V44.91] CSS background-image No-JS 追蹤攔截
+    // 偵測 inline style 中的 background-image: url(...) 指向追蹤域名並清除
+    const CSS_BG_URL_RE = /url\s*\(\s*['"]?(https?:\/\/[^'")\s]+)['"]?\s*\)/gi;
+    function defuseCssBgTrackers(node) {
+        try {
+            if (!node || !node.style || !node.style.backgroundImage) return;
+            const bgVal = node.style.backgroundImage;
+            let match;
+            CSS_BG_URL_RE.lastIndex = 0;
+            while ((match = CSS_BG_URL_RE.exec(bgVal)) !== null) {
+                const action = applyFilter(match[1]);
+                if (action && action.response) {
+                    node.style.backgroundImage = 'none';
+                    if (action.response.status === 403) tmStats.recordBlock(match[1]);
+                    else if (action.response.status === 204) tmStats.recordDrop(match[1]);
+                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🎨 CSS bg-image tracker defused: ${match[1]}`);
+                    break;
+                }
+            }
+        } catch(e) {}
+    }
+
     const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
             for (const node of mutation.addedNodes) {
+                if (node.nodeType !== 1) continue; // 只處理 Element 節點
+
+                // [V44.91] 主動剝離新插入的 <a ping> 屬性
+                if (node.tagName === 'A' && node.hasAttribute('ping')) {
+                    node.removeAttribute('ping');
+                } else if (node.querySelectorAll) {
+                    defuseAllPingAttributes(node);
+                }
+
+                // [V44.91] CSS background-image No-JS 追蹤偵測
+                defuseCssBgTrackers(node);
+                if (node.querySelectorAll) {
+                    try {
+                        const styled = node.querySelectorAll('[style*="background"]');
+                        for (const el of styled) defuseCssBgTrackers(el);
+                    } catch(e) {}
+                }
+
+                // 原有 SCRIPT/IMG/IFRAME src 過濾邏輯
                 if (node.tagName === 'SCRIPT' || node.tagName === 'IMG' || node.tagName === 'IFRAME') {
                     if (node.src) {
                         try {
@@ -1501,7 +1618,7 @@ function processRequest(request) {
                                 }
                             } else if (action && action.url && node.src !== action.url) {
                                 tmStats.recordClean(node.src, action.url);
-                                node.src = action.url; 
+                                node.src = action.url;
                             } else if (!action) {
                                 tmStats.recordAllow(node.src);
                             }
@@ -1514,11 +1631,13 @@ function processRequest(request) {
     
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
-            observer.observe(document.documentElement, { childList: true, subtree: true });
+            defuseAllPingAttributes(document); // 初始全頁掃描
+            observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style'] });
             initUI();
         });
     } else {
-        observer.observe(document.documentElement, { childList: true, subtree: true });
+        defuseAllPingAttributes(document); // 初始全頁掃描
+        observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style'] });
         initUI();
     }
 })();
