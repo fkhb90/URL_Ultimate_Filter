@@ -3,16 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V44.92
+當前版本：V44.93
 最新架構更新：
-- [Anti-Tampering] iframe 沙箱防護：攔截 document.createElement('iframe') 並透過 MutationObserver 同步 patch 所有同源 iframe 的 contentWindow.navigator.sendBeacon 與 fetch，杜絕廣告腳本透過乾淨 iframe 環境繞過主視窗 Proxy 的攻擊向量。
-- [Performance] ACScanner → CompiledScanner 架構遷移：SSOT 編譯階段將 641 個關鍵字預建置為 3 組 RegExp 字面量，取代運行期逐一 String.includes() 線性掃描。基準測試實證 pathScanner (395 kw) 加速 69.9 倍 (11.5µs → 0.16µs/URL)，highConfidence (12 kw) 加速 14 倍。
+- [Privacy] 精準攔截 Slack 事件日誌 API (`/api/eventlog.history`)，採用 204 靜默拋棄 (DROP) 策略避免企業軟體錯誤重試風暴。
+- [AdBlock] 新增 L1 Script Root `gad_script.` 精準狙殺 Google Ad (GAD) 廣告腳本，L1 Scanner 無條件攔截不受 `/js/` 靜態路徑豁免影響。
+- [Audit] 驗證 BusinessToday Google News 品牌圖片 (.jpg) 不被誤殺，確認靜態資源豁免機制正常運作。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V44.92: iframe 沙箱防護、ACScanner → CompiledScanner 架構遷移 (pathScanner 加速 69.9x)。
 - V44.91: sendBeacon Anti-Tampering Proxy、CSS bg-image No-JS 攔截、<a ping> 雙層防護、Delayed Drop 記憶體安全閥。
 - V44.90: 導入延遲拋棄 (Delayed Drop) + HTML5 `<a ping>` 物理剝離。
 - V44.89: 完善 XHR Mock 並導入 navigator.sendBeacon 攔截，Teams/Discord 升級為 204 DROP。
-- V44.88: 升級 TM 攔截器，針對 204 狀態碼實施真實 Mock Response 偽造。
 """
 
 import json
@@ -34,12 +35,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.92"
+VERSION = "44.93"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Anti-Tampering] iframe 沙箱防護：攔截 createElement('iframe') + MutationObserver 同步 patch 所有同源 iframe 的 sendBeacon/fetch，杜絕乾淨 contentWindow 繞過攻擊。
-- [Performance] ACScanner → CompiledScanner：SSOT 編譯階段預建置 3 組 RegExp 字面量取代 641 次逐一 String.includes() 線性掃描。pathScanner 加速 69.9x (11.5µs→0.16µs/URL)。
+- [Privacy] 精準攔截 Slack 事件日誌 API (`/api/eventlog.history`)，採用 204 DROP 靜默拋棄避免企業軟體錯誤重試。
+- [AdBlock] 新增 L1 Script Root `gad_script.` 精準狙殺 Google Ad (GAD) 廣告腳本，不受 `/js/` 靜態豁免影響。
+- [Audit] 驗證 BusinessToday Google News 品牌圖片 (.jpg) 不被誤殺，確認靜態資源豁免正常。
 """
 
 # ==========================================
@@ -345,7 +347,8 @@ RULES_DB = {
         'autotrack.', 'beacon.', 'capture.', '/cf.js', 'cmp.js', 'collect.js', 'link-click-tracker.',
         'main-ad.', 'scevent.min.', 'showcoverad.', 'sp.js', 'tracker.js', 'tracking-api.',
         'tracking.js', 'user-id.', 'user-timing.', 'wcslog.', 'jslog.min.', 'device-uuid.',
-        '/plugins/advanced-ads', '/plugins/adrotate'
+        '/plugins/advanced-ads', '/plugins/adrotate',
+        'gad_script.'
     ],
     "CRITICAL_PATH_MAP": {
         'o.alicdn.com': ['/tongyi-fe/lib/cnzz/c.js', '/tongyi-fe/lib/cnzz/z.js'],
@@ -377,7 +380,7 @@ RULES_DB = {
         'shopee.tw': ['/dataapi/dataweb/event/', '/abtest/traffic/'],
         'api.tongyi.com': ['/qianwen/event/track'],
         'gw.alipayobjects.com': ['/config/loggw/'],
-        'slack.com': ['/api/profiling.logging.enablement', '/api/telemetry', 'DROP:/clog/track/'],
+        'slack.com': ['/api/profiling.logging.enablement', '/api/telemetry', 'DROP:/clog/track/', 'DROP:/api/eventlog.history'],
         'discord.com': ['DROP:/api/v10/science', 'DROP:/api/v9/science'],
         'browser.events.data.microsoft.com': ['DROP:/'],
         'mobile.events.data.microsoft.com': ['DROP:/'],
@@ -2019,6 +2022,11 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V44.89 Teams & Discord 204 DROP 測試 ---
     cases.append(TestCase("Strategy: Teams Event Telemetry Drop", "https://browser.events.data.microsoft.com/OneCollector/1.0", RES_DROP_204, "將 Teams 高頻遙測從 P0 網域轉移至 204 DROP 拋棄"))
     cases.append(TestCase("Strategy: Discord Science Telemetry Drop", "https://discord.com/api/v9/science", RES_DROP_204, "將 Discord v9/v10 科學大數據遙測轉換為 204 靜默拋棄"))
+
+    # --- V44.92 Slack EventLog 204 DROP + BusinessToday GAD 腳本攔截測試 ---
+    cases.append(TestCase("Strategy: Slack EventLog History Drop", "https://slack.com/api/eventlog.history", RES_DROP_204, "精準攔截 Slack 事件日誌 API，204 靜默拋棄避免企業軟體重試風暴"))
+    cases.append(TestCase("AdBlock: BusinessToday GAD Script", "https://www.businesstoday.com.tw/lazyweb/web/js/gad/gad_script.js?v=431414276", RES_BLOCK_403, "L1 Scanner 無條件攔截 gad_script. 廣告腳本，不受 /js/ 靜態豁免影響"))
+    cases.append(TestCase("BugFix: BusinessToday Google News Image", "https://www.businesstoday.com.tw/lazyweb/web/img/google%20news-2.jpg", RES_ALLOW, "Google News 品牌圖片為正常靜態資源，.jpg + /img/ 路徑應放行"))
 
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
