@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V44.94 - 2026-03-17
+- [Strategy] slackb.com 從 PRIORITY_BLOCK_DOMAINS (403) 遷移至 CRITICAL_PATH_MAP 全域 DROP:/ (204)，消除 Slack 客戶端因 403 觸發的持續重試風暴。採用與 Teams/Discord 相同的靜默拋棄模式。
+
 ## V44.93 - 2026-03-17
 - [Privacy] 精準攔截 Slack 事件日誌 API (`/api/eventlog.history`)，採用 204 DROP 靜默拋棄避免企業軟體錯誤重試。
 - [AdBlock] 新增 L1 Script Root `gad_script.` 精準狙殺 Google Ad (GAD) 廣告腳本，不受 `/js/` 靜態豁免影響。
