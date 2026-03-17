@@ -1,5 +1,12 @@
 # URL Ultimate Filter - Changelog
 
+## V44.91 - 2026-03-17
+- [Anti-Tampering] navigator.sendBeacon 反篡改防護：偵測 Object.defineProperty 鎖定狀態，自動降級為 Proxy 代理攔截，封堵廣告腳本屬性鎖定攻擊向量。
+- [Privacy] 新增 CSS background-image No-JS 追蹤攔截：MutationObserver 即時偵測 inline style url() 指向追蹤域名並清除。
+- [Privacy] `<a ping>` 物理剝離升級為雙層防護：DOM 插入時主動巡邏 + 點擊時捕獲階段最後防線，杜絕瀏覽器競態條件。
+- [Performance] Delayed Drop 記憶體安全閥 (MAX_PENDING_DROPS=64)：防止高頻遙測場景下 pending Promise/setTimeout 累積造成低階設備 GC 壓力。
+- [Compatibility] 驗證 iOS Safari「阻擋所有 Cookie」模式下全部 204 Mock 機制零 Cookie 依賴，完全不受影響。
+
 ## V44.89 - 2026-03-17
 - [Architecture] XHR 204 Mock 機制完美適配 Axios，補足 `getAllResponseHeaders` 與 `responseURL` 偽造，防止前端框架解析崩潰。
 - [Architecture] 導入 `navigator.sendBeacon` 原生攔截，完美防堵背景遙測外洩，針對 DROP 權重直接回傳 `true` 以靜默欺騙客戶端。
