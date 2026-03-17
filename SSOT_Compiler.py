@@ -3,13 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V44.93
+當前版本：V44.94
 最新架構更新：
-- [Privacy] 精準攔截 Slack 事件日誌 API (`/api/eventlog.history`)，採用 204 靜默拋棄 (DROP) 策略避免企業軟體錯誤重試風暴。
-- [AdBlock] 新增 L1 Script Root `gad_script.` 精準狙殺 Google Ad (GAD) 廣告腳本，L1 Scanner 無條件攔截不受 `/js/` 靜態路徑豁免影響。
-- [Audit] 驗證 BusinessToday Google News 品牌圖片 (.jpg) 不被誤殺，確認靜態資源豁免機制正常運作。
+- [Strategy] `slackb.com` 處置策略升級：從 `PRIORITY_BLOCK_DOMAINS` (403) 遷移至 `CRITICAL_PATH_MAP` 全域 `DROP:/` (204)，消除 Slack 客戶端因 403 持續觸發的重試風暴，採用與 Teams/Discord 遙測域名相同的靜默拋棄模式。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V44.93: slack.com eventlog.history → CRITICAL_PATH_MAP DROP、businesstoday.com.tw gad_script.js → PATH_BLOCK、Google News 圖片 allowlist 放行。
 - V44.92: iframe 沙箱防護、ACScanner → CompiledScanner 架構遷移 (pathScanner 加速 69.9x)。
 - V44.91: sendBeacon Anti-Tampering Proxy、CSS bg-image No-JS 攔截、<a ping> 雙層防護、Delayed Drop 記憶體安全閥。
 - V44.90: 導入延遲拋棄 (Delayed Drop) + HTML5 `<a ping>` 物理剝離。
@@ -35,13 +34,11 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.93"
+VERSION = "44.94"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 精準攔截 Slack 事件日誌 API (`/api/eventlog.history`)，採用 204 DROP 靜默拋棄避免企業軟體錯誤重試。
-- [AdBlock] 新增 L1 Script Root `gad_script.` 精準狙殺 Google Ad (GAD) 廣告腳本，不受 `/js/` 靜態豁免影響。
-- [Audit] 驗證 BusinessToday Google News 品牌圖片 (.jpg) 不被誤殺，確認靜態資源豁免正常。
+- [Strategy] slackb.com 從 PRIORITY_BLOCK_DOMAINS (403) 遷移至 CRITICAL_PATH_MAP 全域 DROP:/ (204)，消除 Slack 客戶端因 403 觸發的持續重試風暴。採用與 Teams/Discord 相同的靜默拋棄模式。
 """
 
 # ==========================================
@@ -119,7 +116,7 @@ RULES_DB = {
         'inmobi.com', 'inner-active.mobi', 'launchdarkly.com', 'split.io',
         'iadsdk.apple.com', 'metrics.icloud.com',
         'ad.impactify.io', 'impactify.media',
-        'adsv.omgrmn.tw', 'browser.sentry-cdn.com', 'caid.china-caa.org', 'slackb.com',
+        'adsv.omgrmn.tw', 'browser.sentry-cdn.com', 'caid.china-caa.org',
         'events.tiktok.com', 'ibytedtos.com',
         'log.tiktokv.com', 'log16-normal-c-useast1a.tiktokv.com',
         'mon.tiktokv.com', 'mon-va.tiktokv.com',
@@ -381,6 +378,7 @@ RULES_DB = {
         'api.tongyi.com': ['/qianwen/event/track'],
         'gw.alipayobjects.com': ['/config/loggw/'],
         'slack.com': ['/api/profiling.logging.enablement', '/api/telemetry', 'DROP:/clog/track/', 'DROP:/api/eventlog.history'],
+        'slackb.com': ['DROP:/'],
         'discord.com': ['DROP:/api/v10/science', 'DROP:/api/v9/science'],
         'browser.events.data.microsoft.com': ['DROP:/'],
         'mobile.events.data.microsoft.com': ['DROP:/'],
@@ -2022,6 +2020,11 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V44.89 Teams & Discord 204 DROP 測試 ---
     cases.append(TestCase("Strategy: Teams Event Telemetry Drop", "https://browser.events.data.microsoft.com/OneCollector/1.0", RES_DROP_204, "將 Teams 高頻遙測從 P0 網域轉移至 204 DROP 拋棄"))
     cases.append(TestCase("Strategy: Discord Science Telemetry Drop", "https://discord.com/api/v9/science", RES_DROP_204, "將 Discord v9/v10 科學大數據遙測轉換為 204 靜默拋棄"))
+
+    # --- V44.94 slackb.com 全域 204 DROP 測試 ---
+    cases.append(TestCase("Strategy: Slackb Traces Drop", "https://slackb.com/traces/v1/list_of_spans/json", RES_DROP_204, "slackb.com 純遙測域名從 P0 BLOCK 升級為全域 204 DROP，消除 Slack 重試風暴"))
+    cases.append(TestCase("Strategy: Slackb Any Path Drop", "https://slackb.com/api/v1/events", RES_DROP_204, "slackb.com 所有路徑均 DROP:/  全域捕捉"))
+    cases.append(TestCase("Strategy: Slackb Root Drop", "https://slackb.com/test", RES_DROP_204, "slackb.com 根路徑亦觸發 204 DROP"))
 
     # --- V44.92 Slack EventLog 204 DROP + BusinessToday GAD 腳本攔截測試 ---
     cases.append(TestCase("Strategy: Slack EventLog History Drop", "https://slack.com/api/eventlog.history", RES_DROP_204, "精準攔截 Slack 事件日誌 API，204 靜默拋棄避免企業軟體重試風暴"))
