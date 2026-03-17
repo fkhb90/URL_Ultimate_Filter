@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V44.87
+// @name         URL Ultimate Filter V44.88
 // @namespace    http://tampermonkey.net/
-// @version      44.87
+// @version      44.88
 // @description  SSOT 前端防護盾牌，專業級 UI：極簡盾牌圖示、獨立計數器、點擊外部自動收合機制。
 // @author       Jerry
 // @match        *://*/*
@@ -13,11 +13,11 @@
     'use strict';
 /**
  * @file      URL-Ultimate-Filter-Tampermonkey.js
- * @version   44.87 (SSOT Compilation)
+ * @version   44.88 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.87';
+const SCRIPT_VERSION = '44.88';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -1333,6 +1333,7 @@ function processRequest(request) {
         return processRequest({ url: url });
     }
 
+    // [Architecture Upgrade V44.88] 真正支援 Fetch 的 204 Mock Response 偽造
     const origFetch = window.fetch;
     window.fetch = async function(...args) {
         let url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
@@ -1340,10 +1341,17 @@ function processRequest(request) {
             try { url = new URL(url, location.origin).href; } catch(e){}
             const action = applyFilter(url);
             if (action) {
-                if (action.response && [403, 204].includes(action.response.status)) {
-                    tmStats.recordBlock(url);
-                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Blocked: ${url}`);
-                    return Promise.reject(new Error("Blocked by URL Ultimate Filter SSOT"));
+                if (action.response) {
+                    if (action.response.status === 403) {
+                        tmStats.recordBlock(url);
+                        if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Blocked: ${url}`);
+                        return Promise.reject(new Error("Blocked by URL Ultimate Filter SSOT"));
+                    } else if (action.response.status === 204) {
+                        tmStats.recordBlock(url);
+                        if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Dropped (204 Mock): ${url}`);
+                        // 欺騙前端發送成功，消除重試風暴
+                        return Promise.resolve(new Response(null, { status: 204, statusText: 'No Content' }));
+                    }
                 } else if (action.url) {
                     tmStats.recordClean(url, action.url);
                     if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] ✏️ Rewrote: ${url} -> ${action.url}`);
@@ -1359,17 +1367,23 @@ function processRequest(request) {
         return origFetch.apply(this, args);
     };
 
+    // [Architecture Upgrade V44.88] 真正支援 XHR 的 204 Mock Response 偽造
     const origOpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-        this._ssotBlocked = false;
+        this._ssotAction = null;
         if (url) {
             try {
                 let absoluteUrl = new URL(url, location.origin).href;
                 const action = applyFilter(absoluteUrl);
                 if (action) {
-                    if (action.response && [403, 204].includes(action.response.status)) {
-                        tmStats.recordBlock(absoluteUrl);
-                        this._ssotBlocked = true;
+                    if (action.response) {
+                        if (action.response.status === 403) {
+                            tmStats.recordBlock(absoluteUrl);
+                            this._ssotAction = 403;
+                        } else if (action.response.status === 204) {
+                            tmStats.recordBlock(absoluteUrl);
+                            this._ssotAction = 204;
+                        }
                     } else if (action.url) {
                         tmStats.recordClean(absoluteUrl, action.url);
                         url = action.url;
@@ -1386,8 +1400,24 @@ function processRequest(request) {
 
     const origSend = XMLHttpRequest.prototype.send;
     XMLHttpRequest.prototype.send = function(...args) {
-        if (this._ssotBlocked) {
+        if (this._ssotAction === 403) {
             this.dispatchEvent(new Event('error'));
+            return;
+        } else if (this._ssotAction === 204) {
+            // 利用 defineProperties 覆寫實例上的 getter 來偽造請求完成的狀態
+            Object.defineProperties(this, {
+                readyState: { get: () => 4 },
+                status: { get: () => 204 },
+                statusText: { get: () => 'No Content' },
+                response: { get: () => '' },
+                responseText: { get: () => '' }
+            });
+            // 延遲觸發事件，完美模擬非同步請求網路生命週期
+            setTimeout(() => {
+                this.dispatchEvent(new Event('readystatechange'));
+                this.dispatchEvent(new Event('load'));
+                this.dispatchEvent(new Event('loadend'));
+            }, 0);
             return;
         }
         return origSend.apply(this, args);
