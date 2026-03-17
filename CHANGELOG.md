@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V44.93 - 2026-03-17
+- [Privacy] 精準攔截 Slack 事件日誌 API (`/api/eventlog.history`)，採用 204 DROP 靜默拋棄避免企業軟體錯誤重試。
+- [AdBlock] 新增 L1 Script Root `gad_script.` 精準狙殺 Google Ad (GAD) 廣告腳本，不受 `/js/` 靜態豁免影響。
+- [Audit] 驗證 BusinessToday Google News 品牌圖片 (.jpg) 不被誤殺，確認靜態資源豁免正常。
+
 ## V44.92 - 2026-03-17
 - [Anti-Tampering] iframe 沙箱防護：攔截 createElement('iframe') + MutationObserver 同步 patch 所有同源 iframe 的 sendBeacon/fetch，杜絕乾淨 contentWindow 繞過攻擊。
 - [Performance] ACScanner → CompiledScanner：SSOT 編譯階段預建置 3 組 RegExp 字面量取代 641 次逐一 String.includes() 線性掃描。pathScanner 加速 69.9x (11.5µs→0.16µs/URL)。
