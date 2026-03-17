@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V44.88 - 2026-03-17
+- [Architecture] 升級 Tampermonkey 前端攔截器。針對 Fetch API 與 XMLHttpRequest 實作 204 (No Content) 完美偽造機制。當觸發 DROP 權重時，不再拋出網路錯誤，而是回傳虛擬的 204 成功狀態，欺騙 Slack 等具備 Exponential Backoff 重試機制的 SPA 客戶端，節省設備資源並避免 Console 紅字污染。
+- [Audit] 驗證 Slack `/clog/track/` 在雙平台下的動作路由均能穩定輸出 204 靜默拋棄。
+
 ## V44.87 - 2026-03-16
 - [Privacy] 針對 Yahoo! JAPAN 跨站點身份解析端點實施精準防護。將 `/acookie/` 與 `/cookie-sync/` 納入 L1 啟發式掃描 (`CRITICAL_PATH_GENERIC`)，並於 `CRITICAL_PATH_MAP` 綁定 `yahooapis.jp` 網域。此舉成功阻斷廣告商在背景執行的 Audience Cookie 匹配，且完全保障地圖、天氣等正常 API 運作。
 - [Test] 擴展動態測試矩陣，新增 `Privacy: Audience Cookie Sync` 與 `Edge: Yahoo API Safe Harbor` 案例，確保規則具備嚴謹的向下相容性與防誤殺能力。
