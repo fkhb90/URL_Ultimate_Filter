@@ -3,15 +3,15 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V44.87
+當前版本：V44.88
 最新架構更新：
-- [Privacy] 針對 Yahoo! JAPAN 跨站點身份解析端點 (/acookie/) 實施精準封鎖，並新增至 CRITICAL_PATH_MAP，以徹底阻斷 Audience Cookie 同步機制，同時避免誤殺 yahooapis.jp 旗下正常服務。
-- [Audit] 新增 2 項隱私與邊界交叉測試案例，驗證 Cookie Sync 攔截精準度與一般 API 存活率。
+- [Architecture] 升級 Tampermonkey 前端攔截器（Fetch / XHR）。針對 204 狀態碼（如 Slack 的 DROP:/clog/track/）實施真實的 Mock Response 偽造，取代原有的 Error Reject，徹底消滅因網路阻擋造成的客戶端重試風暴 (Retry Storm)。
+- [Privacy] 延續 V44.87 的 Yahoo! JAPAN 跨站點身份解析端點 (/acookie/) 封鎖。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V44.87: 針對 Yahoo! JAPAN 跨站點 Cookie 同步 API 實施 CRITICAL_PATH_MAP 精準封鎖。
 - V44.86: 全量邏輯驗證與測試描述對齊，確認 2296 條測試路徑零衝突。
 - V44.85: 大規模擴展回歸測試矩陣 (2296+ Cases)，新增 28 類測試維度實現 RULES_DB 全維度自動覆蓋。
-- V44.84: 修復 V44.83 編譯器中的 RULES_DB 字典截斷錯誤 (KeyError: 'BLOCK_DOMAINS')。
 """
 
 import json
@@ -33,12 +33,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.87"
+VERSION = "44.88"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 針對 Yahoo! JAPAN 跨站點身份解析端點實施精準防護。將 `/acookie/` 與 `/cookie-sync/` 納入 L1 啟發式掃描 (`CRITICAL_PATH_GENERIC`)，並於 `CRITICAL_PATH_MAP` 綁定 `yahooapis.jp` 網域。此舉成功阻斷廣告商在背景執行的 Audience Cookie 匹配，且完全保障地圖、天氣等正常 API 運作。
-- [Test] 擴展動態測試矩陣，新增 `Privacy: Audience Cookie Sync` 與 `Edge: Yahoo API Safe Harbor` 案例，確保規則具備嚴謹的向下相容性與防誤殺能力。
+- [Architecture] 升級 Tampermonkey 前端攔截器。針對 Fetch API 與 XMLHttpRequest 實作 204 (No Content) 完美偽造機制。當觸發 DROP 權重時，不再拋出網路錯誤，而是回傳虛擬的 204 成功狀態，欺騙 Slack 等具備 Exponential Backoff 重試機制的 SPA 客戶端，節省設備資源並避免 Console 紅字污染。
+- [Audit] 驗證 Slack `/clog/track/` 在雙平台下的動作路由均能穩定輸出 204 靜默拋棄。
 """
 
 # ==========================================
@@ -1279,6 +1279,7 @@ def compile_tampermonkey() -> str:
         return processRequest({ url: url });
     }
 
+    // [Architecture Upgrade V44.88] 真正支援 Fetch 的 204 Mock Response 偽造
     const origFetch = window.fetch;
     window.fetch = async function(...args) {
         let url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
@@ -1286,10 +1287,17 @@ def compile_tampermonkey() -> str:
             try { url = new URL(url, location.origin).href; } catch(e){}
             const action = applyFilter(url);
             if (action) {
-                if (action.response && [403, 204].includes(action.response.status)) {
-                    tmStats.recordBlock(url);
-                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Blocked: ${url}`);
-                    return Promise.reject(new Error("Blocked by URL Ultimate Filter SSOT"));
+                if (action.response) {
+                    if (action.response.status === 403) {
+                        tmStats.recordBlock(url);
+                        if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Blocked: ${url}`);
+                        return Promise.reject(new Error("Blocked by URL Ultimate Filter SSOT"));
+                    } else if (action.response.status === 204) {
+                        tmStats.recordBlock(url);
+                        if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Dropped (204 Mock): ${url}`);
+                        // 欺騙前端發送成功，消除重試風暴
+                        return Promise.resolve(new Response(null, { status: 204, statusText: 'No Content' }));
+                    }
                 } else if (action.url) {
                     tmStats.recordClean(url, action.url);
                     if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] ✏️ Rewrote: ${url} -> ${action.url}`);
@@ -1305,17 +1313,23 @@ def compile_tampermonkey() -> str:
         return origFetch.apply(this, args);
     };
 
+    // [Architecture Upgrade V44.88] 真正支援 XHR 的 204 Mock Response 偽造
     const origOpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-        this._ssotBlocked = false;
+        this._ssotAction = null;
         if (url) {
             try {
                 let absoluteUrl = new URL(url, location.origin).href;
                 const action = applyFilter(absoluteUrl);
                 if (action) {
-                    if (action.response && [403, 204].includes(action.response.status)) {
-                        tmStats.recordBlock(absoluteUrl);
-                        this._ssotBlocked = true;
+                    if (action.response) {
+                        if (action.response.status === 403) {
+                            tmStats.recordBlock(absoluteUrl);
+                            this._ssotAction = 403;
+                        } else if (action.response.status === 204) {
+                            tmStats.recordBlock(absoluteUrl);
+                            this._ssotAction = 204;
+                        }
                     } else if (action.url) {
                         tmStats.recordClean(absoluteUrl, action.url);
                         url = action.url;
@@ -1332,8 +1346,24 @@ def compile_tampermonkey() -> str:
 
     const origSend = XMLHttpRequest.prototype.send;
     XMLHttpRequest.prototype.send = function(...args) {
-        if (this._ssotBlocked) {
+        if (this._ssotAction === 403) {
             this.dispatchEvent(new Event('error'));
+            return;
+        } else if (this._ssotAction === 204) {
+            // 利用 defineProperties 覆寫實例上的 getter 來偽造請求完成的狀態
+            Object.defineProperties(this, {
+                readyState: { get: () => 4 },
+                status: { get: () => 204 },
+                statusText: { get: () => 'No Content' },
+                response: { get: () => '' },
+                responseText: { get: () => '' }
+            });
+            // 延遲觸發事件，完美模擬非同步請求網路生命週期
+            setTimeout(() => {
+                this.dispatchEvent(new Event('readystatechange'));
+                this.dispatchEvent(new Event('load'));
+                this.dispatchEvent(new Event('loadend'));
+            }, 0);
             return;
         }
         return origSend.apply(this, args);
@@ -1694,7 +1724,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: Shopee PDP Regex Exemption", "https://mall.shopee.tw/api/v4/pdp/get?_pft=1047551&ads_id=159771735", RES_ALLOW, "Bypass heuristic regex block via PATH_EXEMPTIONS"))
     cases.append(TestCase("Privacy: Shopee AB Test Telemetry", "https://shopee.tw/api/v4/abtest/traffic/get_client_experiments", RES_BLOCK_403, "Blocked by CRITICAL_PATH_MAP precise targeting"))
 
-    cases.append(TestCase("Privacy: Slack Telemetry Drop", "https://clorastech.slack.com/clog/track/?data=1", RES_DROP_204, "V44.76 Action Routing 支援 DROP 權重解析"))
+    cases.append(TestCase("Privacy: Slack Telemetry Drop", "https://clorastech.slack.com/clog/track/?data=1", RES_DROP_204, "V44.88 Action Routing 支援 DROP 權重解析並驗證 204"))
 
     # --- V44.79 104 APP 反向排除機制測試 ---
     cases.append(TestCase("Strategy: 104 App Track API", "https://appapi.104.com.tw/2.0/track/company/post/view?device_id=TEST_ID", RES_ALLOW, "寬鬆放行 /2.0/ 目錄下未知業務路徑之 device_id"))
@@ -2090,7 +2120,7 @@ def run_tests():
             with open(js_surge_filename, "w", encoding="utf-8") as f: f.write(js_surge_content)
             with open(js_tm_filename, "w", encoding="utf-8") as f: f.write(js_tampermonkey_content)
             
-            # --- [Architecture-V44.84] 觸發自動更新日誌 ---
+            # --- [Architecture] 觸發自動更新日誌 ---
             update_changelog()
             
             print(f"\n✅  SSOT DUAL-TARGET BUILD & TEST PASSED")
