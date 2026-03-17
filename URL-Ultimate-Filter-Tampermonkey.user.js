@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V44.88
+// @name         URL Ultimate Filter V44.89
 // @namespace    http://tampermonkey.net/
-// @version      44.88
+// @version      44.89
 // @description  SSOT 前端防護盾牌，專業級 UI：極簡盾牌圖示、獨立計數器、點擊外部自動收合機制。
 // @author       Jerry
 // @match        *://*/*
@@ -13,11 +13,11 @@
     'use strict';
 /**
  * @file      URL-Ultimate-Filter-Tampermonkey.js
- * @version   44.88 (SSOT Compilation)
+ * @version   44.89 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.88';
+const SCRIPT_VERSION = '44.89';
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -63,33 +63,33 @@ const ABSOLUTE_BYPASS_DOMAINS = {
 const RULES = {
   PRIORITY_BLOCK_DOMAINS: new Set([
     'cdn-path.com', 'doorphone92.com', 'easytomessage.com', 'penphone92.com', 'sir90hl.com', 'uymgg1.com',
-    'browser.events.data.microsoft.com', 'mobile.events.data.microsoft.com', 'self.events.data.microsoft.com', 'onecollector.cloudapp.aria.akadns.net', 'watson.telemetry.microsoft.com', 'admob.com',
-    'ads.google.com', 'adservice.google.com', 'adservice.google.com.tw', 'doubleclick.net', 'googleadservices.com', 'googlesyndication.com',
-    'crashlyticsreports-pa.googleapis.com', 'firebaselogging-pa.googleapis.com', 'imasdk.googleapis.com', 'measurement.adservices.google.com', 'privacysandbox.googleapis.com', 'business.facebook.com',
-    'connect.facebook.net', 'graph.facebook.com', '2o7.net', 'adobedc.net', 'demdex.net', 'everesttech.net',
-    'omtrdc.net', '3lift.com', 'adnxs.com', 'advertising.com', 'amazon-adsystem.com', 'bidswitch.net',
-    'indexexchange.com', 'media.net', 'sharethrough.com', 'teads.tv', 'crwdcntrl.net', 'exelator.com',
-    'eyeota.com', 'krxd.net', 'lotame.com', 'liadm.com', 'rlcdn.com', 'tapad.com',
-    'contextweb.com', 'mathtag.com', 'rfihub.com', 'adcolony.com', 'applovin.com', 'chartboost.com',
-    'ironsrc.com', 'pangle.io', 'popads.net', 'tapjoy.com', 'unityads.unity3d.com', 'vungle.com',
-    'outbrain.com', 'taboola.com', 'app-measurement.com', 'branch.io', 'singular.net', 'ad.etmall.com.tw',
-    'ad.line.me', 'ad-history.line.me', 'ads.linkedin.com', 'ads.tiktok.com', 'analytics.tiktok.com', 'cdn.segment.com',
-    'clarity.ms', 'fullstory.com', 'inmobi.com', 'inner-active.mobi', 'launchdarkly.com', 'split.io',
-    'iadsdk.apple.com', 'metrics.icloud.com', 'ad.impactify.io', 'impactify.media', 'adsv.omgrmn.tw', 'browser.sentry-cdn.com',
-    'caid.china-caa.org', 'slackb.com', 'events.tiktok.com', 'ibytedtos.com', 'log.tiktokv.com', 'log16-normal-c-useast1a.tiktokv.com',
-    'mon.tiktokv.com', 'mon-va.tiktokv.com', 'analysis.shein.com', 'dc.shein.com', 'st.shein.com', 'report.temu.com',
-    'alimama.com', 'hm.baidu.com', 'mmstat.com', 'pos.baidu.com', 'sm.cn', 'sofire.baidu.com',
-    'sp0.baidu.com', 'sp1.baidu.com', 'tanx.com', 'uc.cn', 'ucweb.com', 'uczzd.cn',
-    'ynuf.alipay.com', 'cms-statistics.quark.cn', 'stat.quark.cn', 'unpm-upaas.quark.cn', 'browser.360.cn', 's.360.cn',
-    'shouji.360.cn', 'stat.360.cn', 'inte.sogou.com', 'lu.sogou.com', 'pb.sogou.com', 'ping.sogou.com',
-    'analytics.shopee.tw', 'apm.tracking.shopee.tw', 'dem.shopee.com', 'dmp.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
-    'analysis.momoshop.com.tw', 'ecdmp.momoshop.com.tw', 'event.momoshop.com.tw', 'log.momoshop.com.tw', 'pixel.momoshop.com.tw', 'rtb.momoshop.com.tw',
-    'sspap.momoshop.com.tw', 'trace.momoshop.com.tw', 'trk.momoshop.com.tw', 'jslog.coupang.com', 'mercury.coupang.com', 'ad.gamer.com.tw',
-    'ad-geek.net', 'ad-hub.net', 'ad-serv.teepr.com', 'ad-tracking.dcard.tw', 'analysis.tw', 'appier.net',
-    'b.bridgewell.com', 'cacafly.com', 'clickforce.com.tw', 'fast-trk.com', 'funp.com', 'guoshipartners.com',
-    'imedia.com.tw', 'is-tracking.com', 'itad.linetv.tw', 'likr.tw', 'scupio.com', 'sitetag.us',
-    'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com', 'adnext-a.akamaihd.net',
-    'toots-a.akamaihd.net', 'analytics.twitter.com', 'edge-analytics.amazonaws.com', 'edge-tracking.cloudflare.com', 'insight.linkedin.com', 'px.ads.linkedin.com'
+    'admob.com', 'ads.google.com', 'adservice.google.com', 'adservice.google.com.tw', 'doubleclick.net', 'googleadservices.com',
+    'googlesyndication.com', 'crashlyticsreports-pa.googleapis.com', 'firebaselogging-pa.googleapis.com', 'imasdk.googleapis.com', 'measurement.adservices.google.com', 'privacysandbox.googleapis.com',
+    'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com', '2o7.net', 'adobedc.net', 'demdex.net',
+    'everesttech.net', 'omtrdc.net', '3lift.com', 'adnxs.com', 'advertising.com', 'amazon-adsystem.com',
+    'bidswitch.net', 'indexexchange.com', 'media.net', 'sharethrough.com', 'teads.tv', 'crwdcntrl.net',
+    'exelator.com', 'eyeota.com', 'krxd.net', 'lotame.com', 'liadm.com', 'rlcdn.com',
+    'tapad.com', 'contextweb.com', 'mathtag.com', 'rfihub.com', 'adcolony.com', 'applovin.com',
+    'chartboost.com', 'ironsrc.com', 'pangle.io', 'popads.net', 'tapjoy.com', 'unityads.unity3d.com',
+    'vungle.com', 'outbrain.com', 'taboola.com', 'app-measurement.com', 'branch.io', 'singular.net',
+    'ad.etmall.com.tw', 'ad.line.me', 'ad-history.line.me', 'ads.linkedin.com', 'ads.tiktok.com', 'analytics.tiktok.com',
+    'cdn.segment.com', 'clarity.ms', 'fullstory.com', 'inmobi.com', 'inner-active.mobi', 'launchdarkly.com',
+    'split.io', 'iadsdk.apple.com', 'metrics.icloud.com', 'ad.impactify.io', 'impactify.media', 'adsv.omgrmn.tw',
+    'browser.sentry-cdn.com', 'caid.china-caa.org', 'slackb.com', 'events.tiktok.com', 'ibytedtos.com', 'log.tiktokv.com',
+    'log16-normal-c-useast1a.tiktokv.com', 'mon.tiktokv.com', 'mon-va.tiktokv.com', 'analysis.shein.com', 'dc.shein.com', 'st.shein.com',
+    'report.temu.com', 'alimama.com', 'hm.baidu.com', 'mmstat.com', 'pos.baidu.com', 'sm.cn',
+    'sofire.baidu.com', 'sp0.baidu.com', 'sp1.baidu.com', 'tanx.com', 'uc.cn', 'ucweb.com',
+    'uczzd.cn', 'ynuf.alipay.com', 'cms-statistics.quark.cn', 'stat.quark.cn', 'unpm-upaas.quark.cn', 'browser.360.cn',
+    's.360.cn', 'shouji.360.cn', 'stat.360.cn', 'inte.sogou.com', 'lu.sogou.com', 'pb.sogou.com',
+    'ping.sogou.com', 'analytics.shopee.tw', 'apm.tracking.shopee.tw', 'dem.shopee.com', 'dmp.shopee.tw', 'live-apm.shopee.tw',
+    'log-collector.shopee.tw', 'analysis.momoshop.com.tw', 'ecdmp.momoshop.com.tw', 'event.momoshop.com.tw', 'log.momoshop.com.tw', 'pixel.momoshop.com.tw',
+    'rtb.momoshop.com.tw', 'sspap.momoshop.com.tw', 'trace.momoshop.com.tw', 'trk.momoshop.com.tw', 'jslog.coupang.com', 'mercury.coupang.com',
+    'ad.gamer.com.tw', 'ad-geek.net', 'ad-hub.net', 'ad-serv.teepr.com', 'ad-tracking.dcard.tw', 'analysis.tw',
+    'appier.net', 'b.bridgewell.com', 'cacafly.com', 'clickforce.com.tw', 'fast-trk.com', 'funp.com',
+    'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com', 'itad.linetv.tw', 'likr.tw', 'scupio.com',
+    'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com',
+    'adnext-a.akamaihd.net', 'toots-a.akamaihd.net', 'analytics.twitter.com', 'edge-analytics.amazonaws.com', 'edge-tracking.cloudflare.com', 'insight.linkedin.com',
+    'px.ads.linkedin.com'
   ]),
   REDIRECTOR_HOSTS: new Set([
     'adf.ly', 'ay.gy', 'gloyah.net', 'j.gs', 'q.gs', 'zo.ee',
@@ -363,6 +363,21 @@ const RULES = {
     ['slack.com', new Set([
         '/api/profiling.logging.enablement', '/api/telemetry', 'DROP:/clog/track/'
       ])],
+    ['discord.com', new Set([
+        'DROP:/api/v10/science', 'DROP:/api/v9/science'
+      ])],
+    ['browser.events.data.microsoft.com', new Set([
+        'DROP:/'
+      ])],
+    ['mobile.events.data.microsoft.com', new Set([
+        'DROP:/'
+      ])],
+    ['self.events.data.microsoft.com', new Set([
+        'DROP:/'
+      ])],
+    ['watson.telemetry.microsoft.com', new Set([
+        'DROP:/'
+      ])],
     ['graphql.ec.yahoo.com', new Set([
         '/app/sas/v1/fullsitepromotions'
       ])],
@@ -509,9 +524,6 @@ const RULES = {
       ])],
     ['www.redditstatic.com', new Set([
         '/ads/pixel.js'
-      ])],
-    ['discord.com', new Set([
-        '/api/v10/science', '/api/v9/science'
       ])],
     ['vk.com', new Set([
         '/rtrg'
@@ -1129,9 +1141,11 @@ function processRequest(request) {
 
     const tmStats = {
         blocked: new Map(),
+        dropped: new Map(),
         cleaned: new Map(),
         allowed: new Map(),
         countBlocked: 0,
+        countDropped: 0,
         countCleaned: 0,
         countAllowed: 0,
         
@@ -1141,6 +1155,14 @@ function processRequest(request) {
             if(this.blocked.has(u)) { c = this.blocked.get(u) + 1; this.blocked.delete(u); }
             else if(this.blocked.size >= 50) this.blocked.delete(this.blocked.keys().next().value);
             this.blocked.set(u, c); 
+            requestUpdate(); 
+        },
+        recordDrop: function(u) { 
+            this.countDropped++;
+            let c = 1;
+            if(this.dropped.has(u)) { c = this.dropped.get(u) + 1; this.dropped.delete(u); }
+            else if(this.dropped.size >= 50) this.dropped.delete(this.dropped.keys().next().value);
+            this.dropped.set(u, c); 
             requestUpdate(); 
         },
         recordClean: function(o, n) { 
@@ -1194,7 +1216,7 @@ function processRequest(request) {
         };
         
         panel = document.createElement('div');
-        panel.style.cssText = 'display:none; position:absolute; bottom:0; right:0; width:360px; background:#0f172a; border: 1px solid #334155; border-radius:12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); overflow:hidden; flex-direction:column; color:#f8fafc;';
+        panel.style.cssText = 'display:none; position:absolute; bottom:0; right:0; width:400px; background:#0f172a; border: 1px solid #334155; border-radius:12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); overflow:hidden; flex-direction:column; color:#f8fafc;';
         
         const header = document.createElement('div');
         header.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#1e293b; border-bottom:1px solid #334155; user-select:none;';
@@ -1202,14 +1224,14 @@ function processRequest(request) {
         panel.appendChild(header);
         
         const tabsRow = document.createElement('div');
-        tabsRow.style.cssText = 'display:flex; padding:8px; gap:8px; background:#0f172a; border-bottom:1px solid #334155;';
+        tabsRow.style.cssText = 'display:flex; padding:8px; gap:6px; background:#0f172a; border-bottom:1px solid #334155;';
         
         const createTab = (id, label, color) => {
             const t = document.createElement('div');
             t.id = `ssot-tab-${id}`;
             t.title = `點擊展開/收合 ${label} 列表`;
-            t.style.cssText = `flex:1; text-align:center; padding:8px 4px; cursor:pointer; border-radius:6px; transition:all 0.2s; border-bottom:2px solid transparent; user-select:none; background:transparent;`;
-            t.innerHTML = `<div style="color:${color}; font-weight:700; font-size:18px; line-height:1.2;" id="ssot-cnt-${id}">0</div><div style="color:#94a3b8; font-size:11px; margin-top:2px; font-weight:500;">${label}</div>`;
+            t.style.cssText = `flex:1; text-align:center; padding:8px 2px; cursor:pointer; border-radius:6px; transition:all 0.2s; border-bottom:2px solid transparent; user-select:none; background:transparent;`;
+            t.innerHTML = `<div style="color:${color}; font-weight:700; font-size:16px; line-height:1.2;" id="ssot-cnt-${id}">0</div><div style="color:#94a3b8; font-size:10px; margin-top:2px; font-weight:600; text-transform:uppercase;">${label}</div>`;
             t.onclick = () => { 
                 if (activeTab === id) {
                     expanded = false;
@@ -1223,6 +1245,7 @@ function processRequest(request) {
         };
         
         tabsRow.appendChild(createTab('blocked', 'Blocked', '#ef4444'));
+        tabsRow.appendChild(createTab('dropped', 'Dropped', '#8b5cf6'));
         tabsRow.appendChild(createTab('cleaned', 'Cleaned', '#10b981'));
         tabsRow.appendChild(createTab('allowed', 'Allowed', '#cbd5e1'));
         panel.appendChild(tabsRow);
@@ -1274,15 +1297,17 @@ function processRequest(request) {
         panel.style.display = 'flex';
 
         document.getElementById('ssot-cnt-blocked').innerText = tmStats.countBlocked;
+        document.getElementById('ssot-cnt-dropped').innerText = tmStats.countDropped;
         document.getElementById('ssot-cnt-cleaned').innerText = tmStats.countCleaned;
         document.getElementById('ssot-cnt-allowed').innerText = tmStats.countAllowed;
 
-        ['blocked', 'cleaned', 'allowed'].forEach(t => {
+        ['blocked', 'dropped', 'cleaned', 'allowed'].forEach(t => {
             const el = document.getElementById(`ssot-tab-${t}`);
             if (!el) return;
             if (activeTab === t) {
                 el.style.backgroundColor = '#1e293b';
-                el.style.borderBottom = `2px solid ${t==='blocked'?'#ef4444':t==='cleaned'?'#10b981':'#cbd5e1'}`;
+                const colors = { blocked:'#ef4444', dropped:'#8b5cf6', cleaned:'#10b981', allowed:'#cbd5e1' };
+                el.style.borderBottom = `2px solid ${colors[t]}`;
             } else {
                 el.style.backgroundColor = 'transparent';
                 el.style.borderBottom = '2px solid transparent';
@@ -1304,6 +1329,14 @@ function processRequest(request) {
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                         <span>${u}</span>
                         ${c > 1 ? `<span style="${badgeStyle} background:#7f1d1d; color:#fecaca;">x${c}</span>` : ''}
+                    </div>
+                </div>`).join('');
+            } else if (activeTab === 'dropped') {
+                if (tmStats.dropped.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無拋棄紀錄</div>`;
+                else listHtml = Array.from(tmStats.dropped.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#c4b5fd;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <span>${u}</span>
+                        ${c > 1 ? `<span style="${badgeStyle} background:#4c1d95; color:#ddd6fe;">x${c}</span>` : ''}
                     </div>
                 </div>`).join('');
             } else if (activeTab === 'cleaned') {
@@ -1333,7 +1366,7 @@ function processRequest(request) {
         return processRequest({ url: url });
     }
 
-    // [Architecture Upgrade V44.88] 真正支援 Fetch 的 204 Mock Response 偽造
+    // [Architecture Upgrade V44.89] 真正支援 Fetch 的 204 Mock Response 偽造
     const origFetch = window.fetch;
     window.fetch = async function(...args) {
         let url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
@@ -1347,9 +1380,8 @@ function processRequest(request) {
                         if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Blocked: ${url}`);
                         return Promise.reject(new Error("Blocked by URL Ultimate Filter SSOT"));
                     } else if (action.response.status === 204) {
-                        tmStats.recordBlock(url);
+                        tmStats.recordDrop(url);
                         if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Dropped (204 Mock): ${url}`);
-                        // 欺騙前端發送成功，消除重試風暴
                         return Promise.resolve(new Response(null, { status: 204, statusText: 'No Content' }));
                     }
                 } else if (action.url) {
@@ -1367,13 +1399,15 @@ function processRequest(request) {
         return origFetch.apply(this, args);
     };
 
-    // [Architecture Upgrade V44.88] 真正支援 XHR 的 204 Mock Response 偽造
+    // [Architecture Upgrade V44.89] XHR 相容 Axios 的完全偽造
     const origOpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function(method, url, ...rest) {
         this._ssotAction = null;
+        this._ssotUrl = '';
         if (url) {
             try {
                 let absoluteUrl = new URL(url, location.origin).href;
+                this._ssotUrl = absoluteUrl;
                 const action = applyFilter(absoluteUrl);
                 if (action) {
                     if (action.response) {
@@ -1381,7 +1415,7 @@ function processRequest(request) {
                             tmStats.recordBlock(absoluteUrl);
                             this._ssotAction = 403;
                         } else if (action.response.status === 204) {
-                            tmStats.recordBlock(absoluteUrl);
+                            tmStats.recordDrop(absoluteUrl);
                             this._ssotAction = 204;
                         }
                     } else if (action.url) {
@@ -1404,15 +1438,17 @@ function processRequest(request) {
             this.dispatchEvent(new Event('error'));
             return;
         } else if (this._ssotAction === 204) {
-            // 利用 defineProperties 覆寫實例上的 getter 來偽造請求完成的狀態
+            const mockUrl = this._ssotUrl;
             Object.defineProperties(this, {
                 readyState: { get: () => 4 },
                 status: { get: () => 204 },
                 statusText: { get: () => 'No Content' },
                 response: { get: () => '' },
-                responseText: { get: () => '' }
+                responseText: { get: () => '' },
+                responseURL: { get: () => mockUrl },
+                getAllResponseHeaders: { value: () => 'content-length: 0\r\n' },
+                getResponseHeader: { value: (name) => null }
             });
-            // 延遲觸發事件，完美模擬非同步請求網路生命週期
             setTimeout(() => {
                 this.dispatchEvent(new Event('readystatechange'));
                 this.dispatchEvent(new Event('load'));
@@ -1422,6 +1458,31 @@ function processRequest(request) {
         }
         return origSend.apply(this, args);
     };
+
+    // [Architecture Upgrade V44.89] navigator.sendBeacon 頂層防護
+    if (navigator.sendBeacon) {
+        const origSendBeacon = navigator.sendBeacon;
+        navigator.sendBeacon = function(url, data) {
+            if (url) {
+                try {
+                    let absoluteUrl = new URL(url, location.origin).href;
+                    const action = applyFilter(absoluteUrl);
+                    if (action && action.response) {
+                        if (action.response.status === 403) {
+                            tmStats.recordBlock(absoluteUrl);
+                            if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Beacon Blocked: ${absoluteUrl}`);
+                            return false; 
+                        } else if (action.response.status === 204) {
+                            tmStats.recordDrop(absoluteUrl);
+                            if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Beacon Dropped (Fake Success): ${absoluteUrl}`);
+                            return true; 
+                        }
+                    }
+                } catch(e){}
+            }
+            return origSendBeacon.apply(this, arguments);
+        };
+    }
     
     const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
@@ -1430,9 +1491,14 @@ function processRequest(request) {
                     if (node.src) {
                         try {
                             const action = applyFilter(node.src);
-                            if (action && action.response && [403, 204].includes(action.response.status)) {
-                                tmStats.recordBlock(node.src);
-                                node.remove(); 
+                            if (action && action.response) {
+                                if (action.response.status === 403) {
+                                    tmStats.recordBlock(node.src);
+                                    node.remove();
+                                } else if (action.response.status === 204) {
+                                    tmStats.recordDrop(node.src);
+                                    node.remove();
+                                }
                             } else if (action && action.url && node.src !== action.url) {
                                 tmStats.recordClean(node.src, action.url);
                                 node.src = action.url; 
