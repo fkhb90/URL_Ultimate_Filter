@@ -1,5 +1,14 @@
 # URL Ultimate Filter - Changelog
 
+## V44.95 - 2026-03-18
+- [Perf] 移除 `multiLevelCache` 死代碼 (僅寫入從不讀取)，釋放 P0 命中的無效 Map 分配 (~16KB 峰值記憶體)。
+- [BugFix] `PARAMS.GLOBAL.has(key)` 改用 `lowerKey`，修正大寫參數 (如 `UTM_SOURCE`) 需多走 regex fallback 的效率問題。
+- [Perf] 熱路徑 `new Set()` 替換為預分配 `EMPTY_SET` 常數，每請求省 ~0.5µs 記憶體分配。
+- [Perf] `performCleaning` 從 per-request 閉包提取為頂層函式，每請求省 ~64 bytes 閉包分配。
+- [Perf] `qs.replace(/;/g, '&')` 加入 `indexOf(';')` 前置判斷，~99% 請求跳過正則引擎呼叫。
+- [Refactor] 布林邏輯簡化 `!A || (A && !B)` → `!(A && B)`。
+- [Size] 移除 JS 輸出中未消費的 `CRITICAL_PATH.GENERIC` 和 `SCRIPT_ROOTS` 死 Array，節省 ~3KB 體積。
+
 ## V44.94 - 2026-03-17
 - [Strategy] slackb.com 從 PRIORITY_BLOCK_DOMAINS (403) 遷移至 CRITICAL_PATH_MAP 全域 DROP:/ (204)，消除 Slack 客戶端因 403 觸發的持續重試風暴。採用與 Teams/Discord 相同的靜默拋棄模式。
 
