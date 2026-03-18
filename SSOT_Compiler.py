@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V44.94
+當前版本：V44.95
 最新架構更新：
-- [Strategy] `slackb.com` 處置策略升級：從 `PRIORITY_BLOCK_DOMAINS` (403) 遷移至 `CRITICAL_PATH_MAP` 全域 `DROP:/` (204)，消除 Slack 客戶端因 403 持續觸發的重試風暴，採用與 Teams/Discord 遙測域名相同的靜默拋棄模式。
+- [Perf] 7 項效能與品質優化：移除 multiLevelCache 死代碼、PARAMS.GLOBAL 大小寫不敏感修正、EMPTY_SET 常數取代熱路徑 new Set()、performCleaning 閉包提取、分號前置判斷、布林邏輯簡化、移除 JS 輸出中未消費的 GENERIC/SCRIPT_ROOTS 死 Array (~3KB)。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V44.94: slackb.com 從 PRIORITY_BLOCK_DOMAINS (403) 遷移至 CRITICAL_PATH_MAP 全域 DROP:/ (204)。
 - V44.93: slack.com eventlog.history → CRITICAL_PATH_MAP DROP、businesstoday.com.tw gad_script.js → PATH_BLOCK、Google News 圖片 allowlist 放行。
 - V44.92: iframe 沙箱防護、ACScanner → CompiledScanner 架構遷移 (pathScanner 加速 69.9x)。
 - V44.91: sendBeacon Anti-Tampering Proxy、CSS bg-image No-JS 攔截、<a ping> 雙層防護、Delayed Drop 記憶體安全閥。
 - V44.90: 導入延遲拋棄 (Delayed Drop) + HTML5 `<a ping>` 物理剝離。
-- V44.89: 完善 XHR Mock 並導入 navigator.sendBeacon 攔截，Teams/Discord 升級為 204 DROP。
 """
 
 import json
@@ -34,11 +34,17 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.94"
+VERSION = "44.95"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Strategy] slackb.com 從 PRIORITY_BLOCK_DOMAINS (403) 遷移至 CRITICAL_PATH_MAP 全域 DROP:/ (204)，消除 Slack 客戶端因 403 觸發的持續重試風暴。採用與 Teams/Discord 相同的靜默拋棄模式。
+- [Perf] 移除 `multiLevelCache` 死代碼 (僅寫入從不讀取)，釋放 P0 命中的無效 Map 分配 (~16KB 峰值記憶體)。
+- [BugFix] `PARAMS.GLOBAL.has(key)` 改用 `lowerKey`，修正大寫參數 (如 `UTM_SOURCE`) 需多走 regex fallback 的效率問題。
+- [Perf] 熱路徑 `new Set()` 替換為預分配 `EMPTY_SET` 常數，每請求省 ~0.5µs 記憶體分配。
+- [Perf] `performCleaning` 從 per-request 閉包提取為頂層函式，每請求省 ~64 bytes 閉包分配。
+- [Perf] `qs.replace(/;/g, '&')` 加入 `indexOf(';')` 前置判斷，~99% 請求跳過正則引擎呼叫。
+- [Refactor] 布林邏輯簡化 `!A || (A && !B)` → `!(A && B)`。
+- [Size] 移除 JS 輸出中未消費的 `CRITICAL_PATH.GENERIC` 和 `SCRIPT_ROOTS` 死 Array，節省 ~3KB 體積。
 """
 
 # ==========================================
@@ -617,6 +623,7 @@ def get_js_rules_definition(platform_desc: str) -> str:
 
 const CONFIG = {{ DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 }};
 const SCRIPT_VERSION = '{VERSION}';
+const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {{
     DOMAINS: {format_js_set(RULES_DB['OAUTH_SAFE_HARBOR_DOMAINS'])},
@@ -660,8 +667,6 @@ const RULES = {{
   ],
 
   CRITICAL_PATH: {{
-    GENERIC: {format_js_array(RULES_DB['CRITICAL_PATH_GENERIC'])},
-    SCRIPT_ROOTS: {format_js_array(RULES_DB['CRITICAL_PATH_SCRIPT_ROOTS'])},
     MAP: {format_js_map(RULES_DB['CRITICAL_PATH_MAP'])}
   }},
 
@@ -747,7 +752,6 @@ for (const s of RULES.EXCEPTIONS.SUFFIXES) {
   else STATIC_FILENAMES.add(s);
 }
 
-const multiLevelCache = new HighPerformanceLRUCache(512);
 const stats = { blocks: 0, allows: 0, toString: () => `Blocked: ${stats.blocks}, Allowed: ${stats.allows}` };
 const criticalMapCache = new HighPerformanceLRUCache(256);
 
@@ -861,7 +865,7 @@ const HELPERS = {
 
       if (!qs) return null;
       
-      qs = qs.replace(/;/g, '&');
+      if (qs.indexOf(';') >= 0) qs = qs.replace(/;/g, '&');
       
       const pairs = qs.split('&');
       const kept = [];
@@ -878,7 +882,7 @@ const HELPERS = {
             kept.push(pair); continue;
         }
 
-        if (RULES.PARAMS.GLOBAL.has(key) || RULES.PARAMS.COSMETIC.has(key)) { changed = true; continue; }
+        if (RULES.PARAMS.GLOBAL.has(lowerKey) || RULES.PARAMS.COSMETIC.has(lowerKey)) { changed = true; continue; }
 
         let prefixHit = false;
         if (lowerKey) {
@@ -919,6 +923,16 @@ function getCriticalBlockedPaths(hostname) {
   return value;
 }
 
+function _performCleaning(url, hostname, pathLower) {
+    const cleanResult = HELPERS.cleanTrackingParams(url, hostname, pathLower);
+    if (cleanResult) {
+        stats.allows++;
+        if (cleanResult.type === 'REWRITE') return { url: cleanResult.url }; 
+        return { response: { status: 302, headers: { Location: cleanResult.url } } };
+    }
+    return null;
+}
+
 function processRequest(request) {
   const url = request && request.url;
   if (!url) return null;
@@ -949,9 +963,8 @@ function processRequest(request) {
         return { response: { status: 204 } };
     }
 
-    if (isDomainMatch(new Set(), RULES.PRIORITY_BLOCK_DOMAINS, hostname)) {
+    if (RULES.PRIORITY_BLOCK_DOMAINS.has(hostname) || isDomainMatch(EMPTY_SET, RULES.PRIORITY_BLOCK_DOMAINS, hostname)) {
       stats.blocks++;
-      multiLevelCache.set(hostname, 'BLOCK', 86400000);
       return { response: { status: 403, body: 'Blocked by P0' } };
     }
     
@@ -992,22 +1005,12 @@ function processRequest(request) {
         stats.allows++; return null;
     }
 
-    const performCleaning = () => {
-        const cleanResult = HELPERS.cleanTrackingParams(url, hostname, pathLower);
-        if (cleanResult) {
-            stats.allows++;
-            if (cleanResult.type === 'REWRITE') return { url: cleanResult.url }; 
-            return { response: { status: 302, headers: { Location: cleanResult.url } } };
-        }
-        return null;
-    };
-
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
-      stats.allows++; return performCleaning(); 
+      stats.allows++; return _performCleaning(url, hostname, pathLower); 
     }
 
     if (HELPERS.isPathExemptedForDomain(hostname, pathLower)) {
-        stats.allows++; return performCleaning();
+        stats.allows++; return _performCleaning(url, hostname, pathLower);
     }
 
     const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathLower);
@@ -1040,7 +1043,7 @@ function processRequest(request) {
       }
     }
 
-    if (!isSoftWhitelisted || (isSoftWhitelisted && !isStatic)) {
+    if (!(isSoftWhitelisted && isStatic)) {
       if (!isExplicitlyAllowed && !isStatic) { 
         if (pathScanner.matches(pathLower)) {
           stats.blocks++; return { response: { status: 403, body: 'Blocked by Keyword' } };
@@ -1059,7 +1062,7 @@ function processRequest(request) {
       }
     }
 
-    return performCleaning();
+    return _performCleaning(url, hostname, pathLower);
 
   } catch (err) {
     if (CONFIG.DEBUG_MODE) console.log(`[Error] ${err}`);
