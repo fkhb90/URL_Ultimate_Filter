@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V44.94
+// @name         URL Ultimate Filter V44.95
 // @namespace    http://tampermonkey.net/
-// @version      44.94
+// @version      44.95
 // @description  SSOT 前端防護盾牌，專業級 UI：極簡盾牌圖示、獨立計數器、點擊外部自動收合機制。
 // @author       Jerry
 // @match        *://*/*
@@ -13,11 +13,12 @@
     'use strict';
 /**
  * @file      URL-Ultimate-Filter-Tampermonkey.js
- * @version   44.94 (SSOT Compilation)
+ * @version   44.95 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.94';
+const SCRIPT_VERSION = '44.95';
+const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
@@ -224,50 +225,6 @@ const RULES = {
   ],
 
   CRITICAL_PATH: {
-    GENERIC: [
-    '/accounts/CheckConnection', '/0.gif', '/1.gif', '/pixel.gif', '/beacon.gif', '/ping.gif',
-    '/track.gif', '/dot.gif', '/clear.gif', '/empty.gif', '/shim.gif', '/spacer.gif',
-    '/imp.gif', '/impression.gif', '/view.gif', '/sync.gif', '/sync.php', '/match.gif',
-    '/match.php', '/utm.gif', '/event.gif', '/bk', '/bk.gif', '/collect',
-    '/events', '/track', '/beacon', '/pixel', '/v1/collect', '/v1/events',
-    '/v1/track', '/v1/report', '/v1/logs', '/api/v1/logs', '/appbase_report_log', '/stat_log',
-    '/trackcode/', '/v2/collect', '/v2/events', '/v2/track', '/tp2', '/api/v1/collect',
-    '/api/v1/events', '/api/v1/track', '/api/v1/telemetry', '/v1/event', '/api/stats/ads', '/api/stats/atr',
-    '/api/stats/qoe', '/api/stats/playback', '/pagead/gen_204', '/pagead/paralleladview', '/tiktok/pixel/events', '/linkedin/insight/track',
-    '/api/fingerprint', '/v1/fingerprint', '/cdn/fp/', '/api/collect', '/api/track', '/tr/',
-    '/beacon', '/api/v1/event', '/rest/n/log', '/action-log', '/ramen/v1/events', '/_events',
-    '/report/v1/log', '/app/mobilelog', '/api/web/ad/', '/cdn/fingerprint/', '/api/device-id', '/api/visitor-id',
-    '/ads/ga-audiences', '/doubleclick/', '/google-analytics/', '/googleadservices/', '/googlesyndication/', '/googletagmanager/',
-    '/tiktok/track/', '/__utm.gif', '/j/collect', '/r/collect', '/api/batch', '/api/events',
-    '/api/v1/events', '/api/v1/track', '/api/v2/event', '/api/v2/events', '/collect?', '/data/collect',
-    '/events/track', '/ingest/', '/ingest/otel', '/intake', '/p.gif', '/rec/bundle',
-    '/t.gif', '/track/', '/v1/pixel', '/v2/track', '/v3/track', '/2/client/addlog_batch',
-    '/plugins/easy-social-share-buttons/', '/event_report', '/log/aplus', '/v.gif', '/ad-sw.js', '/ads-sw.js',
-    '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/',
-    '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc',
-    '/user-profile/', 'cacafly/track', '/api/v1/t', '/sa.gif', '/api/v2/rum', '/batch_resolve',
-    '/acookie/', '/cookie-sync/'
-  ],
-    SCRIPT_ROOTS: [
-    '/prebid', '/sentry.', 'sentry-', '/analytics.', 'ga-init.', 'gtag.',
-    'gtm.', 'ytag.', 'connect.js', '/fbevents.', '/fbq.', '/pixel.',
-    'tiktok-pixel.', 'ttclid.', 'insight.min.', '/amplitude.', '/braze.', '/chartbeat.',
-    '/clarity.', '/comscore.', '/crazyegg.', '/customerio.', '/fullstory.', '/heap.',
-    '/hotjar.', '/inspectlet.', '/iterable.', '/logrocket.', '/matomo.', '/mixpanel.',
-    '/mouseflow.', '/optimizely.', '/piwik.', '/posthog.', '/quant.', '/quantcast.',
-    '/segment.', '/statsig.', '/vwo.', '/ad-manager.', '/ad-player.', '/ad-sdk.',
-    '/adloader.', '/adroll.', '/adsense.', '/advideo.', '/apstag.', '/criteo-loader.',
-    '/criteo.', '/doubleclick.', '/mgid.', '/outbrain.', '/pubmatic.', '/revcontent.',
-    '/taboola.', 'ad-full-page.', 'api_event_tracking', 'itriweblog.', 'adobedtm.', 'dax.js',
-    'utag.', 'visitorapi.', 'newrelic.', 'nr-loader.', 'perf.js', 'essb-core.',
-    '/intercom.', '/pangle.', '/tagtoo.', 'tiktok-analytics.', 'aplus.', 'aplus_wap.',
-    '/ec.js', '/gdt.', '/hm.js', '/u.js', '/um.js', '/bat.js',
-    'beacon.min.', 'plausible.outbound', 'abtasty.', 'ad-core.', 'ad-lib.', 'adroll_pro.',
-    'ads-beacon.', 'autotrack.', 'beacon.', 'capture.', '/cf.js', 'cmp.js',
-    'collect.js', 'link-click-tracker.', 'main-ad.', 'scevent.min.', 'showcoverad.', 'sp.js',
-    'tracker.js', 'tracking-api.', 'tracking.js', 'user-id.', 'user-timing.', 'wcslog.',
-    'jslog.min.', 'device-uuid.', '/plugins/advanced-ads', '/plugins/adrotate', 'gad_script.'
-  ],
     MAP: new Map([
     ['o.alicdn.com', new Set([
         '/tongyi-fe/lib/cnzz/c.js', '/tongyi-fe/lib/cnzz/z.js'
@@ -828,7 +785,6 @@ for (const s of RULES.EXCEPTIONS.SUFFIXES) {
   else STATIC_FILENAMES.add(s);
 }
 
-const multiLevelCache = new HighPerformanceLRUCache(512);
 const stats = { blocks: 0, allows: 0, toString: () => `Blocked: ${stats.blocks}, Allowed: ${stats.allows}` };
 const criticalMapCache = new HighPerformanceLRUCache(256);
 
@@ -942,7 +898,7 @@ const HELPERS = {
 
       if (!qs) return null;
       
-      qs = qs.replace(/;/g, '&');
+      if (qs.indexOf(';') >= 0) qs = qs.replace(/;/g, '&');
       
       const pairs = qs.split('&');
       const kept = [];
@@ -959,7 +915,7 @@ const HELPERS = {
             kept.push(pair); continue;
         }
 
-        if (RULES.PARAMS.GLOBAL.has(key) || RULES.PARAMS.COSMETIC.has(key)) { changed = true; continue; }
+        if (RULES.PARAMS.GLOBAL.has(lowerKey) || RULES.PARAMS.COSMETIC.has(lowerKey)) { changed = true; continue; }
 
         let prefixHit = false;
         if (lowerKey) {
@@ -1000,6 +956,16 @@ function getCriticalBlockedPaths(hostname) {
   return value;
 }
 
+function _performCleaning(url, hostname, pathLower) {
+    const cleanResult = HELPERS.cleanTrackingParams(url, hostname, pathLower);
+    if (cleanResult) {
+        stats.allows++;
+        if (cleanResult.type === 'REWRITE') return { url: cleanResult.url }; 
+        return { response: { status: 302, headers: { Location: cleanResult.url } } };
+    }
+    return null;
+}
+
 function processRequest(request) {
   const url = request && request.url;
   if (!url) return null;
@@ -1030,9 +996,8 @@ function processRequest(request) {
         return { response: { status: 204 } };
     }
 
-    if (isDomainMatch(new Set(), RULES.PRIORITY_BLOCK_DOMAINS, hostname)) {
+    if (RULES.PRIORITY_BLOCK_DOMAINS.has(hostname) || isDomainMatch(EMPTY_SET, RULES.PRIORITY_BLOCK_DOMAINS, hostname)) {
       stats.blocks++;
-      multiLevelCache.set(hostname, 'BLOCK', 86400000);
       return { response: { status: 403, body: 'Blocked by P0' } };
     }
     
@@ -1073,22 +1038,12 @@ function processRequest(request) {
         stats.allows++; return null;
     }
 
-    const performCleaning = () => {
-        const cleanResult = HELPERS.cleanTrackingParams(url, hostname, pathLower);
-        if (cleanResult) {
-            stats.allows++;
-            if (cleanResult.type === 'REWRITE') return { url: cleanResult.url }; 
-            return { response: { status: 302, headers: { Location: cleanResult.url } } };
-        }
-        return null;
-    };
-
     if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
-      stats.allows++; return performCleaning(); 
+      stats.allows++; return _performCleaning(url, hostname, pathLower); 
     }
 
     if (HELPERS.isPathExemptedForDomain(hostname, pathLower)) {
-        stats.allows++; return performCleaning();
+        stats.allows++; return _performCleaning(url, hostname, pathLower);
     }
 
     const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathLower);
@@ -1121,7 +1076,7 @@ function processRequest(request) {
       }
     }
 
-    if (!isSoftWhitelisted || (isSoftWhitelisted && !isStatic)) {
+    if (!(isSoftWhitelisted && isStatic)) {
       if (!isExplicitlyAllowed && !isStatic) { 
         if (pathScanner.matches(pathLower)) {
           stats.blocks++; return { response: { status: 403, body: 'Blocked by Keyword' } };
@@ -1140,7 +1095,7 @@ function processRequest(request) {
       }
     }
 
-    return performCleaning();
+    return _performCleaning(url, hostname, pathLower);
 
   } catch (err) {
     if (CONFIG.DEBUG_MODE) console.log(`[Error] ${err}`);
