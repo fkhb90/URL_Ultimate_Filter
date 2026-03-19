@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.97 (SSOT Compilation)
+ * @version   44.98 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.97';
+const SCRIPT_VERSION = '44.98';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -763,6 +763,9 @@ const highConfidenceScanner = new CompiledScanner(PRECOMPILED_SCANNERS.HIGH_CONF
 const pathScanner = new CompiledScanner(PRECOMPILED_SCANNERS.PATH_BLOCK);
 const criticalPathScanner = new CompiledScanner(PRECOMPILED_SCANNERS.CRITICAL_PATH);
 const COMBINED_PATH_REGEX = [...RULES.REGEX.PATH_BLOCK, ...RULES.REGEX.HEURISTIC];
+const OAUTH_PATHS_REGEX = OAUTH_SAFE_HARBOR.PATHS_REGEX;
+const API_SIGNATURE_BYPASS_REGEX = RULES.REGEX.API_SIGNATURE_BYPASS;
+const BLOCK_DOMAINS_REGEX = RULES.BLOCK_DOMAINS_REGEX;
 
 const STATIC_EXTENSIONS = new Set();
 const STATIC_FILENAMES = new Set();
@@ -774,6 +777,14 @@ for (const s of RULES.EXCEPTIONS.SUFFIXES) {
 
 const stats = { blocks: 0, allows: 0, toString: () => `Blocked: ${stats.blocks}, Allowed: ${stats.allows}` };
 const criticalMapCache = new HighPerformanceLRUCache(256);
+const hostProfileCache = new HighPerformanceLRUCache(256);
+
+function matchesAnyRegex(regexList, text) {
+  for (let i = 0; i < regexList.length; i++) {
+    if (regexList[i].test(text)) return true;
+  }
+  return false;
+}
 
 function isDomainMatch(setExact, wildcardsSet, hostname) {
   if (setExact.has(hostname)) return true;
@@ -786,10 +797,59 @@ function isDomainMatch(setExact, wildcardsSet, hostname) {
   return false;
 }
 
+function resolvePathExemptions(hostname) {
+  let matches = null;
+  for (const [domainOrPrefix, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
+    let isMatch = false;
+    if (domainOrPrefix.endsWith('.') && /^\d/.test(domainOrPrefix)) {
+      isMatch = hostname.startsWith(domainOrPrefix);
+    } else {
+      isMatch = (hostname === domainOrPrefix || hostname.endsWith('.' + domainOrPrefix));
+    }
+    if (isMatch) {
+      if (!matches) matches = [];
+      matches.push(exemptedPaths);
+    }
+  }
+  return matches;
+}
+
+function resolveScopedParamExemptions(hostname) {
+  let domainExemptions = RULES.PARAMS.SCOPED_EXEMPTIONS.get(hostname);
+  if (domainExemptions) return domainExemptions;
+  for (const [domain, paths] of RULES.PARAMS.SCOPED_EXEMPTIONS) {
+    if (hostname.endsWith('.' + domain)) return paths;
+  }
+  return null;
+}
+
+function getHostProfile(hostname) {
+  const cached = hostProfileCache.get(hostname);
+  if (cached !== null) return cached;
+
+  const profile = {
+    isOAuthSafeHarbor: OAUTH_SAFE_HARBOR.DOMAINS.has(hostname) && hostname !== 'accounts.youtube.com',
+    isParamCleaningExempted: isDomainMatch(PARAM_CLEANING_EXEMPTED_DOMAINS.EXACT, PARAM_CLEANING_EXEMPTED_DOMAINS.WILDCARDS, hostname),
+    isSilentRewriteDomain: isDomainMatch(SILENT_REWRITE_DOMAINS.EXACT, SILENT_REWRITE_DOMAINS.WILDCARDS, hostname),
+    isAbsoluteBypass: isDomainMatch(ABSOLUTE_BYPASS_DOMAINS.EXACT, ABSOLUTE_BYPASS_DOMAINS.WILDCARDS, hostname),
+    isPriorityBlocked: isDomainMatch(EMPTY_SET, RULES.PRIORITY_BLOCK_DOMAINS, hostname),
+    isRedirector: RULES.REDIRECTOR_HOSTS.has(hostname),
+    isSoftWhitelisted: isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname),
+    isHardWhitelisted: isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname),
+    isBlockedDomain: isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || matchesAnyRegex(BLOCK_DOMAINS_REGEX, hostname),
+    pathExemptions: resolvePathExemptions(hostname),
+    scopedParamExemptions: resolveScopedParamExemptions(hostname)
+  };
+
+  hostProfileCache.set(hostname, profile, 300000);
+  return profile;
+}
+
 const HELPERS = {
   isStaticFile: (pathLowerMaybeWithQuery) => {
     if (!pathLowerMaybeWithQuery) return false;
-    const cleanPath = pathLowerMaybeWithQuery.split('?')[0];
+    const queryIndex = pathLowerMaybeWithQuery.indexOf('?');
+    const cleanPath = queryIndex >= 0 ? pathLowerMaybeWithQuery.substring(0, queryIndex) : pathLowerMaybeWithQuery;
     const lastDot = cleanPath.lastIndexOf('.');
     if (lastDot !== -1) {
       const ext = cleanPath.substring(lastDot);
@@ -808,69 +868,51 @@ const HELPERS = {
     return false;
   },
 
-  isPathExemptedForDomain: (hostname, pathLower) => {
-    for (const [domainOrPrefix, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
-      let isMatch = false;
-      if (domainOrPrefix.endsWith('.') && /^\d/.test(domainOrPrefix)) {
-          isMatch = hostname.startsWith(domainOrPrefix);
-      } else {
-          isMatch = (hostname === domainOrPrefix || hostname.endsWith('.' + domainOrPrefix));
-      }
-      
-      if (isMatch) {
-        for (const exemptedPath of exemptedPaths) {
-          if (pathLower.includes(exemptedPath)) return true;
-        }
+  isPathExemptedForDomain: (matchedExemptions, pathLower) => {
+    if (!matchedExemptions) return false;
+    for (let i = 0; i < matchedExemptions.length; i++) {
+      for (const exemptedPath of matchedExemptions[i]) {
+        if (pathLower.includes(exemptedPath)) return true;
       }
     }
     return false;
   },
 
-  isScopedParamAllowed: (hostname, pathLower, lowerKey) => {
-    let domainExemptions = RULES.PARAMS.SCOPED_EXEMPTIONS.get(hostname);
-    if (!domainExemptions) {
-        for (const [domain, paths] of RULES.PARAMS.SCOPED_EXEMPTIONS) {
-            if (hostname.endsWith('.' + domain)) { domainExemptions = paths; break; }
-        }
-    }
+  isScopedParamAllowed: (domainExemptions, pathLower, lowerKey) => {
     if (!domainExemptions) return false;
 
     for (const [pathStr, allowedParamsSet] of domainExemptions) {
-        if (pathStr.startsWith('!')) {
-            const actualPath = pathStr.substring(1);
-            if (pathLower.includes(actualPath) && allowedParamsSet.has(lowerKey)) {
-                return false; 
-            }
+      if (pathStr.startsWith('!')) {
+        const actualPath = pathStr.substring(1);
+        if (pathLower.includes(actualPath) && allowedParamsSet.has(lowerKey)) {
+          return false;
         }
+      }
     }
 
     for (const [pathStr, allowedParamsSet] of domainExemptions) {
-        if (!pathStr.startsWith('!')) {
-            if (pathLower.includes(pathStr) && allowedParamsSet.has(lowerKey)) {
-                return true; 
-            }
+      if (!pathStr.startsWith('!')) {
+        if (pathLower.includes(pathStr) && allowedParamsSet.has(lowerKey)) {
+          return true;
         }
+      }
     }
-    
+
     return false;
   },
 
-  cleanTrackingParams: (urlStr, hostname, pathLower) => {
+  cleanTrackingParams: (urlStr, hostname, pathLower, hostProfile) => {
     if (!urlStr.includes('?')) return null;
-
     if (/[?&](signature|sig|hmac)=/i.test(pathLower)) return null;
+    if (hostProfile.isOAuthSafeHarbor) return null;
+    if (matchesAnyRegex(OAUTH_PATHS_REGEX, pathLower)) return null;
+    if (hostProfile.isParamCleaningExempted) return null;
 
-    if (OAUTH_SAFE_HARBOR.DOMAINS.has(hostname) && hostname !== 'accounts.youtube.com') return null;
-    
-    if (OAUTH_SAFE_HARBOR.PATHS_REGEX.some(r => r.test(pathLower))) return null;
-
-    if (isDomainMatch(PARAM_CLEANING_EXEMPTED_DOMAINS.EXACT, PARAM_CLEANING_EXEMPTED_DOMAINS.WILDCARDS, hostname)) return null;
-    
     let rewriteType = '302';
-    if (RULES.REGEX.API_SIGNATURE_BYPASS.some(r => r.test(pathLower)) || 
-        hostname.startsWith('api.') || hostname.startsWith('appapi.') || 
-        isDomainMatch(SILENT_REWRITE_DOMAINS.EXACT, SILENT_REWRITE_DOMAINS.WILDCARDS, hostname)) {
-        rewriteType = 'REWRITE';
+    if (matchesAnyRegex(API_SIGNATURE_BYPASS_REGEX, pathLower) ||
+        hostname.startsWith('api.') || hostname.startsWith('appapi.') ||
+        hostProfile.isSilentRewriteDomain) {
+      rewriteType = 'REWRITE';
     }
 
     try {
@@ -882,11 +924,11 @@ const HELPERS = {
       const hash = _hi >= 0 ? urlStr.substring(_hi) : '';
 
       if (!qs) return null;
-      
       if (qs.indexOf(';') >= 0) qs = qs.replace(/;/g, '&');
-      
+
       const pairs = qs.split('&');
       const kept = [];
+      const scopedParamExemptions = hostProfile.scopedParamExemptions;
       let changed = false;
 
       for (let i = 0; i < pairs.length; i++) {
@@ -896,8 +938,8 @@ const HELPERS = {
         const key = eqIdx >= 0 ? pair.substring(0, eqIdx) : pair;
         const lowerKey = key.toLowerCase();
 
-        if (RULES.PARAMS.WHITELIST.has(lowerKey) || HELPERS.isScopedParamAllowed(hostname, pathLower, lowerKey)) {
-            kept.push(pair); continue;
+        if (RULES.PARAMS.WHITELIST.has(lowerKey) || HELPERS.isScopedParamAllowed(scopedParamExemptions, pathLower, lowerKey)) {
+          kept.push(pair); continue;
         }
 
         if (RULES.PARAMS.GLOBAL.has(lowerKey) || RULES.PARAMS.COSMETIC.has(lowerKey)) { changed = true; continue; }
@@ -913,7 +955,7 @@ const HELPERS = {
         }
         if (prefixHit) { changed = true; continue; }
 
-        if (RULES.PARAMS.GLOBAL_REGEX.some(r => r.test(lowerKey)) || RULES.PARAMS.PREFIXES_REGEX.some(r => r.test(lowerKey))) {
+        if (matchesAnyRegex(RULES.PARAMS.GLOBAL_REGEX, lowerKey) || matchesAnyRegex(RULES.PARAMS.PREFIXES_REGEX, lowerKey)) {
           changed = true; continue;
         }
 
@@ -929,7 +971,7 @@ const HELPERS = {
 
 function getCriticalBlockedPaths(hostname) {
   const cached = criticalMapCache.get(hostname);
-  if (cached !== null) return cached; 
+  if (cached !== null) return cached;
   let setOrUndef = RULES.CRITICAL_PATH.MAP.get(hostname);
   if (!setOrUndef) {
     for (const [domain, paths] of RULES.CRITICAL_PATH.MAP) {
@@ -941,14 +983,14 @@ function getCriticalBlockedPaths(hostname) {
   return value;
 }
 
-function _performCleaning(url, hostname, pathLower) {
-    const cleanResult = HELPERS.cleanTrackingParams(url, hostname, pathLower);
-    if (cleanResult) {
-        stats.allows++;
-        if (cleanResult.type === 'REWRITE') return { url: cleanResult.url }; 
-        return { response: { status: 302, headers: { Location: cleanResult.url } } };
-    }
-    return null;
+function _performCleaning(url, hostname, pathLower, hostProfile) {
+  const cleanResult = HELPERS.cleanTrackingParams(url, hostname, pathLower, hostProfile);
+  if (cleanResult) {
+    stats.allows++;
+    if (cleanResult.type === 'REWRITE') return { url: cleanResult.url };
+    return { response: { status: 302, headers: { Location: cleanResult.url } } };
+  }
+  return null;
 }
 
 function processRequest(request) {
@@ -960,33 +1002,35 @@ function processRequest(request) {
     const _hs = _pe >= 0 ? _pe + 3 : 0;
     const _ps = url.indexOf('/', _hs);
     const _hp = _ps >= 0 ? url.substring(_hs, _ps) : url.substring(_hs);
-    const hostname = _hp.split(':')[0].toLowerCase();
-    
+    const _port = _hp.indexOf(':');
+    const hostname = (_port >= 0 ? _hp.substring(0, _port) : _hp).toLowerCase();
+    const hostProfile = getHostProfile(hostname);
+
     let rawPath = _ps >= 0 ? url.substring(_ps) : '/';
     const _fi = rawPath.indexOf('#');
     if (_fi >= 0) rawPath = rawPath.substring(0, _fi);
 
     let pathLower;
     try {
-        let decoded = decodeURIComponent(rawPath);
-        if (decoded.includes('%')) {
-            try { decoded = decodeURIComponent(decoded); } catch (e) {}
-        }
-        pathLower = decoded.toLowerCase();
+      let decoded = decodeURIComponent(rawPath);
+      if (decoded.includes('%')) {
+        try { decoded = decodeURIComponent(decoded); } catch (e) {}
+      }
+      pathLower = decoded.toLowerCase();
     } catch (e) {
-        pathLower = rawPath.toLowerCase();
+      pathLower = rawPath.toLowerCase();
     }
 
     if (pathLower.includes('/accounts/checkconnection')) {
-        return { response: { status: 204 } };
+      return { response: { status: 204 } };
     }
 
-    if (RULES.PRIORITY_BLOCK_DOMAINS.has(hostname) || isDomainMatch(EMPTY_SET, RULES.PRIORITY_BLOCK_DOMAINS, hostname)) {
+    if (hostProfile.isPriorityBlocked) {
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked by P0' } };
     }
-    
-    if (RULES.REDIRECTOR_HOSTS.has(hostname)) {
+
+    if (hostProfile.isRedirector) {
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked Redirector' } };
     }
@@ -999,36 +1043,37 @@ function processRequest(request) {
           const checkPath = isDrop ? badPath.substring(5) : badPath;
           if (pathLower.includes(checkPath)) {
             stats.blocks++;
-            if (isDrop) {
-                return { response: { status: 204 } };
-            }
+            if (isDrop) return { response: { status: 204 } };
             return { response: { status: 403, body: 'Blocked by Map' } };
           }
         }
       }
     }
 
-    const isSoftWhitelisted = isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname);
-    if (!isSoftWhitelisted) {
-      if (isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || RULES.BLOCK_DOMAINS_REGEX.some(r => r.test(hostname))) {
-        stats.blocks++; return { response: { status: 403, body: 'Blocked by Domain' } };
-      }
+    const isSoftWhitelisted = hostProfile.isSoftWhitelisted;
+    if (!isSoftWhitelisted && hostProfile.isBlockedDomain) {
+      stats.blocks++;
+      return { response: { status: 403, body: 'Blocked by Domain' } };
     }
 
-    if (OAUTH_SAFE_HARBOR.DOMAINS.has(hostname) && hostname !== 'accounts.youtube.com') {
-        stats.allows++; return null;
+    if (hostProfile.isOAuthSafeHarbor) {
+      stats.allows++;
+      return null;
     }
 
-    if (isDomainMatch(ABSOLUTE_BYPASS_DOMAINS.EXACT, ABSOLUTE_BYPASS_DOMAINS.WILDCARDS, hostname)) {
-        stats.allows++; return null;
+    if (hostProfile.isAbsoluteBypass) {
+      stats.allows++;
+      return null;
     }
 
-    if (isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname)) {
-      stats.allows++; return _performCleaning(url, hostname, pathLower); 
+    if (hostProfile.isHardWhitelisted) {
+      stats.allows++;
+      return _performCleaning(url, hostname, pathLower, hostProfile);
     }
 
-    if (HELPERS.isPathExemptedForDomain(hostname, pathLower)) {
-        stats.allows++; return _performCleaning(url, hostname, pathLower);
+    if (HELPERS.isPathExemptedForDomain(hostProfile.pathExemptions, pathLower)) {
+      stats.allows++;
+      return _performCleaning(url, hostname, pathLower, hostProfile);
     }
 
     const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathLower);
@@ -1037,16 +1082,15 @@ function processRequest(request) {
     if (!isExplicitlyAllowed && !isStatic) {
       for (const k of RULES.KEYWORDS.PRIORITY_DROP) {
         if (pathLower.includes(k)) {
-          stats.blocks++; return { response: { status: 204 } };
+          stats.blocks++;
+          return { response: { status: 204 } };
         }
       }
     }
 
-    if (!isExplicitlyAllowed) {
-        if (highConfidenceScanner.matches(pathLower)) {
-            stats.blocks++;
-            return { response: { status: 403, body: 'Blocked by High Confidence Keyword' } };
-        }
+    if (!isExplicitlyAllowed && highConfidenceScanner.matches(pathLower)) {
+      stats.blocks++;
+      return { response: { status: 403, body: 'Blocked by High Confidence Keyword' } };
     }
 
     if (criticalPathScanner.matches(pathLower)) {
@@ -1054,33 +1098,32 @@ function processRequest(request) {
       return { response: { status: 403, body: 'Blocked by L1 (Script/Path)' } };
     }
 
-    if (hostname === 'cmapi.tw.coupang.com') {
-      if (/\/.*-ads\//.test(pathLower)) {
-        stats.blocks++;
-        return { response: { status: 403, body: 'Blocked by Coupang Omni-Block' } };
-      }
+    if (hostname === 'cmapi.tw.coupang.com' && /\/.*-ads\//.test(pathLower)) {
+      stats.blocks++;
+      return { response: { status: 403, body: 'Blocked by Coupang Omni-Block' } };
     }
 
-    if (!(isSoftWhitelisted && isStatic)) {
-      if (!isExplicitlyAllowed && !isStatic) { 
-        if (pathScanner.matches(pathLower)) {
-          stats.blocks++; return { response: { status: 403, body: 'Blocked by Keyword' } };
-        }
-        if (COMBINED_PATH_REGEX.some(r => r.test(pathLower))) {
-          stats.blocks++; return { response: { status: 403, body: 'Blocked by Regex' } };
-        }
+    if (!(isSoftWhitelisted && isStatic) && !isExplicitlyAllowed && !isStatic) {
+      if (pathScanner.matches(pathLower)) {
+        stats.blocks++;
+        return { response: { status: 403, body: 'Blocked by Keyword' } };
+      }
+      if (matchesAnyRegex(COMBINED_PATH_REGEX, pathLower)) {
+        stats.blocks++;
+        return { response: { status: 403, body: 'Blocked by Regex' } };
       }
     }
 
     if (!isExplicitlyAllowed && !isStatic) {
       for (const k of RULES.KEYWORDS.DROP) {
         if (pathLower.includes(k)) {
-          stats.blocks++; return { response: { status: 204 } };
+          stats.blocks++;
+          return { response: { status: 204 } };
         }
       }
     }
 
-    return _performCleaning(url, hostname, pathLower);
+    return _performCleaning(url, hostname, pathLower, hostProfile);
 
   } catch (err) {
     if (CONFIG.DEBUG_MODE) console.log(`[Error] ${err}`);
