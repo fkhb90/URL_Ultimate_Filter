@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V44.98 - 2026-03-19
+- [Perf] 導入 hostname profile 快取，將 Soft/Hard WL、Absolute Bypass、P0 Block、參數淨化豁免等 host-only 判斷由每請求重算改為 LRU 快取重用。
+- [Perf] 熱路徑移除 `split('?')`、`split(':')` 與多處 `Array.some()` callback 分配，改為 index-based substring 與 for-loop 掃描，降低 Surge JSC CPU/Memory 壓力。
+- [Refactor] `PATH_EXEMPTIONS` 與 `SCOPED_PARAM_EXEMPTIONS` 改採預解析 + profile 傳遞，減少 query 參數清洗期間的重複 Map 迭代。
+- [QA] 保持規則語意不變，2315/2315 測試全數通過。
+
 ## V44.97 - 2026-03-19
 - [Test] 修正 104 APP `/apis/ad/banner` 測試案例的斷言錯誤，將預期結果由 REWRITE 更正為 ALLOW，以精確對齊當前引擎在 `/apis/` 命名空間的寬鬆放行策略。
 - [Maintenance] 測試矩陣與引擎底層防護邏輯同步化，確保 CI/CD 流程與自動化測試腳本 100% 通過率。
