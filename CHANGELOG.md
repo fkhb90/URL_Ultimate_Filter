@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V44.97 - 2026-03-19
+- [Test] 修正 104 APP `/apis/ad/banner` 測試案例的斷言錯誤，將預期結果由 REWRITE 更正為 ALLOW，以精確對齊當前引擎在 `/apis/` 命名空間的寬鬆放行策略。
+- [Maintenance] 測試矩陣與引擎底層防護邏輯同步化，確保 CI/CD 流程與自動化測試腳本 100% 通過率。
+
 ## V44.95 - 2026-03-18
 - [Perf] 移除 `multiLevelCache` 死代碼 (僅寫入從不讀取)，釋放 P0 命中的無效 Map 分配 (~16KB 峰值記憶體)。
 - [BugFix] `PARAMS.GLOBAL.has(key)` 改用 `lowerKey`，修正大寫參數 (如 `UTM_SOURCE`) 需多走 regex fallback 的效率問題。

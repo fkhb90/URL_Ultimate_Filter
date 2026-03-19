@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V44.95
+// @name         URL Ultimate Filter V44.97
 // @namespace    http://tampermonkey.net/
-// @version      44.95
+// @version      44.97
 // @description  SSOT 前端防護盾牌，專業級 UI：極簡盾牌圖示、獨立計數器、點擊外部自動收合機制。
 // @author       Jerry
 // @match        *://*/*
@@ -13,11 +13,11 @@
     'use strict';
 /**
  * @file      URL-Ultimate-Filter-Tampermonkey.js
- * @version   44.95 (SSOT Compilation)
+ * @version   44.97 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.95';
+const SCRIPT_VERSION = '44.97';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -676,6 +676,9 @@ const RULES = {
         ['/api/', new Set([
             'device_id', 'client_id'
           ])],
+        ['/apis/', new Set([
+            'device_id'
+          ])],
         ['/v2/api/', new Set([
             'device_id'
           ])],
@@ -739,15 +742,12 @@ const RULES = {
   }
 };
 
-// [V44.92 Perf] SSOT 編譯階段預建置 RegExp — 取代運行期 ACScanner 線性掃描 (benchmarked 69.9x faster)
 const PRECOMPILED_SCANNERS = {
   HIGH_CONFIDENCE: /(\/ad\/|\/ads\/|\/adv\/|\/advert\/|\/banner\/|\/pixel\/|\/tracker\/|\/interstitial\/|\/midroll\/|\/popads\/|\/preroll\/|\/postroll\/)/i,
   PATH_BLOCK: /(china-caa|\/advertising\/|\/affiliate\/|\/videoads\/|\/popup\/|\/promoted\/|\/sponsor\/|\/vclick\/|\/ads-self-serve\/|\/httpdns\/|\/d\?dn=|\/resolve\?host=|\/query\?host=|__httpdns__|dns-query|112wan|2mdn|51y5|51yes|789htbet|96110|acs86|ad-choices|ad-logics|adash|adashx|adcash|adcome|addsticky|addthis|adform|adhacker|adinfuse|adjust|admarvel|admaster|admation|admdfs|admicro|admob|adnewnc|adpush|adpushup|adroll|adsage|adsame|adsense|adsensor|adserver|adservice|adsh|adskeeper|adsmind|adsmogo|adsnew|adsrvmedia|adsrvr|adsserving|adsterra|adsupply|adsupport|adswizz|adsystem|adtilt|adtima|adtrack|advert|advertise|advertisement|advertiser|adview|ad-video|advideo|adware|adwhirl|adwords|adzcore|affiliate|alexametrics|allyes|amplitude|analysis|analysys|analytics|aottertrek|appadhoc|appads|appboy|appier|applovin|appsflyer|apptimize|apsalar|baichuan|bango|bangobango|bidvertiser|bingads|bkrtx|bluekai|breaktime|bugsense|burstly|cedexis|chartboost|circulate|click-fraud|clkservice|cnzz|cognitivlabs|collect|crazyegg|crittercism|cross-device|dealerfire|dfp|dienst|djns|dlads|dnserror|domob|doubleclick|doublemax|dsp|duapps|duomeng|dwtrack|egoid|emarbox|en25|eyeota|fenxi|fingerprinting|flurry|fwmrm|getadvltem|getexceptional|googleads|googlesyndication|greenplasticdua|growingio|guanggao|guomob|guoshipartners|heapanalytics|hotjar|hsappstatic|hubspot|igstatic|inmobi|innity|instabug|intercom|izooto|jpush|juicer|jumptap|kissmetrics|lianmeng|litix|localytics|logly|mailmunch|malvertising|matomo|medialytics|meetrics|mgid|mifengv|mixpanel|mobaders|mobclix|mobileapptracking|\/monitoring\/|mvfglobal|networkbench|newrelic|omgmta|omniture|onead|openinstall|openx|optimizely|outstream|partnerad|pingfore|piwik|pixanalytics|playtomic|polyad|popin|popin2mdn|programmatic|pushnotification|quantserve|quantumgraph|queryly|qxs|rayjump|retargeting|ronghub|scorecardresearch|scupio|securepubads|sensor|sentry|shence|shenyun|shoplytics|shujupie|smartadserver|smartbanner|snowplow|socdm|sponsors|spy|spyware|statcounter|stathat|sticky-ad|storageug|straas|studybreakmedia|stunninglover|supersonicads|syndication|taboola|tagtoo|talkingdata|tanx|tapjoy|tapjoyads|tenmax|tapfiliate|tingyun|tiqcdn|tlcafftrax|toateeli|tongji|\/trace\/|tracker|trackersimulator|trafficjunky|trafficmanager|tubemogul|uedas|umeng|umtrack|unidesk|usermaven|usertesting|vast|venraas|vilynx|vpaid|vpon|vungle|whalecloud|wistia|wlmonitor|woopra|xxshuyuan|yandex|zaoo|zarget|zgdfz6h7po|zgty365|zhengjian|zhengwunet|zhuichaguoji|zjtoolbar|zzhyyj|\/ad-choices|\/ad-click|\/ad-code|ad-conversion|\/ad-engagement|ad-engagement|\/ad-event|\/ad-events|\/ad-exchange|ad-impression|\/ad-impression|\/ad-inventory|\/ad-loader|\/ad-logic|\/ad-manager|\/ad-metrics|\/ad-network|\/ad-placement|\/ad-platform|\/ad-request|\/ad-response|\/ad-script|\/ad-server|\/ad-slot|\/ad-specs|\/ad-system|\/ad-tag|\/ad-tech|ad-telemetry|\/ad-telemetry|\/ad-unit|ad-verification|\/ad-verification|\/ad-view|ad-viewability|\/ad-viewability|\/ad-wrapper|\/adframe\/|\/adrequest\/|\/adretrieve\/|\/adserve\/|\/adserving\/|\/fetch_ads\/|\/getad\/|\/getads\/|ad-break|ad_event|ad_logic|ad_pixel|ad-call|adsbygoogle|amp-ad|amp-analytics|amp-auto-ads|amp-sticky-ad|amp4ads|apstag|google_ad|pagead|pwt\.js|\/analytic\/|\/analytics\/|\/api\/v2\/rum|\/audit\/|\/beacon\/|\/collect\?|\/collector\/|g\/collect|\/insight\/|\/intelligence\/|\/measurement|mp\/collect|\/report\/|\/reporting\/|\/reports\/|\/unstable\/produce_batch|\/v1\/produce|\/bugsnag\/|\/crash\/|debug\/mp\/collect|\/error\/|\/envelope|\/exception\/|\/stacktrace\/|performance-tracking|real-user-monitoring|web-vitals|audience|attribution|behavioral-targeting|cohort|cohort-analysis|data-collection|data-sync|fingerprint|retargeting|session-replay|third-party-cookie|user-analytics|user-behavior|user-cohort|user-segment|appier|comscore|fbevents|fbq|google-analytics|onead|osano|sailthru|tapfiliate|utag\.js|\/apmapi\/|canvas-fingerprint|canvas-fp|\/canvas-fp\/|webgl-fingerprint|webgl-fp|\/webgl-fp\/|audio-fingerprint|audio-fp|font-fingerprint|font-detect-fp)/i,
   CRITICAL_PATH: /(\/accounts\/CheckConnection|\/0\.gif|\/1\.gif|\/pixel\.gif|\/beacon\.gif|\/ping\.gif|\/track\.gif|\/dot\.gif|\/clear\.gif|\/empty\.gif|\/shim\.gif|\/spacer\.gif|\/imp\.gif|\/impression\.gif|\/view\.gif|\/sync\.gif|\/sync\.php|\/match\.gif|\/match\.php|\/utm\.gif|\/event\.gif|\/bk|\/bk\.gif|\/collect|\/events|\/track|\/beacon|\/pixel|\/v1\/collect|\/v1\/events|\/v1\/track|\/v1\/report|\/v1\/logs|\/api\/v1\/logs|\/appbase_report_log|\/stat_log|\/trackcode\/|\/v2\/collect|\/v2\/events|\/v2\/track|\/tp2|\/api\/v1\/collect|\/api\/v1\/events|\/api\/v1\/track|\/api\/v1\/telemetry|\/v1\/event|\/api\/stats\/ads|\/api\/stats\/atr|\/api\/stats\/qoe|\/api\/stats\/playback|\/pagead\/gen_204|\/pagead\/paralleladview|\/tiktok\/pixel\/events|\/linkedin\/insight\/track|\/api\/fingerprint|\/v1\/fingerprint|\/cdn\/fp\/|\/api\/collect|\/api\/track|\/tr\/|\/beacon|\/api\/v1\/event|\/rest\/n\/log|\/action-log|\/ramen\/v1\/events|\/_events|\/report\/v1\/log|\/app\/mobilelog|\/api\/web\/ad\/|\/cdn\/fingerprint\/|\/api\/device-id|\/api\/visitor-id|\/ads\/ga-audiences|\/doubleclick\/|\/google-analytics\/|\/googleadservices\/|\/googlesyndication\/|\/googletagmanager\/|\/tiktok\/track\/|\/__utm\.gif|\/j\/collect|\/r\/collect|\/api\/batch|\/api\/events|\/api\/v1\/events|\/api\/v1\/track|\/api\/v2\/event|\/api\/v2\/events|\/collect\?|\/data\/collect|\/events\/track|\/ingest\/|\/ingest\/otel|\/intake|\/p\.gif|\/rec\/bundle|\/t\.gif|\/track\/|\/v1\/pixel|\/v2\/track|\/v3\/track|\/2\/client\/addlog_batch|\/plugins\/easy-social-share-buttons\/|\/event_report|\/log\/aplus|\/v\.gif|\/ad-sw\.js|\/ads-sw\.js|\/ad-call|\/adx\/|\/adsales\/|\/adserver\/|\/adsync\/|\/adtech\/|\/abtesting\/|\/b\/ss|\/feature-flag\/|\/i\/adsct|\/track\/m|\/track\/pc|\/user-profile\/|cacafly\/track|\/api\/v1\/t|\/sa\.gif|\/api\/v2\/rum|\/batch_resolve|\/acookie\/|\/cookie-sync\/|\/prebid|\/sentry\.|sentry-|\/analytics\.|ga-init\.|gtag\.|gtm\.|ytag\.|connect\.js|\/fbevents\.|\/fbq\.|\/pixel\.|tiktok-pixel\.|ttclid\.|insight\.min\.|\/amplitude\.|\/braze\.|\/chartbeat\.|\/clarity\.|\/comscore\.|\/crazyegg\.|\/customerio\.|\/fullstory\.|\/heap\.|\/hotjar\.|\/inspectlet\.|\/iterable\.|\/logrocket\.|\/matomo\.|\/mixpanel\.|\/mouseflow\.|\/optimizely\.|\/piwik\.|\/posthog\.|\/quant\.|\/quantcast\.|\/segment\.|\/statsig\.|\/vwo\.|\/ad-manager\.|\/ad-player\.|\/ad-sdk\.|\/adloader\.|\/adroll\.|\/adsense\.|\/advideo\.|\/apstag\.|\/criteo-loader\.|\/criteo\.|\/doubleclick\.|\/mgid\.|\/outbrain\.|\/pubmatic\.|\/revcontent\.|\/taboola\.|ad-full-page\.|api_event_tracking|itriweblog\.|adobedtm\.|dax\.js|utag\.|visitorapi\.|newrelic\.|nr-loader\.|perf\.js|essb-core\.|\/intercom\.|\/pangle\.|\/tagtoo\.|tiktok-analytics\.|aplus\.|aplus_wap\.|\/ec\.js|\/gdt\.|\/hm\.js|\/u\.js|\/um\.js|\/bat\.js|beacon\.min\.|plausible\.outbound|abtasty\.|ad-core\.|ad-lib\.|adroll_pro\.|ads-beacon\.|autotrack\.|beacon\.|capture\.|\/cf\.js|cmp\.js|collect\.js|link-click-tracker\.|main-ad\.|scevent\.min\.|showcoverad\.|sp\.js|tracker\.js|tracking-api\.|tracking\.js|user-id\.|user-timing\.|wcslog\.|jslog\.min\.|device-uuid\.|\/plugins\/advanced-ads|\/plugins\/adrotate|gad_script\.)/i
 };
 
-// [V44.92] CompiledScanner: 使用 SSOT 編譯階段預建置的 RegExp (取代 ACScanner 線性掃描)
-// Benchmark: pathScanner 395 keywords → 69.9x faster, 11.5µs → 0.16µs per URL
 class CompiledScanner {
   constructor(regex) { this.regex = regex; }
   matches(text) {
@@ -848,7 +848,6 @@ const HELPERS = {
     }
     if (!domainExemptions) return false;
 
-    // 雙層掃描第一階段：絕對否決 (Negative Exclusion)
     for (const [pathStr, allowedParamsSet] of domainExemptions) {
         if (pathStr.startsWith('!')) {
             const actualPath = pathStr.substring(1);
@@ -858,7 +857,6 @@ const HELPERS = {
         }
     }
 
-    // 雙層掃描第二階段：寬鬆放行 (Positive Inclusion)
     for (const [pathStr, allowedParamsSet] of domainExemptions) {
         if (!pathStr.startsWith('!')) {
             if (pathLower.includes(pathStr) && allowedParamsSet.has(lowerKey)) {
@@ -1331,10 +1329,8 @@ function processRequest(request) {
         return processRequest({ url: url });
     }
 
-    // [Architecture Upgrade V44.91] Fetch 204 Mock Response 偽造 + 延遲拋棄 + 記憶體安全閥
-    // 防止高頻遙測場景下大量 pending Promise/setTimeout 累積造成低階設備 GC 壓力
     let _pendingDrops = 0;
-    const MAX_PENDING_DROPS = 64; // 同時最多 64 個延遲中的 Drop Promise
+    const MAX_PENDING_DROPS = 64; 
     const origFetch = window.fetch;
     window.fetch = async function(...args) {
         let url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
@@ -1351,7 +1347,6 @@ function processRequest(request) {
                         tmStats.recordDrop(url);
                         if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Dropped (Delayed Mock): ${url}`);
                         const mock204 = () => new Response(null, { status: 204, statusText: 'No Content' });
-                        // 記憶體安全閥：超過上限時立即回應，不再排入 setTimeout 佇列
                         if (_pendingDrops >= MAX_PENDING_DROPS) return Promise.resolve(mock204());
                         const delay = Math.floor(Math.random() * 100) + 50;
                         _pendingDrops++;
@@ -1377,7 +1372,6 @@ function processRequest(request) {
         return origFetch.apply(this, args);
     };
 
-    // [Architecture Upgrade V44.91] XHR 相容 Axios 的完全偽造 + 延遲拋棄 + 記憶體安全閥
     const origOpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function(method, url, ...rest) {
         this._ssotAction = null;
@@ -1427,7 +1421,6 @@ function processRequest(request) {
                 getAllResponseHeaders: { value: () => 'content-length: 0\r\n' },
                 getResponseHeader: { value: (name) => null }
             });
-            // 記憶體安全閥：超過上限時立即觸發事件，不排入延遲佇列
             const fireXhrEvents = () => {
                 this.dispatchEvent(new Event('readystatechange'));
                 this.dispatchEvent(new Event('load'));
@@ -1445,9 +1438,6 @@ function processRequest(request) {
         return origSend.apply(this, args);
     };
 
-    // [Architecture Upgrade V44.91] navigator.sendBeacon Anti-Tampering 頂層防護
-    // 策略：先檢測 sendBeacon 是否被 Object.defineProperty 鎖死 (configurable:false / writable:false)
-    // 若已鎖死，改用 Proxy 代理 navigator 物件進行攔截 (Anti-Tampering Defusion)
     if (navigator.sendBeacon) {
         const origSendBeacon = navigator.sendBeacon.bind(navigator);
         const beaconInterceptor = function(url, data) {
@@ -1471,19 +1461,15 @@ function processRequest(request) {
             return origSendBeacon(url, data);
         };
 
-        // Phase 1: 嘗試直接覆寫 (最高效方案)
         const desc = Object.getOwnPropertyDescriptor(navigator, 'sendBeacon');
         const isLocked = desc && (desc.configurable === false || desc.writable === false);
 
         if (!isLocked) {
             try {
                 navigator.sendBeacon = beaconInterceptor;
-            } catch(e) {
-                // 靜默失敗 → 降級至 Phase 2
-            }
+            } catch(e) {}
         }
 
-        // Phase 2: 若直接覆寫失敗或屬性被鎖死，使用 Proxy 進行反制
         if (navigator.sendBeacon !== beaconInterceptor && typeof Proxy !== 'undefined') {
             try {
                 const navProxy = new Proxy(navigator, {
@@ -1493,7 +1479,6 @@ function processRequest(request) {
                         return typeof val === 'function' ? val.bind(target) : val;
                     }
                 });
-                // 將 Proxy 注入至全局 navigator 參照 (僅在 window 層級可寫時生效)
                 Object.defineProperty(window, 'navigator', {
                     get: () => navProxy,
                     configurable: true
@@ -1505,13 +1490,10 @@ function processRequest(request) {
         }
     }
     
-    // [Architecture Upgrade V44.92] iframe contentWindow sendBeacon 沙箱防護
-    // 防止廣告腳本建立 hidden iframe 取得乾淨的 navigator.sendBeacon 繞過主視窗 Proxy
     function patchIframeBeacon(iframe) {
         try {
             const iframeWin = iframe.contentWindow;
             if (!iframeWin || !iframeWin.navigator || !iframeWin.navigator.sendBeacon) return;
-            // 同源 iframe 才可存取 contentWindow (跨域會拋 SecurityError)
             const iframeOrigBeacon = iframeWin.navigator.sendBeacon.bind(iframeWin.navigator);
             iframeWin.navigator.sendBeacon = function(url, data) {
                 if (url) {
@@ -1533,7 +1515,6 @@ function processRequest(request) {
                 }
                 return iframeOrigBeacon(url, data);
             };
-            // 同步 patch iframe 內的 fetch/XHR (防止取得乾淨的 fetch API)
             if (iframeWin.fetch) {
                 const iframeOrigFetch = iframeWin.fetch;
                 iframeWin.fetch = function(...args) {
@@ -1554,12 +1535,9 @@ function processRequest(request) {
                     return iframeOrigFetch.apply(this, args);
                 };
             }
-        } catch(e) {
-            // 跨域 iframe → SecurityError → 不需要 patch (各自獨立的 browsing context)
-        }
+        } catch(e) {}
     }
 
-    // 覆寫 document.createElement 以在 iframe 被建立時立即設定 load 監聽器
     const origCreateElement = document.createElement.bind(document);
     document.createElement = function(tagName, options) {
         const el = origCreateElement(tagName, options);
@@ -1568,14 +1546,11 @@ function processRequest(request) {
         }
         return el;
     };
-    // 對頁面上已存在的 iframe 進行回溯 patch
     try {
         const existingIframes = document.querySelectorAll('iframe');
         for (const iframe of existingIframes) patchIframeBeacon(iframe);
     } catch(e) {}
 
-    // [Architecture Upgrade V44.91] HTML5 <a ping> 屬性物理剝離 (事件委派 + 主動巡邏)
-    // Phase 1: 點擊時捕獲階段最後防線
     document.addEventListener('click', (e) => {
         const target = e.target.closest('a[ping]');
         if (target) {
@@ -1584,7 +1559,6 @@ function processRequest(request) {
         }
     }, true);
 
-    // Phase 2: 主動巡邏 — 剝離 DOM 中任何新插入/已存在的 <a ping> 屬性
     function defuseAllPingAttributes(root) {
         try {
             const anchors = (root || document).querySelectorAll('a[ping]');
@@ -1594,8 +1568,6 @@ function processRequest(request) {
         } catch(e) {}
     }
 
-    // [Architecture Upgrade V44.91] CSS background-image No-JS 追蹤攔截
-    // 偵測 inline style 中的 background-image: url(...) 指向追蹤域名並清除
     const CSS_BG_URL_RE = /url\s*\(\s*['"]?(https?:\/\/[^'")\s]+)['"]?\s*\)/gi;
     function defuseCssBgTrackers(node) {
         try {
@@ -1619,16 +1591,14 @@ function processRequest(request) {
     const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
             for (const node of mutation.addedNodes) {
-                if (node.nodeType !== 1) continue; // 只處理 Element 節點
+                if (node.nodeType !== 1) continue; 
 
-                // [V44.91] 主動剝離新插入的 <a ping> 屬性
                 if (node.tagName === 'A' && node.hasAttribute('ping')) {
                     node.removeAttribute('ping');
                 } else if (node.querySelectorAll) {
                     defuseAllPingAttributes(node);
                 }
 
-                // [V44.91] CSS background-image No-JS 追蹤偵測
                 defuseCssBgTrackers(node);
                 if (node.querySelectorAll) {
                     try {
@@ -1637,13 +1607,11 @@ function processRequest(request) {
                     } catch(e) {}
                 }
 
-                // [V44.92] iframe 沙箱防護 — 新插入的 iframe 立即 patch
                 if (node.tagName === 'IFRAME') {
                     node.addEventListener('load', () => patchIframeBeacon(node), { once: false });
-                    patchIframeBeacon(node); // 若已 load 完成則立即 patch
+                    patchIframeBeacon(node); 
                 }
 
-                // 原有 SCRIPT/IMG/IFRAME src 過濾邏輯
                 if (node.tagName === 'SCRIPT' || node.tagName === 'IMG' || node.tagName === 'IFRAME') {
                     if (node.src) {
                         try {
@@ -1671,12 +1639,12 @@ function processRequest(request) {
     
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
-            defuseAllPingAttributes(document); // 初始全頁掃描
+            defuseAllPingAttributes(document); 
             observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style'] });
             initUI();
         });
     } else {
-        defuseAllPingAttributes(document); // 初始全頁掃描
+        defuseAllPingAttributes(document); 
         observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style'] });
         initUI();
     }
