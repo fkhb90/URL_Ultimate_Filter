@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   44.98 (SSOT Compilation)
+ * @version   44.99 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.98';
+const SCRIPT_VERSION = '44.99';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1132,8 +1132,92 @@ function processRequest(request) {
   return null;
 }
 
+const BENCHMARK_CASES = [
+  { label: 'P0 Block', url: 'https://ads.google.com/pagead/adview?utm_source=test&id=1' },
+  { label: 'Map Drop', url: 'https://slackb.com/traces/v1/list_of_spans/json' },
+  { label: 'Silent Rewrite', url: 'https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar' },
+  { label: 'Static Allow', url: 'https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970' },
+  { label: 'Critical Path', url: 'https://www.youtube.com/api/stats/qoe?event=1&cpn=2' },
+  { label: 'Soft WL Clean', url: 'https://chatgpt.com/backend-api/conversation?utm_source=test&model=gpt-5' },
+  { label: 'Path Exempt', url: 'https://foo.shopee.tw/api/v4/pdp/get?adsid=1&device_id=2' },
+  { label: 'Coupang Block', url: 'https://cmapi.tw.coupang.com/api/v1/test-ads/item?x=1' },
+  { label: 'Param Exempt', url: 'https://subdomain.feedly.com/v3/streams/contents?token=1&utm_source=dropme' },
+  { label: 'Static Prefix', url: 'https://example.com/assets/app.js?fbclid=123&utm_source=abc' }
+];
+
+function benchmarkNow() {
+  if (typeof performance !== 'undefined' && performance && typeof performance.now === 'function') {
+    return performance.now();
+  }
+  return Date.now();
+}
+
+function shouldRunBenchmark() {
+  return typeof $argument !== 'undefined' &&
+    typeof $argument === 'string' &&
+    $argument.toLowerCase().indexOf('benchmark') >= 0;
+}
+
+function medianOfNumbers(values) {
+  const sorted = values.slice().sort((a, b) => a - b);
+  return sorted[sorted.length >> 1];
+}
+
+function runBenchmarkSuite() {
+  const warmupIterations = 20;
+  const iterationsPerPass = 100;
+  const measuredPasses = 7;
+  const statsSnapshot = { blocks: stats.blocks, allows: stats.allows };
+  const results = [];
+
+  try {
+    for (let caseIndex = 0; caseIndex < BENCHMARK_CASES.length; caseIndex++) {
+      const benchmarkCase = BENCHMARK_CASES[caseIndex];
+      const request = { url: benchmarkCase.url };
+
+      for (let i = 0; i < warmupIterations; i++) processRequest(request);
+
+      const samplesMs = [];
+      for (let pass = 0; pass < measuredPasses; pass++) {
+        const startedAt = benchmarkNow();
+        for (let i = 0; i < iterationsPerPass; i++) processRequest(request);
+        samplesMs.push(benchmarkNow() - startedAt);
+      }
+
+      const medianMs = medianOfNumbers(samplesMs);
+      results.push({
+        label: benchmarkCase.label,
+        medianUsPerRequest: (medianMs * 1000) / iterationsPerPass
+      });
+    }
+  } finally {
+    stats.blocks = statsSnapshot.blocks;
+    stats.allows = statsSnapshot.allows;
+  }
+
+  const overallMedian = medianOfNumbers(results.map(r => r.medianUsPerRequest));
+  const contentLines = [
+    `V${SCRIPT_VERSION} Surge Benchmark`,
+    `Cases: ${BENCHMARK_CASES.length}, Warmup: ${warmupIterations}, Passes: ${measuredPasses}x${iterationsPerPass}`,
+    `Median: ${overallMedian.toFixed(2)} us/request`
+  ];
+
+  for (let i = 0; i < results.length; i++) {
+    contentLines.push(`${i + 1}. ${results[i].label}: ${results[i].medianUsPerRequest.toFixed(2)} us`);
+  }
+
+  const content = contentLines.join('\n');
+  if (typeof $notification !== 'undefined' && $notification && typeof $notification.post === 'function') {
+    try { $notification.post('URL Ultimate Filter', 'Surge Benchmark Completed', content); } catch (_) {}
+  }
+  return { title: 'URL Ultimate Filter Benchmark', content };
+}
+
 if (typeof $request !== 'undefined') {
   $done(processRequest($request));
 } else {
-  if (typeof $done !== 'undefined') $done({ title: 'URL Ultimate Filter', content: `V${SCRIPT_VERSION} Active\n${stats.toString()}` });
+  if (typeof $done !== 'undefined') {
+    if (shouldRunBenchmark()) $done(runBenchmarkSuite());
+    else $done({ title: 'URL Ultimate Filter', content: `V${SCRIPT_VERSION} Active\n${stats.toString()}` });
+  }
 }
