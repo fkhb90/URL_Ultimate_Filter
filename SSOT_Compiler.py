@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V44.99
+當前版本：V45.00
 最新架構更新：
-- [Tooling] 新增 Surge 可選 benchmark 模式：支援真機執行代表性 URL 基準測試，輸出中位數耗時與摘要通知。
+- [Tooling] Surge benchmark 升級為相對上一版差異輸出，支援同機 baseline 持久化與逐案例 delta 比較。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V44.99: 新增 Surge benchmark runner，支援 10 組代表性 URL、暖機、多批次取中位數。
 - V44.98: Surge JSC 熱路徑優化：hostname profile 快取、減少 `.split()` / `.some()` 分配。
 - V44.97: 修正 104 APP `/apis/ad/banner` 的測試斷言，與當前 `/apis/` 放行策略對齊。
 - V44.96: 修正 104 APP 履歷列表 API (/apis/) 漏判問題，擴充 SCOPED_PARAM_EXEMPTIONS。
@@ -36,13 +37,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "44.99"
+VERSION = "45.00"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Tooling] 新增 Surge panel/腳本模式可選 benchmark runner；以 10 組代表性 URL、暖機後多批次量測並取中位數，避免單次 `Date.now()` 抖動。
-- [UX] benchmark 僅在 `$argument` 包含 `benchmark` 時啟用，正式攔截熱路徑零額外分支成本。
-- [BestPractice] benchmark 結果會回傳 panel 內容並發送單次通知；通知在量測完成後才送出，避免干擾計時。
+- [Tooling] Surge benchmark 新增 `$persistentStore` baseline 持久化，面板改為優先顯示 `vs previous version` 的絕對差與百分比。
+- [UX] 當上一版 baseline 不存在時，明確提示 `baseline missing on this device`，避免孤立微秒數字難以解讀。
+- [Analysis] benchmark 輸出現在同時保留本版數值與逐案例 delta，方便快速辨識是否有明顯退步或熱路徑異常。
 - [QA] 保持既有規則語意不變，完整回歸測試持續全數通過。
 """
 
@@ -1118,6 +1119,7 @@ const BENCHMARK_CASES = [
   { label: 'Param Exempt', url: 'https://subdomain.feedly.com/v3/streams/contents?token=1&utm_source=dropme' },
   { label: 'Static Prefix', url: 'https://example.com/assets/app.js?fbclid=123&utm_source=abc' }
 ];
+const BENCHMARK_STORE_PREFIX = 'url-ultimate-filter.benchmark.';
 
 function benchmarkNow() {
   if (typeof performance !== 'undefined' && performance && typeof performance.now === 'function') {
@@ -1135,6 +1137,62 @@ function shouldRunBenchmark() {
 function medianOfNumbers(values) {
   const sorted = values.slice().sort((a, b) => a - b);
   return sorted[sorted.length >> 1];
+}
+
+function getPreviousVersion(versionText) {
+  const match = /^(\d+)\.(\d+)$/.exec(versionText);
+  if (!match) return null;
+
+  let major = parseInt(match[1], 10);
+  let minor = parseInt(match[2], 10);
+  const width = match[2].length;
+
+  if (minor > 0) {
+    minor -= 1;
+  } else if (major > 0) {
+    major -= 1;
+    minor = Math.pow(10, width) - 1;
+  } else {
+    return null;
+  }
+
+  return `${major}.${String(minor).padStart(width, '0')}`;
+}
+
+function readBenchmarkRecord(versionText) {
+  if (typeof $persistentStore === 'undefined' || !$persistentStore || typeof $persistentStore.read !== 'function') {
+    return null;
+  }
+
+  try {
+    const raw = $persistentStore.read(BENCHMARK_STORE_PREFIX + versionText);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && parsed.version === versionText ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeBenchmarkRecord(record) {
+  if (typeof $persistentStore === 'undefined' || !$persistentStore || typeof $persistentStore.write !== 'function') {
+    return false;
+  }
+
+  try {
+    return !!$persistentStore.write(JSON.stringify(record), BENCHMARK_STORE_PREFIX + record.version);
+  } catch (_) {
+    return false;
+  }
+}
+
+function formatDelta(currentValue, previousValue) {
+  if (typeof previousValue !== 'number') return 'baseline missing';
+  const delta = currentValue - previousValue;
+  const percent = previousValue !== 0 ? (delta / previousValue) * 100 : null;
+  const sign = delta > 0 ? '+' : '';
+  if (percent === null) return `${sign}${delta.toFixed(2)} us`;
+  return `${sign}${delta.toFixed(2)} us (${sign}${percent.toFixed(1)}%)`;
 }
 
 function runBenchmarkSuite() {
@@ -1170,14 +1228,42 @@ function runBenchmarkSuite() {
   }
 
   const overallMedian = medianOfNumbers(results.map(r => r.medianUsPerRequest));
+  const currentRecord = {
+    version: SCRIPT_VERSION,
+    overallMedianUs: overallMedian,
+    cases: results.reduce((acc, item) => {
+      acc[item.label] = item.medianUsPerRequest;
+      return acc;
+    }, {}),
+    timestamp: Date.now()
+  };
+  const previousVersion = getPreviousVersion(SCRIPT_VERSION);
+  const previousRecord = previousVersion ? readBenchmarkRecord(previousVersion) : null;
+  writeBenchmarkRecord(currentRecord);
+
   const contentLines = [
     `V${SCRIPT_VERSION} Surge Benchmark`,
-    `Cases: ${BENCHMARK_CASES.length}, Warmup: ${warmupIterations}, Passes: ${measuredPasses}x${iterationsPerPass}`,
-    `Median: ${overallMedian.toFixed(2)} us/request`
+    `Cases: ${BENCHMARK_CASES.length}, Warmup: ${warmupIterations}, Passes: ${measuredPasses}x${iterationsPerPass}`
   ];
 
+  if (previousVersion) {
+    if (previousRecord) {
+      contentLines.push(`Median: ${overallMedian.toFixed(2)} us/request (vs V${previousVersion}: ${formatDelta(overallMedian, previousRecord.overallMedianUs)})`);
+    } else {
+      contentLines.push(`Median: ${overallMedian.toFixed(2)} us/request`);
+      contentLines.push(`vs V${previousVersion}: baseline missing on this device`);
+    }
+  } else {
+    contentLines.push(`Median: ${overallMedian.toFixed(2)} us/request`);
+  }
+
   for (let i = 0; i < results.length; i++) {
-    contentLines.push(`${i + 1}. ${results[i].label}: ${results[i].medianUsPerRequest.toFixed(2)} us`);
+    const current = results[i];
+    if (previousRecord && typeof previousRecord.cases[current.label] === 'number') {
+      contentLines.push(`${i + 1}. ${current.label}: ${current.medianUsPerRequest.toFixed(2)} us (vs V${previousVersion}: ${formatDelta(current.medianUsPerRequest, previousRecord.cases[current.label])})`);
+    } else {
+      contentLines.push(`${i + 1}. ${current.label}: ${current.medianUsPerRequest.toFixed(2)} us`);
+    }
   }
 
   const content = contentLines.join('\n');
