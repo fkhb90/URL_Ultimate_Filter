@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V44.99
+// @name         URL Ultimate Filter V45.00
 // @namespace    http://tampermonkey.net/
-// @version      44.99
+// @version      45.00
 // @description  SSOT 前端防護盾牌，專業級 UI：極簡盾牌圖示、獨立計數器、點擊外部自動收合機制。
 // @author       Jerry
 // @match        *://*/*
@@ -13,11 +13,11 @@
     'use strict';
 /**
  * @file      URL-Ultimate-Filter-Tampermonkey.js
- * @version   44.99 (SSOT Compilation)
+ * @version   45.00 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '44.99';
+const SCRIPT_VERSION = '45.00';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1157,6 +1157,7 @@ const BENCHMARK_CASES = [
   { label: 'Param Exempt', url: 'https://subdomain.feedly.com/v3/streams/contents?token=1&utm_source=dropme' },
   { label: 'Static Prefix', url: 'https://example.com/assets/app.js?fbclid=123&utm_source=abc' }
 ];
+const BENCHMARK_STORE_PREFIX = 'url-ultimate-filter.benchmark.';
 
 function benchmarkNow() {
   if (typeof performance !== 'undefined' && performance && typeof performance.now === 'function') {
@@ -1174,6 +1175,62 @@ function shouldRunBenchmark() {
 function medianOfNumbers(values) {
   const sorted = values.slice().sort((a, b) => a - b);
   return sorted[sorted.length >> 1];
+}
+
+function getPreviousVersion(versionText) {
+  const match = /^(\d+)\.(\d+)$/.exec(versionText);
+  if (!match) return null;
+
+  let major = parseInt(match[1], 10);
+  let minor = parseInt(match[2], 10);
+  const width = match[2].length;
+
+  if (minor > 0) {
+    minor -= 1;
+  } else if (major > 0) {
+    major -= 1;
+    minor = Math.pow(10, width) - 1;
+  } else {
+    return null;
+  }
+
+  return `${major}.${String(minor).padStart(width, '0')}`;
+}
+
+function readBenchmarkRecord(versionText) {
+  if (typeof $persistentStore === 'undefined' || !$persistentStore || typeof $persistentStore.read !== 'function') {
+    return null;
+  }
+
+  try {
+    const raw = $persistentStore.read(BENCHMARK_STORE_PREFIX + versionText);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && parsed.version === versionText ? parsed : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeBenchmarkRecord(record) {
+  if (typeof $persistentStore === 'undefined' || !$persistentStore || typeof $persistentStore.write !== 'function') {
+    return false;
+  }
+
+  try {
+    return !!$persistentStore.write(JSON.stringify(record), BENCHMARK_STORE_PREFIX + record.version);
+  } catch (_) {
+    return false;
+  }
+}
+
+function formatDelta(currentValue, previousValue) {
+  if (typeof previousValue !== 'number') return 'baseline missing';
+  const delta = currentValue - previousValue;
+  const percent = previousValue !== 0 ? (delta / previousValue) * 100 : null;
+  const sign = delta > 0 ? '+' : '';
+  if (percent === null) return `${sign}${delta.toFixed(2)} us`;
+  return `${sign}${delta.toFixed(2)} us (${sign}${percent.toFixed(1)}%)`;
 }
 
 function runBenchmarkSuite() {
@@ -1209,14 +1266,42 @@ function runBenchmarkSuite() {
   }
 
   const overallMedian = medianOfNumbers(results.map(r => r.medianUsPerRequest));
+  const currentRecord = {
+    version: SCRIPT_VERSION,
+    overallMedianUs: overallMedian,
+    cases: results.reduce((acc, item) => {
+      acc[item.label] = item.medianUsPerRequest;
+      return acc;
+    }, {}),
+    timestamp: Date.now()
+  };
+  const previousVersion = getPreviousVersion(SCRIPT_VERSION);
+  const previousRecord = previousVersion ? readBenchmarkRecord(previousVersion) : null;
+  writeBenchmarkRecord(currentRecord);
+
   const contentLines = [
     `V${SCRIPT_VERSION} Surge Benchmark`,
-    `Cases: ${BENCHMARK_CASES.length}, Warmup: ${warmupIterations}, Passes: ${measuredPasses}x${iterationsPerPass}`,
-    `Median: ${overallMedian.toFixed(2)} us/request`
+    `Cases: ${BENCHMARK_CASES.length}, Warmup: ${warmupIterations}, Passes: ${measuredPasses}x${iterationsPerPass}`
   ];
 
+  if (previousVersion) {
+    if (previousRecord) {
+      contentLines.push(`Median: ${overallMedian.toFixed(2)} us/request (vs V${previousVersion}: ${formatDelta(overallMedian, previousRecord.overallMedianUs)})`);
+    } else {
+      contentLines.push(`Median: ${overallMedian.toFixed(2)} us/request`);
+      contentLines.push(`vs V${previousVersion}: baseline missing on this device`);
+    }
+  } else {
+    contentLines.push(`Median: ${overallMedian.toFixed(2)} us/request`);
+  }
+
   for (let i = 0; i < results.length; i++) {
-    contentLines.push(`${i + 1}. ${results[i].label}: ${results[i].medianUsPerRequest.toFixed(2)} us`);
+    const current = results[i];
+    if (previousRecord && typeof previousRecord.cases[current.label] === 'number') {
+      contentLines.push(`${i + 1}. ${current.label}: ${current.medianUsPerRequest.toFixed(2)} us (vs V${previousVersion}: ${formatDelta(current.medianUsPerRequest, previousRecord.cases[current.label])})`);
+    } else {
+      contentLines.push(`${i + 1}. ${current.label}: ${current.medianUsPerRequest.toFixed(2)} us`);
+    }
   }
 
   const content = contentLines.join('\n');

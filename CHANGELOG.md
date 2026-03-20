@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V45.00 - 2026-03-20
+- [Tooling] Surge benchmark 新增 `$persistentStore` baseline 持久化，面板改為優先顯示 `vs previous version` 的絕對差與百分比。
+- [UX] 當上一版 baseline 不存在時，明確提示 `baseline missing on this device`，避免孤立微秒數字難以解讀。
+- [Analysis] benchmark 輸出現在同時保留本版數值與逐案例 delta，方便快速辨識是否有明顯退步或熱路徑異常。
+- [QA] 保持既有規則語意不變，完整回歸測試持續全數通過。
+
 ## V44.98 - 2026-03-19
 - [Perf] 導入 hostname profile 快取，將 Soft/Hard WL、Absolute Bypass、P0 Block、參數淨化豁免等 host-only 判斷由每請求重算改為 LRU 快取重用。
 - [Perf] 熱路徑移除 `split('?')`、`split(':')` 與多處 `Array.some()` callback 分配，改為 index-based substring 與 for-loop 掃描，降低 Surge JSC CPU/Memory 壓力。
