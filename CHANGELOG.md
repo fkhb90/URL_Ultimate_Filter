@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V45.01 - 2026-03-21
+- [Privacy] 針對 Anthropic (Claude) 產品側的第一方代理遙測 (statsig.anthropic.com) 實施 204 Drop 策略，精準拋棄 `/v1/rgstr` 以避免觸發重試風暴。
+- [QA] 新增相對應的 204 Drop 測試案例，確保端點假造成功且不影響其他 API。
+
 ## V45.00 - 2026-03-20
 - [Tooling] Surge benchmark 新增 `$persistentStore` baseline 持久化，面板改為優先顯示 `vs previous version` 的絕對差與百分比。
 - [UX] 當上一版 baseline 不存在時，明確提示 `baseline missing on this device`，避免孤立微秒數字難以解讀。

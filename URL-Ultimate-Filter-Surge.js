@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   45.00 (SSOT Compilation)
+ * @version   45.01 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.00';
+const SCRIPT_VERSION = '45.01';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -213,6 +213,9 @@ const RULES = {
 
   CRITICAL_PATH: {
     MAP: new Map([
+    ['statsig.anthropic.com', new Set([
+        'DROP:/v1/rgstr'
+      ])],
     ['o.alicdn.com', new Set([
         '/tongyi-fe/lib/cnzz/c.js', '/tongyi-fe/lib/cnzz/z.js'
       ])],
