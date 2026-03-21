@@ -3,19 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.00
+當前版本：V45.01
 最新架構更新：
-- [Tooling] Surge benchmark 升級為相對上一版差異輸出，支援同機 baseline 持久化與逐案例 delta 比較。
+- [Privacy] 針對 Anthropic (Claude) 產品側的第一方代理遙測 (statsig.anthropic.com) 實施 204 Drop 策略，精準拋棄 `/v1/rgstr` 以避免觸發重試風暴。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.00: 導入 Surge benchmark 持久化與 delta 輸出，維持 10 μs/request 中位數效能極限。
 - V44.99: 新增 Surge benchmark runner，支援 10 組代表性 URL、暖機、多批次取中位數。
 - V44.98: Surge JSC 熱路徑優化：hostname profile 快取、減少 `.split()` / `.some()` 分配。
 - V44.97: 修正 104 APP `/apis/ad/banner` 的測試斷言，與當前 `/apis/` 放行策略對齊。
 - V44.96: 修正 104 APP 履歷列表 API (/apis/) 漏判問題，擴充 SCOPED_PARAM_EXEMPTIONS。
-- V44.95: 7 項效能與品質優化：移除 multiLevelCache 死代碼、EMPTY_SET 常數取代熱路徑 new Set() 等微秒級優化。
-- V44.94: slackb.com 從 PRIORITY_BLOCK_DOMAINS (403) 遷移至 CRITICAL_PATH_MAP 全域 DROP:/ (204)。
-- V44.93: slack.com eventlog.history → CRITICAL_PATH_MAP DROP、businesstoday.com.tw gad_script.js → PATH_BLOCK。
-- V44.92: iframe 沙箱防護、ACScanner → CompiledScanner 架構遷移 (pathScanner 加速 69.9x)。
 """
 
 import json
@@ -37,14 +34,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.00"
+VERSION = "45.01"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Tooling] Surge benchmark 新增 `$persistentStore` baseline 持久化，面板改為優先顯示 `vs previous version` 的絕對差與百分比。
-- [UX] 當上一版 baseline 不存在時，明確提示 `baseline missing on this device`，避免孤立微秒數字難以解讀。
-- [Analysis] benchmark 輸出現在同時保留本版數值與逐案例 delta，方便快速辨識是否有明顯退步或熱路徑異常。
-- [QA] 保持既有規則語意不變，完整回歸測試持續全數通過。
+- [Privacy] 針對 Anthropic (Claude) 產品側的第一方代理遙測 (statsig.anthropic.com) 實施 204 Drop 策略，精準拋棄 `/v1/rgstr` 以避免觸發重試風暴。
+- [QA] 新增相對應的 204 Drop 測試案例，確保端點假造成功且不影響其他 API。
 """
 
 # ==========================================
@@ -78,7 +73,7 @@ RULES_DB = {
     "SCOPED_PARAM_EXEMPTIONS": {
         "104.com.tw": {
             "/api/": ["device_id", "client_id"],
-            "/apis/": ["device_id"],  # [V44.96+] 放行新版 /apis/ 命名空間的裝置綁定驗證
+            "/apis/": ["device_id"],  
             "/v2/api/": ["device_id"],
             "/2.0/": ["device_id"],
             "!/2.0/ad/": ["device_id"]
@@ -355,6 +350,7 @@ RULES_DB = {
         'gad_script.'
     ],
     "CRITICAL_PATH_MAP": {
+        'statsig.anthropic.com': ['DROP:/v1/rgstr'],
         'o.alicdn.com': ['/tongyi-fe/lib/cnzz/c.js', '/tongyi-fe/lib/cnzz/z.js'],
         'qwen-api.zaodian.com': ['/api/app/template/v1/feed'],
         'file.chinatimes.com': ['/ad-param.json'],
@@ -2213,9 +2209,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: 104 App /apis/ Exact Match", "https://appapi.104.com.tw/apis/resume/v3/list/front?device_type=0&device_id=TEST_ID", RES_ALLOW, "精準命中局部豁免，保留 device_id"))
     cases.append(TestCase("BugFix: 104 App /apis/ Unauthorized Param", "https://appapi.104.com.tw/apis/resume/v3/list/front?device_id=TEST_ID&utm_source=fb", RES_REWRITE, "保留 device_id，精確剝離未授權之 utm_source"))
     cases.append(TestCase("BugFix: 104 App /apis/ Case Insensitive", "https://appapi.104.com.tw/APIs/resume/v3/list?device_id=TEST", RES_ALLOW, "大小寫不敏感，強制小寫化後匹配放行"))
-    
-    # [V44.97] 修正此筆斷言：預期行為改為 RES_ALLOW，與當前引擎寬鬆放行預設邏輯對齊。
     cases.append(TestCase("Strategy: 104 App /apis/ad/ Future Block", "https://appapi.104.com.tw/apis/ad/banner?device_id=TEST", RES_ALLOW, "若未來新增廣告端點，預設放行 device_id（可透過 !/apis/ad/ 否決）"))
+    
+    # --- V45.01 Anthropic (Claude) 第一方代理遙測攔截測試 ---
+    cases.append(TestCase("Strategy: Anthropic Statsig Drop", "https://statsig.anthropic.com/v1/rgstr", RES_DROP_204, "V45.01 將 Anthropic 第一方代理遙測端點設定為 204 靜默拋棄以避免重試風暴"))
 
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
