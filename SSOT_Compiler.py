@@ -3,16 +3,15 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.01
+當前版本：V45.02
 最新架構更新：
-- [Privacy] 針對 Anthropic (Claude) 產品側的第一方代理遙測 (statsig.anthropic.com) 實施 204 Drop 策略，精準拋棄 `/v1/rgstr` 以避免觸發重試風暴。
+- [UX/Privacy] 於 Tampermonkey 版本新增 Clipboard Interceptor (剪貼簿攔截器) 模組，支援雙軌攔截 (navigator.clipboard & copy event)，動態剝離使用者複製的網址追蹤參數。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.01: 針對 Anthropic (Claude) 第一方代理遙測 (statsig) 實施 204 Drop 策略以阻斷重試風暴。
 - V45.00: 導入 Surge benchmark 持久化與 delta 輸出，維持 10 μs/request 中位數效能極限。
 - V44.99: 新增 Surge benchmark runner，支援 10 組代表性 URL、暖機、多批次取中位數。
 - V44.98: Surge JSC 熱路徑優化：hostname profile 快取、減少 `.split()` / `.some()` 分配。
-- V44.97: 修正 104 APP `/apis/ad/banner` 的測試斷言，與當前 `/apis/` 放行策略對齊。
-- V44.96: 修正 104 APP 履歷列表 API (/apis/) 漏判問題，擴充 SCOPED_PARAM_EXEMPTIONS。
 """
 
 import json
@@ -34,12 +33,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.01"
+VERSION = "45.02"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 針對 Anthropic (Claude) 產品側的第一方代理遙測 (statsig.anthropic.com) 實施 204 Drop 策略，精準拋棄 `/v1/rgstr` 以避免觸發重試風暴。
-- [QA] 新增相對應的 204 Drop 測試案例，確保端點假造成功且不影響其他 API。
+- [UX/Privacy] 於 Tampermonkey 版本新增 Clipboard Interceptor (剪貼簿攔截器) 模組。
+- [Feature] 支援攔截 `navigator.clipboard.writeText` (常見於 SPA 分享按鈕) 與全域 `copy` 事件 (快捷鍵或右鍵複製)。
+- [Feature] 內建 URL 萃取引擎，精準避開全形與半形標點符號，僅替換字串內的髒連結，完美保留使用者複製的上下文與排版。
+- [QA] 於矩陣測試中新增 Feedly 等 RSS 閱讀器的 UTM 參數剝離斷言。
 """
 
 # ==========================================
@@ -1529,6 +1530,61 @@ def compile_tampermonkey() -> str:
         return processRequest({ url: url });
     }
 
+    // --- Clipboard Interceptor 模組 ---
+    function cleanTextUrls(text) {
+        if (!text || typeof text !== 'string') return { text, modified: false };
+        // 嚴謹的 URL 萃取正則，避免吞噬不合法的全形標點符號
+        const urlRegex = /(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi;
+        let modified = false;
+        let cleanedText = text.replace(urlRegex, (match) => {
+            let url = match;
+            let trailing = '';
+            // 精準剝離尾部的全半形標點符號，避免解析錯誤或破壞使用者複製的文章排版
+            while (url.length > 0 && /[.,;?!。，、！？」』】]$/.test(url)) {
+                trailing = url.slice(-1) + trailing;
+                url = url.slice(0, -1);
+            }
+            try {
+                const absoluteUrl = new URL(url, location.origin).href;
+                const action = applyFilter(absoluteUrl);
+                if (action && action.url && absoluteUrl !== action.url) {
+                    tmStats.recordClean(absoluteUrl, action.url);
+                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 📋 Clipboard Cleaned: ${absoluteUrl} -> ${action.url}`);
+                    modified = true;
+                    return action.url + trailing;
+                }
+            } catch(e) {}
+            return match; 
+        });
+        return { text: cleanedText, modified: modified };
+    }
+
+    // 1. 雙軌攔截：Async Clipboard API (針對網頁內的「複製連結」按鈕)
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        const origWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
+        navigator.clipboard.writeText = function(text) {
+            const result = cleanTextUrls(text);
+            return origWriteText(result.text);
+        };
+    }
+
+    // 2. 雙軌攔截：原生 DOM Copy 事件 (針對使用者反白按 Ctrl+C / 右鍵複製)
+    document.addEventListener('copy', (e) => {
+        if (e.clipboardData && e.clipboardData.getData('text/plain')) return;
+
+        const selection = document.getSelection();
+        if (!selection || selection.isCollapsed) return;
+
+        const selectedText = selection.toString();
+        const result = cleanTextUrls(selectedText);
+
+        if (result.modified) {
+            e.preventDefault();
+            e.clipboardData.setData('text/plain', result.text);
+        }
+    }, true);
+    // --- Clipboard Interceptor 模組結束 ---
+
     let _pendingDrops = 0;
     const MAX_PENDING_DROPS = 64; 
     const origFetch = window.fetch;
@@ -1666,6 +1722,7 @@ def compile_tampermonkey() -> str:
 
         if (!isLocked) {
             try {
+                navigator.sendBeacon = navigator.sendBeacon;
                 navigator.sendBeacon = beaconInterceptor;
             } catch(e) {}
         }
@@ -2214,6 +2271,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V45.01 Anthropic (Claude) 第一方代理遙測攔截測試 ---
     cases.append(TestCase("Strategy: Anthropic Statsig Drop", "https://statsig.anthropic.com/v1/rgstr", RES_DROP_204, "V45.01 將 Anthropic 第一方代理遙測端點設定為 204 靜默拋棄以避免重試風暴"))
 
+    # --- V45.02 Clipboard Interceptor (剪貼簿攔截器) Feedly URL 測試 ---
+    cases.append(TestCase("Privacy: Feedly Share UTM Strip", "https://unwire.hk/2026/03/23/article/fun-tech/?utm_source=feedly&utm_medium=rss", RES_CLEAN_302, "驗證來自 Feedly App 帶有 UTM 參數的髒連結，在放入剪貼簿前能被 SSOT 引擎精確剝離"))
+
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
     cases.append(TestCase("E2E: Malicious Payload Block", "https://static.104.com.tw/ad.json", RES_BLOCK_403, "模擬 JSON 內遭植入第三方追蹤並點擊，觸發 L1 攔截", is_e2e=True, e2e_target_url="https://googleadservices.com/track/click"))
@@ -2361,7 +2421,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
         cases.append(TestCase("Auto: Priority Drop Exact", f"https://unknown-site.com{k}", RES_DROP_204, f"PRIORITY_DROP 精確匹配 '{k}'"))
 
     cases.append(TestCase("Mutation: Coupang home-banner-ads", "https://cmapi.tw.coupang.com/home-banner-ads/v1", RES_BLOCK_403, "CRITICAL_PATH_MAP Step 4 精確封鎖 /home-banner-ads/"))
-    cases.append(TestCase("Mutation: Coupang plp-ads", "https://cmapi.tw.coupang.com/plp-ads/v2/items", RES_BLOCK_403, "CRITICAL_PATH_MAP Step 4 精確封鎖 /plp-ads/"))
+    cases.append(TestCase("Mutation: Coupang plp-ads", "https://cmapi.tw.coupang.com/plp-ads/v2/items", RES_BLOCK_403, "CRITICAL_PATH_MAP Step 4 精精確封鎖 /plp-ads/"))
     cases.append(TestCase("Mutation: Coupang category-banner-ads", "https://cmapi.tw.coupang.com/category-banner-ads/v1", RES_BLOCK_403, "CRITICAL_PATH_MAP Step 4 精確封鎖 /category-banner-ads/"))
     cases.append(TestCase("Edge: Coupang vendor-items safe", "https://cmapi.tw.coupang.com/vendor-items/12345", RES_ALLOW, "Coupang 商品 API 不含 -ads/ 應放行"))
 
