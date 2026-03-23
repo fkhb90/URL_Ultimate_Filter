@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V45.02 - 2026-03-23
+- [UX/Privacy] 於 Tampermonkey 版本新增 Clipboard Interceptor (剪貼簿攔截器) 模組。
+- [Feature] 支援攔截 `navigator.clipboard.writeText` (常見於 SPA 分享按鈕) 與全域 `copy` 事件 (快捷鍵或右鍵複製)。
+- [Feature] 內建 URL 萃取引擎，精準避開全形與半形標點符號，僅替換字串內的髒連結，完美保留使用者複製的上下文與排版。
+- [QA] 於矩陣測試中新增 Feedly 等 RSS 閱讀器的 UTM 參數剝離斷言。
+
 ## V45.01 - 2026-03-21
 - [Privacy] 針對 Anthropic (Claude) 產品側的第一方代理遙測 (statsig.anthropic.com) 實施 204 Drop 策略，精準拋棄 `/v1/rgstr` 以避免觸發重試風暴。
 - [QA] 新增相對應的 204 Drop 測試案例，確保端點假造成功且不影響其他 API。

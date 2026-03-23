@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.01
+// @name         URL Ultimate Filter V45.02
 // @namespace    http://tampermonkey.net/
-// @version      45.01
+// @version      45.02
 // @description  SSOT 前端防護盾牌，專業級 UI：極簡盾牌圖示、獨立計數器、點擊外部自動收合機制。
 // @author       Jerry
 // @match        *://*/*
@@ -13,11 +13,11 @@
     'use strict';
 /**
  * @file      URL-Ultimate-Filter-Tampermonkey.js
- * @version   45.01 (SSOT Compilation)
+ * @version   45.02 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.01';
+const SCRIPT_VERSION = '45.02';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1541,6 +1541,61 @@ function runBenchmarkSuite() {
         return processRequest({ url: url });
     }
 
+    // --- Clipboard Interceptor 模組 ---
+    function cleanTextUrls(text) {
+        if (!text || typeof text !== 'string') return { text, modified: false };
+        // 嚴謹的 URL 萃取正則，避免吞噬不合法的全形標點符號
+        const urlRegex = /(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi;
+        let modified = false;
+        let cleanedText = text.replace(urlRegex, (match) => {
+            let url = match;
+            let trailing = '';
+            // 精準剝離尾部的全半形標點符號，避免解析錯誤或破壞使用者複製的文章排版
+            while (url.length > 0 && /[.,;?!。，、！？」』】]$/.test(url)) {
+                trailing = url.slice(-1) + trailing;
+                url = url.slice(0, -1);
+            }
+            try {
+                const absoluteUrl = new URL(url, location.origin).href;
+                const action = applyFilter(absoluteUrl);
+                if (action && action.url && absoluteUrl !== action.url) {
+                    tmStats.recordClean(absoluteUrl, action.url);
+                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 📋 Clipboard Cleaned: ${absoluteUrl} -> ${action.url}`);
+                    modified = true;
+                    return action.url + trailing;
+                }
+            } catch(e) {}
+            return match; 
+        });
+        return { text: cleanedText, modified: modified };
+    }
+
+    // 1. 雙軌攔截：Async Clipboard API (針對網頁內的「複製連結」按鈕)
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        const origWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
+        navigator.clipboard.writeText = function(text) {
+            const result = cleanTextUrls(text);
+            return origWriteText(result.text);
+        };
+    }
+
+    // 2. 雙軌攔截：原生 DOM Copy 事件 (針對使用者反白按 Ctrl+C / 右鍵複製)
+    document.addEventListener('copy', (e) => {
+        if (e.clipboardData && e.clipboardData.getData('text/plain')) return;
+
+        const selection = document.getSelection();
+        if (!selection || selection.isCollapsed) return;
+
+        const selectedText = selection.toString();
+        const result = cleanTextUrls(selectedText);
+
+        if (result.modified) {
+            e.preventDefault();
+            e.clipboardData.setData('text/plain', result.text);
+        }
+    }, true);
+    // --- Clipboard Interceptor 模組結束 ---
+
     let _pendingDrops = 0;
     const MAX_PENDING_DROPS = 64; 
     const origFetch = window.fetch;
@@ -1678,6 +1733,7 @@ function runBenchmarkSuite() {
 
         if (!isLocked) {
             try {
+                navigator.sendBeacon = navigator.sendBeacon;
                 navigator.sendBeacon = beaconInterceptor;
             } catch(e) {}
         }
