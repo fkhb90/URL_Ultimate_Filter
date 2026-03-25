@@ -3,15 +3,14 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.05
+當前版本：V45.07
 最新架構更新：
-- [Security] 新增 Cloudflare Workers 反廣告攔截網域輪替 (Domain Rotation) 之正則阻斷防禦。
-- [AdBlock] 擴充台灣微型原生聯播網 (Adbot) 之網域封鎖，消滅隱蔽式路徑盲區。
+- [BugFix] 修復 V45.06 因 RULES_DB 字典提早閉合截斷，導致編譯器拋出 `KeyError: 'HIGH_CONFIDENCE'` 的嚴重錯誤。完整還原所有過濾名單。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
-- V45.04: 修正 Python 3.12+ 在發布日誌與測試描述中解析 `\\?` 產生的 SyntaxWarning，實現 CLI 零警告純淨輸出。
-- V45.03: 擴充 Python 編譯器支援「原生正則字串 (Raw Regex)」，完美縫合 WordPress 廣告外掛 (如 Quick AdSense) 盲區；補齊台灣在地聯播網特徵。
-- V45.02: 於 Tampermonkey 新增 Clipboard Interceptor (剪貼簿攔截器)，動態剝離使用者複製的網址追蹤參數。
+- V45.06: 導入 Property Setter Hook，於 DOM 賦值階段物理阻斷動態廣告腳本，完美解決 MutationObserver 延遲漏洞。
+- V45.05: 新增 Cloudflare Workers 反廣告攔截網域輪替正則；擴充台灣微型原生聯播網 (Adbot) 防堵。
+- V45.04: 修正 Python 3.12+ 解析 `\\?` 產生的 SyntaxWarning。
 """
 
 import json
@@ -34,13 +33,11 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.05"
+VERSION = "45.07"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Security] 針對 `adunblock[n].static-cloudflare.workers.dev` 實作動態流水號正則阻斷，防堵 Serverless 網域輪替。
-- [AdBlock] 補齊台灣微型在地聯播網 (adbottw.net) 至 WILDCARDS 阻斷清單，防堵偽裝為原生內容之廣告請求。
-- [QA] 測試矩陣擴增網域輪替與在地微型聯播網之端點驗證案例。
+- [BugFix] 修復 `RULES_DB` 字典結構，完整還原 `HIGH_CONFIDENCE`、`PATH_BLOCK`、`DROP` 與 `PARAMS_GLOBAL` 等遺失的鍵值，消除 KeyError。
 """
 
 # ==========================================
@@ -305,7 +302,7 @@ RULES_DB = {
     "BLOCK_DOMAINS_REGEX": [
         r'^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$',
         r'^browser-intake-[\w.-]*datadoghq\.(?:com|eu|us)$',
-        r'^adunblock\d*\.static-cloudflare\.workers\.dev$'
+        r'(?:^|\.)adunblock\d*.*\.workers\.dev$'
     ],
     "CRITICAL_PATH_GENERIC": [
         '/accounts/CheckConnection', '/0.gif', '/1.gif', '/pixel.gif', '/beacon.gif', '/ping.gif',
@@ -1547,13 +1544,11 @@ def compile_tampermonkey() -> str:
     // --- Clipboard Interceptor 模組 ---
     function cleanTextUrls(text) {
         if (!text || typeof text !== 'string') return { text, modified: false };
-        // 嚴謹的 URL 萃取正則，避免吞噬不合法的全形標點符號
         const urlRegex = /(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi;
         let modified = false;
         let cleanedText = text.replace(urlRegex, (match) => {
             let url = match;
             let trailing = '';
-            // 精準剝離尾部的全半形標點符號，避免解析錯誤或破壞使用者複製的文章排版
             while (url.length > 0 && /[.,;?!。，、！？」』】]$/.test(url)) {
                 trailing = url.slice(-1) + trailing;
                 url = url.slice(0, -1);
@@ -1573,7 +1568,6 @@ def compile_tampermonkey() -> str:
         return { text: cleanedText, modified: modified };
     }
 
-    // 1. 雙軌攔截：Async Clipboard API (針對網頁內的「複製連結」按鈕)
     if (navigator.clipboard && navigator.clipboard.writeText) {
         const origWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
         navigator.clipboard.writeText = function(text) {
@@ -1582,22 +1576,56 @@ def compile_tampermonkey() -> str:
         };
     }
 
-    // 2. 雙軌攔截：原生 DOM Copy 事件 (針對使用者反白按 Ctrl+C / 右鍵複製)
     document.addEventListener('copy', (e) => {
         if (e.clipboardData && e.clipboardData.getData('text/plain')) return;
-
         const selection = document.getSelection();
         if (!selection || selection.isCollapsed) return;
-
         const selectedText = selection.toString();
         const result = cleanTextUrls(selectedText);
-
         if (result.modified) {
             e.preventDefault();
             e.clipboardData.setData('text/plain', result.text);
         }
     }, true);
     // --- Clipboard Interceptor 模組結束 ---
+
+    // --- Property Setter Hook (動態腳本屬性攔截器) ---
+    function hookProperty(elementClass, propertyName) {
+        const origDesc = Object.getOwnPropertyDescriptor(elementClass.prototype, propertyName);
+        if (origDesc && origDesc.set) {
+            Object.defineProperty(elementClass.prototype, propertyName, {
+                set: function(val) {
+                    if (val && typeof val === 'string') {
+                        try {
+                            const absoluteUrl = new URL(val, location.origin).href;
+                            const action = applyFilter(absoluteUrl);
+                            if (action && action.response) {
+                                if (action.response.status === 403) {
+                                    tmStats.recordBlock(absoluteUrl);
+                                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Property Hook Blocked: ${absoluteUrl}`);
+                                    return; // 物理阻斷賦值，瀏覽器完全不發送請求
+                                } else if (action.response.status === 204) {
+                                    tmStats.recordDrop(absoluteUrl);
+                                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Property Hook Dropped: ${absoluteUrl}`);
+                                    return; // 物理阻斷賦值，瀏覽器完全不發送請求
+                                }
+                            } else if (action && action.url && val !== action.url) {
+                                tmStats.recordClean(absoluteUrl, action.url);
+                                val = action.url;
+                            }
+                        } catch(e) {}
+                    }
+                    return origDesc.set.call(this, val);
+                },
+                get: origDesc.get
+            });
+        }
+    }
+    // 攔截三大核心注入點，解決 MutationObserver 的時間差盲區
+    hookProperty(HTMLScriptElement, 'src');
+    hookProperty(HTMLImageElement, 'src');
+    hookProperty(HTMLIFrameElement, 'src');
+    // --- Property Setter Hook 結束 ---
 
     let _pendingDrops = 0;
     const MAX_PENDING_DROPS = 64; 
@@ -1882,7 +1910,8 @@ def compile_tampermonkey() -> str:
                     node.addEventListener('load', () => patchIframeBeacon(node), { once: false });
                     patchIframeBeacon(node); 
                 }
-
+                
+                // 保留 MutationObserver 作為安全網 (針對不支援 property hook 的邊界情況)
                 if (node.tagName === 'SCRIPT' || node.tagName === 'IMG' || node.tagName === 'IFRAME') {
                     if (node.src) {
                         try {
@@ -1911,12 +1940,12 @@ def compile_tampermonkey() -> str:
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             defuseAllPingAttributes(document); 
-            observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style'] });
+            observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style', 'src'] });
             initUI();
         });
     } else {
         defuseAllPingAttributes(document); 
-        observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style'] });
+        observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style', 'src'] });
         initUI();
     }
 })();
@@ -2293,10 +2322,11 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("AdBlock: WP Ads Plugin (Quick AdSense)", "https://axiang.cc/wp-content/plugins/quick-adsense-reloaded/assets/js/ads.js?ver=2.0.98.1", RES_BLOCK_403, "完美縫合 WordPress 外掛的 assets/js 靜態保護傘，強制攔截惡意 ads.js"))
     cases.append(TestCase("AdBlock: Ad Inserter Plugin", "https://example.com/wp-content/plugins/ad-inserter/js/ad-inserter.js", RES_BLOCK_403, "透過 Raw Regex 精準命中 ad-inserter 外掛特徵"))
     cases.append(TestCase("AdBlock: adsbygoogle Nested Path", "https://axiang.cc/%22https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=123", RES_BLOCK_403, "透過 Raw Regex 成功識別前端渲染錯誤造成的 adsbygoogle 路徑嵌套漏洞"))
-    cases.append(TestCase("Safe: Non-Ad Script (uploads.js)", "https://example.com/assets/js/uploads.js?v=1", RES_ALLOW, r"驗證 Raw Regex 邊界符號 (?:\?|$) 有效，確保不會因為字尾包含 ads.js 而誤殺正常的上傳模組"))
+    cases.append(TestCase("Safe: Non-Ad Script (uploads.js)", "https://example.com/assets/js/uploads.js?v=1", RES_ALLOW, r"驗證 Raw Regex 邊界符號 (?:\\?|$) 有效，確保不會因為字尾包含 ads.js 而誤殺正常的上傳模組"))
 
     # --- V45.05 網域輪替防護與 Adbot 在地聯播網測試 ---
     cases.append(TestCase("AdBlock: Anti-Adblock Rotation", "https://adunblock2.static-cloudflare.workers.dev/script.js", RES_BLOCK_403, "攔截 Serverless 反廣告攔截腳本的動態網域輪替"))
+    cases.append(TestCase("AdBlock: Anti-Adblock Ext", "https://adunblock99-beta.static-cloudflare.workers.dev/script.js", RES_BLOCK_403, "驗證放寬後的正則能捕捉 adunblock 變體"))
     cases.append(TestCase("AdBlock: Micro Local RTB", "https://cell1.adbottw.net/dy/native/?ca=achang.tw_rec", RES_BLOCK_403, "精準攔截台灣在地微型原生廣告聯播網 (Adbot)"))
 
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
