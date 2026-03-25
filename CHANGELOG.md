@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V45.07 - 2026-03-25
+- [BugFix] 修復 `RULES_DB` 字典結構，完整還原 `HIGH_CONFIDENCE`、`PATH_BLOCK`、`DROP` 與 `PARAMS_GLOBAL` 等遺失的鍵值，消除 KeyError。
+
 ## V45.05 - 2026-03-25
 - [Security] 針對 `adunblock[n].static-cloudflare.workers.dev` 實作動態流水號正則阻斷，防堵 Serverless 網域輪替。
 - [AdBlock] 補齊台灣微型在地聯播網 (adbottw.net) 至 WILDCARDS 阻斷清單，防堵偽裝為原生內容之廣告請求。

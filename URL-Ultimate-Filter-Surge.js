@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   45.05 (SSOT Compilation)
+ * @version   45.07 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.05';
+const SCRIPT_VERSION = '45.07';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -210,7 +210,7 @@ const RULES = {
   ]),
 
   BLOCK_DOMAINS_REGEX: [
-    /^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$/i, /^browser-intake-[\w.-]*datadoghq\.(?:com|eu|us)$/i, /^adunblock\d*\.static-cloudflare\.workers\.dev$/i
+    /^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$/i, /^browser-intake-[\w.-]*datadoghq\.(?:com|eu|us)$/i, /(?:^|\.)adunblock\d*.*\.workers\.dev$/i
   ],
 
   CRITICAL_PATH: {
