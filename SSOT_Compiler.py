@@ -3,14 +3,15 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.04
+當前版本：V45.05
 最新架構更新：
-- [Tooling] 修正 Python 3.12+ 在發布日誌與測試描述中解析 `\?` 產生的 SyntaxWarning (Invalid escape sequence)，實現 CLI 零警告純淨輸出。
+- [Security] 新增 Cloudflare Workers 反廣告攔截網域輪替 (Domain Rotation) 之正則阻斷防禦。
+- [AdBlock] 擴充台灣微型原生聯播網 (Adbot) 之網域封鎖，消滅隱蔽式路徑盲區。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.04: 修正 Python 3.12+ 在發布日誌與測試描述中解析 `\\?` 產生的 SyntaxWarning，實現 CLI 零警告純淨輸出。
 - V45.03: 擴充 Python 編譯器支援「原生正則字串 (Raw Regex)」，完美縫合 WordPress 廣告外掛 (如 Quick AdSense) 盲區；補齊台灣在地聯播網特徵。
 - V45.02: 於 Tampermonkey 新增 Clipboard Interceptor (剪貼簿攔截器)，動態剝離使用者複製的網址追蹤參數。
-- V45.01: 針對 Anthropic (Claude) 第一方代理遙測 (statsig) 實施 204 Drop 策略以阻斷重試風暴。
 """
 
 import json
@@ -33,12 +34,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.04"
+VERSION = "45.05"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Tooling] 修正 Python 3.12+ 解析常規字串跳脫字元產生的 SyntaxWarning 警告，達成 CLI 編譯面板零警告輸出。
-- [AdBlock] 延續 V45.03 嚴謹字尾邊界 `(?:\\?|$)` 攔截策略，維持 `ads.js` 極致精準度。
+- [Security] 針對 `adunblock[n].static-cloudflare.workers.dev` 實作動態流水號正則阻斷，防堵 Serverless 網域輪替。
+- [AdBlock] 補齊台灣微型在地聯播網 (adbottw.net) 至 WILDCARDS 阻斷清單，防堵偽裝為原生內容之廣告請求。
+- [QA] 測試矩陣擴增網域輪替與在地微型聯播網之端點驗證案例。
 """
 
 # ==========================================
@@ -298,11 +300,12 @@ RULES_DB = {
         'branch.io', 'app.link', 'kochava.com', 'scorecardresearch.com', 'rayjump.com',
         'mintegral.net', 'tiktokv.com', 'byteoversea.com', 'criteo.com', 'criteo.net',
         'adservices.google.com', 'ad2n.com', 'vpon.com', 'tenmax.io', 'clickforce.com.tw', 
-        'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com'
+        'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com', 'adbottw.net'
     ],
     "BLOCK_DOMAINS_REGEX": [
-        '^ads?\\d*\\.(?:ettoday\\.net|ltn\\.com\\.tw)$',
-        '^browser-intake-[\\w.-]*datadoghq\\.(?:com|eu|us)$'
+        r'^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$',
+        r'^browser-intake-[\w.-]*datadoghq\.(?:com|eu|us)$',
+        r'^adunblock\d*\.static-cloudflare\.workers\.dev$'
     ],
     "CRITICAL_PATH_GENERIC": [
         '/accounts/CheckConnection', '/0.gif', '/1.gif', '/pixel.gif', '/beacon.gif', '/ping.gif',
@@ -2290,7 +2293,11 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("AdBlock: WP Ads Plugin (Quick AdSense)", "https://axiang.cc/wp-content/plugins/quick-adsense-reloaded/assets/js/ads.js?ver=2.0.98.1", RES_BLOCK_403, "完美縫合 WordPress 外掛的 assets/js 靜態保護傘，強制攔截惡意 ads.js"))
     cases.append(TestCase("AdBlock: Ad Inserter Plugin", "https://example.com/wp-content/plugins/ad-inserter/js/ad-inserter.js", RES_BLOCK_403, "透過 Raw Regex 精準命中 ad-inserter 外掛特徵"))
     cases.append(TestCase("AdBlock: adsbygoogle Nested Path", "https://axiang.cc/%22https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=123", RES_BLOCK_403, "透過 Raw Regex 成功識別前端渲染錯誤造成的 adsbygoogle 路徑嵌套漏洞"))
-    cases.append(TestCase("Safe: Non-Ad Script (uploads.js)", "https://example.com/assets/js/uploads.js?v=1", RES_ALLOW, r"驗證 Raw Regex 邊界符號 (?:\\?|$) 有效，確保不會因為字尾包含 ads.js 而誤殺正常的上傳模組"))
+    cases.append(TestCase("Safe: Non-Ad Script (uploads.js)", "https://example.com/assets/js/uploads.js?v=1", RES_ALLOW, r"驗證 Raw Regex 邊界符號 (?:\?|$) 有效，確保不會因為字尾包含 ads.js 而誤殺正常的上傳模組"))
+
+    # --- V45.05 網域輪替防護與 Adbot 在地聯播網測試 ---
+    cases.append(TestCase("AdBlock: Anti-Adblock Rotation", "https://adunblock2.static-cloudflare.workers.dev/script.js", RES_BLOCK_403, "攔截 Serverless 反廣告攔截腳本的動態網域輪替"))
+    cases.append(TestCase("AdBlock: Micro Local RTB", "https://cell1.adbottw.net/dy/native/?ca=achang.tw_rec", RES_BLOCK_403, "精準攔截台灣在地微型原生廣告聯播網 (Adbot)"))
 
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
