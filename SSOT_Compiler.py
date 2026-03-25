@@ -3,15 +3,14 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.02
+當前版本：V45.04
 最新架構更新：
-- [UX/Privacy] 於 Tampermonkey 版本新增 Clipboard Interceptor (剪貼簿攔截器) 模組，支援雙軌攔截 (navigator.clipboard & copy event)，動態剝離使用者複製的網址追蹤參數。
+- [Tooling] 修正 Python 3.12+ 在發布日誌與測試描述中解析 `\?` 產生的 SyntaxWarning (Invalid escape sequence)，實現 CLI 零警告純淨輸出。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.03: 擴充 Python 編譯器支援「原生正則字串 (Raw Regex)」，完美縫合 WordPress 廣告外掛 (如 Quick AdSense) 盲區；補齊台灣在地聯播網特徵。
+- V45.02: 於 Tampermonkey 新增 Clipboard Interceptor (剪貼簿攔截器)，動態剝離使用者複製的網址追蹤參數。
 - V45.01: 針對 Anthropic (Claude) 第一方代理遙測 (statsig) 實施 204 Drop 策略以阻斷重試風暴。
-- V45.00: 導入 Surge benchmark 持久化與 delta 輸出，維持 10 μs/request 中位數效能極限。
-- V44.99: 新增 Surge benchmark runner，支援 10 組代表性 URL、暖機、多批次取中位數。
-- V44.98: Surge JSC 熱路徑優化：hostname profile 快取、減少 `.split()` / `.some()` 分配。
 """
 
 import json
@@ -19,6 +18,7 @@ import os
 import sys
 import tempfile
 import textwrap
+import re
 from datetime import datetime
 from collections import defaultdict
 from dataclasses import dataclass
@@ -33,14 +33,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.02"
+VERSION = "45.04"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [UX/Privacy] 於 Tampermonkey 版本新增 Clipboard Interceptor (剪貼簿攔截器) 模組。
-- [Feature] 支援攔截 `navigator.clipboard.writeText` (常見於 SPA 分享按鈕) 與全域 `copy` 事件 (快捷鍵或右鍵複製)。
-- [Feature] 內建 URL 萃取引擎，精準避開全形與半形標點符號，僅替換字串內的髒連結，完美保留使用者複製的上下文與排版。
-- [QA] 於矩陣測試中新增 Feedly 等 RSS 閱讀器的 UTM 參數剝離斷言。
+- [Tooling] 修正 Python 3.12+ 解析常規字串跳脫字元產生的 SyntaxWarning 警告，達成 CLI 編譯面板零警告輸出。
+- [AdBlock] 延續 V45.03 嚴謹字尾邊界 `(?:\\?|$)` 攔截策略，維持 `ads.js` 極致精準度。
 """
 
 # ==========================================
@@ -299,7 +297,8 @@ RULES_DB = {
         'app-measurement.com', 'adjust.com', 'adjust.net', 'appsflyer.com', 'onelink.me',
         'branch.io', 'app.link', 'kochava.com', 'scorecardresearch.com', 'rayjump.com',
         'mintegral.net', 'tiktokv.com', 'byteoversea.com', 'criteo.com', 'criteo.net',
-        'adservices.google.com'
+        'adservices.google.com', 'ad2n.com', 'vpon.com', 'tenmax.io', 'clickforce.com.tw', 
+        'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com'
     ],
     "BLOCK_DOMAINS_REGEX": [
         '^ads?\\d*\\.(?:ettoday\\.net|ltn\\.com\\.tw)$',
@@ -349,6 +348,12 @@ RULES_DB = {
         'tracking.js', 'user-id.', 'user-timing.', 'wcslog.', 'jslog.min.', 'device-uuid.',
         '/plugins/advanced-ads', '/plugins/adrotate',
         'gad_script.'
+    ],
+    "CRITICAL_PATH_SCRIPT_REGEX_RAW": [
+        r"\/wp-content\/plugins\/[^\/]+\/.*(?:ads|ad-inserter|advanced-ads|ipa|quads)\.js(?:\?|$)",
+        r"\/pagead\/js\/adsbygoogle\.js(?:\?|$)",
+        r"\/ads\.js(?:\?|$)",
+        r"\/adrotate\.js(?:\?|$)"
     ],
     "CRITICAL_PATH_MAP": {
         'statsig.anthropic.com': ['DROP:/v1/rgstr'],
@@ -603,14 +608,20 @@ def _escape_regex(s: str) -> str:
     import re as _re
     return _re.sub(r'([.*+?^${}()|[\]\\/])', r'\\\1', s)
 
-def _compile_keywords_to_regex(keywords: List[str]) -> str:
-    if not keywords:
-        return "/(?!x)x/i"  
-    escaped = [_escape_regex(k) for k in keywords]
-    return f"/({('|'.join(escaped))})/i"
+def _compile_keywords_to_regex(keywords: List[str], raw_regexes: List[str] = None) -> str:
+    escaped = [_escape_regex(k) for k in keywords] if keywords else []
+    raw = raw_regexes if raw_regexes else []
+    combined = escaped + raw
+    if not combined:
+        return "/(?!x)x/i"
+    return f"/({('|'.join(combined))})/i"
 
 def get_js_rules_definition(platform_desc: str) -> str:
     regex_joined = ', '.join([f"/{r}/i" for r in RULES_DB['BLOCK_DOMAINS_REGEX']])
+    critical_keywords = RULES_DB['CRITICAL_PATH_GENERIC'] + RULES_DB['CRITICAL_PATH_SCRIPT_ROOTS']
+    critical_raw = RULES_DB.get('CRITICAL_PATH_SCRIPT_REGEX_RAW', [])
+    critical_path_regex = _compile_keywords_to_regex(critical_keywords, critical_raw)
+    
     return f"""/**
  * @file      URL-Ultimate-Filter-{platform_desc}.js
  * @version   {VERSION} (SSOT Compilation)
@@ -701,7 +712,7 @@ const RULES = {{
 const PRECOMPILED_SCANNERS = {{
   HIGH_CONFIDENCE: {_compile_keywords_to_regex(RULES_DB['HIGH_CONFIDENCE'])},
   PATH_BLOCK: {_compile_keywords_to_regex(RULES_DB['PATH_BLOCK'])},
-  CRITICAL_PATH: {_compile_keywords_to_regex(RULES_DB['CRITICAL_PATH_GENERIC'] + RULES_DB['CRITICAL_PATH_SCRIPT_ROOTS'])}
+  CRITICAL_PATH: {critical_path_regex}
 }};
 """
 
@@ -2274,6 +2285,13 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V45.02 Clipboard Interceptor (剪貼簿攔截器) Feedly URL 測試 ---
     cases.append(TestCase("Privacy: Feedly Share UTM Strip", "https://unwire.hk/2026/03/23/article/fun-tech/?utm_source=feedly&utm_medium=rss", RES_CLEAN_302, "驗證來自 Feedly App 帶有 UTM 參數的髒連結，在放入剪貼簿前能被 SSOT 引擎精確剝離"))
 
+    # --- V45.03 台灣在地聯播網與 WordPress 盲區縫合測試 ---
+    cases.append(TestCase("AdBlock: Taiwan RTB (Ad2iction)", "https://cdn2.ad2n.com/", RES_BLOCK_403, "精準封鎖艾迪英特廣告商 CDN 遞送端點"))
+    cases.append(TestCase("AdBlock: WP Ads Plugin (Quick AdSense)", "https://axiang.cc/wp-content/plugins/quick-adsense-reloaded/assets/js/ads.js?ver=2.0.98.1", RES_BLOCK_403, "完美縫合 WordPress 外掛的 assets/js 靜態保護傘，強制攔截惡意 ads.js"))
+    cases.append(TestCase("AdBlock: Ad Inserter Plugin", "https://example.com/wp-content/plugins/ad-inserter/js/ad-inserter.js", RES_BLOCK_403, "透過 Raw Regex 精準命中 ad-inserter 外掛特徵"))
+    cases.append(TestCase("AdBlock: adsbygoogle Nested Path", "https://axiang.cc/%22https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=123", RES_BLOCK_403, "透過 Raw Regex 成功識別前端渲染錯誤造成的 adsbygoogle 路徑嵌套漏洞"))
+    cases.append(TestCase("Safe: Non-Ad Script (uploads.js)", "https://example.com/assets/js/uploads.js?v=1", RES_ALLOW, r"驗證 Raw Regex 邊界符號 (?:\\?|$) 有效，確保不會因為字尾包含 ads.js 而誤殺正常的上傳模組"))
+
     cases.append(TestCase("E2E: Payload Fetch", "https://static.104.com.tw/104main/jb/area/manjb/home/json/jobNotify/ad.json?v=1772752285970", RES_ALLOW, "確保第一階段資料層 UI 放行不破圖"))
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
     cases.append(TestCase("E2E: Malicious Payload Block", "https://static.104.com.tw/ad.json", RES_BLOCK_403, "模擬 JSON 內遭植入第三方追蹤並點擊，觸發 L1 攔截", is_e2e=True, e2e_target_url="https://googleadservices.com/track/click"))
@@ -2421,7 +2439,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
         cases.append(TestCase("Auto: Priority Drop Exact", f"https://unknown-site.com{k}", RES_DROP_204, f"PRIORITY_DROP 精確匹配 '{k}'"))
 
     cases.append(TestCase("Mutation: Coupang home-banner-ads", "https://cmapi.tw.coupang.com/home-banner-ads/v1", RES_BLOCK_403, "CRITICAL_PATH_MAP Step 4 精確封鎖 /home-banner-ads/"))
-    cases.append(TestCase("Mutation: Coupang plp-ads", "https://cmapi.tw.coupang.com/plp-ads/v2/items", RES_BLOCK_403, "CRITICAL_PATH_MAP Step 4 精精確封鎖 /plp-ads/"))
+    cases.append(TestCase("Mutation: Coupang plp-ads", "https://cmapi.tw.coupang.com/plp-ads/v2/items", RES_BLOCK_403, "CRITICAL_PATH_MAP Step 4 精確封鎖 /plp-ads/"))
     cases.append(TestCase("Mutation: Coupang category-banner-ads", "https://cmapi.tw.coupang.com/category-banner-ads/v1", RES_BLOCK_403, "CRITICAL_PATH_MAP Step 4 精確封鎖 /category-banner-ads/"))
     cases.append(TestCase("Edge: Coupang vendor-items safe", "https://cmapi.tw.coupang.com/vendor-items/12345", RES_ALLOW, "Coupang 商品 API 不含 -ads/ 應放行"))
 
