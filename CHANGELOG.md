@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V45.04 - 2026-03-25
+- [Tooling] 修正 Python 3.12+ 解析常規字串跳脫字元產生的 SyntaxWarning 警告，達成 CLI 編譯面板零警告輸出。
+- [AdBlock] 延續 V45.03 嚴謹字尾邊界 `(?:\?|$)` 攔截策略，維持 `ads.js` 極致精準度。
+
 ## V45.02 - 2026-03-23
 - [UX/Privacy] 於 Tampermonkey 版本新增 Clipboard Interceptor (剪貼簿攔截器) 模組。
 - [Feature] 支援攔截 `navigator.clipboard.writeText` (常見於 SPA 分享按鈕) 與全域 `copy` 事件 (快捷鍵或右鍵複製)。
