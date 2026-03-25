@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V45.05 - 2026-03-25
+- [Security] 針對 `adunblock[n].static-cloudflare.workers.dev` 實作動態流水號正則阻斷，防堵 Serverless 網域輪替。
+- [AdBlock] 補齊台灣微型在地聯播網 (adbottw.net) 至 WILDCARDS 阻斷清單，防堵偽裝為原生內容之廣告請求。
+- [QA] 測試矩陣擴增網域輪替與在地微型聯播網之端點驗證案例。
+
 ## V45.04 - 2026-03-25
 - [Tooling] 修正 Python 3.12+ 解析常規字串跳脫字元產生的 SyntaxWarning 警告，達成 CLI 編譯面板零警告輸出。
 - [AdBlock] 延續 V45.03 嚴謹字尾邊界 `(?:\?|$)` 攔截策略，維持 `ads.js` 極致精準度。
