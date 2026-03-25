@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.05
+// @name         URL Ultimate Filter V45.07
 // @namespace    http://tampermonkey.net/
-// @version      45.05
+// @version      45.07
 // @description  SSOT 前端防護盾牌，專業級 UI：極簡盾牌圖示、獨立計數器、點擊外部自動收合機制。
 // @author       Jerry
 // @match        *://*/*
@@ -13,11 +13,11 @@
     'use strict';
 /**
  * @file      URL-Ultimate-Filter-Tampermonkey.js
- * @version   45.05 (SSOT Compilation)
+ * @version   45.07 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.05';
+const SCRIPT_VERSION = '45.07';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -223,7 +223,7 @@ const RULES = {
   ]),
 
   BLOCK_DOMAINS_REGEX: [
-    /^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$/i, /^browser-intake-[\w.-]*datadoghq\.(?:com|eu|us)$/i, /^adunblock\d*\.static-cloudflare\.workers\.dev$/i
+    /^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$/i, /^browser-intake-[\w.-]*datadoghq\.(?:com|eu|us)$/i, /(?:^|\.)adunblock\d*.*\.workers\.dev$/i
   ],
 
   CRITICAL_PATH: {
@@ -1546,13 +1546,11 @@ function runBenchmarkSuite() {
     // --- Clipboard Interceptor 模組 ---
     function cleanTextUrls(text) {
         if (!text || typeof text !== 'string') return { text, modified: false };
-        // 嚴謹的 URL 萃取正則，避免吞噬不合法的全形標點符號
         const urlRegex = /(https?:\/\/[a-zA-Z0-9\-._~:/?#[\]@!$&'()*+,;=%]+)/gi;
         let modified = false;
         let cleanedText = text.replace(urlRegex, (match) => {
             let url = match;
             let trailing = '';
-            // 精準剝離尾部的全半形標點符號，避免解析錯誤或破壞使用者複製的文章排版
             while (url.length > 0 && /[.,;?!。，、！？」』】]$/.test(url)) {
                 trailing = url.slice(-1) + trailing;
                 url = url.slice(0, -1);
@@ -1572,7 +1570,6 @@ function runBenchmarkSuite() {
         return { text: cleanedText, modified: modified };
     }
 
-    // 1. 雙軌攔截：Async Clipboard API (針對網頁內的「複製連結」按鈕)
     if (navigator.clipboard && navigator.clipboard.writeText) {
         const origWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
         navigator.clipboard.writeText = function(text) {
@@ -1581,22 +1578,56 @@ function runBenchmarkSuite() {
         };
     }
 
-    // 2. 雙軌攔截：原生 DOM Copy 事件 (針對使用者反白按 Ctrl+C / 右鍵複製)
     document.addEventListener('copy', (e) => {
         if (e.clipboardData && e.clipboardData.getData('text/plain')) return;
-
         const selection = document.getSelection();
         if (!selection || selection.isCollapsed) return;
-
         const selectedText = selection.toString();
         const result = cleanTextUrls(selectedText);
-
         if (result.modified) {
             e.preventDefault();
             e.clipboardData.setData('text/plain', result.text);
         }
     }, true);
     // --- Clipboard Interceptor 模組結束 ---
+
+    // --- Property Setter Hook (動態腳本屬性攔截器) ---
+    function hookProperty(elementClass, propertyName) {
+        const origDesc = Object.getOwnPropertyDescriptor(elementClass.prototype, propertyName);
+        if (origDesc && origDesc.set) {
+            Object.defineProperty(elementClass.prototype, propertyName, {
+                set: function(val) {
+                    if (val && typeof val === 'string') {
+                        try {
+                            const absoluteUrl = new URL(val, location.origin).href;
+                            const action = applyFilter(absoluteUrl);
+                            if (action && action.response) {
+                                if (action.response.status === 403) {
+                                    tmStats.recordBlock(absoluteUrl);
+                                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Property Hook Blocked: ${absoluteUrl}`);
+                                    return; // 物理阻斷賦值，瀏覽器完全不發送請求
+                                } else if (action.response.status === 204) {
+                                    tmStats.recordDrop(absoluteUrl);
+                                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Property Hook Dropped: ${absoluteUrl}`);
+                                    return; // 物理阻斷賦值，瀏覽器完全不發送請求
+                                }
+                            } else if (action && action.url && val !== action.url) {
+                                tmStats.recordClean(absoluteUrl, action.url);
+                                val = action.url;
+                            }
+                        } catch(e) {}
+                    }
+                    return origDesc.set.call(this, val);
+                },
+                get: origDesc.get
+            });
+        }
+    }
+    // 攔截三大核心注入點，解決 MutationObserver 的時間差盲區
+    hookProperty(HTMLScriptElement, 'src');
+    hookProperty(HTMLImageElement, 'src');
+    hookProperty(HTMLIFrameElement, 'src');
+    // --- Property Setter Hook 結束 ---
 
     let _pendingDrops = 0;
     const MAX_PENDING_DROPS = 64; 
@@ -1881,7 +1912,8 @@ function runBenchmarkSuite() {
                     node.addEventListener('load', () => patchIframeBeacon(node), { once: false });
                     patchIframeBeacon(node); 
                 }
-
+                
+                // 保留 MutationObserver 作為安全網 (針對不支援 property hook 的邊界情況)
                 if (node.tagName === 'SCRIPT' || node.tagName === 'IMG' || node.tagName === 'IFRAME') {
                     if (node.src) {
                         try {
@@ -1910,12 +1942,12 @@ function runBenchmarkSuite() {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             defuseAllPingAttributes(document); 
-            observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style'] });
+            observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style', 'src'] });
             initUI();
         });
     } else {
         defuseAllPingAttributes(document); 
-        observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style'] });
+        observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style', 'src'] });
         initUI();
     }
 })();
