@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V45.12 - 2026-03-30
+- [BugFix] REDIRECT_EXTRACT_HOSTS 補齊 `?url=` Query 參數格式提取，同時支援路徑編碼與 Query 參數兩種跳轉格式。
+
 ## V45.11 - 2026-03-30
 - [Feature] 新增 `REDIRECT_EXTRACT_HOSTS` 引擎機制：從跳轉服務路徑中解碼目標網址並 302 直導，附屬資源 403 封鎖。首批收錄 `go.skimresources.com`。
 
