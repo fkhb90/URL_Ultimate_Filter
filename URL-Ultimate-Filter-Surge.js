@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   45.11 (SSOT Compilation)
+ * @version   45.12 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.11';
+const SCRIPT_VERSION = '45.12';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1040,15 +1040,30 @@ function processRequest(request) {
     }
 
     if (hostProfile.isRedirectExtract) {
+      let extractedUrl = null;
       const rawPath = url.substring(url.indexOf('/', url.indexOf('://') + 3) + 1);
       if (rawPath) {
         try {
           const decoded = decodeURIComponent(rawPath);
-          if (decoded.startsWith('http://') || decoded.startsWith('https://')) {
-            stats.allows++;
-            return { response: { status: 302, headers: { Location: decoded } } };
-          }
+          if (decoded.startsWith('http://') || decoded.startsWith('https://')) extractedUrl = decoded;
         } catch (_) {}
+      }
+      if (!extractedUrl && url.includes('?')) {
+        const qs = url.substring(url.indexOf('?') + 1);
+        const pairs = qs.split('&');
+        for (let i = 0; i < pairs.length; i++) {
+          const pair = pairs[i];
+          if (pair.startsWith('url=')) {
+            try {
+              const val = decodeURIComponent(pair.substring(4));
+              if (val.startsWith('http://') || val.startsWith('https://')) { extractedUrl = val; break; }
+            } catch (_) {}
+          }
+        }
+      }
+      if (extractedUrl) {
+        stats.allows++;
+        return { response: { status: 302, headers: { Location: extractedUrl } } };
       }
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked Redirector Asset' } };
