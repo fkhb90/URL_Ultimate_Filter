@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V45.10 - 2026-03-30
+- [Rule] 將 `go.skimresources.com` 從 REDIRECTOR_HOSTS 移除，改由 Surge URL Rewrite 提取目標網址直接 302 跳轉。
+
 ## V45.07 - 2026-03-25
 - [BugFix] 修復 `RULES_DB` 字典結構，完整還原 `HIGH_CONFIDENCE`、`PATH_BLOCK`、`DROP` 與 `PARAMS_GLOBAL` 等遺失的鍵值，消除 KeyError。
 
