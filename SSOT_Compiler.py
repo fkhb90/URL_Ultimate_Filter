@@ -3,11 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.07
+當前版本：V45.10
 最新架構更新：
-- [BugFix] 修復 V45.06 因 RULES_DB 字典提早閉合截斷，導致編譯器拋出 `KeyError: 'HIGH_CONFIDENCE'` 的嚴重錯誤。完整還原所有過濾名單。
+- [Rule] 將 `go.skimresources.com` 從 REDIRECTOR_HOSTS 移除，改由 Surge URL Rewrite 提取目標網址直接 302 跳轉，避免 403 封鎖導致連結斷裂。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.09: 新增 `stun.services.mozilla1.com` 至 BLOCK_DOMAINS，封鎖疑似 Typosquatting 的偽 Mozilla STUN 網域。
+- V45.07: 修復 V45.06 因 RULES_DB 字典提早閉合截斷，導致編譯器拋出 KeyError 的嚴重錯誤。
 - V45.06: 導入 Property Setter Hook，於 DOM 賦值階段物理阻斷動態廣告腳本，完美解決 MutationObserver 延遲漏洞。
 - V45.05: 新增 Cloudflare Workers 反廣告攔截網域輪替正則；擴充台灣微型原生聯播網 (Adbot) 防堵。
 - V45.04: 修正 Python 3.12+ 解析 `\\?` 產生的 SyntaxWarning。
@@ -33,11 +35,11 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.07"
+VERSION = "45.10"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [BugFix] 修復 `RULES_DB` 字典結構，完整還原 `HIGH_CONFIDENCE`、`PATH_BLOCK`、`DROP` 與 `PARAMS_GLOBAL` 等遺失的鍵值，消除 KeyError。
+- [Rule] 將 `go.skimresources.com` 從 REDIRECTOR_HOSTS 移除，改由 Surge URL Rewrite 提取目標網址直接 302 跳轉。
 """
 
 # ==========================================
@@ -287,7 +289,8 @@ RULES_DB = {
         'googleadservices.com', 'googlesyndication.com', 'outbrain.com', 'taboola.com', 'rubiconproject.com',
         'pubmatic.com', 'openx.com', 'smartadserver.com', 'spotx.tv', 'yandex.ru', 'addthis.com',
         'onesignal.com', 'sharethis.com', 'bat.bing.com', 'clarity.ms',
-        'elads.kocpc.com.tw', 'eservice.emarsys.net', 'at-display-as.deliveryhero.io'
+        'elads.kocpc.com.tw', 'eservice.emarsys.net', 'at-display-as.deliveryhero.io',
+        'stun.services.mozilla1.com'
     ],
     "BLOCK_DOMAINS_WILDCARDS": [
         'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io',
