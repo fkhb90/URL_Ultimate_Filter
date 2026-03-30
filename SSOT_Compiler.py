@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.10
+當前版本：V45.11
 最新架構更新：
-- [Rule] 將 `go.skimresources.com` 從 REDIRECTOR_HOSTS 移除，改由 Surge URL Rewrite 提取目標網址直接 302 跳轉，避免 403 封鎖導致連結斷裂。
+- [Feature] 新增 REDIRECT_EXTRACT_HOSTS 引擎機制：對 go.skimresources.com 等聯盟行銷跳轉服務，從路徑中解碼目標網址並 302 直導，非目標附屬資源（css/js/png）403 封鎖。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.10: 將 go.skimresources.com 從 REDIRECTOR_HOSTS 移除，改由 Surge URL Rewrite 處理（後升級為引擎內建）。
 - V45.09: 新增 `stun.services.mozilla1.com` 至 BLOCK_DOMAINS，封鎖疑似 Typosquatting 的偽 Mozilla STUN 網域。
 - V45.07: 修復 V45.06 因 RULES_DB 字典提早閉合截斷，導致編譯器拋出 KeyError 的嚴重錯誤。
 - V45.06: 導入 Property Setter Hook，於 DOM 賦值階段物理阻斷動態廣告腳本，完美解決 MutationObserver 延遲漏洞。
@@ -35,11 +36,11 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.10"
+VERSION = "45.11"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Rule] 將 `go.skimresources.com` 從 REDIRECTOR_HOSTS 移除，改由 Surge URL Rewrite 提取目標網址直接 302 跳轉。
+- [Feature] 新增 `REDIRECT_EXTRACT_HOSTS` 引擎機制：從跳轉服務路徑中解碼目標網址並 302 直導，附屬資源 403 封鎖。首批收錄 `go.skimresources.com`。
 """
 
 # ==========================================
@@ -175,6 +176,9 @@ RULES_DB = {
         'techgeek.digital', 'techstudify.com', 'techtrendmakers.com', 'thinfi.com',
         'tnshort.net', 'tribuntekno.com', 'turdown.com', 'tutwuri.id',
         'urlcash.com', 'urlcash.org', 'vinaurl.net', 'vzturl.com', 'xpshort.com', 'zegtrends.com'
+    ],
+    "REDIRECT_EXTRACT_HOSTS": [
+        'go.skimresources.com'
     ],
     "HARD_WHITELIST": {
         "EXACT": [
@@ -657,6 +661,7 @@ const ABSOLUTE_BYPASS_DOMAINS = {{
 const RULES = {{
   PRIORITY_BLOCK_DOMAINS: {format_js_set(RULES_DB['PRIORITY_BLOCK_DOMAINS'])},
   REDIRECTOR_HOSTS: {format_js_set(RULES_DB['REDIRECTOR_HOSTS'])},
+  REDIRECT_EXTRACT_HOSTS: {format_js_set(RULES_DB['REDIRECT_EXTRACT_HOSTS'])},
 
   HARD_WHITELIST: {{
     EXACT: {format_js_set(RULES_DB['HARD_WHITELIST']['EXACT'])},
@@ -820,6 +825,7 @@ function getHostProfile(hostname) {
     isAbsoluteBypass: isDomainMatch(ABSOLUTE_BYPASS_DOMAINS.EXACT, ABSOLUTE_BYPASS_DOMAINS.WILDCARDS, hostname),
     isPriorityBlocked: isDomainMatch(EMPTY_SET, RULES.PRIORITY_BLOCK_DOMAINS, hostname),
     isRedirector: RULES.REDIRECTOR_HOSTS.has(hostname),
+    isRedirectExtract: RULES.REDIRECT_EXTRACT_HOSTS.has(hostname),
     isSoftWhitelisted: isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname),
     isHardWhitelisted: isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname),
     isBlockedDomain: isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || matchesAnyRegex(BLOCK_DOMAINS_REGEX, hostname),
@@ -1014,6 +1020,21 @@ function processRequest(request) {
     if (hostProfile.isPriorityBlocked) {
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked by P0' } };
+    }
+
+    if (hostProfile.isRedirectExtract) {
+      const rawPath = url.substring(url.indexOf('/', url.indexOf('://') + 3) + 1);
+      if (rawPath) {
+        try {
+          const decoded = decodeURIComponent(rawPath);
+          if (decoded.startsWith('http://') || decoded.startsWith('https://')) {
+            stats.allows++;
+            return { response: { status: 302, headers: { Location: decoded } } };
+          }
+        } catch (_) {}
+      }
+      stats.blocks++;
+      return { response: { status: 403, body: 'Blocked Redirector Asset' } };
     }
 
     if (hostProfile.isRedirector) {
@@ -2196,6 +2217,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
 
     for d in RULES_DB["REDIRECTOR_HOSTS"]:
         cases.append(TestCase("Auto: Redirector", f"https://{d}/target", RES_BLOCK_403, "Blocked Redirector"))
+
+    for d in RULES_DB["REDIRECT_EXTRACT_HOSTS"]:
+        cases.append(TestCase("Auto: Redirect Extract (Target)", f"https://{d}/https%3A%2F%2Fwww.example.com%2Fpage", RES_CLEAN_302, "Redirect Extract: decoded target URL → 302"))
+        cases.append(TestCase("Auto: Redirect Extract (Asset Block)", f"https://{d}/style.css", RES_BLOCK_403, "Redirect Extract: non-URL asset blocked → 403"))
 
     for hostname, paths in RULES_DB["CRITICAL_PATH_MAP"].items():
         for p in paths:
