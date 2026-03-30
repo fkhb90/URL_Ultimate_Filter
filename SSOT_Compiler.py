@@ -3,9 +3,9 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.11
+當前版本：V45.12
 最新架構更新：
-- [Feature] 新增 REDIRECT_EXTRACT_HOSTS 引擎機制：對 go.skimresources.com 等聯盟行銷跳轉服務，從路徑中解碼目標網址並 302 直導，非目標附屬資源（css/js/png）403 封鎖。
+- [BugFix] 修復 REDIRECT_EXTRACT_HOSTS 僅處理路徑編碼格式，補齊 `?url=` Query 參數格式的提取邏輯，兩種 SkimResources 跳轉格式均可 302 直導。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
 - V45.10: 將 go.skimresources.com 從 REDIRECTOR_HOSTS 移除，改由 Surge URL Rewrite 處理（後升級為引擎內建）。
@@ -36,11 +36,11 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.11"
+VERSION = "45.12"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Feature] 新增 `REDIRECT_EXTRACT_HOSTS` 引擎機制：從跳轉服務路徑中解碼目標網址並 302 直導，附屬資源 403 封鎖。首批收錄 `go.skimresources.com`。
+- [BugFix] REDIRECT_EXTRACT_HOSTS 補齊 `?url=` Query 參數格式提取，同時支援路徑編碼與 Query 參數兩種跳轉格式。
 """
 
 # ==========================================
@@ -1023,15 +1023,30 @@ function processRequest(request) {
     }
 
     if (hostProfile.isRedirectExtract) {
+      let extractedUrl = null;
       const rawPath = url.substring(url.indexOf('/', url.indexOf('://') + 3) + 1);
       if (rawPath) {
         try {
           const decoded = decodeURIComponent(rawPath);
-          if (decoded.startsWith('http://') || decoded.startsWith('https://')) {
-            stats.allows++;
-            return { response: { status: 302, headers: { Location: decoded } } };
-          }
+          if (decoded.startsWith('http://') || decoded.startsWith('https://')) extractedUrl = decoded;
         } catch (_) {}
+      }
+      if (!extractedUrl && url.includes('?')) {
+        const qs = url.substring(url.indexOf('?') + 1);
+        const pairs = qs.split('&');
+        for (let i = 0; i < pairs.length; i++) {
+          const pair = pairs[i];
+          if (pair.startsWith('url=')) {
+            try {
+              const val = decodeURIComponent(pair.substring(4));
+              if (val.startsWith('http://') || val.startsWith('https://')) { extractedUrl = val; break; }
+            } catch (_) {}
+          }
+        }
+      }
+      if (extractedUrl) {
+        stats.allows++;
+        return { response: { status: 302, headers: { Location: extractedUrl } } };
       }
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked Redirector Asset' } };
@@ -2221,6 +2236,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     for d in RULES_DB["REDIRECT_EXTRACT_HOSTS"]:
         cases.append(TestCase("Auto: Redirect Extract (Target)", f"https://{d}/https%3A%2F%2Fwww.example.com%2Fpage", RES_CLEAN_302, "Redirect Extract: decoded target URL → 302"))
         cases.append(TestCase("Auto: Redirect Extract (Asset Block)", f"https://{d}/style.css", RES_BLOCK_403, "Redirect Extract: non-URL asset blocked → 403"))
+        cases.append(TestCase("Auto: Redirect Extract (Query Param)", f"https://{d}/?id=725X1342&url=https%3A%2F%2Fwww.example.com%2Fpage&xs=1", RES_CLEAN_302, "Redirect Extract: ?url= query param → 302"))
 
     for hostname, paths in RULES_DB["CRITICAL_PATH_MAP"].items():
         for p in paths:
