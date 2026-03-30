@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V45.11 - 2026-03-30
+- [Feature] 新增 `REDIRECT_EXTRACT_HOSTS` 引擎機制：從跳轉服務路徑中解碼目標網址並 302 直導，附屬資源 403 封鎖。首批收錄 `go.skimresources.com`。
+
 ## V45.10 - 2026-03-30
 - [Rule] 將 `go.skimresources.com` 從 REDIRECTOR_HOSTS 移除，改由 Surge URL Rewrite 提取目標網址直接 302 跳轉。
 

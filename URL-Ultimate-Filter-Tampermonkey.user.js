@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.10
+// @name         URL Ultimate Filter V45.11
 // @namespace    http://tampermonkey.net/
-// @version      45.10
+// @version      45.11
 // @description  SSOT 前端防護盾牌，專業級 UI：極簡盾牌圖示、獨立計數器、點擊外部自動收合機制。
 // @author       Jerry
 // @match        *://*/*
@@ -13,11 +13,11 @@
     'use strict';
 /**
  * @file      URL-Ultimate-Filter-Tampermonkey.js
- * @version   45.10 (SSOT Compilation)
+ * @version   45.11 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.10';
+const SCRIPT_VERSION = '45.11';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -115,6 +115,9 @@ const RULES = {
     'stfly.me', 'stfly.xyz', 'supercheats.com', 'techgeek.digital', 'techstudify.com', 'techtrendmakers.com',
     'thinfi.com', 'tnshort.net', 'tribuntekno.com', 'turdown.com', 'tutwuri.id', 'urlcash.com',
     'urlcash.org', 'vinaurl.net', 'vzturl.com', 'xpshort.com', 'zegtrends.com'
+  ]),
+  REDIRECT_EXTRACT_HOSTS: new Set([
+    'go.skimresources.com'
   ]),
 
   HARD_WHITELIST: {
@@ -852,6 +855,7 @@ function getHostProfile(hostname) {
     isAbsoluteBypass: isDomainMatch(ABSOLUTE_BYPASS_DOMAINS.EXACT, ABSOLUTE_BYPASS_DOMAINS.WILDCARDS, hostname),
     isPriorityBlocked: isDomainMatch(EMPTY_SET, RULES.PRIORITY_BLOCK_DOMAINS, hostname),
     isRedirector: RULES.REDIRECTOR_HOSTS.has(hostname),
+    isRedirectExtract: RULES.REDIRECT_EXTRACT_HOSTS.has(hostname),
     isSoftWhitelisted: isDomainMatch(RULES.SOFT_WHITELIST.EXACT, RULES.SOFT_WHITELIST.WILDCARDS, hostname),
     isHardWhitelisted: isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname),
     isBlockedDomain: isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || matchesAnyRegex(BLOCK_DOMAINS_REGEX, hostname),
@@ -1046,6 +1050,21 @@ function processRequest(request) {
     if (hostProfile.isPriorityBlocked) {
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked by P0' } };
+    }
+
+    if (hostProfile.isRedirectExtract) {
+      const rawPath = url.substring(url.indexOf('/', url.indexOf('://') + 3) + 1);
+      if (rawPath) {
+        try {
+          const decoded = decodeURIComponent(rawPath);
+          if (decoded.startsWith('http://') || decoded.startsWith('https://')) {
+            stats.allows++;
+            return { response: { status: 302, headers: { Location: decoded } } };
+          }
+        } catch (_) {}
+      }
+      stats.blocks++;
+      return { response: { status: 403, body: 'Blocked Redirector Asset' } };
     }
 
     if (hostProfile.isRedirector) {
