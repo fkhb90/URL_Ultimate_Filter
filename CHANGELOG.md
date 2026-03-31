@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V45.16 - 2026-03-31
+- [Feature] SCRIPT_BUILD 補充測試案例數，格式：'V{VERSION} ({DATE}) | {N} rules | {M} tests'。
+- [Feature] 測試案例數透過佔位符 __SSOT_TEST_COUNT__ 在 run_tests() 通過後回填，失敗時不寫入 JS，確保 deployed artifact 只含真實驗證數字。
+
 ## V45.15 - 2026-03-31
 - [Feature] 新增 RELEASE_DATE 常數（每次發版手動同步），作為版本時間軸的錨點。
 - [Feature] 新增 RULES_STATS / TOTAL_RULE_COUNT，自動統計各類別規則數量，每次編譯印出摘要，方便跨版本比對規則增減。
