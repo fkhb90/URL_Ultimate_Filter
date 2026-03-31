@@ -3,18 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.17 (2026-03-31)
+當前版本：V45.18 (2026-03-31)
 最新架構更新：
-- [Perf] LRU Cache set() 修復：重複鍵命中時先刪除舊節點再重插，確保 Map 插入順序（LRU 順序）正確更新；淘汰策略優先驅逐已過期條目，無過期條目時才移除最舊條目。
-- [Perf] COMBINED_PATH_SCANNER：將 COMBINED_PATH_REGEX 陣列於模組載入時一次性合併編譯為單一 RegExp（`new RegExp(...join('|'), 'i')`），取代原本逐條迴圈的 matchesAnyRegex；減少每次請求的正則物件重建開銷。
-- [Perf] 增量式 Node.js 測試快取：以 `md5(VERSION + RULES_DB)[:16]` 為鍵，首次執行後將 Node.js 結果持久化至 `_node_cache_<key>.json`；RULES_DB 或 VERSION 不變時直接載入快取，跳過 Node.js 執行，大幅縮短反覆構建的等待時間。
+- [Privacy] 封堵 Alexa Metrics 追蹤盲區：將 `/atrk.` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` L1 掃描器，防堵惡意腳本寄生於 CloudFront 等 CDN 服務時，不慎觸發軟白名單與靜態副檔名的雙重豁免漏洞。
+- [Perf] iHerb Optimizely 重試風暴防治：`logx.optimizely.com/v1/events` 從 PRIORITY_BLOCK 403 升級為 CRITICAL_PATH_MAP `DROP:/v1/events` 204 靜默拋棄；引擎新增 MAP DROP 前置檢查，在 P0 域名 403 之前攔截 DROP 路由，徹底消除 App 因 403 而瘋狂重送的效能消耗。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.17 (2026-03-31): 確立對話基準點，導入效能優化與 LRU Cache 修復。
 - V45.16 (2026-03-31): SCRIPT_BUILD 補充測試案例數：格式升級為 `V{VERSION} ({DATE}) | {N} rules | {M} tests`，使用佔位符 `__SSOT_TEST_COUNT__` 編譯期注入，測試通過後回填，失敗時不寫入 JS。
 - V45.15 (2026-03-31): 新增 RELEASE_DATE、RULES_STATS/TOTAL_RULE_COUNT；JS 標頭補 @date/@rules；TM 元資料補 @date/@rules；SCRIPT_BUILD 常數；編譯器啟動規則統計摘要。
 - V45.14 (2026-03-31): 基礎設施強化：evaluate_result 嚴格化、去重鍵修復、全 PARAMS_PREFIXES 覆蓋、CRITICAL_PATH_MAP 子域名繼承測試、JS formatter 逸出、p.communicate() 超時保護。
 - V45.13 (2026-03-31): Tampermonkey fetch/XHR 攔截器補齊 302 淨化回應處理；移除 RULES_DB 重複條目（BLOCK_DOMAINS/CRITICAL_PATH_GENERIC/PATH_BLOCK）。
-- V45.12: 修復 REDIRECT_EXTRACT_HOSTS 僅處理路徑編碼格式，補齊 `?url=` Query 參數格式的提取邏輯，兩種 SkimResources 跳轉格式均可 302 直導。
 """
 
 import hashlib
@@ -38,14 +37,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.17"
+VERSION = "45.18"
 RELEASE_DATE = "2026-03-31"  # 當前版本發布日期（每次發版需與 VERSION 同步更新）
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Perf] LRU Cache set() 修復：重複鍵先刪後插以刷新 Map 插入順序（LRU 淘汰順序），淘汰邏輯優先驅逐過期條目，其次才移除最舊條目。
-- [Perf] COMBINED_PATH_SCANNER：PATH_BLOCK + HEURISTIC regex 於模組載入時合併為單一 RegExp，取代每請求逐條迴圈的 matchesAnyRegex，減少 CPU 開銷。
-- [Perf] 增量式 Node.js 測試快取：md5(VERSION+RULES_DB)[:16] 為快取鍵，不變時跳過 Node.js 執行，加速反覆構建流程。
+- [Privacy] 封堵 Alexa Metrics 追蹤盲區：將 `/atrk.` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` L1 掃描器，防堵惡意腳本寄生於 CloudFront 等 CDN 服務時，不慎觸發軟白名單與靜態副檔名的雙重豁免漏洞。
+- [Perf] iHerb Optimizely 重試風暴防治：`logx.optimizely.com/v1/events` 升級為 MAP DROP 204 靜默拋棄，引擎新增 P0 域名 MAP DROP 前置檢查。
 """
 
 # ==========================================
@@ -359,7 +357,7 @@ RULES_DB = {
         'main-ad.', 'scevent.min.', 'showcoverad.', 'sp.js', 'tracker.js', 'tracking-api.',
         'tracking.js', 'user-id.', 'user-timing.', 'wcslog.', 'jslog.min.', 'device-uuid.',
         '/plugins/advanced-ads', '/plugins/adrotate',
-        'gad_script.'
+        'gad_script.', '/atrk.'
     ],
     "CRITICAL_PATH_SCRIPT_REGEX_RAW": [
         r"\/wp-content\/plugins\/[^\/]+\/.*(?:ads|ad-inserter|advanced-ads|ipa|quads)\.js(?:\?|$)",
@@ -369,6 +367,7 @@ RULES_DB = {
     ],
     "CRITICAL_PATH_MAP": {
         'statsig.anthropic.com': ['DROP:/v1/rgstr'],
+        'logx.optimizely.com': ['DROP:/v1/events'],
         'o.alicdn.com': ['/tongyi-fe/lib/cnzz/c.js', '/tongyi-fe/lib/cnzz/z.js'],
         'qwen-api.zaodian.com': ['/api/app/template/v1/feed'],
         'file.chinatimes.com': ['/ad-param.json'],
@@ -1053,6 +1052,15 @@ function processRequest(request) {
     }
 
     if (hostProfile.isPriorityBlocked) {
+      const _earlyMap = getCriticalBlockedPaths(hostname);
+      if (_earlyMap) {
+        for (const bp of _earlyMap) {
+          if (bp && bp.startsWith('DROP:') && pathLower.includes(bp.substring(5))) {
+            stats.blocks++;
+            return { response: { status: 204 } };
+          }
+        }
+      }
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked by P0' } };
     }
@@ -2451,6 +2459,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("E2E: Internal Nav Rewrite", "https://static.104.com.tw/ad.json", RES_REWRITE, "模擬擷取 JSON 後點擊，觸發第二階段靜默重寫", is_e2e=True, e2e_target_url="https://guide.104.com.tw/career/compare/major/?utm_source=104&utm_medium=whitebar"))
     cases.append(TestCase("E2E: Malicious Payload Block", "https://static.104.com.tw/ad.json", RES_BLOCK_403, "模擬 JSON 內遭植入第三方追蹤並點擊，觸發 L1 攔截", is_e2e=True, e2e_target_url="https://googleadservices.com/track/click"))
     cases.append(TestCase("E2E: URL Fragment Bypass", "https://static.104.com.tw/ad.json", RES_ALLOW, "模擬 HTTP Hash 參數剝離物理限制", is_e2e=True, e2e_target_url="https://guide.104.com.tw/#/test?fbclid=123"))
+
+    # --- V45.18 iHerb App Optimizely 事件追蹤 & Alexa Metrics CDN 寄生盲區 ---
+    cases.append(TestCase("Privacy: Optimizely Event Telemetry (iHerb)", "https://logx.optimizely.com/v1/events", RES_DROP_204, "iHerb App 瘋狂打的 Optimizely 事件端點，MAP DROP 前置攔截避免 403 重試風暴"))
+    cases.append(TestCase("Privacy: Alexa Metrics (CDN Parasite)", "https://d31qbv1cthcecs.cloudfront.net/atrk.js", RES_BLOCK_403, "精準命中 L1 掃描，強制阻斷寄生於 CDN 的追蹤腳本"))
 
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
