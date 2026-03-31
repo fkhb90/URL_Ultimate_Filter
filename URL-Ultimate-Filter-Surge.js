@@ -1,10 +1,10 @@
 /**
  * @file      URL-Ultimate-Filter-Surge.js
- * @version   45.13 (SSOT Compilation)
+ * @version   45.14 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.13';
+const SCRIPT_VERSION = '45.14';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
