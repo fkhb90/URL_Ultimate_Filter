@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.13
+// @name         URL Ultimate Filter V45.14
 // @namespace    http://tampermonkey.net/
-// @version      45.13
+// @version      45.14
 // @description  SSOT 前端防護盾牌，專業級 UI：極簡盾牌圖示、獨立計數器、點擊外部自動收合機制。
 // @author       Jerry
 // @match        *://*/*
@@ -13,11 +13,11 @@
     'use strict';
 /**
  * @file      URL-Ultimate-Filter-Tampermonkey.js
- * @version   45.13 (SSOT Compilation)
+ * @version   45.14 (SSOT Compilation)
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.13';
+const SCRIPT_VERSION = '45.14';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {

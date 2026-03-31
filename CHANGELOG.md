@@ -1,5 +1,13 @@
 # URL Ultimate Filter - Changelog
 
+## V45.14 - 2026-03-31
+- [Infra] 嚴格化 evaluate_result：移除 403↔204 互相容忍邏輯，每種預期結果只接受精確匹配，消除掩蓋迴歸的假陽性。
+- [Infra] 修復測試去重鍵：category+url → category+url+expected，防止相同 URL 不同預期的測試案例被意外丟棄。
+- [Infra] 補齊測試覆蓋：BLOCK_DOMAINS_REGEX 全正則含匹配/非匹配；CRITICAL_PATH_MAP 每條目補子域名繼承測試；PARAMS_PREFIXES 從硬編碼 17 項擴展為自動遍歷全部 46 項。
+- [Infra] JS 格式化函式補齊單引號與反斜線逸出（_js_str_escape），防止特殊字元破壞編譯輸出。
+- [Infra] p.communicate() 新增 120 秒超時保護 + kill，防止 Node.js runner 無限掛起。
+- [Cleanup] 移除死碼 hasattr(p, 'substring')，改用直接 p[5:] 切片。
+
 ## V45.13 - 2026-03-31
 - [BugFix] Tampermonkey fetch 攔截器補齊 302 淨化回應處理：正確從 action.response.headers.Location 提取清除後的 URL，確保追蹤參數在 Tampermonkey 版本中確實被剝離。
 - [BugFix] Tampermonkey XHR 攔截器補齊 302 淨化回應處理：open() 方法正確重寫請求 URL 以移除追蹤參數。
