@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.16
+ * @version 45.17
  * @date    2026-03-31
  * @rules   1336 total (275 domains, 276 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.16';
-const SCRIPT_BUILD = 'V45.16 (2026-03-31) | 1336 rules | 2511 tests';
+const SCRIPT_VERSION = '45.17';
+const SCRIPT_BUILD = 'V45.17 (2026-03-31) | 1336 rules | 2511 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -766,7 +766,16 @@ class HighPerformanceLRUCache {
     return entry.value;
   }
   set(key, value, ttl = 300000) {
-    if (this.cache.size >= this.limit) this.cache.delete(this.cache.keys().next().value);
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.limit) {
+      const now = Date.now();
+      let evicted = false;
+      for (const [k, v] of this.cache) {
+        if (now > v.expiry) { this.cache.delete(k); evicted = true; break; }
+      }
+      if (!evicted) this.cache.delete(this.cache.keys().next().value);
+    }
     this.cache.set(key, { value, expiry: Date.now() + ttl });
   }
 }
@@ -775,6 +784,7 @@ const highConfidenceScanner = new CompiledScanner(PRECOMPILED_SCANNERS.HIGH_CONF
 const pathScanner = new CompiledScanner(PRECOMPILED_SCANNERS.PATH_BLOCK);
 const criticalPathScanner = new CompiledScanner(PRECOMPILED_SCANNERS.CRITICAL_PATH);
 const COMBINED_PATH_REGEX = [...RULES.REGEX.PATH_BLOCK, ...RULES.REGEX.HEURISTIC];
+const COMBINED_PATH_SCANNER = new RegExp(COMBINED_PATH_REGEX.map(r => r.source).join('|'), 'i');
 const OAUTH_PATHS_REGEX = OAUTH_SAFE_HARBOR.PATHS_REGEX;
 const API_SIGNATURE_BYPASS_REGEX = RULES.REGEX.API_SIGNATURE_BYPASS;
 const BLOCK_DOMAINS_REGEX = RULES.BLOCK_DOMAINS_REGEX;
@@ -1151,7 +1161,7 @@ function processRequest(request) {
         stats.blocks++;
         return { response: { status: 403, body: 'Blocked by Keyword' } };
       }
-      if (matchesAnyRegex(COMBINED_PATH_REGEX, pathLower)) {
+      if (COMBINED_PATH_SCANNER.test(pathLower)) {
         stats.blocks++;
         return { response: { status: 403, body: 'Blocked by Regex' } };
       }
