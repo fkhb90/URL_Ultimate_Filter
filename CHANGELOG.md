@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V45.18 - 2026-03-31
+- [Privacy] 封堵 Alexa Metrics 追蹤盲區：將 `/atrk.` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` L1 掃描器，防堵惡意腳本寄生於 CloudFront 等 CDN 服務時，不慎觸發軟白名單與靜態副檔名的雙重豁免漏洞。
+- [Perf] iHerb Optimizely 重試風暴防治：`logx.optimizely.com/v1/events` 升級為 MAP DROP 204 靜默拋棄，引擎新增 P0 域名 MAP DROP 前置檢查。
+
 ## V45.17 - 2026-03-31
 - [Perf] LRU Cache set() 修復：重複鍵先刪後插以刷新 Map 插入順序（LRU 淘汰順序），淘汰邏輯優先驅逐過期條目，其次才移除最舊條目。
 - [Perf] COMBINED_PATH_SCANNER：PATH_BLOCK + HEURISTIC regex 於模組載入時合併為單一 RegExp，取代每請求逐條迴圈的 matchesAnyRegex，減少 CPU 開銷。
