@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V45.17 - 2026-03-31
+- [Perf] LRU Cache set() 修復：重複鍵先刪後插以刷新 Map 插入順序（LRU 淘汰順序），淘汰邏輯優先驅逐過期條目，其次才移除最舊條目。
+- [Perf] COMBINED_PATH_SCANNER：PATH_BLOCK + HEURISTIC regex 於模組載入時合併為單一 RegExp，取代每請求逐條迴圈的 matchesAnyRegex，減少 CPU 開銷。
+- [Perf] 增量式 Node.js 測試快取：md5(VERSION+RULES_DB)[:16] 為快取鍵，不變時跳過 Node.js 執行，加速反覆構建流程。
+
 ## V45.16 - 2026-03-31
 - [Feature] SCRIPT_BUILD 補充測試案例數，格式：'V{VERSION} ({DATE}) | {N} rules | {M} tests'。
 - [Feature] 測試案例數透過佔位符 __SSOT_TEST_COUNT__ 在 run_tests() 通過後回填，失敗時不寫入 JS，確保 deployed artifact 只含真實驗證數字。
