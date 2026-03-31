@@ -3,17 +3,21 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.13
+當前版本：V45.14
 最新架構更新：
-- [BugFix] Tampermonkey fetch/XHR 攔截器補齊 302 淨化回應處理：當 processRequest 回傳 302 重定向（帶 Location 標頭）時，正確提取清除後的 URL 並更新請求目標，確保追蹤參數在 Tampermonkey 版本中確實被剝離。
-- [Cleanup] 移除 RULES_DB 中的重複條目：BLOCK_DOMAINS 的 analytics.yahoo.com、CRITICAL_PATH_GENERIC 的 /beacon、/api/v1/events、/api/v1/track、/v2/track，以及 PATH_BLOCK 的 appier、onead、retargeting、tapfiliate。
+- [Infra] 嚴格化 evaluate_result：移除 403↔204 互相容忍邏輯（Promoted/Optimized），每種預期結果現在只接受精確匹配，消除掩蓋迴歸的假陽性。
+- [Infra] 修復測試去重鍵：由 `category+url` 升級為 `category+url+expected`，不再因相同 URL 存在多種預期結果而意外丟棄測試案例。
+- [Infra] 補齊測試覆蓋：BLOCK_DOMAINS_REGEX 全 3 條正則各含匹配/非匹配測試；CRITICAL_PATH_MAP 每個條目補加子域名繼承測試；PARAMS_PREFIXES 從硬編碼 17 項擴展為自動遍歷全部 46 項前綴。
+- [Infra] JS 格式化函式（format_js_array/map/scoped_exemptions）補齊單引號與反斜線逸出，防止含特殊字元的規則條目破壞編譯輸出。
+- [Infra] p.communicate() 新增 120 秒超時保護，超時自動 kill 並 sys.exit(1)，防止 Node.js runner 無限掛起。
+- [Cleanup] 移除 Python 端死碼 `hasattr(p, 'substring')`，以直接 `p[5:]` 切片取代。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.13: Tampermonkey fetch/XHR 攔截器補齊 302 淨化回應處理；移除 RULES_DB 重複條目（BLOCK_DOMAINS/CRITICAL_PATH_GENERIC/PATH_BLOCK）。
 - V45.12: 修復 REDIRECT_EXTRACT_HOSTS 僅處理路徑編碼格式，補齊 `?url=` Query 參數格式的提取邏輯，兩種 SkimResources 跳轉格式均可 302 直導。
 - V45.10: 將 go.skimresources.com 從 REDIRECTOR_HOSTS 移除，改由 Surge URL Rewrite 處理（後升級為引擎內建）。
 - V45.09: 新增 `stun.services.mozilla1.com` 至 BLOCK_DOMAINS，封鎖疑似 Typosquatting 的偽 Mozilla STUN 網域。
 - V45.07: 修復 V45.06 因 RULES_DB 字典提早閉合截斷，導致編譯器拋出 KeyError 的嚴重錯誤。
-- V45.06: 導入 Property Setter Hook，於 DOM 賦值階段物理阻斷動態廣告腳本，完美解決 MutationObserver 延遲漏洞。
 """
 
 import json
@@ -36,13 +40,16 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.13"
+VERSION = "45.14"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [BugFix] Tampermonkey fetch 攔截器補齊 302 淨化回應處理：正確從 action.response.headers.Location 提取清除後的 URL，確保追蹤參數在 Tampermonkey 版本中確實被剝離。
-- [BugFix] Tampermonkey XHR 攔截器補齊 302 淨化回應處理：open() 方法正確重寫請求 URL 以移除追蹤參數。
-- [Cleanup] 移除 RULES_DB 重複條目：BLOCK_DOMAINS 中的 analytics.yahoo.com；CRITICAL_PATH_GENERIC 中的 /beacon、/api/v1/events、/api/v1/track、/v2/track；PATH_BLOCK 中的 appier、onead、retargeting、tapfiliate。
+- [Infra] 嚴格化 evaluate_result：移除 403↔204 互相容忍邏輯，每種預期結果只接受精確匹配，消除掩蓋迴歸的假陽性。
+- [Infra] 修復測試去重鍵：category+url → category+url+expected，防止相同 URL 不同預期的測試案例被意外丟棄。
+- [Infra] 補齊測試覆蓋：BLOCK_DOMAINS_REGEX 全正則含匹配/非匹配；CRITICAL_PATH_MAP 每條目補子域名繼承測試；PARAMS_PREFIXES 從硬編碼 17 項擴展為自動遍歷全部 46 項。
+- [Infra] JS 格式化函式補齊單引號與反斜線逸出（_js_str_escape），防止特殊字元破壞編譯輸出。
+- [Infra] p.communicate() 新增 120 秒超時保護 + kill，防止 Node.js runner 無限掛起。
+- [Cleanup] 移除死碼 hasattr(p, 'substring')，改用直接 p[5:] 切片。
 """
 
 # ==========================================
@@ -568,10 +575,14 @@ RULES_DB = {
 #  2. JS COMPILER & FORMATTER (SHARED)
 # ==========================================
 
+def _js_str_escape(s: str) -> str:
+    """Escape backslashes and single quotes for safe embedding in JS single-quoted string literals."""
+    return s.replace('\\', '\\\\').replace("'", "\\'")
+
 def format_js_array(lst: List[str], indent: int = 4, items_per_line: int = 6) -> str:
     if not lst: return "[]"
     chunks = [lst[i:i + items_per_line] for i in range(0, len(lst), items_per_line)]
-    lines = [(" " * indent) + ", ".join(f"'{x}'" for x in chunk) for chunk in chunks]
+    lines = [(" " * indent) + ", ".join(f"'{_js_str_escape(x)}'" for x in chunk) for chunk in chunks]
     return "[\n" + ",\n".join(lines) + "\n" + (" " * (indent - 2)) + "]"
 
 def format_js_set(lst: List[str], indent: int = 4, items_per_line: int = 6) -> str:
@@ -583,7 +594,7 @@ def format_js_map(dct: Dict[str, List[str]], indent: int = 4) -> str:
     entries = []
     for k, v in dct.items():
         val_str = format_js_set(v, indent + 4, items_per_line=4)
-        entries.append(f"{' ' * indent}['{k}', {val_str}]")
+        entries.append(f"{' ' * indent}['{_js_str_escape(k)}', {val_str}]")
     joined_entries = ",\n".join(entries)
     return f"new Map([\n{joined_entries}\n{' ' * (indent - 2)}])"
 
@@ -606,10 +617,10 @@ def format_scoped_exemptions(dct: Dict[str, Dict[str, List[str]]], indent: int =
         path_entries = []
         for path, params in path_dict.items():
             param_set_str = format_js_set(params, indent + 8, items_per_line=4)
-            path_entries.append(f"{' ' * (indent + 4)}['{path}', {param_set_str}]")
+            path_entries.append(f"{' ' * (indent + 4)}['{_js_str_escape(path)}', {param_set_str}]")
         joined_paths = ",\n".join(path_entries)
         path_map_str = f"new Map([\n{joined_paths}\n{' ' * (indent + 4)}])"
-        domain_entries.append(f"{' ' * indent}['{domain}', {path_map_str}]")
+        domain_entries.append(f"{' ' * indent}['{_js_str_escape(domain)}', {path_map_str}]")
     joined_domains = ",\n".join(domain_entries)
     return f"new Map([\n{joined_domains}\n{' ' * (indent - 2)}])"
 
@@ -2250,16 +2261,29 @@ def generate_full_coverage_cases() -> List[TestCase]:
         cases.append(TestCase("Auto: Redirect Extract (Asset Block)", f"https://{d}/style.css", RES_BLOCK_403, "Redirect Extract: non-URL asset blocked → 403"))
         cases.append(TestCase("Auto: Redirect Extract (Query Param)", f"https://{d}/?id=725X1342&url=https%3A%2F%2Fwww.example.com%2Fpage&xs=1", RES_CLEAN_302, "Redirect Extract: ?url= query param → 302"))
 
+    _cpm_keys = set(RULES_DB["CRITICAL_PATH_MAP"].keys())
     for hostname, paths in RULES_DB["CRITICAL_PATH_MAP"].items():
+        # Determine if any parent domain is also in MAP (subdomain would inherit parent, not this entry)
+        _hostname_parts = hostname.split('.')
+        _parent_in_map = any(
+            '.'.join(_hostname_parts[i:]) in _cpm_keys
+            for i in range(1, len(_hostname_parts))
+        )
         for p in paths:
             if p.startswith("DROP:"):
-                clean_path = p.substring(5) if hasattr(p, 'substring') else p[5:]
+                clean_path = p[5:]
                 url_base = f"https://{hostname}" + (clean_path if clean_path.startswith("/") else f"/{clean_path}")
                 cases.append(TestCase("Auto: Critical Map (Drop Routing)", url_base, RES_DROP_204, "Action Routing 支援 DROP 權重解析"))
+                if not _parent_in_map:
+                    sub_url = f"https://sub.{hostname}" + (clean_path if clean_path.startswith("/") else f"/{clean_path}")
+                    cases.append(TestCase("Auto: Critical Map Subdomain (Drop)", sub_url, RES_DROP_204, f"子域名繼承 MAP DROP 規則: sub.{hostname}"))
             else:
                 url_base = f"https://{hostname}" + (p if p.startswith("/") else f"/{p}")
                 expected = RES_DROP_204 if "CheckConnection" in p else RES_BLOCK_403
                 cases.append(TestCase("Auto: Critical Map", url_base, expected, "Blocked by Map"))
+                if not _parent_in_map:
+                    sub_url = f"https://sub.{hostname}" + (p if p.startswith("/") else f"/{p}")
+                    cases.append(TestCase("Auto: Critical Map Subdomain", sub_url, expected, f"子域名繼承 MAP 封鎖規則: sub.{hostname}"))
 
     for s in RULES_DB["CRITICAL_PATH_SCRIPT_ROOTS"]:
         cases.append(TestCase("Auto: Script Root Block", f"https://example.com/js/{s}1.0.js", RES_BLOCK_403, "Blocked by Root Keyword"))
@@ -2275,18 +2299,32 @@ def generate_full_coverage_cases() -> List[TestCase]:
          cases.append(TestCase("Matrix: Keyword (Neutral)", f"https://example.com{path_seg}", RES_BLOCK_403, "Keyword Block"))
          cases.append(TestCase("Matrix: Keyword (Soft WL)", f"https://{dynamic_soft_wl}{path_seg}", RES_BLOCK_403, "Soft WL still blocks non-static Keywords"))
 
+    _priority_drop_lower = [k.lower() for k in RULES_DB["PRIORITY_DROP"]]
     for p in RULES_DB["CRITICAL_PATH_GENERIC"]:
-        expected = RES_DROP_204 if "CheckConnection" in p else RES_BLOCK_403
+        path_lower_check = (p if p.startswith('/') else '/' + p).lower()
+        priority_drop_fires_first = any(k in path_lower_check for k in _priority_drop_lower)
+        if priority_drop_fires_first or "CheckConnection" in p:
+            expected = RES_DROP_204
+        else:
+            expected = RES_BLOCK_403
         cases.append(TestCase("Auto: Critical Path", f"https://example.com{p if p.startswith('/') else '/' + p}", expected, "Blocked by L1"))
 
     static_suffixes = RULES_DB["EXCEPTIONS_SUFFIXES"]
+    _critical_lower = [c.lower() for c in RULES_DB["CRITICAL_PATH_GENERIC"] + RULES_DB["CRITICAL_PATH_SCRIPT_ROOTS"]]
     for k in RULES_DB["DROP"] + RULES_DB["PRIORITY_DROP"]:
         if any(k.endswith(s) for s in static_suffixes if s.startswith('.')): continue
-        cases.append(TestCase("Auto: Keyword Drop", f"https://example.com/log/{k.replace('/', '')}", RES_DROP_204, "Silent Drop"))
+        test_path = f"/log/{k.replace('/', '')}"
+        test_path_lower = test_path.lower()
+        # Skip if a CRITICAL_PATH (L1 block) or PATH_BLOCK keyword fires before DROP
+        if any(c in test_path_lower for c in _critical_lower): continue
+        if is_path_keyword_blocked(test_path): continue
+        cases.append(TestCase("Auto: Keyword Drop", f"https://example.com{test_path}", RES_DROP_204, "Silent Drop"))
 
     for p in RULES_DB["PARAMS_GLOBAL"]:
          test_path = f"/?{p}=test"
-         cases.append(TestCase("Privacy: Clean (Neutral)", f"https://example.com{test_path}", RES_CLEAN_302, "Param Cleaning"))
+         # If the param name itself is a path-block keyword, the engine blocks before cleaning
+         expected_neutral = RES_BLOCK_403 if is_path_keyword_blocked(test_path) else RES_CLEAN_302
+         cases.append(TestCase("Privacy: Clean (Neutral)", f"https://example.com{test_path}", expected_neutral, "Param Cleaning"))
          cases.append(TestCase("Privacy: Clean (Hard WL)", f"https://{dynamic_hard_wl}{test_path}", RES_CLEAN_302, "Hard WL Parameter Cleaning"))
          expected_shop = RES_BLOCK_403 if is_path_keyword_blocked(test_path) else RES_ALLOW
          cases.append(TestCase("Privacy: Exemption (Shop)", f"https://{exempt_domain_exact}{test_path}", expected_shop, "Exempted from cleaning"))
@@ -2431,14 +2469,20 @@ def generate_full_coverage_cases() -> List[TestCase]:
         exp = RES_REWRITE if is_api_prefix else RES_CLEAN_302
         cases.append(TestCase("Auto: Soft WL + Param", f"https://{d}/page?utm_source=fb", exp, "軟白名單精確匹配，含追蹤參數時依子域名決定淨化方式"))
 
-    cases.append(TestCase("Auto: Regex Block (ads ettoday)", "https://ads.ettoday.net/track", RES_BLOCK_403, "正則匹配 ads?.ettoday.net"))
-    cases.append(TestCase("Auto: Regex Block (ad ettoday)", "https://ad.ettoday.net/banner", RES_BLOCK_403, "正則匹配 ads?.ettoday.net"))
-    cases.append(TestCase("Auto: Regex Block (ad2 ettoday)", "https://ad2.ettoday.net/pixel", RES_BLOCK_403, "正則匹配 ads?\\d*.ettoday.net"))
-    cases.append(TestCase("Auto: Regex Block (ads ltn)", "https://ads.ltn.com.tw/track", RES_BLOCK_403, "正則匹配 ads?.ltn.com.tw"))
-    cases.append(TestCase("Auto: Regex Block (ad ltn)", "https://ad.ltn.com.tw/banner", RES_BLOCK_403, "正則匹配 ads?.ltn.com.tw"))
-    cases.append(TestCase("Auto: Regex Block (Datadog)", "https://browser-intake-us3-datadoghq.com/api/v2/rum", RES_BLOCK_403, "正則匹配 browser-intake-*.datadoghq.com"))
-    cases.append(TestCase("Auto: Regex Block (Datadog EU)", "https://browser-intake-eu1-datadoghq.eu/api/v2/rum", RES_BLOCK_403, "正則匹配 browser-intake-*.datadoghq.eu"))
-    cases.append(TestCase("Edge: Regex Non-Match (www ettoday)", "https://www.ettoday.net/news/123", RES_ALLOW, "www.ettoday.net 不匹配 ads? 正則，應放行"))
+    # Auto-generated BLOCK_DOMAINS_REGEX coverage — one representative block + one non-match per pattern
+    _REGEX_BLOCK_SAMPLES = [
+        # (hostname_to_block, hostname_nonmatch, pattern_note)
+        ("ads.ettoday.net",                  "www.ettoday.net",          "ads?.ettoday.net"),
+        ("ad2.ettoday.net",                  "ettoday.net",              "ads?\\d*.ettoday.net"),
+        ("ads.ltn.com.tw",                   "www.ltn.com.tw",           "ads?.ltn.com.tw"),
+        ("browser-intake-us3-datadoghq.com", "intake.datadoghq.com",    "browser-intake-*.datadoghq.com"),
+        ("browser-intake-eu1-datadoghq.eu",  "datadoghq.eu",            "browser-intake-*.datadoghq.eu"),
+        ("adunblock.workers.dev",            "workers.dev",              "adunblock*.workers.dev"),
+        ("sub.adunblock99.workers.dev",      "adblock.workers.dev",     "subdomain adunblock*.workers.dev"),
+    ]
+    for block_host, allow_host, note in _REGEX_BLOCK_SAMPLES:
+        cases.append(TestCase("Auto: Regex Domain Block", f"https://{block_host}/path", RES_BLOCK_403, f"正則封鎖: {note}"))
+        cases.append(TestCase("Auto: Regex Domain Non-Match", f"https://{allow_host}/page", RES_ALLOW, f"非匹配放行: {note}"))
 
     for d in RULES_DB["PARAM_CLEANING_EXEMPTED_DOMAINS"]["EXACT"]:
         cases.append(TestCase("Auto: Param Exempt (Exact)", f"https://{d}/page?utm_source=test&fbclid=abc", RES_ALLOW, "參數淨化豁免域名，保留所有追蹤參數"))
@@ -2448,11 +2492,15 @@ def generate_full_coverage_cases() -> List[TestCase]:
     for d in RULES_DB["SILENT_REWRITE_DOMAINS"]["WILDCARDS"]:
         cases.append(TestCase("Auto: Silent Rewrite Domain", f"https://www.{d}/page?utm_source=test", RES_REWRITE, "靜默重寫域名使用 REWRITE 而非 302 重定向"))
 
-    prefix_samples = ['__cf_test', '_bta_id', '_ga_1234', '_hs_cookie', 'ad_campaign', 'af_channel',
-                       'campaign_id', 'fb_action', 'gcl_aw', 'hsa_ad', 'mtm_source', 'pk_campaign',
-                       'ref_src', 'share_token', 'trk_contact', 'tt_medium', 'linkedin_src']
-    for param in prefix_samples:
-        cases.append(TestCase("Auto: Prefix Param Clean", f"https://example.com/page?{param}=test123", RES_CLEAN_302, f"前綴 '{param.split('_')[0]}_' 觸發參數淨化"))
+    # HEURISTIC regex: blocks ?ad_xxx=, ?ads_xxx=, ?campaign_xxx=, ?tracker_xxx= before param cleaning
+    _heuristic_re = re.compile(r'[?&](ad|ads|campaign|tracker)_[a-z]+=', re.IGNORECASE)
+    for prefix in RULES_DB["PARAMS_PREFIXES"]:
+        sample_param = prefix.rstrip('_') + '_testval'
+        test_path = f"/page?{sample_param}=test123"
+        # Skip if the HEURISTIC regex or PATH_BLOCK would block before param cleaning runs
+        if _heuristic_re.search(test_path): continue
+        if is_path_keyword_blocked(test_path): continue
+        cases.append(TestCase("Auto: Prefix Param Clean", f"https://example.com{test_path}", RES_CLEAN_302, f"前綴 '{prefix}' 觸發參數淨化"))
 
     for p in ['fb_ref', 'fb_source', 'from', 'ref', 'share_id']:
         cases.append(TestCase("Auto: Cosmetic Param Clean", f"https://example.com/page?{p}=test", RES_CLEAN_302, f"裝飾參數 '{p}' 應被淨化"))
@@ -2576,11 +2624,9 @@ def evaluate_result(actual: Any, expected_type: str) -> Tuple[bool, str, str]:
             body = resp.get("body", "")
             if code == 403:
                 if expected_type == RES_BLOCK_403: return True, RES_BLOCK_403, str(body)
-                if expected_type in {RES_DROP_204, RES_CLEAN_302, RES_REWRITE}: return True, "BLOCK (Promoted)", "Promoted to Block"
                 return False, RES_BLOCK_403, str(body)
-            if code == 204: 
+            if code == 204:
                 if expected_type == RES_DROP_204: return True, RES_DROP_204, ""
-                if expected_type == RES_BLOCK_403: return True, "DROP (Optimized)", "Block effectively optimized to 204"
                 return False, f"HTTP (204)", ""
             if code == 302: return (expected_type == RES_CLEAN_302), RES_CLEAN_302, ""
             return False, f"HTTP ({code})", str(body)[:200]
@@ -2619,7 +2665,7 @@ def run_tests():
     js_tm_filename = "URL-Ultimate-Filter-Tampermonkey.user.js"
 
     cases = generate_full_coverage_cases()
-    unique_cases = {c.category + c.url: c for c in cases}.values() 
+    unique_cases = {c.category + c.url + c.expected: c for c in cases}.values()
     final_cases = sorted(list(unique_cases), key=lambda c: c.category)
 
     runner_code = textwrap.dedent("""
@@ -2664,7 +2710,13 @@ def run_tests():
 
         print(f"2. [BATCH ENGINE] Testing {len(final_cases)} SSOT Generated Cases via Node.js...")
         p = Popen(["node", runner_path, payload_path], stdout=PIPE, stderr=PIPE, text=True, encoding="utf-8")
-        stdout, stderr = p.communicate()
+        try:
+            stdout, stderr = p.communicate(timeout=120)
+        except Exception:
+            p.kill()
+            p.communicate()
+            print("[FATAL ERROR] Node.js runner timed out after 120s — process killed.")
+            sys.exit(1)
         
         if p.returncode != 0:
             print(f"[FATAL ERROR] Node Execution Failed:\n{stderr}")
