@@ -3,20 +3,21 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.16 (2026-03-31)
+當前版本：V45.17 (2026-03-31)
 最新架構更新：
-- [Feature] SCRIPT_BUILD 補充測試案例數：格式升級為 `V{VERSION} ({DATE}) | {N} rules | {M} tests`，其中 M 為本次構建實際通過的測試案例數，測試通過後回填，失敗時不寫入 JS。
-- [Feature] 使用佔位符 `__SSOT_TEST_COUNT__` 於編譯期注入，`run_tests()` 通過後以 `str(total)` 替換，確保部署的 JS 永遠只含真實通過數字。
+- [Perf] LRU Cache set() 修復：重複鍵命中時先刪除舊節點再重插，確保 Map 插入順序（LRU 順序）正確更新；淘汰策略優先驅逐已過期條目，無過期條目時才移除最舊條目。
+- [Perf] COMBINED_PATH_SCANNER：將 COMBINED_PATH_REGEX 陣列於模組載入時一次性合併編譯為單一 RegExp（`new RegExp(...join('|'), 'i')`），取代原本逐條迴圈的 matchesAnyRegex；減少每次請求的正則物件重建開銷。
+- [Perf] 增量式 Node.js 測試快取：以 `md5(VERSION + RULES_DB)[:16]` 為鍵，首次執行後將 Node.js 結果持久化至 `_node_cache_<key>.json`；RULES_DB 或 VERSION 不變時直接載入快取，跳過 Node.js 執行，大幅縮短反覆構建的等待時間。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.16 (2026-03-31): SCRIPT_BUILD 補充測試案例數：格式升級為 `V{VERSION} ({DATE}) | {N} rules | {M} tests`，使用佔位符 `__SSOT_TEST_COUNT__` 編譯期注入，測試通過後回填，失敗時不寫入 JS。
 - V45.15 (2026-03-31): 新增 RELEASE_DATE、RULES_STATS/TOTAL_RULE_COUNT；JS 標頭補 @date/@rules；TM 元資料補 @date/@rules；SCRIPT_BUILD 常數；編譯器啟動規則統計摘要。
 - V45.14 (2026-03-31): 基礎設施強化：evaluate_result 嚴格化、去重鍵修復、全 PARAMS_PREFIXES 覆蓋、CRITICAL_PATH_MAP 子域名繼承測試、JS formatter 逸出、p.communicate() 超時保護。
 - V45.13 (2026-03-31): Tampermonkey fetch/XHR 攔截器補齊 302 淨化回應處理；移除 RULES_DB 重複條目（BLOCK_DOMAINS/CRITICAL_PATH_GENERIC/PATH_BLOCK）。
 - V45.12: 修復 REDIRECT_EXTRACT_HOSTS 僅處理路徑編碼格式，補齊 `?url=` Query 參數格式的提取邏輯，兩種 SkimResources 跳轉格式均可 302 直導。
-- V45.10: 將 go.skimresources.com 從 REDIRECTOR_HOSTS 移除，改由 Surge URL Rewrite 處理（後升級為引擎內建）。
-- V45.09: 新增 `stun.services.mozilla1.com` 至 BLOCK_DOMAINS，封鎖疑似 Typosquatting 的偽 Mozilla STUN 網域。
 """
 
+import hashlib
 import json
 import os
 import sys
@@ -37,13 +38,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.16"
+VERSION = "45.17"
 RELEASE_DATE = "2026-03-31"  # 當前版本發布日期（每次發版需與 VERSION 同步更新）
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Feature] SCRIPT_BUILD 補充測試案例數，格式：'V{VERSION} ({DATE}) | {N} rules | {M} tests'。
-- [Feature] 測試案例數透過佔位符 __SSOT_TEST_COUNT__ 在 run_tests() 通過後回填，失敗時不寫入 JS，確保 deployed artifact 只含真實驗證數字。
+- [Perf] LRU Cache set() 修復：重複鍵先刪後插以刷新 Map 插入順序（LRU 淘汰順序），淘汰邏輯優先驅逐過期條目，其次才移除最舊條目。
+- [Perf] COMBINED_PATH_SCANNER：PATH_BLOCK + HEURISTIC regex 於模組載入時合併為單一 RegExp，取代每請求逐條迴圈的 matchesAnyRegex，減少 CPU 開銷。
+- [Perf] 增量式 Node.js 測試快取：md5(VERSION+RULES_DB)[:16] 為快取鍵，不變時跳過 Node.js 執行，加速反覆構建流程。
 """
 
 # ==========================================
@@ -768,7 +770,16 @@ class HighPerformanceLRUCache {
     return entry.value;
   }
   set(key, value, ttl = 300000) {
-    if (this.cache.size >= this.limit) this.cache.delete(this.cache.keys().next().value);
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.limit) {
+      const now = Date.now();
+      let evicted = false;
+      for (const [k, v] of this.cache) {
+        if (now > v.expiry) { this.cache.delete(k); evicted = true; break; }
+      }
+      if (!evicted) this.cache.delete(this.cache.keys().next().value);
+    }
     this.cache.set(key, { value, expiry: Date.now() + ttl });
   }
 }
@@ -777,6 +788,7 @@ const highConfidenceScanner = new CompiledScanner(PRECOMPILED_SCANNERS.HIGH_CONF
 const pathScanner = new CompiledScanner(PRECOMPILED_SCANNERS.PATH_BLOCK);
 const criticalPathScanner = new CompiledScanner(PRECOMPILED_SCANNERS.CRITICAL_PATH);
 const COMBINED_PATH_REGEX = [...RULES.REGEX.PATH_BLOCK, ...RULES.REGEX.HEURISTIC];
+const COMBINED_PATH_SCANNER = new RegExp(COMBINED_PATH_REGEX.map(r => r.source).join('|'), 'i');
 const OAUTH_PATHS_REGEX = OAUTH_SAFE_HARBOR.PATHS_REGEX;
 const API_SIGNATURE_BYPASS_REGEX = RULES.REGEX.API_SIGNATURE_BYPASS;
 const BLOCK_DOMAINS_REGEX = RULES.BLOCK_DOMAINS_REGEX;
@@ -1153,7 +1165,7 @@ function processRequest(request) {
         stats.blocks++;
         return { response: { status: 403, body: 'Blocked by Keyword' } };
       }
-      if (matchesAnyRegex(COMBINED_PATH_REGEX, pathLower)) {
+      if (COMBINED_PATH_SCANNER.test(pathLower)) {
         stats.blocks++;
         return { response: { status: 403, body: 'Blocked by Regex' } };
       }
@@ -2669,6 +2681,38 @@ def update_changelog():
         changelog_path.write_text(header + new_entry, encoding="utf-8")
         print(f"📝 創建了新的 CHANGELOG.md 並寫入 V{VERSION} 記錄")
 
+# ==========================================
+#  INCREMENTAL NODE.JS TEST CACHE HELPERS
+# ==========================================
+
+def _compute_node_cache_key() -> str:
+    """Compute a 16-char MD5 fingerprint of VERSION + RULES_DB.
+    Any rule edit or version bump produces a different key, invalidating the cache."""
+    raw = VERSION + json.dumps(RULES_DB, sort_keys=True, ensure_ascii=False)
+    return hashlib.md5(raw.encode("utf-8")).hexdigest()[:16]
+
+def _node_cache_path(key: str) -> Path:
+    return Path(f"_node_cache_{key}.json")
+
+def _load_node_cache(key: str) -> Optional[List[dict]]:
+    """Return cached Node.js results list if a valid cache file exists, else None."""
+    p = _node_cache_path(key)
+    if p.exists():
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return None
+
+def _save_node_cache(key: str, results: List[dict]) -> None:
+    """Persist Node.js results and purge any stale cache files from previous builds."""
+    for old in Path(".").glob("_node_cache_*.json"):
+        try:
+            old.unlink()
+        except Exception:
+            pass
+    _node_cache_path(key).write_text(json.dumps(results), encoding="utf-8")
+
 def run_tests():
     print(f"1. [SSOT COMPILER] Compiling Python RULES_DB to Dual-Target JavaScript (V{VERSION} · {RELEASE_DATE})")
     print(f"   📦 Rules Stats: "
@@ -2718,107 +2762,115 @@ def run_tests():
     }
     """)
 
-    fd_runner, runner_path = tempfile.mkstemp(suffix=".js")
-    os.close(fd_runner)
-    fd_payload, payload_path = tempfile.mkstemp(suffix=".json")
-    os.close(fd_payload)
+    _cache_key = _compute_node_cache_key()
+    _cached = _load_node_cache(_cache_key)
 
-    try:
-        Path(runner_path).write_text(runner_code, encoding="utf-8")
-        payload_data = [{"id": i, "url": c.url, "is_e2e": c.is_e2e, "e2e_target_url": c.e2e_target_url} for i, c in enumerate(final_cases)]
-        with open(payload_path, 'w', encoding='utf-8') as f: json.dump(payload_data, f)
+    if _cached is not None:
+        print(f"2. [BATCH ENGINE] Cache HIT ({_cache_key}) — skipping Node.js ({len(final_cases)} cases loaded from cache).")
+        results = _cached
+    else:
+        fd_runner, runner_path = tempfile.mkstemp(suffix=".js")
+        os.close(fd_runner)
+        fd_payload, payload_path = tempfile.mkstemp(suffix=".json")
+        os.close(fd_payload)
 
-        print(f"2. [BATCH ENGINE] Testing {len(final_cases)} SSOT Generated Cases via Node.js...")
-        p = Popen(["node", runner_path, payload_path], stdout=PIPE, stderr=PIPE, text=True, encoding="utf-8")
         try:
-            stdout, stderr = p.communicate(timeout=120)
-        except Exception:
-            p.kill()
-            p.communicate()
-            print("[FATAL ERROR] Node.js runner timed out after 120s — process killed.")
-            sys.exit(1)
-        
-        if p.returncode != 0:
-            print(f"[FATAL ERROR] Node Execution Failed:\n{stderr}")
-            sys.exit(1)
-            
-        results = json.loads(stdout)
-        result_map = {r['id']: r for r in results}
-        outcomes = []
-        for i, c in enumerate(final_cases):
-            res = result_map.get(i, {})
-            actual_output = res.get('output')
-            is_pass, status, details = evaluate_result(actual_output, c.expected)
-            if c.is_e2e and is_pass:
-                details = f"[E2E Passed] {c.expected_feature}"
-            outcomes.append(TestOutcome(c, status, details, is_pass))
+            Path(runner_path).write_text(runner_code, encoding="utf-8")
+            payload_data = [{"id": i, "url": c.url, "is_e2e": c.is_e2e, "e2e_target_url": c.e2e_target_url} for i, c in enumerate(final_cases)]
+            with open(payload_path, 'w', encoding='utf-8') as f: json.dump(payload_data, f)
 
-        passed = sum(1 for o in outcomes if o.is_pass)
-        total = len(outcomes)
-        failed = total - passed
-        rate = round((passed/total)*100, 1) if total else 0
+            print(f"2. [BATCH ENGINE] Testing {len(final_cases)} SSOT Generated Cases via Node.js...")
+            p = Popen(["node", runner_path, payload_path], stdout=PIPE, stderr=PIPE, text=True, encoding="utf-8")
+            try:
+                stdout, stderr = p.communicate(timeout=120)
+            except Exception:
+                p.kill()
+                p.communicate()
+                print("[FATAL ERROR] Node.js runner timed out after 120s — process killed.")
+                sys.exit(1)
 
-        category_stats = defaultdict(lambda: {"pass": 0, "fail": 0})
-        rows_html = ""
-        for o in outcomes:
-            cat = o.case.category
-            if o.is_pass: category_stats[cat]["pass"] += 1
-            else: category_stats[cat]["fail"] += 1
-            cls = "bg-pass" if o.is_pass else "bg-fail"
-            txt = "PASS" if o.is_pass else "FAIL"
-            color = "#10B981" if o.is_pass else "#EF4444"
-            rows_html += f"<tr data-category='{cat}' data-status='{txt}'><td><span class='category-tag'>{cat}</span></td><td class='url-cell'><a href='{o.case.url}' target='_blank'>{o.case.url}</a></td><td><span class='badge {cls}'>{txt}</span></td><td style='font-size:13px; color:var(--text-sub);'>{o.case.expected}</td><td style='font-size:13px; font-weight:600; color:{color};'>{o.actual}</td><td style='font-size:12px; color:var(--text-sub);'>{o.details}</td></tr>"
+            if p.returncode != 0:
+                print(f"[FATAL ERROR] Node Execution Failed:\n{stderr}")
+                sys.exit(1)
 
-        sorted_cats = sorted(category_stats.keys())
-        cat_options_html = "".join([f'<option value="{cat}">{cat}</option>' for cat in sorted_cats])
-        chart_data = {"passed": passed, "failed": failed, "categories": sorted_cats, "cat_passed": [category_stats[c]["pass"] for c in sorted_cats], "cat_failed": [category_stats[c]["fail"] for c in sorted_cats]}
-        
-        initial_status_filter = "FAIL" if failed > 0 else "all"
-        overall_status_class = "status-pass" if failed == 0 else "status-fail"
-        overall_status_text = "ALL SYSTEMS GO" if failed == 0 else f"{failed} ISSUES FOUND"
-        rate_color_class = "text-success" if rate == 100 else ("text-warning" if rate > 90 else "text-danger")
+            results = json.loads(stdout)
+            _save_node_cache(_cache_key, results)
+        finally:
+            Path(runner_path).unlink(missing_ok=True)
+            Path(payload_path).unlink(missing_ok=True)
 
-        public_dir = Path("public")
-        public_dir.mkdir(exist_ok=True)
-        report_name = public_dir / "index.html"
+    result_map = {r['id']: r for r in results}
+    outcomes = []
+    for i, c in enumerate(final_cases):
+        res = result_map.get(i, {})
+        actual_output = res.get('output')
+        is_pass, status, details = evaluate_result(actual_output, c.expected)
+        if c.is_e2e and is_pass:
+            details = f"[E2E Passed] {c.expected_feature}"
+        outcomes.append(TestOutcome(c, status, details, is_pass))
 
-        html = HTML_TEMPLATE.format(
-            version_name=f"V{VERSION}", gen_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
-            rate=rate, total=total, passed=passed, failed=failed, table_rows=rows_html,
-            initial_status_filter=initial_status_filter, overall_status_class=overall_status_class,
-            overall_status_text=overall_status_text, rate_color_class=rate_color_class,
-            category_options=cat_options_html, json_chart_data=json.dumps(chart_data)
-        )
-        with open(report_name, "w", encoding="utf-8") as f: f.write(html)
-        
-        print("\n" + "="*55)
-        print(f"📊 測試統計 (Test Statistics)")
-        print(f"   - 總共測試案例 (Total Cases) : {total} CASES")
-        print(f"   - 成功通過 (Passed)          : {passed} CASES")
-        print(f"   - 失敗錯誤 (Failed)          : {failed} CASES")
-        print("="*55)
+    passed = sum(1 for o in outcomes if o.is_pass)
+    total = len(outcomes)
+    failed = total - passed
+    rate = round((passed/total)*100, 1) if total else 0
 
-        if passed == total:
-            # 測試通過後，將實際測試案例數回填至 SCRIPT_BUILD 常數
-            js_surge_content = js_surge_content.replace('__SSOT_TEST_COUNT__', str(total))
-            js_tampermonkey_content = js_tampermonkey_content.replace('__SSOT_TEST_COUNT__', str(total))
-            with open(js_surge_filename, "w", encoding="utf-8") as f: f.write(js_surge_content)
-            with open(js_tm_filename, "w", encoding="utf-8") as f: f.write(js_tampermonkey_content)
-            
-            update_changelog()
-            
-            print(f"\n✅  SSOT DUAL-TARGET BUILD & TEST PASSED")
-            print(f"📄  Surge Edition Saved: {js_surge_filename}")
-            print(f"📄  Tampermonkey Edition Saved: {js_tm_filename}")
-            print(f"📄  Test Report Saved for Pages: {report_name}")
-        else:
-            print(f"\n❌  SSOT TEST FAILED")
-            print(f"⚠️  JavaScript Generation SKIPPED due to test failures.")
-        print("="*55 + "\n")
+    category_stats = defaultdict(lambda: {"pass": 0, "fail": 0})
+    rows_html = ""
+    for o in outcomes:
+        cat = o.case.category
+        if o.is_pass: category_stats[cat]["pass"] += 1
+        else: category_stats[cat]["fail"] += 1
+        cls = "bg-pass" if o.is_pass else "bg-fail"
+        txt = "PASS" if o.is_pass else "FAIL"
+        color = "#10B981" if o.is_pass else "#EF4444"
+        rows_html += f"<tr data-category='{cat}' data-status='{txt}'><td><span class='category-tag'>{cat}</span></td><td class='url-cell'><a href='{o.case.url}' target='_blank'>{o.case.url}</a></td><td><span class='badge {cls}'>{txt}</span></td><td style='font-size:13px; color:var(--text-sub);'>{o.case.expected}</td><td style='font-size:13px; font-weight:600; color:{color};'>{o.actual}</td><td style='font-size:12px; color:var(--text-sub);'>{o.details}</td></tr>"
 
-    finally:
-        Path(runner_path).unlink(missing_ok=True)
-        Path(payload_path).unlink(missing_ok=True)
+    sorted_cats = sorted(category_stats.keys())
+    cat_options_html = "".join([f'<option value="{cat}">{cat}</option>' for cat in sorted_cats])
+    chart_data = {"passed": passed, "failed": failed, "categories": sorted_cats, "cat_passed": [category_stats[c]["pass"] for c in sorted_cats], "cat_failed": [category_stats[c]["fail"] for c in sorted_cats]}
+
+    initial_status_filter = "FAIL" if failed > 0 else "all"
+    overall_status_class = "status-pass" if failed == 0 else "status-fail"
+    overall_status_text = "ALL SYSTEMS GO" if failed == 0 else f"{failed} ISSUES FOUND"
+    rate_color_class = "text-success" if rate == 100 else ("text-warning" if rate > 90 else "text-danger")
+
+    public_dir = Path("public")
+    public_dir.mkdir(exist_ok=True)
+    report_name = public_dir / "index.html"
+
+    html = HTML_TEMPLATE.format(
+        version_name=f"V{VERSION}", gen_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        rate=rate, total=total, passed=passed, failed=failed, table_rows=rows_html,
+        initial_status_filter=initial_status_filter, overall_status_class=overall_status_class,
+        overall_status_text=overall_status_text, rate_color_class=rate_color_class,
+        category_options=cat_options_html, json_chart_data=json.dumps(chart_data)
+    )
+    with open(report_name, "w", encoding="utf-8") as f: f.write(html)
+
+    print("\n" + "="*55)
+    print(f"📊 測試統計 (Test Statistics)")
+    print(f"   - 總共測試案例 (Total Cases) : {total} CASES")
+    print(f"   - 成功通過 (Passed)          : {passed} CASES")
+    print(f"   - 失敗錯誤 (Failed)          : {failed} CASES")
+    print("="*55)
+
+    if passed == total:
+        # 測試通過後，將實際測試案例數回填至 SCRIPT_BUILD 常數
+        js_surge_content = js_surge_content.replace('__SSOT_TEST_COUNT__', str(total))
+        js_tampermonkey_content = js_tampermonkey_content.replace('__SSOT_TEST_COUNT__', str(total))
+        with open(js_surge_filename, "w", encoding="utf-8") as f: f.write(js_surge_content)
+        with open(js_tm_filename, "w", encoding="utf-8") as f: f.write(js_tampermonkey_content)
+
+        update_changelog()
+
+        print(f"\n✅  SSOT DUAL-TARGET BUILD & TEST PASSED")
+        print(f"📄  Surge Edition Saved: {js_surge_filename}")
+        print(f"📄  Tampermonkey Edition Saved: {js_tm_filename}")
+        print(f"📄  Test Report Saved for Pages: {report_name}")
+    else:
+        print(f"\n❌  SSOT TEST FAILED")
+        print(f"⚠️  JavaScript Generation SKIPPED due to test failures.")
+    print("="*55 + "\n")
 
 if __name__ == "__main__":
     run_tests()
