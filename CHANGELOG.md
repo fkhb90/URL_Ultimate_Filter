@@ -1,5 +1,12 @@
 # URL Ultimate Filter - Changelog
 
+## V45.15 - 2026-03-31
+- [Feature] 新增 RELEASE_DATE 常數（每次發版手動同步），作為版本時間軸的錨點。
+- [Feature] 新增 RULES_STATS / TOTAL_RULE_COUNT，自動統計各類別規則數量，每次編譯印出摘要，方便跨版本比對規則增減。
+- [Feature] JS 輸出標頭補充 @date 與 @rules 欄位（Surge @file 標頭；Tampermonkey ==UserScript== 元資料）。
+- [Feature] JS 中新增 SCRIPT_BUILD 常數 = 'V{VERSION} ({DATE}) | {N} rules'，部署後可在 Console 直接識別構建資訊。
+- [Feature] 編譯器啟動時新增規則統計摘要列印，包含 block_domains / critical_paths / path_keywords / drop_keywords / param_rules / whitelist 各項計數。
+
 ## V45.14 - 2026-03-31
 - [Infra] 嚴格化 evaluate_result：移除 403↔204 互相容忍邏輯，每種預期結果只接受精確匹配，消除掩蓋迴歸的假陽性。
 - [Infra] 修復測試去重鍵：category+url → category+url+expected，防止相同 URL 不同預期的測試案例被意外丟棄。
