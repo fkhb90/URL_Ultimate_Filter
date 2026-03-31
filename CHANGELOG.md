@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V45.13 - 2026-03-31
+- [BugFix] Tampermonkey fetch 攔截器補齊 302 淨化回應處理：正確從 action.response.headers.Location 提取清除後的 URL，確保追蹤參數在 Tampermonkey 版本中確實被剝離。
+- [BugFix] Tampermonkey XHR 攔截器補齊 302 淨化回應處理：open() 方法正確重寫請求 URL 以移除追蹤參數。
+- [Cleanup] 移除 RULES_DB 重複條目：BLOCK_DOMAINS 中的 analytics.yahoo.com；CRITICAL_PATH_GENERIC 中的 /beacon、/api/v1/events、/api/v1/track、/v2/track；PATH_BLOCK 中的 appier、onead、retargeting、tapfiliate。
+
 ## V45.12 - 2026-03-30
 - [BugFix] REDIRECT_EXTRACT_HOSTS 補齊 `?url=` Query 參數格式提取，同時支援路徑編碼與 Query 參數兩種跳轉格式。
 
