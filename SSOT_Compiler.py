@@ -3,15 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.15 (2026-03-31)
+當前版本：V45.16 (2026-03-31)
 最新架構更新：
-- [Feature] 為腳本補充發布日期（RELEASE_DATE）與規則統計（RULES_STATS / TOTAL_RULE_COUNT），每次疊代均可直接對比規則量的增減。
-- [Feature] JS 輸出標頭（Surge + Tampermonkey）嵌入版本日期與規則摘要，已部署的 .js 可直接識別構建資訊。
-- [Feature] Tampermonkey 元資料補充 @date 與 @rules 欄位；Surge @file 標頭補充 @date、@rules。
-- [Feature] SCRIPT_BUILD 常數嵌入 JS，格式 `V{VERSION} ({DATE}) | {N} rules`，可在瀏覽器 Console 直接查版本。
-- [Feature] 編譯器啟動時印出規則統計摘要（各類別規則數），方便跨版本快速比對數量變化。
+- [Feature] SCRIPT_BUILD 補充測試案例數：格式升級為 `V{VERSION} ({DATE}) | {N} rules | {M} tests`，其中 M 為本次構建實際通過的測試案例數，測試通過後回填，失敗時不寫入 JS。
+- [Feature] 使用佔位符 `__SSOT_TEST_COUNT__` 於編譯期注入，`run_tests()` 通過後以 `str(total)` 替換，確保部署的 JS 永遠只含真實通過數字。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.15 (2026-03-31): 新增 RELEASE_DATE、RULES_STATS/TOTAL_RULE_COUNT；JS 標頭補 @date/@rules；TM 元資料補 @date/@rules；SCRIPT_BUILD 常數；編譯器啟動規則統計摘要。
 - V45.14 (2026-03-31): 基礎設施強化：evaluate_result 嚴格化、去重鍵修復、全 PARAMS_PREFIXES 覆蓋、CRITICAL_PATH_MAP 子域名繼承測試、JS formatter 逸出、p.communicate() 超時保護。
 - V45.13 (2026-03-31): Tampermonkey fetch/XHR 攔截器補齊 302 淨化回應處理；移除 RULES_DB 重複條目（BLOCK_DOMAINS/CRITICAL_PATH_GENERIC/PATH_BLOCK）。
 - V45.12: 修復 REDIRECT_EXTRACT_HOSTS 僅處理路徑編碼格式，補齊 `?url=` Query 參數格式的提取邏輯，兩種 SkimResources 跳轉格式均可 302 直導。
@@ -39,16 +37,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.15"
+VERSION = "45.16"
 RELEASE_DATE = "2026-03-31"  # 當前版本發布日期（每次發版需與 VERSION 同步更新）
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Feature] 新增 RELEASE_DATE 常數（每次發版手動同步），作為版本時間軸的錨點。
-- [Feature] 新增 RULES_STATS / TOTAL_RULE_COUNT，自動統計各類別規則數量，每次編譯印出摘要，方便跨版本比對規則增減。
-- [Feature] JS 輸出標頭補充 @date 與 @rules 欄位（Surge @file 標頭；Tampermonkey ==UserScript== 元資料）。
-- [Feature] JS 中新增 SCRIPT_BUILD 常數 = 'V{VERSION} ({DATE}) | {N} rules'，部署後可在 Console 直接識別構建資訊。
-- [Feature] 編譯器啟動時新增規則統計摘要列印，包含 block_domains / critical_paths / path_keywords / drop_keywords / param_rules / whitelist 各項計數。
+- [Feature] SCRIPT_BUILD 補充測試案例數，格式：'V{VERSION} ({DATE}) | {N} rules | {M} tests'。
+- [Feature] 測試案例數透過佔位符 __SSOT_TEST_COUNT__ 在 run_tests() 通過後回填，失敗時不寫入 JS，確保 deployed artifact 只含真實驗證數字。
 """
 
 # ==========================================
@@ -663,7 +658,7 @@ def get_js_rules_definition(platform_desc: str) -> str:
 
 const CONFIG = {{ DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 }};
 const SCRIPT_VERSION = '{VERSION}';
-const SCRIPT_BUILD = 'V{VERSION} ({RELEASE_DATE}) | {TOTAL_RULE_COUNT} rules';
+const SCRIPT_BUILD = 'V{VERSION} ({RELEASE_DATE}) | {TOTAL_RULE_COUNT} rules | __SSOT_TEST_COUNT__ tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {{
@@ -2804,6 +2799,9 @@ def run_tests():
         print("="*55)
 
         if passed == total:
+            # 測試通過後，將實際測試案例數回填至 SCRIPT_BUILD 常數
+            js_surge_content = js_surge_content.replace('__SSOT_TEST_COUNT__', str(total))
+            js_tampermonkey_content = js_tampermonkey_content.replace('__SSOT_TEST_COUNT__', str(total))
             with open(js_surge_filename, "w", encoding="utf-8") as f: f.write(js_surge_content)
             with open(js_tm_filename, "w", encoding="utf-8") as f: f.write(js_tampermonkey_content)
             
