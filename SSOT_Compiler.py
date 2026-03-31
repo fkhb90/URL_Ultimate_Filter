@@ -3,21 +3,20 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.14
+當前版本：V45.15 (2026-03-31)
 最新架構更新：
-- [Infra] 嚴格化 evaluate_result：移除 403↔204 互相容忍邏輯（Promoted/Optimized），每種預期結果現在只接受精確匹配，消除掩蓋迴歸的假陽性。
-- [Infra] 修復測試去重鍵：由 `category+url` 升級為 `category+url+expected`，不再因相同 URL 存在多種預期結果而意外丟棄測試案例。
-- [Infra] 補齊測試覆蓋：BLOCK_DOMAINS_REGEX 全 3 條正則各含匹配/非匹配測試；CRITICAL_PATH_MAP 每個條目補加子域名繼承測試；PARAMS_PREFIXES 從硬編碼 17 項擴展為自動遍歷全部 46 項前綴。
-- [Infra] JS 格式化函式（format_js_array/map/scoped_exemptions）補齊單引號與反斜線逸出，防止含特殊字元的規則條目破壞編譯輸出。
-- [Infra] p.communicate() 新增 120 秒超時保護，超時自動 kill 並 sys.exit(1)，防止 Node.js runner 無限掛起。
-- [Cleanup] 移除 Python 端死碼 `hasattr(p, 'substring')`，以直接 `p[5:]` 切片取代。
+- [Feature] 為腳本補充發布日期（RELEASE_DATE）與規則統計（RULES_STATS / TOTAL_RULE_COUNT），每次疊代均可直接對比規則量的增減。
+- [Feature] JS 輸出標頭（Surge + Tampermonkey）嵌入版本日期與規則摘要，已部署的 .js 可直接識別構建資訊。
+- [Feature] Tampermonkey 元資料補充 @date 與 @rules 欄位；Surge @file 標頭補充 @date、@rules。
+- [Feature] SCRIPT_BUILD 常數嵌入 JS，格式 `V{VERSION} ({DATE}) | {N} rules`，可在瀏覽器 Console 直接查版本。
+- [Feature] 編譯器啟動時印出規則統計摘要（各類別規則數），方便跨版本快速比對數量變化。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
-- V45.13: Tampermonkey fetch/XHR 攔截器補齊 302 淨化回應處理；移除 RULES_DB 重複條目（BLOCK_DOMAINS/CRITICAL_PATH_GENERIC/PATH_BLOCK）。
+- V45.14 (2026-03-31): 基礎設施強化：evaluate_result 嚴格化、去重鍵修復、全 PARAMS_PREFIXES 覆蓋、CRITICAL_PATH_MAP 子域名繼承測試、JS formatter 逸出、p.communicate() 超時保護。
+- V45.13 (2026-03-31): Tampermonkey fetch/XHR 攔截器補齊 302 淨化回應處理；移除 RULES_DB 重複條目（BLOCK_DOMAINS/CRITICAL_PATH_GENERIC/PATH_BLOCK）。
 - V45.12: 修復 REDIRECT_EXTRACT_HOSTS 僅處理路徑編碼格式，補齊 `?url=` Query 參數格式的提取邏輯，兩種 SkimResources 跳轉格式均可 302 直導。
 - V45.10: 將 go.skimresources.com 從 REDIRECTOR_HOSTS 移除，改由 Surge URL Rewrite 處理（後升級為引擎內建）。
 - V45.09: 新增 `stun.services.mozilla1.com` 至 BLOCK_DOMAINS，封鎖疑似 Typosquatting 的偽 Mozilla STUN 網域。
-- V45.07: 修復 V45.06 因 RULES_DB 字典提早閉合截斷，導致編譯器拋出 KeyError 的嚴重錯誤。
 """
 
 import json
@@ -40,16 +39,16 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.14"
+VERSION = "45.15"
+RELEASE_DATE = "2026-03-31"  # 當前版本發布日期（每次發版需與 VERSION 同步更新）
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Infra] 嚴格化 evaluate_result：移除 403↔204 互相容忍邏輯，每種預期結果只接受精確匹配，消除掩蓋迴歸的假陽性。
-- [Infra] 修復測試去重鍵：category+url → category+url+expected，防止相同 URL 不同預期的測試案例被意外丟棄。
-- [Infra] 補齊測試覆蓋：BLOCK_DOMAINS_REGEX 全正則含匹配/非匹配；CRITICAL_PATH_MAP 每條目補子域名繼承測試；PARAMS_PREFIXES 從硬編碼 17 項擴展為自動遍歷全部 46 項。
-- [Infra] JS 格式化函式補齊單引號與反斜線逸出（_js_str_escape），防止特殊字元破壞編譯輸出。
-- [Infra] p.communicate() 新增 120 秒超時保護 + kill，防止 Node.js runner 無限掛起。
-- [Cleanup] 移除死碼 hasattr(p, 'substring')，改用直接 p[5:] 切片。
+- [Feature] 新增 RELEASE_DATE 常數（每次發版手動同步），作為版本時間軸的錨點。
+- [Feature] 新增 RULES_STATS / TOTAL_RULE_COUNT，自動統計各類別規則數量，每次編譯印出摘要，方便跨版本比對規則增減。
+- [Feature] JS 輸出標頭補充 @date 與 @rules 欄位（Surge @file 標頭；Tampermonkey ==UserScript== 元資料）。
+- [Feature] JS 中新增 SCRIPT_BUILD 常數 = 'V{VERSION} ({DATE}) | {N} rules'，部署後可在 Console 直接識別構建資訊。
+- [Feature] 編譯器啟動時新增規則統計摘要列印，包含 block_domains / critical_paths / path_keywords / drop_keywords / param_rules / whitelist 各項計數。
 """
 
 # ==========================================
@@ -571,6 +570,18 @@ RULES_DB = {
     }
 }
 
+# 規則資料庫統計摘要（自動計算，供跨版本比對規則數量增減）
+RULES_STATS = {
+    "block_domains":    len(RULES_DB["BLOCK_DOMAINS"]) + len(RULES_DB["BLOCK_DOMAINS_WILDCARDS"]) + len(RULES_DB["BLOCK_DOMAINS_REGEX"]),
+    "critical_paths":   len(RULES_DB["CRITICAL_PATH_GENERIC"]) + sum(len(v) for v in RULES_DB["CRITICAL_PATH_MAP"].values()),
+    "path_keywords":    len(RULES_DB["PATH_BLOCK"]) + len(RULES_DB["HIGH_CONFIDENCE"]),
+    "drop_keywords":    len(RULES_DB["DROP"]) + len(RULES_DB["PRIORITY_DROP"]),
+    "param_rules":      len(RULES_DB["PARAMS_GLOBAL"]) + len(RULES_DB["PARAMS_PREFIXES"]),
+    "whitelist":        len(RULES_DB["SOFT_WHITELIST"]["EXACT"]) + len(RULES_DB["SOFT_WHITELIST"]["WILDCARDS"])
+                        + len(RULES_DB["HARD_WHITELIST"]["EXACT"]) + len(RULES_DB["HARD_WHITELIST"]["WILDCARDS"]),
+}
+TOTAL_RULE_COUNT = sum(RULES_STATS.values())
+
 # ==========================================
 #  2. JS COMPILER & FORMATTER (SHARED)
 # ==========================================
@@ -643,12 +654,16 @@ def get_js_rules_definition(platform_desc: str) -> str:
     critical_path_regex = _compile_keywords_to_regex(critical_keywords, critical_raw)
     
     return f"""/**
- * @file      URL-Ultimate-Filter-{platform_desc}.js
- * @version   {VERSION} (SSOT Compilation)
+ * @file    URL-Ultimate-Filter-{platform_desc}.js
+ * @version {VERSION}
+ * @date    {RELEASE_DATE}
+ * @rules   {TOTAL_RULE_COUNT} total ({RULES_STATS['block_domains']} domains, {RULES_STATS['critical_paths']} critical paths, {RULES_STATS['path_keywords']} path keywords, {RULES_STATS['param_rules']} param rules)
+ * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = {{ DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 }};
 const SCRIPT_VERSION = '{VERSION}';
+const SCRIPT_BUILD = 'V{VERSION} ({RELEASE_DATE}) | {TOTAL_RULE_COUNT} rules';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {{
@@ -1353,7 +1368,9 @@ def compile_tampermonkey() -> str:
 // @name         URL Ultimate Filter V{VERSION}
 // @namespace    http://tampermonkey.net/
 // @version      {VERSION}
-// @description  SSOT 前端防護盾牌，專業級 UI：極簡盾牌圖示、獨立計數器、點擊外部自動收合機制。
+// @date         {RELEASE_DATE}
+// @description  SSOT 前端防護盾牌 V{VERSION} ({RELEASE_DATE}) | {TOTAL_RULE_COUNT} rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        {TOTAL_RULE_COUNT} total ({RULES_STATS['block_domains']} domains · {RULES_STATS['critical_paths']} critical · {RULES_STATS['param_rules']} param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -2658,7 +2675,15 @@ def update_changelog():
         print(f"📝 創建了新的 CHANGELOG.md 並寫入 V{VERSION} 記錄")
 
 def run_tests():
-    print(f"1. [SSOT COMPILER] Compiling Python RULES_DB to Dual-Target JavaScript (V{VERSION})...")
+    print(f"1. [SSOT COMPILER] Compiling Python RULES_DB to Dual-Target JavaScript (V{VERSION} · {RELEASE_DATE})")
+    print(f"   📦 Rules Stats: "
+          f"domains={RULES_STATS['block_domains']} | "
+          f"critical={RULES_STATS['critical_paths']} | "
+          f"path_kw={RULES_STATS['path_keywords']} | "
+          f"drop_kw={RULES_STATS['drop_keywords']} | "
+          f"params={RULES_STATS['param_rules']} | "
+          f"whitelist={RULES_STATS['whitelist']} | "
+          f"TOTAL={TOTAL_RULE_COUNT}")
     js_surge_content = compile_surge()
     js_tampermonkey_content = compile_tampermonkey()
     js_surge_filename = "URL-Ultimate-Filter-Surge.js"
