@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.12
+當前版本：V45.13
 最新架構更新：
-- [BugFix] 修復 REDIRECT_EXTRACT_HOSTS 僅處理路徑編碼格式，補齊 `?url=` Query 參數格式的提取邏輯，兩種 SkimResources 跳轉格式均可 302 直導。
+- [BugFix] Tampermonkey fetch/XHR 攔截器補齊 302 淨化回應處理：當 processRequest 回傳 302 重定向（帶 Location 標頭）時，正確提取清除後的 URL 並更新請求目標，確保追蹤參數在 Tampermonkey 版本中確實被剝離。
+- [Cleanup] 移除 RULES_DB 中的重複條目：BLOCK_DOMAINS 的 analytics.yahoo.com、CRITICAL_PATH_GENERIC 的 /beacon、/api/v1/events、/api/v1/track、/v2/track，以及 PATH_BLOCK 的 appier、onead、retargeting、tapfiliate。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.12: 修復 REDIRECT_EXTRACT_HOSTS 僅處理路徑編碼格式，補齊 `?url=` Query 參數格式的提取邏輯，兩種 SkimResources 跳轉格式均可 302 直導。
 - V45.10: 將 go.skimresources.com 從 REDIRECTOR_HOSTS 移除，改由 Surge URL Rewrite 處理（後升級為引擎內建）。
 - V45.09: 新增 `stun.services.mozilla1.com` 至 BLOCK_DOMAINS，封鎖疑似 Typosquatting 的偽 Mozilla STUN 網域。
 - V45.07: 修復 V45.06 因 RULES_DB 字典提早閉合截斷，導致編譯器拋出 KeyError 的嚴重錯誤。
 - V45.06: 導入 Property Setter Hook，於 DOM 賦值階段物理阻斷動態廣告腳本，完美解決 MutationObserver 延遲漏洞。
-- V45.05: 新增 Cloudflare Workers 反廣告攔截網域輪替正則；擴充台灣微型原生聯播網 (Adbot) 防堵。
-- V45.04: 修正 Python 3.12+ 解析 `\\?` 產生的 SyntaxWarning。
 """
 
 import json
@@ -36,11 +36,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.12"
+VERSION = "45.13"
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [BugFix] REDIRECT_EXTRACT_HOSTS 補齊 `?url=` Query 參數格式提取，同時支援路徑編碼與 Query 參數兩種跳轉格式。
+- [BugFix] Tampermonkey fetch 攔截器補齊 302 淨化回應處理：正確從 action.response.headers.Location 提取清除後的 URL，確保追蹤參數在 Tampermonkey 版本中確實被剝離。
+- [BugFix] Tampermonkey XHR 攔截器補齊 302 淨化回應處理：open() 方法正確重寫請求 URL 以移除追蹤參數。
+- [Cleanup] 移除 RULES_DB 重複條目：BLOCK_DOMAINS 中的 analytics.yahoo.com；CRITICAL_PATH_GENERIC 中的 /beacon、/api/v1/events、/api/v1/track、/v2/track；PATH_BLOCK 中的 appier、onead、retargeting、tapfiliate。
 """
 
 # ==========================================
@@ -262,7 +264,7 @@ RULES_DB = {
         'edgecompute-analytics.com', 'monitoring.edge-compute.io', 'realtime-edge.fastly.com',
         'log.felo.ai', 'event.sc.gearupportal.com', 'pidetupop.com', 'adform.net',
         'adsrvr.org', 'analytics.line.me', 'analytics.slashdotmedia.com', 'analytics.strava.com',
-        'analytics.yahoo.com', 'api.pendo.io', 'c.clarity.ms', 'c.segment.com',
+        'api.pendo.io', 'c.clarity.ms', 'c.segment.com',
         'chartbeat.com', 'clicktale.net', 'clicky.com', 'comscore.com', 'customer.io',
         'data.investing.com', 'datadoghq.com', 'dynatrace.com', 'fullstory.com', 'heap.io', 'inspectlet.com',
         'iterable.com', 'keen.io', 'kissmetrics.com', 'loggly.com', 'matomo.cloud', 'mgid.com',
@@ -323,14 +325,14 @@ RULES_DB = {
         '/v1/event', '/api/stats/ads', '/api/stats/atr', '/api/stats/qoe',
         '/api/stats/playback', '/pagead/gen_204', '/pagead/paralleladview', '/tiktok/pixel/events', 
         '/linkedin/insight/track', '/api/fingerprint', '/v1/fingerprint', '/cdn/fp/', '/api/collect', 
-        '/api/track', '/tr/', '/beacon', '/api/v1/event', '/rest/n/log', '/action-log', 
+        '/api/track', '/tr/', '/api/v1/event', '/rest/n/log', '/action-log',
         '/ramen/v1/events', '/_events', '/report/v1/log', '/app/mobilelog', '/api/web/ad/', 
         '/cdn/fingerprint/', '/api/device-id', '/api/visitor-id', '/ads/ga-audiences', '/doubleclick/', 
         '/google-analytics/', '/googleadservices/', '/googlesyndication/', '/googletagmanager/', 
         '/tiktok/track/', '/__utm.gif', '/j/collect', '/r/collect', '/api/batch', '/api/events', 
-        '/api/v1/events', '/api/v1/track', '/api/v2/event', '/api/v2/events', '/collect?', 
+        '/api/v2/event', '/api/v2/events', '/collect?',
         '/data/collect', '/events/track', '/ingest/', '/ingest/otel', '/intake', '/p.gif', '/rec/bundle', '/t.gif', 
-        '/track/', '/v1/pixel', '/v2/track', '/v3/track', '/2/client/addlog_batch', 
+        '/track/', '/v1/pixel', '/v3/track', '/2/client/addlog_batch',
         '/plugins/easy-social-share-buttons/', '/event_report', '/log/aplus', '/v.gif', '/ad-sw.js', 
         '/ads-sw.js', '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/', 
         '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc', '/user-profile/', 
@@ -510,9 +512,9 @@ RULES_DB = {
         '/unstable/produce_batch', '/v1/produce', '/bugsnag/', '/crash/', 'debug/mp/collect', '/error/',
         '/envelope', '/exception/', '/stacktrace/', 'performance-tracking', 'real-user-monitoring',
         'web-vitals', 'audience', 'attribution', 'behavioral-targeting', 'cohort', 'cohort-analysis',
-        'data-collection', 'data-sync', 'fingerprint', 'retargeting', 'session-replay', 'third-party-cookie',
-        'user-analytics', 'user-behavior', 'user-cohort', 'user-segment', 'appier', 'comscore', 'fbevents',
-        'fbq', 'google-analytics', 'onead', 'osano', 'sailthru', 'tapfiliate', 'utag.js', '/apmapi/',
+        'data-collection', 'data-sync', 'fingerprint', 'session-replay', 'third-party-cookie',
+        'user-analytics', 'user-behavior', 'user-cohort', 'user-segment', 'comscore', 'fbevents',
+        'fbq', 'google-analytics', 'osano', 'sailthru', 'utag.js', '/apmapi/',
         'canvas-fingerprint', 'canvas-fp', '/canvas-fp/', 'webgl-fingerprint', 'webgl-fp', '/webgl-fp/', 'audio-fingerprint', 'audio-fp', 'font-fingerprint', 'font-detect-fp'
     ],
     "PRIORITY_DROP": [
@@ -1693,6 +1695,12 @@ def compile_tampermonkey() -> str:
                                 resolve(mock204());
                             }, delay);
                         });
+                    } else if (action.response.status === 302 && action.response.headers && action.response.headers.Location) {
+                        const cleanedUrl = action.response.headers.Location;
+                        tmStats.recordClean(url, cleanedUrl);
+                        if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] ✏️ Fetch Cleaned (302): ${url} -> ${cleanedUrl}`);
+                        if (typeof args[0] === 'string') args[0] = cleanedUrl;
+                        else args[0] = new Request(cleanedUrl, args[0]);
                     }
                 } else if (action.url) {
                     tmStats.recordClean(url, action.url);
@@ -1726,6 +1734,10 @@ def compile_tampermonkey() -> str:
                         } else if (action.response.status === 204) {
                             tmStats.recordDrop(absoluteUrl);
                             this._ssotAction = 204;
+                        } else if (action.response.status === 302 && action.response.headers && action.response.headers.Location) {
+                            const cleanedUrl = action.response.headers.Location;
+                            tmStats.recordClean(absoluteUrl, cleanedUrl);
+                            url = cleanedUrl;
                         }
                     } else if (action.url) {
                         tmStats.recordClean(absoluteUrl, action.url);
