@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.18
- * @date    2026-03-31
- * @rules   1337 total (275 domains, 277 critical paths, 403 path keywords, 109 param rules)
+ * @version 45.19
+ * @date    2026-04-06
+ * @rules   1338 total (275 domains, 278 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.18';
-const SCRIPT_BUILD = 'V45.18 (2026-03-31) | 1337 rules | 2516 tests';
+const SCRIPT_VERSION = '45.19';
+const SCRIPT_BUILD = 'V45.19 (2026-04-06) | 1338 rules | 2520 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -227,6 +227,9 @@ const RULES = {
       ])],
     ['logx.optimizely.com', new Set([
         'DROP:/v1/events'
+      ])],
+    ['cpdl-deferrer.91app.com', new Set([
+        'DROP:deferrer-log'
       ])],
     ['o.alicdn.com', new Set([
         '/tongyi-fe/lib/cnzz/c.js', '/tongyi-fe/lib/cnzz/z.js'

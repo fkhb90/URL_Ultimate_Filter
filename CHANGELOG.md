@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V45.19 - 2026-04-06
+- [Privacy] 防堵 91APP 電商平台專有遙測盲區：將 `cpdl-deferrer.91app.com` 的 `deferrer-log` 納入 `CRITICAL_PATH_MAP` 進行 204 靜默拋棄，精確攔截硬體指紋 (osType, pixel, size) 採集，同時避免 403 阻斷引發 SDK 無限重試或購物車異常。
+
 ## V45.18 - 2026-03-31
 - [Privacy] 封堵 Alexa Metrics 追蹤盲區：將 `/atrk.` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` L1 掃描器，防堵惡意腳本寄生於 CloudFront 等 CDN 服務時，不慎觸發軟白名單與靜態副檔名的雙重豁免漏洞。
 - [Perf] iHerb Optimizely 重試風暴防治：`logx.optimizely.com/v1/events` 升級為 MAP DROP 204 靜默拋棄，引擎新增 P0 域名 MAP DROP 前置檢查。
