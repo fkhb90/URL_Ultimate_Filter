@@ -3,14 +3,15 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.19 (2026-04-06)
+當前版本：V45.20 (2026-04-06)
 最新架構更新：
-- [Privacy] 防堵 91APP 電商平台專有遙測盲區：將 `cpdl-deferrer.91app.com` 的 `deferrer-log` 納入 `CRITICAL_PATH_MAP` 進行 204 靜默拋棄，精確攔截硬體指紋 (osType, pixel, size) 採集，同時避免 403 阻斷引發 SDK 無限重試或購物車異常。
+- [Privacy] 雙軌阻擋策略：封堵微軟 Application Insights (`ai.0.js`) 與 Sift Science (`siftscience.com`) 行為指紋。
+  1. 將 `/ai.0.` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` (L1 掃描器)，突破靜態豁免實施 403 物理阻斷。
+  2. 將 `siftscience.com` 的 `/v3/accounts/` 與 `/mobile_events` 納入 `CRITICAL_PATH_MAP` 進行 204 靜默拋棄，切斷資料外洩並保全前端風控流程。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
-- V45.18 (2026-03-31): 封堵 Alexa Metrics CDN 寄生盲區；升級 iHerb Optimizely 至 MAP DROP 避免重試風暴。
-- V45.17 (2026-03-31): 確立對話基準點，導入效能優化與 LRU Cache 修復。
-- V45.16 (2026-03-31): SCRIPT_BUILD 補充測試案例數格式升級。
+- V45.19 (2026-04-06): 防堵 91APP 電商平台專有遙測盲區 (`deferrer-log`) 實施 204 拋棄。
+- V45.18 (2026-03-31): 封堵 Alexa Metrics CDN 寄生盲區；升級 iHerb Optimizely 至 MAP DROP。
 """
 
 import hashlib
@@ -34,12 +35,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.19"
-RELEASE_DATE = "2026-04-06"  # 當前版本發布日期（每次發版需與 VERSION 同步更新）
+VERSION = "45.20"
+RELEASE_DATE = "2026-04-06"
 
-# [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 防堵 91APP 電商平台專有遙測盲區：將 `cpdl-deferrer.91app.com` 的 `deferrer-log` 納入 `CRITICAL_PATH_MAP` 進行 204 靜默拋棄，精確攔截硬體指紋 (osType, pixel, size) 採集，同時避免 403 阻斷引發 SDK 無限重試或購物車異常。
+- [Privacy] 雙軌阻擋策略：封堵微軟 Application Insights (`ai.0.js`) 與 Sift Science (`siftscience.com`) 行為指紋。
+  1. 將 `/ai.0.` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` (L1 掃描器)，突破靜態豁免實施 403 物理阻斷。
+  2. 將 `siftscience.com` 的 `/v3/accounts/` 與 `/mobile_events` 納入 `CRITICAL_PATH_MAP` 進行 204 靜默拋棄，切斷資料外洩並保全前端風控流程。
 """
 
 # ==========================================
@@ -353,7 +355,7 @@ RULES_DB = {
         'main-ad.', 'scevent.min.', 'showcoverad.', 'sp.js', 'tracker.js', 'tracking-api.',
         'tracking.js', 'user-id.', 'user-timing.', 'wcslog.', 'jslog.min.', 'device-uuid.',
         '/plugins/advanced-ads', '/plugins/adrotate',
-        'gad_script.', '/atrk.'
+        'gad_script.', '/atrk.', '/ai.0.'
     ],
     "CRITICAL_PATH_SCRIPT_REGEX_RAW": [
         r"\/wp-content\/plugins\/[^\/]+\/.*(?:ads|ad-inserter|advanced-ads|ipa|quads)\.js(?:\?|$)",
@@ -365,6 +367,7 @@ RULES_DB = {
         'statsig.anthropic.com': ['DROP:/v1/rgstr'],
         'logx.optimizely.com': ['DROP:/v1/events'],
         'cpdl-deferrer.91app.com': ['DROP:deferrer-log'],
+        'siftscience.com': ['DROP:/v3/accounts/', 'DROP:/mobile_events'],
         'o.alicdn.com': ['/tongyi-fe/lib/cnzz/c.js', '/tongyi-fe/lib/cnzz/z.js'],
         'qwen-api.zaodian.com': ['/api/app/template/v1/feed'],
         'file.chinatimes.com': ['/ad-param.json'],
@@ -2457,13 +2460,15 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("E2E: Malicious Payload Block", "https://static.104.com.tw/ad.json", RES_BLOCK_403, "模擬 JSON 內遭植入第三方追蹤並點擊，觸發 L1 攔截", is_e2e=True, e2e_target_url="https://googleadservices.com/track/click"))
     cases.append(TestCase("E2E: URL Fragment Bypass", "https://static.104.com.tw/ad.json", RES_ALLOW, "模擬 HTTP Hash 參數剝離物理限制", is_e2e=True, e2e_target_url="https://guide.104.com.tw/#/test?fbclid=123"))
 
-    # --- V45.18 iHerb App Optimizely 事件追蹤 & Alexa Metrics CDN 寄生盲區 ---
+    # --- V45.18-19 遙測拋棄機制 ---
     cases.append(TestCase("Privacy: Optimizely Event Telemetry (iHerb)", "https://logx.optimizely.com/v1/events", RES_DROP_204, "iHerb App 瘋狂打的 Optimizely 事件端點，MAP DROP 前置攔截避免 403 重試風暴"))
     cases.append(TestCase("Privacy: Alexa Metrics (CDN Parasite)", "https://d31qbv1cthcecs.cloudfront.net/atrk.js", RES_BLOCK_403, "精準命中 L1 掃描，強制阻斷寄生於 CDN 的追蹤腳本"))
-
-    # --- V45.19 91APP Telemetry Drop ---
     cases.append(TestCase("Privacy: 91APP Telemetry Drop", "https://cpdl-deferrer.91app.com/api/v1/deferrer-log?env=prod&size=393x852", RES_DROP_204, "V45.19 將 91APP 專有遙測升級為 204 靜默拋棄，阻斷硬體指紋收集"))
     cases.append(TestCase("Safe: 91APP Business API", "https://shopapi.91app.com/v1/cart/items", RES_ALLOW, "V45.19 確保 91APP 的正常電商業務端點不被誤殺"))
+
+    # --- V45.20 雙軌阻擋策略 (App Insights & Sift Science) ---
+    cases.append(TestCase("Privacy: App Insights Script", "https://az416426.vo.msecnd.net/scripts/a/ai.0.js", RES_BLOCK_403, "V45.20 物理阻斷微軟 App Insights 遙測腳本"))
+    cases.append(TestCase("Privacy: Sift Science Drop", "https://api3.siftscience.com/v3/accounts/64e6742e35ba4d3981f27c05/mobile_events", RES_DROP_204, "V45.20 靜默拋棄 Sift Science 行為生物特徵遙測"))
 
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
