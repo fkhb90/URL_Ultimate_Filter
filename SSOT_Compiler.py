@@ -3,17 +3,14 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.18 (2026-03-31)
+當前版本：V45.19 (2026-04-06)
 最新架構更新：
-- [Privacy] 封堵 Alexa Metrics 追蹤盲區：將 `/atrk.` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` L1 掃描器，防堵惡意腳本寄生於 CloudFront 等 CDN 服務時，不慎觸發軟白名單與靜態副檔名的雙重豁免漏洞。
-- [Perf] iHerb Optimizely 重試風暴防治：`logx.optimizely.com/v1/events` 從 PRIORITY_BLOCK 403 升級為 CRITICAL_PATH_MAP `DROP:/v1/events` 204 靜默拋棄；引擎新增 MAP DROP 前置檢查，在 P0 域名 403 之前攔截 DROP 路由，徹底消除 App 因 403 而瘋狂重送的效能消耗。
+- [Privacy] 防堵 91APP 電商平台專有遙測盲區：將 `cpdl-deferrer.91app.com` 的 `deferrer-log` 納入 `CRITICAL_PATH_MAP` 進行 204 靜默拋棄，精確攔截硬體指紋 (osType, pixel, size) 採集，同時避免 403 阻斷引發 SDK 無限重試或購物車異常。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.18 (2026-03-31): 封堵 Alexa Metrics CDN 寄生盲區；升級 iHerb Optimizely 至 MAP DROP 避免重試風暴。
 - V45.17 (2026-03-31): 確立對話基準點，導入效能優化與 LRU Cache 修復。
-- V45.16 (2026-03-31): SCRIPT_BUILD 補充測試案例數：格式升級為 `V{VERSION} ({DATE}) | {N} rules | {M} tests`，使用佔位符 `__SSOT_TEST_COUNT__` 編譯期注入，測試通過後回填，失敗時不寫入 JS。
-- V45.15 (2026-03-31): 新增 RELEASE_DATE、RULES_STATS/TOTAL_RULE_COUNT；JS 標頭補 @date/@rules；TM 元資料補 @date/@rules；SCRIPT_BUILD 常數；編譯器啟動規則統計摘要。
-- V45.14 (2026-03-31): 基礎設施強化：evaluate_result 嚴格化、去重鍵修復、全 PARAMS_PREFIXES 覆蓋、CRITICAL_PATH_MAP 子域名繼承測試、JS formatter 逸出、p.communicate() 超時保護。
-- V45.13 (2026-03-31): Tampermonkey fetch/XHR 攔截器補齊 302 淨化回應處理；移除 RULES_DB 重複條目（BLOCK_DOMAINS/CRITICAL_PATH_GENERIC/PATH_BLOCK）。
+- V45.16 (2026-03-31): SCRIPT_BUILD 補充測試案例數格式升級。
 """
 
 import hashlib
@@ -37,13 +34,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.18"
-RELEASE_DATE = "2026-03-31"  # 當前版本發布日期（每次發版需與 VERSION 同步更新）
+VERSION = "45.19"
+RELEASE_DATE = "2026-04-06"  # 當前版本發布日期（每次發版需與 VERSION 同步更新）
 
 # [Release Notes] 用於自動追加至 CHANGELOG.md 的當前版本詳細日誌
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 封堵 Alexa Metrics 追蹤盲區：將 `/atrk.` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` L1 掃描器，防堵惡意腳本寄生於 CloudFront 等 CDN 服務時，不慎觸發軟白名單與靜態副檔名的雙重豁免漏洞。
-- [Perf] iHerb Optimizely 重試風暴防治：`logx.optimizely.com/v1/events` 升級為 MAP DROP 204 靜默拋棄，引擎新增 P0 域名 MAP DROP 前置檢查。
+- [Privacy] 防堵 91APP 電商平台專有遙測盲區：將 `cpdl-deferrer.91app.com` 的 `deferrer-log` 納入 `CRITICAL_PATH_MAP` 進行 204 靜默拋棄，精確攔截硬體指紋 (osType, pixel, size) 採集，同時避免 403 阻斷引發 SDK 無限重試或購物車異常。
 """
 
 # ==========================================
@@ -368,6 +364,7 @@ RULES_DB = {
     "CRITICAL_PATH_MAP": {
         'statsig.anthropic.com': ['DROP:/v1/rgstr'],
         'logx.optimizely.com': ['DROP:/v1/events'],
+        'cpdl-deferrer.91app.com': ['DROP:deferrer-log'],
         'o.alicdn.com': ['/tongyi-fe/lib/cnzz/c.js', '/tongyi-fe/lib/cnzz/z.js'],
         'qwen-api.zaodian.com': ['/api/app/template/v1/feed'],
         'file.chinatimes.com': ['/ad-param.json'],
@@ -2463,6 +2460,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V45.18 iHerb App Optimizely 事件追蹤 & Alexa Metrics CDN 寄生盲區 ---
     cases.append(TestCase("Privacy: Optimizely Event Telemetry (iHerb)", "https://logx.optimizely.com/v1/events", RES_DROP_204, "iHerb App 瘋狂打的 Optimizely 事件端點，MAP DROP 前置攔截避免 403 重試風暴"))
     cases.append(TestCase("Privacy: Alexa Metrics (CDN Parasite)", "https://d31qbv1cthcecs.cloudfront.net/atrk.js", RES_BLOCK_403, "精準命中 L1 掃描，強制阻斷寄生於 CDN 的追蹤腳本"))
+
+    # --- V45.19 91APP Telemetry Drop ---
+    cases.append(TestCase("Privacy: 91APP Telemetry Drop", "https://cpdl-deferrer.91app.com/api/v1/deferrer-log?env=prod&size=393x852", RES_DROP_204, "V45.19 將 91APP 專有遙測升級為 204 靜默拋棄，阻斷硬體指紋收集"))
+    cases.append(TestCase("Safe: 91APP Business API", "https://shopapi.91app.com/v1/cart/items", RES_ALLOW, "V45.19 確保 91APP 的正常電商業務端點不被誤殺"))
 
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
