@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V45.20 - 2026-04-06
+- [Privacy] 雙軌阻擋策略：封堵微軟 Application Insights (`ai.0.js`) 與 Sift Science (`siftscience.com`) 行為指紋。
+  1. 將 `/ai.0.` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` (L1 掃描器)，突破靜態豁免實施 403 物理阻斷。
+  2. 將 `siftscience.com` 的 `/v3/accounts/` 與 `/mobile_events` 納入 `CRITICAL_PATH_MAP` 進行 204 靜默拋棄，切斷資料外洩並保全前端風控流程。
+
 ## V45.19 - 2026-04-06
 - [Privacy] 防堵 91APP 電商平台專有遙測盲區：將 `cpdl-deferrer.91app.com` 的 `deferrer-log` 納入 `CRITICAL_PATH_MAP` 進行 204 靜默拋棄，精確攔截硬體指紋 (osType, pixel, size) 採集，同時避免 403 阻斷引發 SDK 無限重試或購物車異常。
 
