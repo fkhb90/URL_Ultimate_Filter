@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V45.22 - 2026-04-07
+- [Privacy] Vercel 遙測 CDN 全域封堵：從 `@vercel/analytics` 與 `@vercel/speed-insights` 原始碼反向工程，補齊 3 個未被攔截的 CDN/端點域名 — `va.vercel-scripts.com`、`cdn.vercel-insights.com`、`vitals.vercel-analytics.com`，徹底消滅 Vercel 遙測逃逸路徑。
+- [Privacy] 現代圖片格式追蹤像素防護：擴充 `.webp`/`.svg`/`.avif`/`.ico` 追蹤像素偽裝至 `CRITICAL_PATH_GENERIC`，防堵新世代圖片格式用於隱蔽遙測信標。
+
 ## V45.21 - 2026-04-07
 - [Privacy] 防堵 Vercel Insights 第一方代理遙測：將 `/_vercel/insights/` 與 `/_vercel/speed-insights/` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` (L1 掃描器)。精準突破 `script.js` 偽裝帶來的靜態副檔名雙重豁免，實施 403 物理阻斷，同時確保 Next.js 核心資源 (`/_next/static/`) 零誤殺。
 
