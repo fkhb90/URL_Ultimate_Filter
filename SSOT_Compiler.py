@@ -3,13 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.20 (2026-04-06)
+當前版本：V45.21 (2026-04-07)
 最新架構更新：
-- [Privacy] 雙軌阻擋策略：封堵微軟 Application Insights (`ai.0.js`) 與 Sift Science (`siftscience.com`) 行為指紋。
-  1. 將 `/ai.0.` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` (L1 掃描器)，突破靜態豁免實施 403 物理阻斷。
-  2. 將 `siftscience.com` 的 `/v3/accounts/` 與 `/mobile_events` 納入 `CRITICAL_PATH_MAP` 進行 204 靜默拋棄，切斷資料外洩並保全前端風控流程。
+- [Privacy] 防堵 Vercel Insights 第一方代理遙測：將 `/_vercel/insights/` 與 `/_vercel/speed-insights/` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` (L1 掃描器)。精準突破 `script.js` 偽裝帶來的靜態副檔名雙重豁免，實施 403 物理阻斷，同時確保 Next.js 核心資源 (`/_next/static/`) 零誤殺。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.20 (2026-04-06): 雙軌阻擋策略：封堵微軟 App Insights (`ai.0.js`) 與 Sift Science (`siftscience.com`)。
 - V45.19 (2026-04-06): 防堵 91APP 電商平台專有遙測盲區 (`deferrer-log`) 實施 204 拋棄。
 - V45.18 (2026-03-31): 封堵 Alexa Metrics CDN 寄生盲區；升級 iHerb Optimizely 至 MAP DROP。
 """
@@ -35,13 +34,11 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.20"
-RELEASE_DATE = "2026-04-06"
+VERSION = "45.21"
+RELEASE_DATE = "2026-04-07"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 雙軌阻擋策略：封堵微軟 Application Insights (`ai.0.js`) 與 Sift Science (`siftscience.com`) 行為指紋。
-  1. 將 `/ai.0.` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` (L1 掃描器)，突破靜態豁免實施 403 物理阻斷。
-  2. 將 `siftscience.com` 的 `/v3/accounts/` 與 `/mobile_events` 納入 `CRITICAL_PATH_MAP` 進行 204 靜默拋棄，切斷資料外洩並保全前端風控流程。
+- [Privacy] 防堵 Vercel Insights 第一方代理遙測：將 `/_vercel/insights/` 與 `/_vercel/speed-insights/` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` (L1 掃描器)。精準突破 `script.js` 偽裝帶來的靜態副檔名雙重豁免，實施 403 物理阻斷，同時確保 Next.js 核心資源 (`/_next/static/`) 零誤殺。
 """
 
 # ==========================================
@@ -355,7 +352,7 @@ RULES_DB = {
         'main-ad.', 'scevent.min.', 'showcoverad.', 'sp.js', 'tracker.js', 'tracking-api.',
         'tracking.js', 'user-id.', 'user-timing.', 'wcslog.', 'jslog.min.', 'device-uuid.',
         '/plugins/advanced-ads', '/plugins/adrotate',
-        'gad_script.', '/atrk.', '/ai.0.'
+        'gad_script.', '/atrk.', '/ai.0.', '/_vercel/insights/', '/_vercel/speed-insights/'
     ],
     "CRITICAL_PATH_SCRIPT_REGEX_RAW": [
         r"\/wp-content\/plugins\/[^\/]+\/.*(?:ads|ad-inserter|advanced-ads|ipa|quads)\.js(?:\?|$)",
@@ -2470,6 +2467,12 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: App Insights Script", "https://az416426.vo.msecnd.net/scripts/a/ai.0.js", RES_BLOCK_403, "V45.20 物理阻斷微軟 App Insights 遙測腳本"))
     cases.append(TestCase("Privacy: Sift Science Drop", "https://api3.siftscience.com/v3/accounts/64e6742e35ba4d3981f27c05/mobile_events", RES_DROP_204, "V45.20 靜默拋棄 Sift Science 行為生物特徵遙測"))
 
+    # --- V45.21 Vercel Insights 第一方代理防護 ---
+    cases.append(TestCase("Privacy: Vercel Insights Script", "https://www.xanswer.com/_vercel/insights/script.js", RES_BLOCK_403, "V45.21 第一方代理防護：L1 掃描器精準突破 script.js 靜態保護傘實施 403 阻斷"))
+    cases.append(TestCase("Privacy: Vercel Speed Insights", "https://www.xanswer.com/_vercel/speed-insights/vitals", RES_BLOCK_403, "V45.21 阻斷 Core Web Vitals 第一方代理回傳端點"))
+    cases.append(TestCase("Safe: Common script.js", "https://www.xanswer.com/assets/js/script.js", RES_ALLOW, "V45.21 確保常規命名之 script.js 依然受惠於靜態豁免不被誤殺"))
+    cases.append(TestCase("Safe: Next.js Core Chunks", "https://www.xanswer.com/_next/static/chunks/main.js", RES_ALLOW, "V45.21 確保 Next.js 核心水合 (Hydration) 靜態資源安全放行"))
+
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
     # =====================================================================
@@ -2627,7 +2630,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Edge: Coupang vendor-items safe", "https://cmapi.tw.coupang.com/vendor-items/12345", RES_ALLOW, "Coupang 商品 API 不含 -ads/ 應放行"))
 
     cases.append(TestCase("Scoped: 104 v2 api device_id", "https://appapi.104.com.tw/v2/api/user?device_id=TEST", RES_ALLOW, "/v2/api/ 正向匹配 device_id 放行"))
-    cases.append(TestCase("Scoped: 104 v2 api client_id", "https://appapi.104.com.tw/v2/api/user?client_id=TEST", RES_ALLOW, "/v2/api/ 白名單中無 client_id，但 client_id 不在 PARAMS_GLOBAL 中，不觸發淨化"))
+    cases.append(TestCase("Scoped: 104 v2 api client_id", "https://appapi.104.com.tw/v2/api/user?client_id=TEST", RES_ALLOW, "/v2/api/ 白名單中無 client_id，但 client_id 不不在 PARAMS_GLOBAL 中，不觸發淨化"))
     cases.append(TestCase("Scoped: 104 api both params", "https://appapi.104.com.tw/api/login?device_id=A&client_id=B", RES_ALLOW, "/api/ 同時允許 device_id 和 client_id"))
     cases.append(TestCase("Scoped: 104 negative + positive overlap", "https://appapi.104.com.tw/2.0/ad/data?device_id=A&fbclid=B", RES_REWRITE, "!/2.0/ad/ 否決 device_id，fbclid 為全局追蹤參數，兩者皆被剝離"))
     cases.append(TestCase("Scoped: Subdomain inheritance", "https://sub.104.com.tw/api/data?device_id=TEST", RES_ALLOW, "子域名繼承 104.com.tw SCOPED 規則，/api/ device_id 放行"))
