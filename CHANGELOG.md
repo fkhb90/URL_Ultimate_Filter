@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V45.21 - 2026-04-07
+- [Privacy] 防堵 Vercel Insights 第一方代理遙測：將 `/_vercel/insights/` 與 `/_vercel/speed-insights/` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` (L1 掃描器)。精準突破 `script.js` 偽裝帶來的靜態副檔名雙重豁免，實施 403 物理阻斷，同時確保 Next.js 核心資源 (`/_next/static/`) 零誤殺。
+
 ## V45.20 - 2026-04-06
 - [Privacy] 雙軌阻擋策略：封堵微軟 Application Insights (`ai.0.js`) 與 Sift Science (`siftscience.com`) 行為指紋。
   1. 將 `/ai.0.` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` (L1 掃描器)，突破靜態豁免實施 403 物理阻斷。
