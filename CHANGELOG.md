@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V45.23 - 2026-04-07
+- [Privacy] 跨平台第一方代理遙測封堵：從 PostHog、Simple Analytics、Fathom、Pirsch 官方文件與原始碼反向工程，新增 10 個專用 CDN/攝取域名至 `CRITICAL_PATH_MAP`。PostHog US/EU 雙區攝取端點 (`us.i.posthog.com`/`eu.i.posthog.com`) + 靜態 SDK CDN (`us-assets`/`eu-assets`)、Simple Analytics 三域 CDN (`scripts.simpleanalyticscdn.com`/`queue.simpleanalyticscdn.com`/`simpleanalyticsexternal.com`)、Fathom CDN (`cdn.usefathom.com`)、Pirsch API (`api.pirsch.io`)。
+
 ## V45.22 - 2026-04-07
 - [Privacy] Vercel 遙測 CDN 全域封堵：從 `@vercel/analytics` 與 `@vercel/speed-insights` 原始碼反向工程，補齊 3 個未被攔截的 CDN/端點域名 — `va.vercel-scripts.com`、`cdn.vercel-insights.com`、`vitals.vercel-analytics.com`，徹底消滅 Vercel 遙測逃逸路徑。
 - [Privacy] 現代圖片格式追蹤像素防護：擴充 `.webp`/`.svg`/`.avif`/`.ico` 追蹤像素偽裝至 `CRITICAL_PATH_GENERIC`，防堵新世代圖片格式用於隱蔽遙測信標。

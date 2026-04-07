@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.22
+// @name         URL Ultimate Filter V45.23
 // @namespace    http://tampermonkey.net/
-// @version      45.22
+// @version      45.23
 // @date         2026-04-07
-// @description  SSOT 前端防護盾牌 V45.22 (2026-04-07) | 1359 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1359 total (275 domains · 299 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V45.23 (2026-04-07) | 1378 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1378 total (275 domains · 318 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.22
+ * @version 45.23
  * @date    2026-04-07
- * @rules   1359 total (275 domains, 299 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1378 total (275 domains, 318 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.22';
-const SCRIPT_BUILD = 'V45.22 (2026-04-07) | 1359 rules | 2566 tests';
+const SCRIPT_VERSION = '45.23';
+const SCRIPT_BUILD = 'V45.23 (2026-04-07) | 1378 rules | 2614 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -485,6 +485,33 @@ const RULES = {
       ])],
     ['vitals.vercel-analytics.com', new Set([
         '/v1/vitals'
+      ])],
+    ['us.i.posthog.com', new Set([
+        '/batch', '/decide', '/i/v0/e', '/capture'
+      ])],
+    ['eu.i.posthog.com', new Set([
+        '/batch', '/decide', '/i/v0/e', '/capture'
+      ])],
+    ['us-assets.i.posthog.com', new Set([
+        '/static/array.js'
+      ])],
+    ['eu-assets.i.posthog.com', new Set([
+        '/static/array.js'
+      ])],
+    ['scripts.simpleanalyticscdn.com', new Set([
+        '/latest.js', '/proxy.js', '/auto-events.js'
+      ])],
+    ['queue.simpleanalyticscdn.com', new Set([
+        '/noscript.gif', '/events'
+      ])],
+    ['simpleanalyticsexternal.com', new Set([
+        '/proxy.js'
+      ])],
+    ['cdn.usefathom.com', new Set([
+        '/script.js'
+      ])],
+    ['api.pirsch.io', new Set([
+        '/pa.js', '/api/v1/hit'
       ])],
     ['pbd.yahoo.com', new Set([
         '/data/logs'
