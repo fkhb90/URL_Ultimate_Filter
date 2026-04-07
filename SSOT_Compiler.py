@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.21 (2026-04-07)
+當前版本：V45.22 (2026-04-07)
 最新架構更新：
-- [Privacy] 防堵 Vercel Insights 第一方代理遙測：將 `/_vercel/insights/` 與 `/_vercel/speed-insights/` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` (L1 掃描器)。精準突破 `script.js` 偽裝帶來的靜態副檔名雙重豁免，實施 403 物理阻斷，同時確保 Next.js 核心資源 (`/_next/static/`) 零誤殺。
+- [Privacy] Vercel 遙測 CDN 全域封堵：從 Vercel 原始碼 (`@vercel/analytics` + `@vercel/speed-insights`) 反向工程取得 3 個未被攔截的 CDN/端點域名 — `va.vercel-scripts.com` (主要腳本 CDN)、`cdn.vercel-insights.com` (HTML-only 整合 CDN)、`vitals.vercel-analytics.com` (替代性 vitals 回報域名)。同步擴充現代圖片格式追蹤像素防護 (`.webp`/`.svg`/`.avif`/`.ico`)。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.21 (2026-04-07): 防堵 Vercel Insights 第一方代理遙測：L1 掃描器精準突破 `script.js` 偽裝。
 - V45.20 (2026-04-06): 雙軌阻擋策略：封堵微軟 App Insights (`ai.0.js`) 與 Sift Science (`siftscience.com`)。
 - V45.19 (2026-04-06): 防堵 91APP 電商平台專有遙測盲區 (`deferrer-log`) 實施 204 拋棄。
 - V45.18 (2026-03-31): 封堵 Alexa Metrics CDN 寄生盲區；升級 iHerb Optimizely 至 MAP DROP。
@@ -34,11 +35,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.21"
+VERSION = "45.22"
 RELEASE_DATE = "2026-04-07"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 防堵 Vercel Insights 第一方代理遙測：將 `/_vercel/insights/` 與 `/_vercel/speed-insights/` 納入 `CRITICAL_PATH_SCRIPT_ROOTS` (L1 掃描器)。精準突破 `script.js` 偽裝帶來的靜態副檔名雙重豁免，實施 403 物理阻斷，同時確保 Next.js 核心資源 (`/_next/static/`) 零誤殺。
+- [Privacy] Vercel 遙測 CDN 全域封堵：從 `@vercel/analytics` 與 `@vercel/speed-insights` 原始碼反向工程，補齊 3 個未被攔截的 CDN/端點域名 — `va.vercel-scripts.com`、`cdn.vercel-insights.com`、`vitals.vercel-analytics.com`，徹底消滅 Vercel 遙測逃逸路徑。
+- [Privacy] 現代圖片格式追蹤像素防護：擴充 `.webp`/`.svg`/`.avif`/`.ico` 追蹤像素偽裝至 `CRITICAL_PATH_GENERIC`，防堵新世代圖片格式用於隱蔽遙測信標。
 """
 
 # ==========================================
@@ -333,7 +335,11 @@ RULES_DB = {
         '/ads-sw.js', '/ad-call', '/adx/', '/adsales/', '/adserver/', '/adsync/', '/adtech/', 
         '/abtesting/', '/b/ss', '/feature-flag/', '/i/adsct', '/track/m', '/track/pc', '/user-profile/', 
         'cacafly/track', '/api/v1/t', '/sa.gif', '/api/v2/rum', '/batch_resolve',
-        '/acookie/', '/cookie-sync/'
+        '/acookie/', '/cookie-sync/',
+        '/pixel.webp', '/beacon.webp', '/track.webp', '/0.webp', '/1.webp',
+        '/pixel.svg', '/beacon.svg', '/track.svg',
+        '/pixel.avif', '/beacon.avif',
+        '/pixel.ico', '/beacon.ico'
     ],
     "CRITICAL_PATH_SCRIPT_ROOTS": [
         '/prebid', '/sentry.', 'sentry-', '/analytics.', 'ga-init.', 'gtag.', 'gtm.', 'ytag.',
@@ -440,6 +446,9 @@ RULES_DB = {
         'metrics.vitals.vercel-insights.com': ['/v1/metrics'],
         'monorail-edge.shopifysvc.com': ['/v1/produce'],
         'vitals.vercel-insights.com': ['/v1/vitals'],
+        'va.vercel-scripts.com': ['/v1/script.js', '/v1/script.debug.js', '/v1/speed-insights/script.js', '/v1/speed-insights/script.debug.js'],
+        'cdn.vercel-insights.com': ['/v1/script.js', '/v1/script.debug.js'],
+        'vitals.vercel-analytics.com': ['/v1/vitals'],
         'pbd.yahoo.com': ['/data/logs'],
         'plausible.io': ['/api/event'],
         'analytics.tiktok.com': ['/i18n/pixel/events.js'],
@@ -2472,6 +2481,15 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Vercel Speed Insights", "https://www.xanswer.com/_vercel/speed-insights/vitals", RES_BLOCK_403, "V45.21 阻斷 Core Web Vitals 第一方代理回傳端點"))
     cases.append(TestCase("Safe: Common script.js", "https://www.xanswer.com/assets/js/script.js", RES_ALLOW, "V45.21 確保常規命名之 script.js 依然受惠於靜態豁免不被誤殺"))
     cases.append(TestCase("Safe: Next.js Core Chunks", "https://www.xanswer.com/_next/static/chunks/main.js", RES_ALLOW, "V45.21 確保 Next.js 核心水合 (Hydration) 靜態資源安全放行"))
+
+    # --- V45.22 Vercel 遙測 CDN 全域封堵 + 現代圖片格式追蹤像素 ---
+    cases.append(TestCase("Privacy: Vercel Scripts CDN (Analytics)", "https://va.vercel-scripts.com/v1/script.js", RES_BLOCK_403, "V45.22 封堵 Vercel 主要 CDN 供應的 Web Analytics 追蹤腳本"))
+    cases.append(TestCase("Privacy: Vercel Scripts CDN (Speed Insights)", "https://va.vercel-scripts.com/v1/speed-insights/script.js", RES_BLOCK_403, "V45.22 封堵 Vercel CDN 供應的 Speed Insights 性能遙測腳本"))
+    cases.append(TestCase("Privacy: Vercel Scripts CDN (Debug)", "https://va.vercel-scripts.com/v1/script.debug.js", RES_BLOCK_403, "V45.22 封堵 Vercel CDN 的 debug 模式追蹤腳本"))
+    cases.append(TestCase("Privacy: Vercel Insights CDN (HTML)", "https://cdn.vercel-insights.com/v1/script.js", RES_BLOCK_403, "V45.22 封堵 HTML-only 整合使用的 Vercel Insights CDN 腳本"))
+    cases.append(TestCase("Privacy: Vercel Analytics Vitals", "https://vitals.vercel-analytics.com/v1/vitals", RES_BLOCK_403, "V45.22 封堵 Vercel Speed Insights 替代性 vitals 回報域名"))
+    cases.append(TestCase("Privacy: WebP Tracking Pixel", "https://tracker.example.com/pixel.webp", RES_BLOCK_403, "V45.22 現代圖片格式追蹤像素防護：WebP 偽裝"))
+    cases.append(TestCase("Privacy: SVG Tracking Beacon", "https://tracker.example.com/beacon.svg", RES_BLOCK_403, "V45.22 現代圖片格式追蹤像素防護：SVG 偽裝"))
 
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
