@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.22 (2026-04-07)
+當前版本：V45.23 (2026-04-07)
 最新架構更新：
-- [Privacy] Vercel 遙測 CDN 全域封堵：從 Vercel 原始碼 (`@vercel/analytics` + `@vercel/speed-insights`) 反向工程取得 3 個未被攔截的 CDN/端點域名 — `va.vercel-scripts.com` (主要腳本 CDN)、`cdn.vercel-insights.com` (HTML-only 整合 CDN)、`vitals.vercel-analytics.com` (替代性 vitals 回報域名)。同步擴充現代圖片格式追蹤像素防護 (`.webp`/`.svg`/`.avif`/`.ico`)。
+- [Privacy] 跨平台第一方代理遙測封堵：從 PostHog、Simple Analytics、Fathom、Pirsch 官方文件與原始碼反向工程，補齊 10 個專用 CDN/攝取域名的精準路徑攔截 — 涵蓋 PostHog US/EU 雙區攝取端點、Simple Analytics 三域 CDN、Fathom CDN、Pirsch API。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.22 (2026-04-07): Vercel 遙測 CDN 全域封堵 + 現代圖片格式追蹤像素防護。
 - V45.21 (2026-04-07): 防堵 Vercel Insights 第一方代理遙測：L1 掃描器精準突破 `script.js` 偽裝。
 - V45.20 (2026-04-06): 雙軌阻擋策略：封堵微軟 App Insights (`ai.0.js`) 與 Sift Science (`siftscience.com`)。
 - V45.19 (2026-04-06): 防堵 91APP 電商平台專有遙測盲區 (`deferrer-log`) 實施 204 拋棄。
@@ -35,12 +36,11 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.22"
+VERSION = "45.23"
 RELEASE_DATE = "2026-04-07"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] Vercel 遙測 CDN 全域封堵：從 `@vercel/analytics` 與 `@vercel/speed-insights` 原始碼反向工程，補齊 3 個未被攔截的 CDN/端點域名 — `va.vercel-scripts.com`、`cdn.vercel-insights.com`、`vitals.vercel-analytics.com`，徹底消滅 Vercel 遙測逃逸路徑。
-- [Privacy] 現代圖片格式追蹤像素防護：擴充 `.webp`/`.svg`/`.avif`/`.ico` 追蹤像素偽裝至 `CRITICAL_PATH_GENERIC`，防堵新世代圖片格式用於隱蔽遙測信標。
+- [Privacy] 跨平台第一方代理遙測封堵：從 PostHog、Simple Analytics、Fathom、Pirsch 官方文件與原始碼反向工程，新增 10 個專用 CDN/攝取域名至 `CRITICAL_PATH_MAP`。PostHog US/EU 雙區攝取端點 (`us.i.posthog.com`/`eu.i.posthog.com`) + 靜態 SDK CDN (`us-assets`/`eu-assets`)、Simple Analytics 三域 CDN (`scripts.simpleanalyticscdn.com`/`queue.simpleanalyticscdn.com`/`simpleanalyticsexternal.com`)、Fathom CDN (`cdn.usefathom.com`)、Pirsch API (`api.pirsch.io`)。
 """
 
 # ==========================================
@@ -449,6 +449,15 @@ RULES_DB = {
         'va.vercel-scripts.com': ['/v1/script.js', '/v1/script.debug.js', '/v1/speed-insights/script.js', '/v1/speed-insights/script.debug.js'],
         'cdn.vercel-insights.com': ['/v1/script.js', '/v1/script.debug.js'],
         'vitals.vercel-analytics.com': ['/v1/vitals'],
+        'us.i.posthog.com': ['/batch', '/decide', '/i/v0/e', '/capture'],
+        'eu.i.posthog.com': ['/batch', '/decide', '/i/v0/e', '/capture'],
+        'us-assets.i.posthog.com': ['/static/array.js'],
+        'eu-assets.i.posthog.com': ['/static/array.js'],
+        'scripts.simpleanalyticscdn.com': ['/latest.js', '/proxy.js', '/auto-events.js'],
+        'queue.simpleanalyticscdn.com': ['/noscript.gif', '/events'],
+        'simpleanalyticsexternal.com': ['/proxy.js'],
+        'cdn.usefathom.com': ['/script.js'],
+        'api.pirsch.io': ['/pa.js', '/api/v1/hit'],
         'pbd.yahoo.com': ['/data/logs'],
         'plausible.io': ['/api/event'],
         'analytics.tiktok.com': ['/i18n/pixel/events.js'],
@@ -2490,6 +2499,18 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Vercel Analytics Vitals", "https://vitals.vercel-analytics.com/v1/vitals", RES_BLOCK_403, "V45.22 封堵 Vercel Speed Insights 替代性 vitals 回報域名"))
     cases.append(TestCase("Privacy: WebP Tracking Pixel", "https://tracker.example.com/pixel.webp", RES_BLOCK_403, "V45.22 現代圖片格式追蹤像素防護：WebP 偽裝"))
     cases.append(TestCase("Privacy: SVG Tracking Beacon", "https://tracker.example.com/beacon.svg", RES_BLOCK_403, "V45.22 現代圖片格式追蹤像素防護：SVG 偽裝"))
+
+    # --- V45.23 第一方代理遙測偽裝：跨平台分析服務 CDN 封堵 ---
+    cases.append(TestCase("Privacy: PostHog US Ingestion", "https://us.i.posthog.com/batch", RES_BLOCK_403, "V45.23 封堵 PostHog 美區事件攝取端點，阻斷第一方代理回傳"))
+    cases.append(TestCase("Privacy: PostHog EU Ingestion", "https://eu.i.posthog.com/i/v0/e", RES_BLOCK_403, "V45.23 封堵 PostHog 歐區 v0 事件攝取端點"))
+    cases.append(TestCase("Privacy: PostHog US Assets", "https://us-assets.i.posthog.com/static/array.js", RES_BLOCK_403, "V45.23 封堵 PostHog 美區 SDK 靜態腳本 CDN"))
+    cases.append(TestCase("Privacy: PostHog EU Assets", "https://eu-assets.i.posthog.com/static/array.js", RES_BLOCK_403, "V45.23 封堵 PostHog 歐區 SDK 靜態腳本 CDN"))
+    cases.append(TestCase("Privacy: Simple Analytics CDN", "https://scripts.simpleanalyticscdn.com/latest.js", RES_BLOCK_403, "V45.23 封堵 Simple Analytics 腳本 CDN"))
+    cases.append(TestCase("Privacy: Simple Analytics Queue", "https://queue.simpleanalyticscdn.com/noscript.gif", RES_BLOCK_403, "V45.23 封堵 Simple Analytics 無腳本追蹤像素"))
+    cases.append(TestCase("Privacy: Simple Analytics Proxy", "https://simpleanalyticsexternal.com/proxy.js", RES_BLOCK_403, "V45.23 封堵 Simple Analytics 外部代理腳本"))
+    cases.append(TestCase("Privacy: Fathom CDN Script", "https://cdn.usefathom.com/script.js", RES_BLOCK_403, "V45.23 封堵 Fathom Analytics CDN 追蹤腳本"))
+    cases.append(TestCase("Privacy: Pirsch Analytics API", "https://api.pirsch.io/pa.js", RES_BLOCK_403, "V45.23 封堵 Pirsch Analytics API 追蹤腳本"))
+    cases.append(TestCase("Privacy: Pirsch Analytics Hit", "https://api.pirsch.io/api/v1/hit", RES_BLOCK_403, "V45.23 封堵 Pirsch Analytics 頁面瀏覽回報端點"))
 
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
