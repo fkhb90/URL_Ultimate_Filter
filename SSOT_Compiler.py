@@ -3,11 +3,14 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.23 (2026-04-07)
+當前版本：V45.26 (2026-04-08)
 最新架構更新：
-- [Privacy] 跨平台第一方代理遙測封堵：從 PostHog、Simple Analytics、Fathom、Pirsch 官方文件與原始碼反向工程，補齊 10 個專用 CDN/攝取域名的精準路徑攔截 — 涵蓋 PostHog US/EU 雙區攝取端點、Simple Analytics 三域 CDN、Fathom CDN、Pirsch API。
+- [Privacy] 台灣地區深度擴充：LINE Tag 追蹤腳本精準路徑攔截 (`d.line-scdn.net/n/line_tag/`，不誤殺貼圖/內容 CDN) + LINE 轉換像素 (`tr.line.me`)。Treasure Data 企業級 CDP (`treasuredata.com`/`treasure-data.com`) 全域封鎖 + CDN/攝取端點精準攔截。台灣廣告聯播網替代域名補齊：Tagtoo (`tagtoo.com.tw`)、Scupio (`scupio.net`)、ClickForce (`clickforce.net`)、OneAD OneVision (`onevision.com.tw`)、InsiderOne (`insiderone.com`)。Pixnet 部落格分析 (`pixanalytics.com`/`pixplug.in`)。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.25 (2026-04-07): 主流分析平台 CDN 逃逸域名封堵 (Amplitude/Mixpanel/Heap/RudderStack/Segment)。
+- V45.24 (2026-04-07): 台灣特有第一方代理遙測偽裝封堵 (Dcard/Insider/GrowingIO)。
+- V45.23 (2026-04-07): 跨平台第一方代理遙測封堵 (PostHog/Simple Analytics/Fathom/Pirsch)。
 - V45.22 (2026-04-07): Vercel 遙測 CDN 全域封堵 + 現代圖片格式追蹤像素防護。
 - V45.21 (2026-04-07): 防堵 Vercel Insights 第一方代理遙測：L1 掃描器精準突破 `script.js` 偽裝。
 - V45.20 (2026-04-06): 雙軌阻擋策略：封堵微軟 App Insights (`ai.0.js`) 與 Sift Science (`siftscience.com`)。
@@ -36,11 +39,11 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.23"
-RELEASE_DATE = "2026-04-07"
+VERSION = "45.26"
+RELEASE_DATE = "2026-04-08"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 跨平台第一方代理遙測封堵：從 PostHog、Simple Analytics、Fathom、Pirsch 官方文件與原始碼反向工程，新增 10 個專用 CDN/攝取域名至 `CRITICAL_PATH_MAP`。PostHog US/EU 雙區攝取端點 (`us.i.posthog.com`/`eu.i.posthog.com`) + 靜態 SDK CDN (`us-assets`/`eu-assets`)、Simple Analytics 三域 CDN (`scripts.simpleanalyticscdn.com`/`queue.simpleanalyticscdn.com`/`simpleanalyticsexternal.com`)、Fathom CDN (`cdn.usefathom.com`)、Pirsch API (`api.pirsch.io`)。
+- [Privacy] 台灣地區深度擴充 (13 個新域名/路徑)：LINE Tag 精準路徑攔截 (`d.line-scdn.net/n/line_tag/`) + LINE 轉換像素 (`tr.line.me`)；Treasure Data 企業級 CDP (`treasuredata.com`/`treasure-data.com`) 全域封鎖 + CDN/攝取端點；台灣廣告聯播網替代域名 — Tagtoo (`tagtoo.com.tw`)、Scupio (`scupio.net`)、ClickForce (`clickforce.net`)、OneAD (`onevision.com.tw`)、InsiderOne (`insiderone.com`)；Pixnet 分析 (`pixanalytics.com`/`pixplug.in`)。
 """
 
 # ==========================================
@@ -135,7 +138,7 @@ RULES_DB = {
         'analysis.momoshop.com.tw', 'ecdmp.momoshop.com.tw', 'event.momoshop.com.tw',
         'log.momoshop.com.tw', 'pixel.momoshop.com.tw', 'rtb.momoshop.com.tw',
         'sspap.momoshop.com.tw', 'trace.momoshop.com.tw', 'trk.momoshop.com.tw',
-        'jslog.coupang.com', 'mercury.coupang.com',
+        'jslog.coupang.com', 'mercury.coupang.com', 'pixel.dcard.tw', 'giocdn.com',
         'ad.gamer.com.tw', 'ad-geek.net', 'ad-hub.net', 'ad-serv.teepr.com', 'ad-tracking.dcard.tw',
         'analysis.tw', 'appier.net', 'b.bridgewell.com', 'cacafly.com', 'clickforce.com.tw',
         'fast-trk.com', 'funp.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com',
@@ -144,7 +147,12 @@ RULES_DB = {
         'adnext-a.akamaihd.net', 'toots-a.akamaihd.net',
         'analytics.twitter.com',
         'edge-analytics.amazonaws.com', 'edge-tracking.cloudflare.com',
-        'insight.linkedin.com', 'px.ads.linkedin.com'
+        'insight.linkedin.com', 'px.ads.linkedin.com',
+        'cdn.amplitude.com', 'cdn.eu.amplitude.com',
+        'cdn.mxpnl.com', 'decide.mixpanel.com',
+        'heapanalytics.com', 'heap-api.com',
+        'cdn.rudderlabs.com', 'segmentapis.com',
+        'tr.line.me', 'onevision.com.tw', 'pixanalytics.com', 'pixplug.in'
     ],
     "REDIRECTOR_HOSTS": [
         'adf.ly', 'ay.gy', 'gloyah.net', 'j.gs', 'q.gs', 'zo.ee',
@@ -304,7 +312,10 @@ RULES_DB = {
         'branch.io', 'app.link', 'kochava.com', 'scorecardresearch.com', 'rayjump.com',
         'mintegral.net', 'tiktokv.com', 'byteoversea.com', 'criteo.com', 'criteo.net',
         'adservices.google.com', 'ad2n.com', 'vpon.com', 'tenmax.io', 'clickforce.com.tw', 
-        'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com', 'adbottw.net'
+        'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com', 'adbottw.net',
+        'useinsider.com', 'insiderone.com',
+        'treasuredata.com', 'treasure-data.com',
+        'tagtoo.com.tw', 'scupio.net', 'clickforce.net'
     ],
     "BLOCK_DOMAINS_REGEX": [
         r'^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$',
@@ -424,6 +435,8 @@ RULES_DB = {
         'ads.yahoo.com': ['/pixel'],
         'amazon-adsystem.com': ['/e/ec'],
         'api.amplitude.com': ['/2/httpapi'],
+        'api2.amplitude.com': ['/2/httpapi', '/batch'],
+        'api.eu.amplitude.com': ['/2/httpapi'],
         'api.hubspot.com': ['/events'],
         'api-js.mixpanel.com': ['/track'],
         'api.mixpanel.com': ['/track'],
@@ -458,6 +471,12 @@ RULES_DB = {
         'simpleanalyticsexternal.com': ['/proxy.js'],
         'cdn.usefathom.com': ['/script.js'],
         'api.pirsch.io': ['/pa.js', '/api/v1/hit'],
+        'assets.dcard.tw': ['/scripts/web-ad-tracking-sdk/'],
+        'assets.giocdn.com': ['/2.1/gio.js', '/cdp/1.0/gio.js'],
+        'd.line-scdn.net': ['/n/line_tag/'],
+        'cdn.treasuredata.com': ['/sdk/'],
+        'in.treasuredata.com': ['/js/v3/event/'],
+        's.pixanalytics.com': ['/c.js'],
         'pbd.yahoo.com': ['/data/logs'],
         'plausible.io': ['/api/event'],
         'analytics.tiktok.com': ['/i18n/pixel/events.js'],
@@ -2511,6 +2530,43 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Fathom CDN Script", "https://cdn.usefathom.com/script.js", RES_BLOCK_403, "V45.23 封堵 Fathom Analytics CDN 追蹤腳本"))
     cases.append(TestCase("Privacy: Pirsch Analytics API", "https://api.pirsch.io/pa.js", RES_BLOCK_403, "V45.23 封堵 Pirsch Analytics API 追蹤腳本"))
     cases.append(TestCase("Privacy: Pirsch Analytics Hit", "https://api.pirsch.io/api/v1/hit", RES_BLOCK_403, "V45.23 封堵 Pirsch Analytics 頁面瀏覽回報端點"))
+
+    # --- V45.24 台灣特有第一方代理遙測偽裝封堵 ---
+    cases.append(TestCase("Privacy: Dcard Ads Pixel", "https://pixel.dcard.tw/event?client_id=abc123", RES_BLOCK_403, "V45.24 封堵 Dcard 廣告追蹤像素端點 (台灣最大匿名論壇)"))
+    cases.append(TestCase("Privacy: Dcard Ads SDK", "https://assets.dcard.tw/scripts/web-ad-tracking-sdk/latest.js", RES_BLOCK_403, "V45.24 封堵 Dcard 廣告追蹤 SDK 腳本 CDN"))
+    cases.append(TestCase("Safe: Dcard Static Assets", "https://assets.dcard.tw/images/logo.svg", RES_ALLOW, "V45.24 確保 Dcard 正常靜態資源 (圖片/CSS) 不被誤殺"))
+    cases.append(TestCase("Privacy: Insider Tracking", "https://eva.api.useinsider.com/ins.js?id=10001", RES_BLOCK_403, "V45.24 封堵 Insider 個人化追蹤腳本 (台灣 EVA Air/Carrefour/Watsons 等品牌使用)"))
+    cases.append(TestCase("Privacy: Insider API Track", "https://momo.api.useinsider.com/track", RES_BLOCK_403, "V45.24 封堵 Insider 事件回報端點 (台灣 momo 使用)"))
+    cases.append(TestCase("Privacy: GrowingIO CDN Script", "https://assets.giocdn.com/2.1/gio.js", RES_BLOCK_403, "V45.24 封堵 GrowingIO 分析腳本 CDN"))
+    cases.append(TestCase("Privacy: GrowingIO CDP Script", "https://assets.giocdn.com/cdp/1.0/gio.js", RES_BLOCK_403, "V45.24 封堵 GrowingIO CDP 分析腳本 CDN"))
+
+    # --- V45.25 主流分析平台逃逸 CDN 域名封堵 ---
+    cases.append(TestCase("Privacy: Amplitude CDN Script", "https://cdn.amplitude.com/script/abc123key.js", RES_BLOCK_403, "V45.25 封堵 Amplitude 腳本 CDN (從主域名 BLOCK_DOMAINS 逃逸的子域名)"))
+    cases.append(TestCase("Privacy: Amplitude EU CDN", "https://cdn.eu.amplitude.com/script/abc123key.js", RES_BLOCK_403, "V45.25 封堵 Amplitude EU 區腳本 CDN"))
+    cases.append(TestCase("Privacy: Amplitude API2", "https://api2.amplitude.com/2/httpapi", RES_BLOCK_403, "V45.25 封堵 Amplitude 替代 API 端點 (api2 非 api)"))
+    cases.append(TestCase("Privacy: Amplitude Batch API", "https://api2.amplitude.com/batch", RES_BLOCK_403, "V45.25 封堵 Amplitude 批次上傳 API"))
+    cases.append(TestCase("Privacy: Amplitude EU API", "https://api.eu.amplitude.com/2/httpapi", RES_BLOCK_403, "V45.25 封堵 Amplitude EU 區 API 端點"))
+    cases.append(TestCase("Privacy: Mixpanel CDN", "https://cdn.mxpnl.com/libs/mixpanel-2-latest.min.js", RES_BLOCK_403, "V45.25 封堵 Mixpanel 腳本 CDN (完全不同域名 mxpnl.com)"))
+    cases.append(TestCase("Privacy: Mixpanel Decide", "https://decide.mixpanel.com/decide?verbose=1", RES_BLOCK_403, "V45.25 封堵 Mixpanel decide 配置端點"))
+    cases.append(TestCase("Privacy: Heap Analytics CDN", "https://cdn.heapanalytics.com/js/heap-abc123.js", RES_BLOCK_403, "V45.25 封堵 Heap 腳本 CDN (不同於 heap.io)"))
+    cases.append(TestCase("Privacy: Heap API CDN", "https://cdn.us.heap-api.com/config/abc123.json", RES_BLOCK_403, "V45.25 封堵 Heap API CDN 配置端點"))
+    cases.append(TestCase("Privacy: RudderStack CDN", "https://cdn.rudderlabs.com/v1.1/rudder-analytics.min.js", RES_BLOCK_403, "V45.25 封堵 RudderStack SDK CDN (不同於 rudderstack.com)"))
+    cases.append(TestCase("Privacy: Segment EU API", "https://eu1.api.segmentapis.com/v1/track", RES_BLOCK_403, "V45.25 封堵 Segment EU API (不同於 segment.com/segment.io)"))
+
+    # --- V45.26 台灣地區擴充：LINE Tag / Treasure Data / Pixnet / 台灣廣告聯播網替代域名 ---
+    cases.append(TestCase("Privacy: LINE Tag Script", "https://d.line-scdn.net/n/line_tag/public/release/v1/lt.js", RES_BLOCK_403, "V45.26 精準路徑攔截 LINE Tag 追蹤腳本 (不封鎖整個 line-scdn.net CDN)"))
+    cases.append(TestCase("Safe: LINE Sticker CDN", "https://d.line-scdn.net/sticker/12345/main.png", RES_ALLOW, "V45.26 確保 LINE 貼圖/內容 CDN 不被誤殺"))
+    cases.append(TestCase("Privacy: LINE Conversion Pixel", "https://tr.line.me/tag.gif?pid=abc123", RES_BLOCK_403, "V45.26 封堵 LINE 轉換追蹤像素端點"))
+    cases.append(TestCase("Privacy: Treasure Data CDN", "https://cdn.treasuredata.com/sdk/4.4/td.min.js", RES_BLOCK_403, "V45.26 封堵 Treasure Data JS SDK CDN (台灣企業級 CDP)"))
+    cases.append(TestCase("Privacy: Treasure Data Ingest", "https://in.treasuredata.com/js/v3/event/abc123", RES_BLOCK_403, "V45.26 封堵 Treasure Data 資料攝取端點"))
+    cases.append(TestCase("Privacy: Treasure Data Alt", "https://cdp.in.treasure-data.com/v1/collect", RES_BLOCK_403, "V45.26 封堵 Treasure Data 替代域名"))
+    cases.append(TestCase("Privacy: InsiderOne API", "https://developers.insiderone.com/api/track", RES_BLOCK_403, "V45.26 封堵 Insider 新品牌域名 (繞過 useinsider.com 封鎖)"))
+    cases.append(TestCase("Privacy: Tagtoo TW DXP", "https://dxp.tagtoo.com.tw/api/event", RES_BLOCK_403, "V45.26 封堵 Tagtoo 台灣主域名 (僅 tagtoo.co 被封鎖)"))
+    cases.append(TestCase("Privacy: Scupio Alt Domain", "https://ad.scupio.net/prebid", RES_BLOCK_403, "V45.26 封堵 Scupio/Bridgewell 替代域名"))
+    cases.append(TestCase("Privacy: ClickForce Alt", "https://track.clickforce.net/pixel", RES_BLOCK_403, "V45.26 封堵 ClickForce 替代域名"))
+    cases.append(TestCase("Privacy: OneAD OneVision", "https://pixel.onevision.com.tw/track", RES_BLOCK_403, "V45.26 封堵 OneAD OneVision 子品牌追蹤"))
+    cases.append(TestCase("Privacy: Pixnet Analytics", "https://s.pixanalytics.com/c.js", RES_BLOCK_403, "V45.26 封堵 Pixnet 部落格分析 CDN 腳本"))
+    cases.append(TestCase("Privacy: Pixnet Plugin", "https://referer.pixplug.in/static/r.js", RES_BLOCK_403, "V45.26 封堵 Pixnet 來源追蹤插件"))
 
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
