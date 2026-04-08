@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.23
+// @name         URL Ultimate Filter V45.26
 // @namespace    http://tampermonkey.net/
-// @version      45.23
-// @date         2026-04-07
-// @description  SSOT 前端防護盾牌 V45.23 (2026-04-07) | 1378 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1378 total (275 domains · 318 critical · 109 param)
+// @version      45.26
+// @date         2026-04-08
+// @description  SSOT 前端防護盾牌 V45.26 (2026-04-08) | 1395 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1395 total (282 domains · 328 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.23
- * @date    2026-04-07
- * @rules   1378 total (275 domains, 318 critical paths, 403 path keywords, 109 param rules)
+ * @version 45.26
+ * @date    2026-04-08
+ * @rules   1395 total (282 domains, 328 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.23';
-const SCRIPT_BUILD = 'V45.23 (2026-04-07) | 1378 rules | 2614 tests';
+const SCRIPT_VERSION = '45.26';
+const SCRIPT_BUILD = 'V45.26 (2026-04-08) | 1395 rules | 2693 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -90,12 +90,15 @@ const RULES = {
     'shouji.360.cn', 'stat.360.cn', 'inte.sogou.com', 'lu.sogou.com', 'pb.sogou.com', 'ping.sogou.com',
     'analytics.shopee.tw', 'apm.tracking.shopee.tw', 'dem.shopee.com', 'dmp.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw',
     'analysis.momoshop.com.tw', 'ecdmp.momoshop.com.tw', 'event.momoshop.com.tw', 'log.momoshop.com.tw', 'pixel.momoshop.com.tw', 'rtb.momoshop.com.tw',
-    'sspap.momoshop.com.tw', 'trace.momoshop.com.tw', 'trk.momoshop.com.tw', 'jslog.coupang.com', 'mercury.coupang.com', 'ad.gamer.com.tw',
-    'ad-geek.net', 'ad-hub.net', 'ad-serv.teepr.com', 'ad-tracking.dcard.tw', 'analysis.tw', 'appier.net',
-    'b.bridgewell.com', 'cacafly.com', 'clickforce.com.tw', 'fast-trk.com', 'funp.com', 'guoshipartners.com',
-    'imedia.com.tw', 'is-tracking.com', 'itad.linetv.tw', 'likr.tw', 'scupio.com', 'sitetag.us',
-    'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com', 'adnext-a.akamaihd.net',
-    'toots-a.akamaihd.net', 'analytics.twitter.com', 'edge-analytics.amazonaws.com', 'edge-tracking.cloudflare.com', 'insight.linkedin.com', 'px.ads.linkedin.com'
+    'sspap.momoshop.com.tw', 'trace.momoshop.com.tw', 'trk.momoshop.com.tw', 'jslog.coupang.com', 'mercury.coupang.com', 'pixel.dcard.tw',
+    'giocdn.com', 'ad.gamer.com.tw', 'ad-geek.net', 'ad-hub.net', 'ad-serv.teepr.com', 'ad-tracking.dcard.tw',
+    'analysis.tw', 'appier.net', 'b.bridgewell.com', 'cacafly.com', 'clickforce.com.tw', 'fast-trk.com',
+    'funp.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com', 'itad.linetv.tw', 'likr.tw',
+    'scupio.com', 'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw', 'urad.com.tw',
+    'vpon.com', 'adnext-a.akamaihd.net', 'toots-a.akamaihd.net', 'analytics.twitter.com', 'edge-analytics.amazonaws.com', 'edge-tracking.cloudflare.com',
+    'insight.linkedin.com', 'px.ads.linkedin.com', 'cdn.amplitude.com', 'cdn.eu.amplitude.com', 'cdn.mxpnl.com', 'decide.mixpanel.com',
+    'heapanalytics.com', 'heap-api.com', 'cdn.rudderlabs.com', 'segmentapis.com', 'tr.line.me', 'onevision.com.tw',
+    'pixanalytics.com', 'pixplug.in'
   ]),
   REDIRECTOR_HOSTS: new Set([
     'adf.ly', 'ay.gy', 'gloyah.net', 'j.gs', 'q.gs', 'zo.ee',
@@ -228,7 +231,8 @@ const RULES = {
     'app.link', 'kochava.com', 'scorecardresearch.com', 'rayjump.com', 'mintegral.net', 'tiktokv.com',
     'byteoversea.com', 'criteo.com', 'criteo.net', 'adservices.google.com', 'ad2n.com', 'vpon.com',
     'tenmax.io', 'clickforce.com.tw', 'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com',
-    'adbottw.net'
+    'adbottw.net', 'useinsider.com', 'insiderone.com', 'treasuredata.com', 'treasure-data.com', 'tagtoo.com.tw',
+    'scupio.net', 'clickforce.net'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
@@ -411,6 +415,12 @@ const RULES = {
     ['api.amplitude.com', new Set([
         '/2/httpapi'
       ])],
+    ['api2.amplitude.com', new Set([
+        '/2/httpapi', '/batch'
+      ])],
+    ['api.eu.amplitude.com', new Set([
+        '/2/httpapi'
+      ])],
     ['api.hubspot.com', new Set([
         '/events'
       ])],
@@ -512,6 +522,24 @@ const RULES = {
       ])],
     ['api.pirsch.io', new Set([
         '/pa.js', '/api/v1/hit'
+      ])],
+    ['assets.dcard.tw', new Set([
+        '/scripts/web-ad-tracking-sdk/'
+      ])],
+    ['assets.giocdn.com', new Set([
+        '/2.1/gio.js', '/cdp/1.0/gio.js'
+      ])],
+    ['d.line-scdn.net', new Set([
+        '/n/line_tag/'
+      ])],
+    ['cdn.treasuredata.com', new Set([
+        '/sdk/'
+      ])],
+    ['in.treasuredata.com', new Set([
+        '/js/v3/event/'
+      ])],
+    ['s.pixanalytics.com', new Set([
+        '/c.js'
       ])],
     ['pbd.yahoo.com', new Set([
         '/data/logs'

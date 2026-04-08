@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V45.26 - 2026-04-08
+- [Privacy] 台灣地區深度擴充 (13 個新域名/路徑)：LINE Tag 精準路徑攔截 (`d.line-scdn.net/n/line_tag/`) + LINE 轉換像素 (`tr.line.me`)；Treasure Data 企業級 CDP (`treasuredata.com`/`treasure-data.com`) 全域封鎖 + CDN/攝取端點；台灣廣告聯播網替代域名 — Tagtoo (`tagtoo.com.tw`)、Scupio (`scupio.net`)、ClickForce (`clickforce.net`)、OneAD (`onevision.com.tw`)、InsiderOne (`insiderone.com`)；Pixnet 分析 (`pixanalytics.com`/`pixplug.in`)。
+
 ## V45.23 - 2026-04-07
 - [Privacy] 跨平台第一方代理遙測封堵：從 PostHog、Simple Analytics、Fathom、Pirsch 官方文件與原始碼反向工程，新增 10 個專用 CDN/攝取域名至 `CRITICAL_PATH_MAP`。PostHog US/EU 雙區攝取端點 (`us.i.posthog.com`/`eu.i.posthog.com`) + 靜態 SDK CDN (`us-assets`/`eu-assets`)、Simple Analytics 三域 CDN (`scripts.simpleanalyticscdn.com`/`queue.simpleanalyticscdn.com`/`simpleanalyticsexternal.com`)、Fathom CDN (`cdn.usefathom.com`)、Pirsch API (`api.pirsch.io`)。
 
