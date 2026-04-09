@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.33
+// @name         URL Ultimate Filter V45.34
 // @namespace    http://tampermonkey.net/
-// @version      45.33
+// @version      45.34
 // @date         2026-04-09
-// @description  SSOT 前端防護盾牌 V45.33 (2026-04-09) | 1411 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1411 total (285 domains · 340 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V45.34 (2026-04-09) | 1410 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1410 total (285 domains · 340 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.33
+ * @version 45.34
  * @date    2026-04-09
- * @rules   1411 total (285 domains, 340 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1410 total (285 domains, 340 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.33';
-const SCRIPT_BUILD = 'V45.33 (2026-04-09) | 1411 rules | 2759 tests';
+const SCRIPT_VERSION = '45.34';
+const SCRIPT_BUILD = 'V45.34 (2026-04-09) | 1410 rules | 2759 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -139,7 +139,7 @@ const RULES = {
     'code.createjs.com', 'raw.githubusercontent.com', 'userscripts.adtidy.org', 'api.github.com', 'api.vercel.com', 'gateway.facebook.com',
     'graph.instagram.com', 'graph.threads.net', 'i.instagram.com', 'api.discord.com', 'api.twitch.tv', 'api.line.me',
     'today.line.me', 'pro.104.com.tw', 'appapi.104.com.tw', 'datadog.pool.ntp.org', 'ewp.uber.com', 'copilot.microsoft.com',
-    'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net', 'xai.chronosphere.io'
+    'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net'
   ]),
     WILDCARDS: new Set([
     'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com', 'mitake.com.tw', 'money-link.com.tw',
