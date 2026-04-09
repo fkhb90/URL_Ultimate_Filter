@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.31 (2026-04-09)
+當前版本：V45.32 (2026-04-09)
 最新架構更新：
-- [Architecture] 新增 Surge REJECT-DROP 規則列表自動生成器：`compile_surge_reject_list()` 從 RULES_DB 自動產出 `URL-Ultimate-Filter-Surge-REJECT.list`，涵蓋所有 PRIORITY_BLOCK / BLOCK_DOMAINS / BLOCK_DOMAINS_WILDCARDS / MAP DROP 域名。使用者在 Surge.conf 的 `[Rule]` 引入此列表即可實現 DNS 層靜默丟棄 (TCP 連接不建立)，徹底消滅追蹤 SDK 的請求噪音。腳本層 (HTTP) + 規則層 (DNS) 雙層縱深防禦架構確立。
+- [Privacy] 極光推送 `jpush.io` TLD 補齊：新增 `jpush.io` 至 BLOCK_DOMAINS_WILDCARDS + MAP DROP，覆蓋 SIS 會話服務 (`sis.jpush.io:19000`) 等 .io 域名端點。`s.jpush.cn` 已被既有 `jpush.cn` 萬用字元規則覆蓋。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.31 (2026-04-09): 新增 Surge REJECT-DROP 規則列表自動生成器 — DNS 層縱深防禦。
 - V45.30 (2026-04-09): 微信公眾號遙測精準路徑攔截。
 - V45.29 (2026-04-09): ChatGLM BDMS 追蹤像素靜默拋棄。
 - V45.28 (2026-04-09): 中國推送 SDK 靜默拋棄升級 — 極光推送/個推 MAP DROP 雙軌防護。
@@ -44,11 +45,11 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.31"
+VERSION = "45.32"
 RELEASE_DATE = "2026-04-09"
 
 CURRENT_RELEASE_NOTES = """
-- [Architecture] 新增 Surge REJECT-DROP 規則列表自動生成器 (`compile_surge_reject_list`)：從 RULES_DB 自動產出 `.list` 檔，涵蓋所有封鎖域名。使用者在 Surge.conf 引入即可實現 DNS 層靜默丟棄 — TCP 連接不建立，徹底消滅追蹤 SDK 請求噪音。解決 `analysis.chatglm.cn` 等 SDK 在 HTTP 層 204 後仍持續發送請求的問題。腳本層 (HTTP) + 規則層 (DNS) 雙層縱深防禦架構確立。
+- [Privacy] 極光推送 `jpush.io` TLD 補齊：新增至 BLOCK_DOMAINS_WILDCARDS + MAP DROP `DROP:/`，覆蓋 SIS 會話服務 (`sis.jpush.io:19000`) 等端點。`s.jpush.cn` 已被既有 `jpush.cn` 萬用字元規則自動覆蓋。
 """
 
 # ==========================================
@@ -323,7 +324,7 @@ RULES_DB = {
         'treasuredata.com', 'treasure-data.com',
         'tagtoo.com.tw', 'scupio.net', 'clickforce.net',
         'log.aliyuncs.com', 'sls.aliyuncs.com',
-        'jpush.cn', 'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com'
+        'jpush.cn', 'jpush.io', 'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com'
     ],
     "BLOCK_DOMAINS_REGEX": [
         r'^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$',
@@ -428,6 +429,7 @@ RULES_DB = {
         'self.events.data.microsoft.com': ['DROP:/'],
         'watson.telemetry.microsoft.com': ['DROP:/'],
         'jpush.cn': ['DROP:/'],
+        'jpush.io': ['DROP:/'],
         'jiguang.cn': ['DROP:/'],
         'igexin.com': ['DROP:/'],
         'getui.com': ['DROP:/'],
@@ -2674,6 +2676,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: JPush User API Drop", "https://user.jpush.cn/v3/device?registration_id=test", RES_DROP_204, "V45.28 極光推送用戶 API 靜默拋棄 (子域名繼承 MAP DROP)"))
     cases.append(TestCase("Privacy: JPush Hash Subdomain Drop", "https://ce3e75d5.jpush.cn/v3/push?uid=test", RES_DROP_204, "V45.28 極光推送動態哈希子域名靜默拋棄"))
     cases.append(TestCase("Privacy: JPush Config Drop", "https://config.jpush.cn/v3/configs?appkey=test", RES_DROP_204, "V45.28 極光推送配置拉取端點靜默拋棄"))
+    cases.append(TestCase("Privacy: JPush IO SIS Drop", "https://sis.jpush.io/v1/connect?appkey=test", RES_DROP_204, "V45.32 極光推送 SIS 會話服務 (jpush.io TLD) 靜默拋棄"))
+    cases.append(TestCase("Privacy: JPush CN Short Drop", "https://s.jpush.cn/v1/push?rid=test", RES_DROP_204, "V45.32 極光推送短域名已被 jpush.cn 萬用字元覆蓋"))
     cases.append(TestCase("Privacy: Jiguang SDK Drop", "https://sdk.jiguang.cn/v1/report?device=test", RES_DROP_204, "V45.28 極光母品牌 SDK 靜默拋棄"))
     cases.append(TestCase("Privacy: GeTui SDK Drop", "https://gs.getui.com/gbd.action?appid=test", RES_DROP_204, "V45.28 個推 SDK 靜默拋棄 (原 BLOCK_DOMAINS 精確匹配升級)"))
     cases.append(TestCase("Privacy: GeTui Alt Drop", "https://sdk.getui.net/v2/push?cid=test", RES_DROP_204, "V45.28 個推替代域名靜默拋棄"))
