@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V45.32 - 2026-04-09
+- [Privacy] 極光推送 `jpush.io` TLD 補齊：新增至 BLOCK_DOMAINS_WILDCARDS + MAP DROP `DROP:/`，覆蓋 SIS 會話服務 (`sis.jpush.io:19000`) 等端點。`s.jpush.cn` 已被既有 `jpush.cn` 萬用字元規則自動覆蓋。
+
 ## V45.31 - 2026-04-09
 - [Architecture] 新增 Surge REJECT-DROP 規則列表自動生成器 (`compile_surge_reject_list`)：從 RULES_DB 自動產出 `.list` 檔，涵蓋所有封鎖域名。使用者在 Surge.conf 引入即可實現 DNS 層靜默丟棄 — TCP 連接不建立，徹底消滅追蹤 SDK 請求噪音。解決 `analysis.chatglm.cn` 等 SDK 在 HTTP 層 204 後仍持續發送請求的問題。腳本層 (HTTP) + 規則層 (DNS) 雙層縱深防禦架構確立。
 
