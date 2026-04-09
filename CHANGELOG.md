@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V45.34 - 2026-04-09
+- [Revert] 回退 V45.33 `xai.chronosphere.io` HARD_WHITELIST 變更 — Grok App 登入問題根因為 MITM 干擾，正確解法為 Loon/Surge 設定 skip-mitm `grok.com`。
+
 ## V45.33 - 2026-04-09
 - [Compat] Grok App 登入修復：`xai.chronosphere.io` 加入 HARD_WHITELIST.EXACT，避免 OpenTelemetry 遙測端點被 CRITICAL_PATH (`/v1/collect`) 與 PATH_BLOCK (`collect`) 規則誤殺，導致 iOS Grok App 無法登入。
 
