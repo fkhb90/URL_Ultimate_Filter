@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.32 (2026-04-09)
+當前版本：V45.33 (2026-04-09)
 最新架構更新：
-- [Privacy] 極光推送 `jpush.io` TLD 補齊：新增 `jpush.io` 至 BLOCK_DOMAINS_WILDCARDS + MAP DROP，覆蓋 SIS 會話服務 (`sis.jpush.io:19000`) 等 .io 域名端點。`s.jpush.cn` 已被既有 `jpush.cn` 萬用字元規則覆蓋。
+- [Compat] Grok App 登入修復：`xai.chronosphere.io` 加入 HARD_WHITELIST.EXACT，避免 OpenTelemetry 遙測端點被路徑規則誤殺導致 iOS Grok App 無法登入。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.33 (2026-04-09): Grok App 登入修復 — xai.chronosphere.io 加入 HARD_WHITELIST。
 - V45.31 (2026-04-09): 新增 Surge REJECT-DROP 規則列表自動生成器 — DNS 層縱深防禦。
 - V45.30 (2026-04-09): 微信公眾號遙測精準路徑攔截。
 - V45.29 (2026-04-09): ChatGLM BDMS 追蹤像素靜默拋棄。
@@ -45,11 +46,11 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.32"
+VERSION = "45.33"
 RELEASE_DATE = "2026-04-09"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 極光推送 `jpush.io` TLD 補齊：新增至 BLOCK_DOMAINS_WILDCARDS + MAP DROP `DROP:/`，覆蓋 SIS 會話服務 (`sis.jpush.io:19000`) 等端點。`s.jpush.cn` 已被既有 `jpush.cn` 萬用字元規則自動覆蓋。
+- [Compat] Grok App 登入修復：`xai.chronosphere.io` 加入 HARD_WHITELIST.EXACT，避免 OpenTelemetry 遙測端點被 CRITICAL_PATH (`/v1/collect`) 與 PATH_BLOCK (`collect`) 規則誤殺，導致 iOS Grok App 無法登入。
 """
 
 # ==========================================
@@ -212,7 +213,8 @@ RULES_DB = {
             'gateway.facebook.com', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com',
             'api.discord.com', 'api.twitch.tv', 'api.line.me', 'today.line.me',
             'pro.104.com.tw', 'appapi.104.com.tw', 'datadog.pool.ntp.org', 'ewp.uber.com', 'copilot.microsoft.com', 
-            'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net'
+            'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net',
+            'xai.chronosphere.io'
         ],
         "WILDCARDS": [
             'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com',
