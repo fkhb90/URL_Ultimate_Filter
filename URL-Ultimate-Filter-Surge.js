@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.28
+ * @version 45.29
  * @date    2026-04-09
- * @rules   1403 total (283 domains, 335 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1405 total (284 domains, 336 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.28';
-const SCRIPT_BUILD = 'V45.28 (2026-04-09) | 1403 rules | 2734 tests';
+const SCRIPT_VERSION = '45.29';
+const SCRIPT_BUILD = 'V45.29 (2026-04-09) | 1405 rules | 2741 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -205,7 +205,8 @@ const RULES = {
     'adserver.yahoo.com', 'appnexus.com', 'bluekai.com', 'casalemedia.com', 'doubleclick.net', 'googleadservices.com',
     'googlesyndication.com', 'outbrain.com', 'taboola.com', 'rubiconproject.com', 'pubmatic.com', 'openx.com',
     'smartadserver.com', 'spotx.tv', 'yandex.ru', 'addthis.com', 'onesignal.com', 'sharethis.com',
-    'bat.bing.com', 'clarity.ms', 'elads.kocpc.com.tw', 'eservice.emarsys.net', 'at-display-as.deliveryhero.io', 'stun.services.mozilla1.com'
+    'bat.bing.com', 'clarity.ms', 'elads.kocpc.com.tw', 'eservice.emarsys.net', 'at-display-as.deliveryhero.io', 'stun.services.mozilla1.com',
+    'analysis.chatglm.cn'
   ]),
   BLOCK_DOMAINS_WILDCARDS: new Set([
     'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io', 'aotter.net', 'ssp.yahoo.com',
@@ -367,6 +368,9 @@ const RULES = {
         'DROP:/'
       ])],
     ['gepush.com', new Set([
+        'DROP:/'
+      ])],
+    ['analysis.chatglm.cn', new Set([
         'DROP:/'
       ])],
     ['graphql.ec.yahoo.com', new Set([
