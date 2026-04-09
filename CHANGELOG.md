@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V45.31 - 2026-04-09
+- [Architecture] 新增 Surge REJECT-DROP 規則列表自動生成器 (`compile_surge_reject_list`)：從 RULES_DB 自動產出 `.list` 檔，涵蓋所有封鎖域名。使用者在 Surge.conf 引入即可實現 DNS 層靜默丟棄 — TCP 連接不建立，徹底消滅追蹤 SDK 請求噪音。解決 `analysis.chatglm.cn` 等 SDK 在 HTTP 層 204 後仍持續發送請求的問題。腳本層 (HTTP) + 規則層 (DNS) 雙層縱深防禦架構確立。
+
 ## V45.29 - 2026-04-09
 - [Privacy] ChatGLM (智譜清言) BDMS 追蹤像素靜默拋棄：`analysis.chatglm.cn` 加入 BLOCK_DOMAINS (精確封鎖) + CRITICAL_PATH_MAP `DROP:/` (204 靜默拋棄) 雙軌防護。原 CRITICAL_PATH_GENERIC `/p.gif` 規則回傳 403 導致 BDMS SDK 密集重試，升級為 MAP DROP 讓 SDK 誤以為上報成功停止重發。
 
