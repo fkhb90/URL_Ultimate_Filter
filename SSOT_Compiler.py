@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.28 (2026-04-09)
+當前版本：V45.29 (2026-04-09)
 最新架構更新：
-- [Privacy] 中國推送 SDK 靜默拋棄升級 (MAP DROP)：極光推送 (`jpush.cn`/`jiguang.cn`)、個推 (`getui.com`/`getui.net`/`gepush.com`/`igexin.com`) 從 BLOCK_DOMAINS 遷移至 BLOCK_DOMAINS_WILDCARDS + CRITICAL_PATH_MAP `DROP:/` 雙軌防護。HTTP 層回傳 204 讓 SDK 誤以為上報成功進入休眠，防止 AlarmManager/Worker 重試風暴導致設備發熱。
+- [Privacy] ChatGLM (智譜清言) BDMS 追蹤像素靜默拋棄：`analysis.chatglm.cn` 加入 BLOCK_DOMAINS + CRITICAL_PATH_MAP `DROP:/` 雙軌防護。原 `/p.gif` 規則回傳 403 導致 BDMS SDK 密集重試，升級為 204 讓 SDK 誤以為上報成功停止重發，保全設備效能。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.28 (2026-04-09): 中國推送 SDK 靜默拋棄升級 — 極光推送/個推 MAP DROP 雙軌防護。
 - V45.27 (2026-04-09): 阿里雲 SLS 遙測盲區封堵 + Google Play Store 遙測路徑攔截。
 - V45.26 (2026-04-08): 台灣地區深度擴充 — LINE Tag / Treasure Data / Pixnet / 台灣廣告聯播網替代域名。
 - V45.25 (2026-04-07): 主流分析平台 CDN 逃逸域名封堵 (Amplitude/Mixpanel/Heap/RudderStack/Segment)。
@@ -41,11 +42,11 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.28"
+VERSION = "45.29"
 RELEASE_DATE = "2026-04-09"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 中國推送 SDK 靜默拋棄升級 (MAP DROP 雙軌防護)：極光推送 (`jpush.cn`/`jiguang.cn`) + 個推 (`getui.com`/`getui.net`/`gepush.com`/`igexin.com`) 從 BLOCK_DOMAINS 遷移至 BLOCK_DOMAINS_WILDCARDS 萬用字元封鎖 + CRITICAL_PATH_MAP `DROP:/` 204 靜默拋棄。防止推送 SDK AlarmManager/Worker 遭 403/DNS 阻斷後觸發每秒數十次重試風暴，保全設備效能。
+- [Privacy] ChatGLM (智譜清言) BDMS 追蹤像素靜默拋棄：`analysis.chatglm.cn` 加入 BLOCK_DOMAINS (精確封鎖) + CRITICAL_PATH_MAP `DROP:/` (204 靜默拋棄) 雙軌防護。原 CRITICAL_PATH_GENERIC `/p.gif` 規則回傳 403 導致 BDMS SDK 密集重試，升級為 MAP DROP 讓 SDK 誤以為上報成功停止重發。
 """
 
 # ==========================================
@@ -304,7 +305,8 @@ RULES_DB = {
         'pubmatic.com', 'openx.com', 'smartadserver.com', 'spotx.tv', 'yandex.ru', 'addthis.com',
         'onesignal.com', 'sharethis.com', 'bat.bing.com', 'clarity.ms',
         'elads.kocpc.com.tw', 'eservice.emarsys.net', 'at-display-as.deliveryhero.io',
-        'stun.services.mozilla1.com'
+        'stun.services.mozilla1.com',
+        'analysis.chatglm.cn'
     ],
     "BLOCK_DOMAINS_WILDCARDS": [
         'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io',
@@ -429,6 +431,7 @@ RULES_DB = {
         'getui.com': ['DROP:/'],
         'getui.net': ['DROP:/'],
         'gepush.com': ['DROP:/'],
+        'analysis.chatglm.cn': ['DROP:/'],
         'graphql.ec.yahoo.com': ['/app/sas/v1/fullsitepromotions'],
         'prism.ec.yahoo.com': ['/api/prism/v2/streamwithads'],
         'analytics.google.com': ['/g/collect', '/j/collect'],
@@ -2319,11 +2322,12 @@ def generate_full_coverage_cases() -> List[TestCase]:
     for d in RULES_DB["PRIORITY_BLOCK_DOMAINS"]:
         cases.append(TestCase("Auto: Priority", f"https://{d}/api", RES_BLOCK_403, "Blocked by L2"))
     
-    for d in RULES_DB["BLOCK_DOMAINS"]:
-        expected = RES_ALLOW if is_domain_whitelisted(d) else RES_BLOCK_403
-        cases.append(TestCase("Auto: Domain Block", f"https://{d}/test", expected, "Blocked by Domain"))
-
     _map_drop_domains = {d for d, paths in RULES_DB["CRITICAL_PATH_MAP"].items() if any(p == 'DROP:/' for p in paths)}
+
+    for d in RULES_DB["BLOCK_DOMAINS"]:
+        has_map_drop = d in _map_drop_domains
+        expected = RES_ALLOW if is_domain_whitelisted(d) else (RES_DROP_204 if has_map_drop else RES_BLOCK_403)
+        cases.append(TestCase("Auto: Domain Block", f"https://{d}/test", expected, "Blocked by Domain" + (" (MAP DROP)" if has_map_drop else "")))
     for d in RULES_DB["BLOCK_DOMAINS_WILDCARDS"]:
         has_map_drop = d in _map_drop_domains
         expected_exact = RES_ALLOW if is_domain_whitelisted(d) else (RES_DROP_204 if has_map_drop else RES_BLOCK_403)
@@ -2603,6 +2607,12 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: GeTui Alt Drop", "https://sdk.getui.net/v2/push?cid=test", RES_DROP_204, "V45.28 個推替代域名靜默拋棄"))
     cases.append(TestCase("Privacy: iGexin SDK Drop", "https://sdk.igexin.com/v1/push?appid=test", RES_DROP_204, "V45.28 個推舊品牌 (iGexin) 靜默拋棄"))
     cases.append(TestCase("Privacy: GePush SDK Drop", "https://api.gepush.com/v2/push?token=test", RES_DROP_204, "V45.28 個推推送域名靜默拋棄"))
+
+    # --- V45.29 ChatGLM BDMS 追蹤像素靜默拋棄 ---
+    cases.append(TestCase("Privacy: ChatGLM BDMS Pixel Drop", "https://analysis.chatglm.cn/bdms/p.gif?t=1712649600&uid=abc123", RES_DROP_204, "V45.29 智譜清言 BDMS 追蹤像素升級為 204 靜默拋棄，阻斷 SDK 重試風暴"))
+    cases.append(TestCase("Privacy: ChatGLM Analytics API Drop", "https://analysis.chatglm.cn/api/v1/event?type=pageview", RES_DROP_204, "V45.29 智譜清言分析 API 端點靜默拋棄"))
+    cases.append(TestCase("Privacy: ChatGLM Analytics Collect Drop", "https://analysis.chatglm.cn/collect?data=encoded_payload", RES_DROP_204, "V45.29 智譜清言數據收集端點靜默拋棄"))
+    cases.append(TestCase("Safe: ChatGLM Main Service", "https://chatglm.cn/main/alltoolsdetail", RES_ALLOW, "V45.29 確保智譜清言 AI 主服務不受影響 (僅封 analysis. 子域名)"))
 
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
