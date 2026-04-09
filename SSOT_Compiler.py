@@ -3,11 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.26 (2026-04-08)
+當前版本：V45.28 (2026-04-09)
 最新架構更新：
-- [Privacy] 台灣地區深度擴充：LINE Tag 追蹤腳本精準路徑攔截 (`d.line-scdn.net/n/line_tag/`，不誤殺貼圖/內容 CDN) + LINE 轉換像素 (`tr.line.me`)。Treasure Data 企業級 CDP (`treasuredata.com`/`treasure-data.com`) 全域封鎖 + CDN/攝取端點精準攔截。台灣廣告聯播網替代域名補齊：Tagtoo (`tagtoo.com.tw`)、Scupio (`scupio.net`)、ClickForce (`clickforce.net`)、OneAD OneVision (`onevision.com.tw`)、InsiderOne (`insiderone.com`)。Pixnet 部落格分析 (`pixanalytics.com`/`pixplug.in`)。
+- [Privacy] 中國推送 SDK 靜默拋棄升級 (MAP DROP)：極光推送 (`jpush.cn`/`jiguang.cn`)、個推 (`getui.com`/`getui.net`/`gepush.com`/`igexin.com`) 從 BLOCK_DOMAINS 遷移至 BLOCK_DOMAINS_WILDCARDS + CRITICAL_PATH_MAP `DROP:/` 雙軌防護。HTTP 層回傳 204 讓 SDK 誤以為上報成功進入休眠，防止 AlarmManager/Worker 重試風暴導致設備發熱。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.27 (2026-04-09): 阿里雲 SLS 遙測盲區封堵 + Google Play Store 遙測路徑攔截。
+- V45.26 (2026-04-08): 台灣地區深度擴充 — LINE Tag / Treasure Data / Pixnet / 台灣廣告聯播網替代域名。
 - V45.25 (2026-04-07): 主流分析平台 CDN 逃逸域名封堵 (Amplitude/Mixpanel/Heap/RudderStack/Segment)。
 - V45.24 (2026-04-07): 台灣特有第一方代理遙測偽裝封堵 (Dcard/Insider/GrowingIO)。
 - V45.23 (2026-04-07): 跨平台第一方代理遙測封堵 (PostHog/Simple Analytics/Fathom/Pirsch)。
@@ -39,11 +41,11 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.26"
-RELEASE_DATE = "2026-04-08"
+VERSION = "45.28"
+RELEASE_DATE = "2026-04-09"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 台灣地區深度擴充 (13 個新域名/路徑)：LINE Tag 精準路徑攔截 (`d.line-scdn.net/n/line_tag/`) + LINE 轉換像素 (`tr.line.me`)；Treasure Data 企業級 CDP (`treasuredata.com`/`treasure-data.com`) 全域封鎖 + CDN/攝取端點；台灣廣告聯播網替代域名 — Tagtoo (`tagtoo.com.tw`)、Scupio (`scupio.net`)、ClickForce (`clickforce.net`)、OneAD (`onevision.com.tw`)、InsiderOne (`insiderone.com`)；Pixnet 分析 (`pixanalytics.com`/`pixplug.in`)。
+- [Privacy] 中國推送 SDK 靜默拋棄升級 (MAP DROP 雙軌防護)：極光推送 (`jpush.cn`/`jiguang.cn`) + 個推 (`getui.com`/`getui.net`/`gepush.com`/`igexin.com`) 從 BLOCK_DOMAINS 遷移至 BLOCK_DOMAINS_WILDCARDS 萬用字元封鎖 + CRITICAL_PATH_MAP `DROP:/` 204 靜默拋棄。防止推送 SDK AlarmManager/Worker 遭 403/DNS 阻斷後觸發每秒數十次重試風暴，保全設備效能。
 """
 
 # ==========================================
@@ -283,17 +285,17 @@ RULES_DB = {
         'sdk.iad-07.braze.com', 'serving-sys.com', 'tw.ad.doubleverify.com', 'agkn.com', 'id5-sync.com',
         'liveramp.com', 'permutive.com', 'tags.tiqcdn.com', 'klaviyo.com', 'marketo.com', 'mktoresp.com',
         'pardot.com', 'instana.io', 'launchdarkly.com', 'raygun.io', 'navify.com', 'cnzz.com', 'umeng.com',
-        'talkingdata.com', 'jiguang.cn', 'getui.com', 'mdap.alipay.com', 'loggw-ex.alipay.com',
+        'talkingdata.com', 'mdap.alipay.com', 'loggw-ex.alipay.com',
         'pgdt.gtimg.cn', 'afd.baidu.com', 'als.baidu.com', 'cpro.baidu.com', 'dlswbr.baidu.com',
         'duclick.baidu.com', 'feed.baidu.com', 'h2tcbox.baidu.com', 'hm.baidu.com', 'hmma.baidu.com',
         'mobads-logs.baidu.com', 'mobads.baidu.com', 'nadvideo2.baidu.com', 'nsclick.baidu.com', 'sp1.baidu.com',
         'voice.baidu.com', '3gimg.qq.com', 'fusion.qq.com', 'ios.bugly.qq.com', 'lives.l.qq.com',
         'monitor.uu.qq.com', 'pingma.qq.com', 'sdk.e.qq.com', 'wup.imtt.qq.com', 'appcloud.zhihu.com',
         'appcloud2.in.zhihu.com', 'crash2.zhihu.com', 'mqtt.zhihu.com', 'sugar.zhihu.com', 'agn.aty.sohu.com',
-        'apm.gotokeep.com', 'cn-huabei-1-lg.xf-yun.com', 'gs.getui.com', 'log.b612kaji.com', 'pc-mon.snssdk.com',
+        'apm.gotokeep.com', 'cn-huabei-1-lg.xf-yun.com', 'log.b612kaji.com', 'pc-mon.snssdk.com',
         'sensorsdata.cn', 'stat.m.jd.com', 'trackapp.guahao.cn', 'traffic.mogujie.com', 'wmlog.meituan.com',
-        'zgsdk.zhugeio.com', 'admaster.com.cn', 'adview.cn', 'alimama.com', 'getui.net', 'gepush.com',
-        'gridsum.com', 'growingio.com', 'igexin.com', 'jpush.cn', 'kuaishou.com', 'miaozhen.com', 'mmstat.com',
+        'zgsdk.zhugeio.com', 'admaster.com.cn', 'adview.cn', 'alimama.com',
+        'gridsum.com', 'growingio.com', 'kuaishou.com', 'miaozhen.com', 'mmstat.com',
         'pangolin-sdk-toutiao.com', 'talkingdata.cn', 'tanx.com', 'umeng.cn', 'umeng.co', 'umengcloud.com',
         'youmi.net', 'zhugeio.com', 'appnext.hs.llnwd.net', 'fusioncdn.com',
         'abema-adx.ameba.jp', 'ad.12306.cn', 'ad.360in.com', 'adroll.com', 'ads.yahoo.com',
@@ -315,7 +317,9 @@ RULES_DB = {
         'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com', 'adbottw.net',
         'useinsider.com', 'insiderone.com',
         'treasuredata.com', 'treasure-data.com',
-        'tagtoo.com.tw', 'scupio.net', 'clickforce.net'
+        'tagtoo.com.tw', 'scupio.net', 'clickforce.net',
+        'log.aliyuncs.com', 'sls.aliyuncs.com',
+        'jpush.cn', 'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com'
     ],
     "BLOCK_DOMAINS_REGEX": [
         r'^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$',
@@ -403,6 +407,7 @@ RULES_DB = {
         'api.revenuecat.com': ['/adservices_attribution'],
         'api-d.dropbox.com': ['/send_mobile_log'],
         'www.google.com': ['/log', '/pagead/1p-user-list/'],
+        'play.google.com': ['/log'],
         'js.stripe.com': ['/fingerprinted/'],
         'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr'],
         'tw.fd-api.com': ['DROP:/api/v5/action-log'],
@@ -418,6 +423,12 @@ RULES_DB = {
         'mobile.events.data.microsoft.com': ['DROP:/'],
         'self.events.data.microsoft.com': ['DROP:/'],
         'watson.telemetry.microsoft.com': ['DROP:/'],
+        'jpush.cn': ['DROP:/'],
+        'jiguang.cn': ['DROP:/'],
+        'igexin.com': ['DROP:/'],
+        'getui.com': ['DROP:/'],
+        'getui.net': ['DROP:/'],
+        'gepush.com': ['DROP:/'],
         'graphql.ec.yahoo.com': ['/app/sas/v1/fullsitepromotions'],
         'prism.ec.yahoo.com': ['/api/prism/v2/streamwithads'],
         'analytics.google.com': ['/g/collect', '/j/collect'],
@@ -2312,12 +2323,14 @@ def generate_full_coverage_cases() -> List[TestCase]:
         expected = RES_ALLOW if is_domain_whitelisted(d) else RES_BLOCK_403
         cases.append(TestCase("Auto: Domain Block", f"https://{d}/test", expected, "Blocked by Domain"))
 
+    _map_drop_domains = {d for d, paths in RULES_DB["CRITICAL_PATH_MAP"].items() if any(p == 'DROP:/' for p in paths)}
     for d in RULES_DB["BLOCK_DOMAINS_WILDCARDS"]:
-        expected_exact = RES_ALLOW if is_domain_whitelisted(d) else RES_BLOCK_403
-        cases.append(TestCase("Auto: Domain Block WC (Exact)", f"https://{d}/test", expected_exact, "Blocked by Wildcard Domain"))
+        has_map_drop = d in _map_drop_domains
+        expected_exact = RES_ALLOW if is_domain_whitelisted(d) else (RES_DROP_204 if has_map_drop else RES_BLOCK_403)
+        cases.append(TestCase("Auto: Domain Block WC (Exact)", f"https://{d}/test", expected_exact, "Blocked by Wildcard Domain" + (" (MAP DROP)" if has_map_drop else "")))
         sub = f"sub.{d}"
-        expected_sub = RES_ALLOW if is_domain_whitelisted(sub) else RES_BLOCK_403
-        cases.append(TestCase("Auto: Domain Block WC (Sub)", f"https://{sub}/test", expected_sub, "Blocked by Wildcard Subdomain"))
+        expected_sub = RES_ALLOW if is_domain_whitelisted(sub) else (RES_DROP_204 if has_map_drop else RES_BLOCK_403)
+        cases.append(TestCase("Auto: Domain Block WC (Sub)", f"https://{sub}/test", expected_sub, "Blocked by Wildcard Subdomain" + (" (MAP DROP)" if has_map_drop else "")))
 
     for d in RULES_DB["REDIRECTOR_HOSTS"]:
         cases.append(TestCase("Auto: Redirector", f"https://{d}/target", RES_BLOCK_403, "Blocked Redirector"))
@@ -2567,6 +2580,29 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: OneAD OneVision", "https://pixel.onevision.com.tw/track", RES_BLOCK_403, "V45.26 封堵 OneAD OneVision 子品牌追蹤"))
     cases.append(TestCase("Privacy: Pixnet Analytics", "https://s.pixanalytics.com/c.js", RES_BLOCK_403, "V45.26 封堵 Pixnet 部落格分析 CDN 腳本"))
     cases.append(TestCase("Privacy: Pixnet Plugin", "https://referer.pixplug.in/static/r.js", RES_BLOCK_403, "V45.26 封堵 Pixnet 來源追蹤插件"))
+
+    # --- V45.27 阿里雲 SLS 遙測盲區封堵 + Google Play 遙測路徑攔截 ---
+    cases.append(TestCase("Privacy: Alibaba SLS Telemetry", "https://zpqy.cn-wulanchabu.log.aliyuncs.com/logstores/web-tracking/track?APIVersion=0.6.0", RES_BLOCK_403, "V45.27 封堵阿里雲 SLS (Simple Log Service) 遙測端點 — 烏蘭察布區域實例"))
+    cases.append(TestCase("Privacy: Alibaba SLS Shanghai", "https://myproject.cn-shanghai.log.aliyuncs.com/logstores/access-log/track", RES_BLOCK_403, "V45.27 阿里雲 SLS 萬用字元覆蓋所有區域 (上海實例)"))
+    cases.append(TestCase("Privacy: Alibaba SLS Hangzhou", "https://app-analytics.cn-hangzhou.log.aliyuncs.com/logstores/user-behavior/track", RES_BLOCK_403, "V45.27 阿里雲 SLS 使用者行為追蹤 (杭州實例)"))
+    cases.append(TestCase("Privacy: Alibaba SLS Global", "https://overseas.ap-southeast-1.log.aliyuncs.com/logstores/events/track", RES_BLOCK_403, "V45.27 阿里雲 SLS 海外區域覆蓋 (新加坡實例)"))
+    cases.append(TestCase("Privacy: Alibaba SLS Ingest", "https://data.cn-beijing.sls.aliyuncs.com/logstores/telemetry/track", RES_BLOCK_403, "V45.27 封堵阿里雲 SLS 替代端點 (sls.aliyuncs.com)"))
+    cases.append(TestCase("Safe: Alibaba Cloud Non-SLS", "https://oss-cn-hangzhou.aliyuncs.com/bucket/image.jpg", RES_ALLOW, "V45.27 確保阿里雲 OSS 等非 SLS 服務不被誤殺"))
+    cases.append(TestCase("Safe: Qianwen AI Whitelist", "https://qianwen.aliyun.com/chat", RES_ALLOW, "V45.27 確保通義千問 AI 硬白名單不受影響 (aliyun.com ≠ aliyuncs.com)"))
+    cases.append(TestCase("Privacy: Google Play Telemetry", "https://play.google.com/log?hasfast=true&authuser=0&format=json", RES_BLOCK_403, "V45.27 封堵 Google Play Store 遙測日誌端點 (/log)"))
+    cases.append(TestCase("Privacy: Google Play Log Auth", "https://play.google.com/log?hasfast=true&auth=SAPISIDHASH%2Ba182854a&format=json", RES_BLOCK_403, "V45.27 封堵 Google Play 帶 SAPISIDHASH 認證令牌的遙測請求"))
+    cases.append(TestCase("Safe: Google Play Store", "https://play.google.com/store/apps/details?id=com.example.app", RES_ALLOW, "V45.27 確保 Google Play 商店正常頁面不被誤殺"))
+
+    # --- V45.28 中國推送 SDK 靜默拋棄升級：防止重試風暴 ---
+    cases.append(TestCase("Privacy: JPush SDK Drop", "https://sdk-jmlink.jpush.cn/v1/push?device_id=abc123", RES_DROP_204, "V45.28 極光推送 SDK 升級為 204 靜默拋棄，防止 AlarmManager 重試風暴"))
+    cases.append(TestCase("Privacy: JPush User API Drop", "https://user.jpush.cn/v3/device?registration_id=test", RES_DROP_204, "V45.28 極光推送用戶 API 靜默拋棄 (子域名繼承 MAP DROP)"))
+    cases.append(TestCase("Privacy: JPush Hash Subdomain Drop", "https://ce3e75d5.jpush.cn/v3/push?uid=test", RES_DROP_204, "V45.28 極光推送動態哈希子域名靜默拋棄"))
+    cases.append(TestCase("Privacy: JPush Config Drop", "https://config.jpush.cn/v3/configs?appkey=test", RES_DROP_204, "V45.28 極光推送配置拉取端點靜默拋棄"))
+    cases.append(TestCase("Privacy: Jiguang SDK Drop", "https://sdk.jiguang.cn/v1/report?device=test", RES_DROP_204, "V45.28 極光母品牌 SDK 靜默拋棄"))
+    cases.append(TestCase("Privacy: GeTui SDK Drop", "https://gs.getui.com/gbd.action?appid=test", RES_DROP_204, "V45.28 個推 SDK 靜默拋棄 (原 BLOCK_DOMAINS 精確匹配升級)"))
+    cases.append(TestCase("Privacy: GeTui Alt Drop", "https://sdk.getui.net/v2/push?cid=test", RES_DROP_204, "V45.28 個推替代域名靜默拋棄"))
+    cases.append(TestCase("Privacy: iGexin SDK Drop", "https://sdk.igexin.com/v1/push?appid=test", RES_DROP_204, "V45.28 個推舊品牌 (iGexin) 靜默拋棄"))
+    cases.append(TestCase("Privacy: GePush SDK Drop", "https://api.gepush.com/v2/push?token=test", RES_DROP_204, "V45.28 個推推送域名靜默拋棄"))
 
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
