@@ -38,20 +38,23 @@ jobs:
         run: |
           python SSOT_Compiler.py
 
-      - name: Commit and Push Generated Artifacts
+      - name: Commit and Push Generated Files
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          
-          # 將所有雙軌生成的 JS 與自動更新的 Markdown 日誌一併加入暫存區
-          git add URL-Ultimate-Filter-Surge.js URL-Ultimate-Filter-Tampermonkey.user.js CHANGELOG.md
-          
-          # 建立本地的自動編譯 Commit，並加上 [skip ci] 防止觸發無限流水線迴圈
-          git commit -m "Auto-build: Update JS filters and CHANGELOG [skip ci]" || echo "No changes to commit"
-          
+
+          # 將所有編譯器產出物加入暫存區
+          git add URL-Ultimate-Filter-Surge.js \
+                  URL-Ultimate-Filter-Tampermonkey.user.js \
+                  URL-Ultimate-Filter-Surge-REJECT.list \
+                  CHANGELOG.md
+
+          # 建立本地的自動編譯 Commit，加上 [skip ci] 防止觸發無限流水線迴圈
+          git commit -m "Auto-build: Update JS filters, REJECT list and CHANGELOG [skip ci]" || echo "No changes to commit"
+
           # 在推播前，先將遠端最新進度拉取並進行 Rebase（變基）整合
           git pull --rebase origin main
-          
+
           # 安全推送至遠端
           git push
 
