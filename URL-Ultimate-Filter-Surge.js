@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.32
+ * @version 45.33
  * @date    2026-04-09
- * @rules   1410 total (285 domains, 340 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1411 total (285 domains, 340 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.32';
-const SCRIPT_BUILD = 'V45.32 (2026-04-09) | 1410 rules | 2759 tests';
+const SCRIPT_VERSION = '45.33';
+const SCRIPT_BUILD = 'V45.33 (2026-04-09) | 1411 rules | 2759 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -124,7 +124,7 @@ const RULES = {
     'code.createjs.com', 'raw.githubusercontent.com', 'userscripts.adtidy.org', 'api.github.com', 'api.vercel.com', 'gateway.facebook.com',
     'graph.instagram.com', 'graph.threads.net', 'i.instagram.com', 'api.discord.com', 'api.twitch.tv', 'api.line.me',
     'today.line.me', 'pro.104.com.tw', 'appapi.104.com.tw', 'datadog.pool.ntp.org', 'ewp.uber.com', 'copilot.microsoft.com',
-    'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net'
+    'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net', 'xai.chronosphere.io'
   ]),
     WILDCARDS: new Set([
     'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com', 'mitake.com.tw', 'money-link.com.tw',
