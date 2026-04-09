@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V45.29 - 2026-04-09
+- [Privacy] ChatGLM (智譜清言) BDMS 追蹤像素靜默拋棄：`analysis.chatglm.cn` 加入 BLOCK_DOMAINS (精確封鎖) + CRITICAL_PATH_MAP `DROP:/` (204 靜默拋棄) 雙軌防護。原 CRITICAL_PATH_GENERIC `/p.gif` 規則回傳 403 導致 BDMS SDK 密集重試，升級為 MAP DROP 讓 SDK 誤以為上報成功停止重發。
+
 ## V45.28 - 2026-04-09
 - [Privacy] 中國推送 SDK 靜默拋棄升級 (MAP DROP 雙軌防護)：極光推送 (`jpush.cn`/`jiguang.cn`) + 個推 (`getui.com`/`getui.net`/`gepush.com`/`igexin.com`) 從 BLOCK_DOMAINS 遷移至 BLOCK_DOMAINS_WILDCARDS 萬用字元封鎖 + CRITICAL_PATH_MAP `DROP:/` 204 靜默拋棄。防止推送 SDK AlarmManager/Worker 遭 403/DNS 阻斷後觸發每秒數十次重試風暴，保全設備效能。
 
