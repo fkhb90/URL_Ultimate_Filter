@@ -3,12 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.33 (2026-04-09)
+當前版本：V45.34 (2026-04-09)
 最新架構更新：
-- [Compat] Grok App 登入修復：`xai.chronosphere.io` 加入 HARD_WHITELIST.EXACT，避免 OpenTelemetry 遙測端點被路徑規則誤殺導致 iOS Grok App 無法登入。
+- [Revert] 回退 V45.33 `xai.chronosphere.io` HARD_WHITELIST 變更 — Grok App 登入問題根因為 MITM 干擾，正確解法為 Loon/Surge 設定 skip-mitm `grok.com`。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
-- V45.33 (2026-04-09): Grok App 登入修復 — xai.chronosphere.io 加入 HARD_WHITELIST。
+- V45.34 (2026-04-09): 回退 V45.33 — Grok 登入根因為 MITM，需 skip-mitm grok.com。
 - V45.31 (2026-04-09): 新增 Surge REJECT-DROP 規則列表自動生成器 — DNS 層縱深防禦。
 - V45.30 (2026-04-09): 微信公眾號遙測精準路徑攔截。
 - V45.29 (2026-04-09): ChatGLM BDMS 追蹤像素靜默拋棄。
@@ -46,11 +46,11 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.33"
+VERSION = "45.34"
 RELEASE_DATE = "2026-04-09"
 
 CURRENT_RELEASE_NOTES = """
-- [Compat] Grok App 登入修復：`xai.chronosphere.io` 加入 HARD_WHITELIST.EXACT，避免 OpenTelemetry 遙測端點被 CRITICAL_PATH (`/v1/collect`) 與 PATH_BLOCK (`collect`) 規則誤殺，導致 iOS Grok App 無法登入。
+- [Revert] 回退 V45.33 `xai.chronosphere.io` HARD_WHITELIST 變更 — Grok App 登入問題根因為 MITM 干擾，正確解法為 Loon/Surge 設定 skip-mitm `grok.com`。
 """
 
 # ==========================================
@@ -213,8 +213,7 @@ RULES_DB = {
             'gateway.facebook.com', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com',
             'api.discord.com', 'api.twitch.tv', 'api.line.me', 'today.line.me',
             'pro.104.com.tw', 'appapi.104.com.tw', 'datadog.pool.ntp.org', 'ewp.uber.com', 'copilot.microsoft.com', 
-            'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net',
-            'xai.chronosphere.io'
+            'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net'
         ],
         "WILDCARDS": [
             'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com',
