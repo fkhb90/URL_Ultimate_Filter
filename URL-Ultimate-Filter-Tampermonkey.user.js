@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.29
+// @name         URL Ultimate Filter V45.31
 // @namespace    http://tampermonkey.net/
-// @version      45.29
+// @version      45.31
 // @date         2026-04-09
-// @description  SSOT 前端防護盾牌 V45.29 (2026-04-09) | 1405 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1405 total (284 domains · 336 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V45.31 (2026-04-09) | 1408 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1408 total (284 domains · 339 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.29
+ * @version 45.31
  * @date    2026-04-09
- * @rules   1405 total (284 domains, 336 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1408 total (284 domains, 339 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.29';
-const SCRIPT_BUILD = 'V45.29 (2026-04-09) | 1405 rules | 2741 tests';
+const SCRIPT_VERSION = '45.31';
+const SCRIPT_BUILD = 'V45.31 (2026-04-09) | 1408 rules | 2753 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -387,6 +387,9 @@ const RULES = {
       ])],
     ['analysis.chatglm.cn', new Set([
         'DROP:/'
+      ])],
+    ['mp.weixin.qq.com', new Set([
+        'DROP:/mp/appmsgreport', 'DROP:/mp/jsmonitor', 'DROP:/mp/wapcommrepor'
       ])],
     ['graphql.ec.yahoo.com', new Set([
         '/app/sas/v1/fullsitepromotions'
