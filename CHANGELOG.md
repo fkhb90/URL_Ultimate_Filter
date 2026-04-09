@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V45.33 - 2026-04-09
+- [Compat] Grok App 登入修復：`xai.chronosphere.io` 加入 HARD_WHITELIST.EXACT，避免 OpenTelemetry 遙測端點被 CRITICAL_PATH (`/v1/collect`) 與 PATH_BLOCK (`collect`) 規則誤殺，導致 iOS Grok App 無法登入。
+
 ## V45.32 - 2026-04-09
 - [Privacy] 極光推送 `jpush.io` TLD 補齊：新增至 BLOCK_DOMAINS_WILDCARDS + MAP DROP `DROP:/`，覆蓋 SIS 會話服務 (`sis.jpush.io:19000`) 等端點。`s.jpush.cn` 已被既有 `jpush.cn` 萬用字元規則自動覆蓋。
 
