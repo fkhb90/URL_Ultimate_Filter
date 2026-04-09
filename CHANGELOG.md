@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V45.28 - 2026-04-09
+- [Privacy] 中國推送 SDK 靜默拋棄升級 (MAP DROP 雙軌防護)：極光推送 (`jpush.cn`/`jiguang.cn`) + 個推 (`getui.com`/`getui.net`/`gepush.com`/`igexin.com`) 從 BLOCK_DOMAINS 遷移至 BLOCK_DOMAINS_WILDCARDS 萬用字元封鎖 + CRITICAL_PATH_MAP `DROP:/` 204 靜默拋棄。防止推送 SDK AlarmManager/Worker 遭 403/DNS 阻斷後觸發每秒數十次重試風暴，保全設備效能。
+
 ## V45.26 - 2026-04-08
 - [Privacy] 台灣地區深度擴充 (13 個新域名/路徑)：LINE Tag 精準路徑攔截 (`d.line-scdn.net/n/line_tag/`) + LINE 轉換像素 (`tr.line.me`)；Treasure Data 企業級 CDP (`treasuredata.com`/`treasure-data.com`) 全域封鎖 + CDN/攝取端點；台灣廣告聯播網替代域名 — Tagtoo (`tagtoo.com.tw`)、Scupio (`scupio.net`)、ClickForce (`clickforce.net`)、OneAD (`onevision.com.tw`)、InsiderOne (`insiderone.com`)；Pixnet 分析 (`pixanalytics.com`/`pixplug.in`)。
 
