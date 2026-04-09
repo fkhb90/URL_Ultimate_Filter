@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.26
+// @name         URL Ultimate Filter V45.28
 // @namespace    http://tampermonkey.net/
-// @version      45.26
-// @date         2026-04-08
-// @description  SSOT 前端防護盾牌 V45.26 (2026-04-08) | 1395 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1395 total (282 domains · 328 critical · 109 param)
+// @version      45.28
+// @date         2026-04-09
+// @description  SSOT 前端防護盾牌 V45.28 (2026-04-09) | 1403 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1403 total (283 domains · 335 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.26
- * @date    2026-04-08
- * @rules   1395 total (282 domains, 328 critical paths, 403 path keywords, 109 param rules)
+ * @version 45.28
+ * @date    2026-04-09
+ * @rules   1403 total (283 domains, 335 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.26';
-const SCRIPT_BUILD = 'V45.26 (2026-04-08) | 1395 rules | 2693 tests';
+const SCRIPT_VERSION = '45.28';
+const SCRIPT_BUILD = 'V45.28 (2026-04-09) | 1403 rules | 2734 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -206,23 +206,21 @@ const RULES = {
     'sdk.iad-07.braze.com', 'serving-sys.com', 'tw.ad.doubleverify.com', 'agkn.com', 'id5-sync.com', 'liveramp.com',
     'permutive.com', 'tags.tiqcdn.com', 'klaviyo.com', 'marketo.com', 'mktoresp.com', 'pardot.com',
     'instana.io', 'launchdarkly.com', 'raygun.io', 'navify.com', 'cnzz.com', 'umeng.com',
-    'talkingdata.com', 'jiguang.cn', 'getui.com', 'mdap.alipay.com', 'loggw-ex.alipay.com', 'pgdt.gtimg.cn',
-    'afd.baidu.com', 'als.baidu.com', 'cpro.baidu.com', 'dlswbr.baidu.com', 'duclick.baidu.com', 'feed.baidu.com',
-    'h2tcbox.baidu.com', 'hm.baidu.com', 'hmma.baidu.com', 'mobads-logs.baidu.com', 'mobads.baidu.com', 'nadvideo2.baidu.com',
-    'nsclick.baidu.com', 'sp1.baidu.com', 'voice.baidu.com', '3gimg.qq.com', 'fusion.qq.com', 'ios.bugly.qq.com',
-    'lives.l.qq.com', 'monitor.uu.qq.com', 'pingma.qq.com', 'sdk.e.qq.com', 'wup.imtt.qq.com', 'appcloud.zhihu.com',
-    'appcloud2.in.zhihu.com', 'crash2.zhihu.com', 'mqtt.zhihu.com', 'sugar.zhihu.com', 'agn.aty.sohu.com', 'apm.gotokeep.com',
-    'cn-huabei-1-lg.xf-yun.com', 'gs.getui.com', 'log.b612kaji.com', 'pc-mon.snssdk.com', 'sensorsdata.cn', 'stat.m.jd.com',
-    'trackapp.guahao.cn', 'traffic.mogujie.com', 'wmlog.meituan.com', 'zgsdk.zhugeio.com', 'admaster.com.cn', 'adview.cn',
-    'alimama.com', 'getui.net', 'gepush.com', 'gridsum.com', 'growingio.com', 'igexin.com',
-    'jpush.cn', 'kuaishou.com', 'miaozhen.com', 'mmstat.com', 'pangolin-sdk-toutiao.com', 'talkingdata.cn',
-    'tanx.com', 'umeng.cn', 'umeng.co', 'umengcloud.com', 'youmi.net', 'zhugeio.com',
-    'appnext.hs.llnwd.net', 'fusioncdn.com', 'abema-adx.ameba.jp', 'ad.12306.cn', 'ad.360in.com', 'adroll.com',
-    'ads.yahoo.com', 'adserver.yahoo.com', 'appnexus.com', 'bluekai.com', 'casalemedia.com', 'doubleclick.net',
-    'googleadservices.com', 'googlesyndication.com', 'outbrain.com', 'taboola.com', 'rubiconproject.com', 'pubmatic.com',
-    'openx.com', 'smartadserver.com', 'spotx.tv', 'yandex.ru', 'addthis.com', 'onesignal.com',
-    'sharethis.com', 'bat.bing.com', 'clarity.ms', 'elads.kocpc.com.tw', 'eservice.emarsys.net', 'at-display-as.deliveryhero.io',
-    'stun.services.mozilla1.com'
+    'talkingdata.com', 'mdap.alipay.com', 'loggw-ex.alipay.com', 'pgdt.gtimg.cn', 'afd.baidu.com', 'als.baidu.com',
+    'cpro.baidu.com', 'dlswbr.baidu.com', 'duclick.baidu.com', 'feed.baidu.com', 'h2tcbox.baidu.com', 'hm.baidu.com',
+    'hmma.baidu.com', 'mobads-logs.baidu.com', 'mobads.baidu.com', 'nadvideo2.baidu.com', 'nsclick.baidu.com', 'sp1.baidu.com',
+    'voice.baidu.com', '3gimg.qq.com', 'fusion.qq.com', 'ios.bugly.qq.com', 'lives.l.qq.com', 'monitor.uu.qq.com',
+    'pingma.qq.com', 'sdk.e.qq.com', 'wup.imtt.qq.com', 'appcloud.zhihu.com', 'appcloud2.in.zhihu.com', 'crash2.zhihu.com',
+    'mqtt.zhihu.com', 'sugar.zhihu.com', 'agn.aty.sohu.com', 'apm.gotokeep.com', 'cn-huabei-1-lg.xf-yun.com', 'log.b612kaji.com',
+    'pc-mon.snssdk.com', 'sensorsdata.cn', 'stat.m.jd.com', 'trackapp.guahao.cn', 'traffic.mogujie.com', 'wmlog.meituan.com',
+    'zgsdk.zhugeio.com', 'admaster.com.cn', 'adview.cn', 'alimama.com', 'gridsum.com', 'growingio.com',
+    'kuaishou.com', 'miaozhen.com', 'mmstat.com', 'pangolin-sdk-toutiao.com', 'talkingdata.cn', 'tanx.com',
+    'umeng.cn', 'umeng.co', 'umengcloud.com', 'youmi.net', 'zhugeio.com', 'appnext.hs.llnwd.net',
+    'fusioncdn.com', 'abema-adx.ameba.jp', 'ad.12306.cn', 'ad.360in.com', 'adroll.com', 'ads.yahoo.com',
+    'adserver.yahoo.com', 'appnexus.com', 'bluekai.com', 'casalemedia.com', 'doubleclick.net', 'googleadservices.com',
+    'googlesyndication.com', 'outbrain.com', 'taboola.com', 'rubiconproject.com', 'pubmatic.com', 'openx.com',
+    'smartadserver.com', 'spotx.tv', 'yandex.ru', 'addthis.com', 'onesignal.com', 'sharethis.com',
+    'bat.bing.com', 'clarity.ms', 'elads.kocpc.com.tw', 'eservice.emarsys.net', 'at-display-as.deliveryhero.io', 'stun.services.mozilla1.com'
   ]),
   BLOCK_DOMAINS_WILDCARDS: new Set([
     'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io', 'aotter.net', 'ssp.yahoo.com',
@@ -232,7 +230,8 @@ const RULES = {
     'byteoversea.com', 'criteo.com', 'criteo.net', 'adservices.google.com', 'ad2n.com', 'vpon.com',
     'tenmax.io', 'clickforce.com.tw', 'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com',
     'adbottw.net', 'useinsider.com', 'insiderone.com', 'treasuredata.com', 'treasure-data.com', 'tagtoo.com.tw',
-    'scupio.net', 'clickforce.net'
+    'scupio.net', 'clickforce.net', 'log.aliyuncs.com', 'sls.aliyuncs.com', 'jpush.cn', 'jiguang.cn',
+    'igexin.com', 'getui.com', 'getui.net', 'gepush.com'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
@@ -319,6 +318,9 @@ const RULES = {
     ['www.google.com', new Set([
         '/log', '/pagead/1p-user-list/'
       ])],
+    ['play.google.com', new Set([
+        '/log'
+      ])],
     ['js.stripe.com', new Set([
         '/fingerprinted/'
       ])],
@@ -362,6 +364,24 @@ const RULES = {
         'DROP:/'
       ])],
     ['watson.telemetry.microsoft.com', new Set([
+        'DROP:/'
+      ])],
+    ['jpush.cn', new Set([
+        'DROP:/'
+      ])],
+    ['jiguang.cn', new Set([
+        'DROP:/'
+      ])],
+    ['igexin.com', new Set([
+        'DROP:/'
+      ])],
+    ['getui.com', new Set([
+        'DROP:/'
+      ])],
+    ['getui.net', new Set([
+        'DROP:/'
+      ])],
+    ['gepush.com', new Set([
         'DROP:/'
       ])],
     ['graphql.ec.yahoo.com', new Set([
