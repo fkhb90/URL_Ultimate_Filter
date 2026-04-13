@@ -1,5 +1,8 @@
 # URL Ultimate Filter - Changelog
 
+## V45.35 - 2026-04-13
+- [Cleanup] 移除 `URL-Ultimate-Filter-Surge-REJECT.list` 產出功能 — 下架 V45.31 新增的 Surge DNS 層 REJECT-DROP 規則列表自動產生器。移除 `compile_surge_reject_list()` 函式、主流程呼叫、檔案寫入與 console 訊息，精簡 build 輸出。
+
 ## V45.34 - 2026-04-09
 - [Revert] 回退 V45.33 `xai.chronosphere.io` HARD_WHITELIST 變更 — Grok App 登入問題根因為 MITM 干擾，正確解法為 Loon/Surge 設定 skip-mitm `grok.com`。
 
