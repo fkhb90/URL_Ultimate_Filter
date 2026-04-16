@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V45.36 - 2026-04-16
+- [BugFix] 核心引擎架構修復：修正 `processRequest` 中網域層級條件判斷優先級倒置問題，確保 `isHardWhitelisted`、`isAbsoluteBypass` 與 `isOAuthSafeHarbor` 的放行權重高於 `isBlockedDomain` 萬用字元封殺，根除硬白名單子網域的誤殺漏洞。
+- [Architecture] 重新定義軟白名單語意：移除 `isBlockedDomain` 對 `isSoftWhitelisted` 的相依性，確立軟白名單僅作用於路徑掃描豁免，不干涉網域層級阻斷。
+- [Test Suite] Matrix Test Suite 新增優先級倒置與白名單複合性邊界測試。
+
 ## V45.35 - 2026-04-13
 - [Cleanup] 移除 `URL-Ultimate-Filter-Surge-REJECT.list` 產出功能 — 下架 V45.31 新增的 Surge DNS 層 REJECT-DROP 規則列表自動產生器。移除 `compile_surge_reject_list()` 函式、主流程呼叫、檔案寫入與 console 訊息，精簡 build 輸出。
 
