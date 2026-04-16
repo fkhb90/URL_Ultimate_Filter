@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.35
- * @date    2026-04-13
+ * @version 45.36
+ * @date    2026-04-16
  * @rules   1410 total (285 domains, 340 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.35';
-const SCRIPT_BUILD = 'V45.35 (2026-04-13) | 1410 rules | 2759 tests';
+const SCRIPT_VERSION = '45.36';
+const SCRIPT_BUILD = 'V45.36 (2026-04-16) | 1410 rules | 2766 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1215,12 +1215,8 @@ function processRequest(request) {
       }
     }
 
-    const isSoftWhitelisted = hostProfile.isSoftWhitelisted;
-    if (!isSoftWhitelisted && hostProfile.isBlockedDomain) {
-      stats.blocks++;
-      return { response: { status: 403, body: 'Blocked by Domain' } };
-    }
-
+    // --- Priority-correct allow-before-block ordering (V45.36 fix) ---
+    // OAuth / Absolute / HardWhitelist MUST outrank wildcard domain block
     if (hostProfile.isOAuthSafeHarbor) {
       stats.allows++;
       return null;
@@ -1236,11 +1232,18 @@ function processRequest(request) {
       return _performCleaning(url, hostname, pathLower, hostProfile);
     }
 
+    // Domain block — only fires when no higher-priority allow matched
+    if (hostProfile.isBlockedDomain) {
+      stats.blocks++;
+      return { response: { status: 403, body: 'Blocked by Domain' } };
+    }
+
     if (HELPERS.isPathExemptedForDomain(hostProfile.pathExemptions, pathLower)) {
       stats.allows++;
       return _performCleaning(url, hostname, pathLower, hostProfile);
     }
 
+    const isSoftWhitelisted = hostProfile.isSoftWhitelisted;
     const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathLower);
     const isStatic = HELPERS.isStaticFile(pathLower);
 
