@@ -3,11 +3,14 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.35 (2026-04-13)
+當前版本：V45.36 (2026-04-16)
 最新架構更新：
-- [Cleanup] 移除 `URL-Ultimate-Filter-Surge-REJECT.list` 產出 — 下架 V45.31 新增的 Surge DNS 層 REJECT-DROP 規則列表輸出，改由使用者自行管理 Surge 規則配置。移除 `compile_surge_reject_list()` 函式與相關呼叫／檔案寫入／console 訊息。
+- [BugFix] 核心引擎架構修復：修正 `processRequest` 中網域層級條件判斷優先級倒置問題，確保 `isHardWhitelisted`、`isAbsoluteBypass` 與 `isOAuthSafeHarbor` 的放行權重高於 `isBlockedDomain` 萬用字元封殺，根除 `agirls.aotter.net` 等硬白名單子網域的誤殺漏洞。
+- [Architecture] 重新定義軟白名單語意：移除 `isBlockedDomain` 對 `isSoftWhitelisted` 的相依性，確立軟白名單僅作用於路徑掃描豁免，不干涉網域層級阻斷。
+- [Test Suite] Matrix Test Suite 新增優先級倒置與白名單複合性邊界測試。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.36 (2026-04-16): 引擎優先級倒置修復 — 硬白名單/絕對放行/OAuth 提升至 block 判斷之前。
 - V45.35 (2026-04-13): 移除 Surge REJECT-DROP 列表自動產出 — 精簡建置輸出。
 - V45.34 (2026-04-09): 回退 V45.33 — Grok 登入根因為 MITM，需 skip-mitm grok.com。
 - V45.31 (2026-04-09): 新增 Surge REJECT-DROP 規則列表自動生成器 — DNS 層縱深防禦。
@@ -19,11 +22,6 @@ URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 - V45.25 (2026-04-07): 主流分析平台 CDN 逃逸域名封堵 (Amplitude/Mixpanel/Heap/RudderStack/Segment)。
 - V45.24 (2026-04-07): 台灣特有第一方代理遙測偽裝封堵 (Dcard/Insider/GrowingIO)。
 - V45.23 (2026-04-07): 跨平台第一方代理遙測封堵 (PostHog/Simple Analytics/Fathom/Pirsch)。
-- V45.22 (2026-04-07): Vercel 遙測 CDN 全域封堵 + 現代圖片格式追蹤像素防護。
-- V45.21 (2026-04-07): 防堵 Vercel Insights 第一方代理遙測：L1 掃描器精準突破 `script.js` 偽裝。
-- V45.20 (2026-04-06): 雙軌阻擋策略：封堵微軟 App Insights (`ai.0.js`) 與 Sift Science (`siftscience.com`)。
-- V45.19 (2026-04-06): 防堵 91APP 電商平台專有遙測盲區 (`deferrer-log`) 實施 204 拋棄。
-- V45.18 (2026-03-31): 封堵 Alexa Metrics CDN 寄生盲區；升級 iHerb Optimizely 至 MAP DROP。
 """
 
 import hashlib
@@ -47,11 +45,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.35"
-RELEASE_DATE = "2026-04-13"
+VERSION = "45.36"
+RELEASE_DATE = "2026-04-16"
 
 CURRENT_RELEASE_NOTES = """
-- [Cleanup] 移除 `URL-Ultimate-Filter-Surge-REJECT.list` 產出功能 — 下架 V45.31 新增的 Surge DNS 層 REJECT-DROP 規則列表自動產生器。移除 `compile_surge_reject_list()` 函式、主流程呼叫、檔案寫入與 console 訊息，精簡 build 輸出。
+- [BugFix] 核心引擎架構修復：修正 `processRequest` 中網域層級條件判斷優先級倒置問題，確保 `isHardWhitelisted`、`isAbsoluteBypass` 與 `isOAuthSafeHarbor` 的放行權重高於 `isBlockedDomain` 萬用字元封殺，根除硬白名單子網域的誤殺漏洞。
+- [Architecture] 重新定義軟白名單語意：移除 `isBlockedDomain` 對 `isSoftWhitelisted` 的相依性，確立軟白名單僅作用於路徑掃描豁免，不干涉網域層級阻斷。
+- [Test Suite] Matrix Test Suite 新增優先級倒置與白名單複合性邊界測試。
 """
 
 # ==========================================
@@ -1170,12 +1170,8 @@ function processRequest(request) {
       }
     }
 
-    const isSoftWhitelisted = hostProfile.isSoftWhitelisted;
-    if (!isSoftWhitelisted && hostProfile.isBlockedDomain) {
-      stats.blocks++;
-      return { response: { status: 403, body: 'Blocked by Domain' } };
-    }
-
+    // --- Priority-correct allow-before-block ordering (V45.36 fix) ---
+    // OAuth / Absolute / HardWhitelist MUST outrank wildcard domain block
     if (hostProfile.isOAuthSafeHarbor) {
       stats.allows++;
       return null;
@@ -1191,11 +1187,18 @@ function processRequest(request) {
       return _performCleaning(url, hostname, pathLower, hostProfile);
     }
 
+    // Domain block — only fires when no higher-priority allow matched
+    if (hostProfile.isBlockedDomain) {
+      stats.blocks++;
+      return { response: { status: 403, body: 'Blocked by Domain' } };
+    }
+
     if (HELPERS.isPathExemptedForDomain(hostProfile.pathExemptions, pathLower)) {
       stats.allows++;
       return _performCleaning(url, hostname, pathLower, hostProfile);
     }
 
+    const isSoftWhitelisted = hostProfile.isSoftWhitelisted;
     const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathLower);
     const isStatic = HELPERS.isStaticFile(pathLower);
 
@@ -2630,6 +2633,19 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: WeChat Appmsg Report Variant", "https://mp.weixin.qq.com/mp/appmsgreport?action=page_end&__biz=MzkwMDU2MTEwMg==", RES_DROP_204, "V45.30 微信文章回報 action 變體 (page_end) 同樣攔截"))
     cases.append(TestCase("Safe: WeChat Article Content", "https://mp.weixin.qq.com/s/AbCdEfGhIjKlMnOpQrStUv", RES_ALLOW, "V45.30 確保微信公眾號文章內容正常瀏覽不受影響"))
     cases.append(TestCase("Safe: WeChat Article Profile", "https://mp.weixin.qq.com/mp/profile_ext?action=home&__biz=MzkwMDU2MTEwMg==", RES_ALLOW, "V45.30 確保微信公眾號主頁不被誤殺"))
+
+    # --- V45.36 優先級倒置修復與白名單複合性邊界測試 ---
+    # 核心迴歸：agirls.aotter.net 同時命中 HARD_WHITELIST.WILDCARDS 與 BLOCK_DOMAINS_WILDCARDS(aotter.net)
+    cases.append(TestCase("BugFix: HardWL vs BlockDomain (agirls.aotter.net)", "https://agirls.aotter.net/post/2026-test-article", RES_ALLOW, "V45.36 硬白名單放行權重高於萬用字元網域封殺，修正優先級倒置"))
+    cases.append(TestCase("BugFix: HardWL Subdomain vs BlockDomain", "https://cdn.agirls.aotter.net/images/cover.jpg", RES_ALLOW, "V45.36 硬白名單萬用字元子域名繼承放行，不受 aotter.net 封殺影響"))
+    cases.append(TestCase("BugFix: BlockDomain Still Works (aotter.net)", "https://track.aotter.net/event?uid=abc", RES_BLOCK_403, "V45.36 非白名單的 aotter.net 子域名仍正確封殺"))
+    cases.append(TestCase("BugFix: BlockDomain Exact (aotter.net)", "https://aotter.net/sdk/v3", RES_BLOCK_403, "V45.36 aotter.net 本身不在硬白名單，應封殺"))
+    # 複合性邊界：其他同時存在於 HARD_WHITELIST 與 BLOCK_DOMAINS 的域名
+    cases.append(TestCase("Matrix: HardWL Priority (sendgrid.net)", "https://email.sendgrid.net/wf/click?upn=test", RES_ALLOW, "V45.36 sendgrid.net 硬白名單覆蓋潛在封殺"))
+    # AbsoluteBypass 優先級驗證
+    cases.append(TestCase("Matrix: AbsBypass vs BlockDomain", "https://api.ecpay.com.tw/track?fbclid=test", RES_ALLOW, "V45.36 絕對放行優先於網域封殺"))
+    # SoftWhitelist 語意回歸驗證：不再作為 block 的 guard，僅用於路徑掃描豁免
+    cases.append(TestCase("Matrix: SoftWL No Block Guard", "https://duckduckgo.com/tracking-pixel.gif", RES_BLOCK_403, "V45.36 軟白名單不再繞過網域封殺（duckduckgo 非 blocked 但 path 命中 L1）"))
 
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
