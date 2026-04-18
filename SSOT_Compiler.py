@@ -3,25 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.36 (2026-04-16)
+當前版本：V45.37 (2026-04-18)
 最新架構更新：
-- [BugFix] 核心引擎架構修復：修正 `processRequest` 中網域層級條件判斷優先級倒置問題，確保 `isHardWhitelisted`、`isAbsoluteBypass` 與 `isOAuthSafeHarbor` 的放行權重高於 `isBlockedDomain` 萬用字元封殺，根除 `agirls.aotter.net` 等硬白名單子網域的誤殺漏洞。
-- [Architecture] 重新定義軟白名單語意：移除 `isBlockedDomain` 對 `isSoftWhitelisted` 的相依性，確立軟白名單僅作用於路徑掃描豁免，不干涉網域層級阻斷。
-- [Test Suite] Matrix Test Suite 新增優先級倒置與白名單複合性邊界測試。
+- [Ecosystem] 區域性生態系擴展：納入韓國 Naver 生態系防護，將 `nam.veta.naver.com` (GFP 廣告聯播網) 加入 `BLOCK_DOMAINS`。
+- [Strategy] 靜默拋棄升級：將 Naver 基礎遙測中樞 `nlog.naver.com` 納入 `CRITICAL_PATH_MAP` 並設定為全域 `DROP:/`，以 204 No Content 阻斷重試風暴。
+- [Test Suite] Matrix Test Suite 新增針對 Naver GFP 與 NLog 的端到端驗證案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
 - V45.36 (2026-04-16): 引擎優先級倒置修復 — 硬白名單/絕對放行/OAuth 提升至 block 判斷之前。
 - V45.35 (2026-04-13): 移除 Surge REJECT-DROP 列表自動產出 — 精簡建置輸出。
 - V45.34 (2026-04-09): 回退 V45.33 — Grok 登入根因為 MITM，需 skip-mitm grok.com。
-- V45.31 (2026-04-09): 新增 Surge REJECT-DROP 規則列表自動生成器 — DNS 層縱深防禦。
-- V45.30 (2026-04-09): 微信公眾號遙測精準路徑攔截。
-- V45.29 (2026-04-09): ChatGLM BDMS 追蹤像素靜默拋棄。
-- V45.28 (2026-04-09): 中國推送 SDK 靜默拋棄升級 — 極光推送/個推 MAP DROP 雙軌防護。
-- V45.27 (2026-04-09): 阿里雲 SLS 遙測盲區封堵 + Google Play Store 遙測路徑攔截。
-- V45.26 (2026-04-08): 台灣地區深度擴充 — LINE Tag / Treasure Data / Pixnet / 台灣廣告聯播網替代域名。
-- V45.25 (2026-04-07): 主流分析平台 CDN 逃逸域名封堵 (Amplitude/Mixpanel/Heap/RudderStack/Segment)。
-- V45.24 (2026-04-07): 台灣特有第一方代理遙測偽裝封堵 (Dcard/Insider/GrowingIO)。
-- V45.23 (2026-04-07): 跨平台第一方代理遙測封堵 (PostHog/Simple Analytics/Fathom/Pirsch)。
 """
 
 import hashlib
@@ -45,13 +36,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.36"
-RELEASE_DATE = "2026-04-16"
+VERSION = "45.37"
+RELEASE_DATE = "2026-04-18"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] 核心引擎架構修復：修正 `processRequest` 中網域層級條件判斷優先級倒置問題，確保 `isHardWhitelisted`、`isAbsoluteBypass` 與 `isOAuthSafeHarbor` 的放行權重高於 `isBlockedDomain` 萬用字元封殺，根除硬白名單子網域的誤殺漏洞。
-- [Architecture] 重新定義軟白名單語意：移除 `isBlockedDomain` 對 `isSoftWhitelisted` 的相依性，確立軟白名單僅作用於路徑掃描豁免，不干涉網域層級阻斷。
-- [Test Suite] Matrix Test Suite 新增優先級倒置與白名單複合性邊界測試。
+- [Ecosystem] 區域性生態系擴展：納入韓國 Naver 生態系防護，將 `nam.veta.naver.com` (GFP 廣告聯播網) 加入 `BLOCK_DOMAINS`。
+- [Strategy] 靜默拋棄升級：將 Naver 基礎遙測中樞 `nlog.naver.com` 納入 `CRITICAL_PATH_MAP` 並設定為全域 `DROP:/`，以 204 No Content 阻斷重試風暴。
+- [Test Suite] Matrix Test Suite 新增針對 Naver GFP 與 NLog 的端到端驗證案例。
 """
 
 # ==========================================
@@ -311,7 +302,7 @@ RULES_DB = {
         'onesignal.com', 'sharethis.com', 'bat.bing.com', 'clarity.ms',
         'elads.kocpc.com.tw', 'eservice.emarsys.net', 'at-display-as.deliveryhero.io',
         'stun.services.mozilla1.com',
-        'analysis.chatglm.cn'
+        'analysis.chatglm.cn', 'nam.veta.naver.com'
     ],
     "BLOCK_DOMAINS_WILDCARDS": [
         'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io',
@@ -516,7 +507,8 @@ RULES_DB = {
         'live-apm.shopee.tw': ['/apmapi/v1/event'],
         'cmapi.tw.coupang.com': ['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/'],
         'disqus.com': ['/api/3.0/users/events', '/j/', '/tracking_pixel/'],
-        'yahooapis.jp': ['/v2/acookie/lookup', '/acookie/']
+        'yahooapis.jp': ['/v2/acookie/lookup', '/acookie/'],
+        'nlog.naver.com': ['DROP:/']
     },
     "HIGH_CONFIDENCE": [
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
@@ -1170,8 +1162,6 @@ function processRequest(request) {
       }
     }
 
-    // --- Priority-correct allow-before-block ordering (V45.36 fix) ---
-    // OAuth / Absolute / HardWhitelist MUST outrank wildcard domain block
     if (hostProfile.isOAuthSafeHarbor) {
       stats.allows++;
       return null;
@@ -1187,7 +1177,6 @@ function processRequest(request) {
       return _performCleaning(url, hostname, pathLower, hostProfile);
     }
 
-    // Domain block — only fires when no higher-priority allow matched
     if (hostProfile.isBlockedDomain) {
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked by Domain' } };
@@ -2063,7 +2052,6 @@ def compile_tampermonkey() -> str:
                     patchIframeBeacon(node); 
                 }
                 
-                // 保留 MutationObserver 作為安全網 (針對不支援 property hook 的邊界情況)
                 if (node.tagName === 'SCRIPT' || node.tagName === 'IMG' || node.tagName === 'IFRAME') {
                     if (node.src) {
                         try {
@@ -2635,17 +2623,17 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Safe: WeChat Article Profile", "https://mp.weixin.qq.com/mp/profile_ext?action=home&__biz=MzkwMDU2MTEwMg==", RES_ALLOW, "V45.30 確保微信公眾號主頁不被誤殺"))
 
     # --- V45.36 優先級倒置修復與白名單複合性邊界測試 ---
-    # 核心迴歸：agirls.aotter.net 同時命中 HARD_WHITELIST.WILDCARDS 與 BLOCK_DOMAINS_WILDCARDS(aotter.net)
     cases.append(TestCase("BugFix: HardWL vs BlockDomain (agirls.aotter.net)", "https://agirls.aotter.net/post/2026-test-article", RES_ALLOW, "V45.36 硬白名單放行權重高於萬用字元網域封殺，修正優先級倒置"))
     cases.append(TestCase("BugFix: HardWL Subdomain vs BlockDomain", "https://cdn.agirls.aotter.net/images/cover.jpg", RES_ALLOW, "V45.36 硬白名單萬用字元子域名繼承放行，不受 aotter.net 封殺影響"))
     cases.append(TestCase("BugFix: BlockDomain Still Works (aotter.net)", "https://track.aotter.net/event?uid=abc", RES_BLOCK_403, "V45.36 非白名單的 aotter.net 子域名仍正確封殺"))
     cases.append(TestCase("BugFix: BlockDomain Exact (aotter.net)", "https://aotter.net/sdk/v3", RES_BLOCK_403, "V45.36 aotter.net 本身不在硬白名單，應封殺"))
-    # 複合性邊界：其他同時存在於 HARD_WHITELIST 與 BLOCK_DOMAINS 的域名
     cases.append(TestCase("Matrix: HardWL Priority (sendgrid.net)", "https://email.sendgrid.net/wf/click?upn=test", RES_ALLOW, "V45.36 sendgrid.net 硬白名單覆蓋潛在封殺"))
-    # AbsoluteBypass 優先級驗證
     cases.append(TestCase("Matrix: AbsBypass vs BlockDomain", "https://api.ecpay.com.tw/track?fbclid=test", RES_ALLOW, "V45.36 絕對放行優先於網域封殺"))
-    # SoftWhitelist 語意回歸驗證：不再作為 block 的 guard，僅用於路徑掃描豁免
     cases.append(TestCase("Matrix: SoftWL No Block Guard", "https://duckduckgo.com/tracking-pixel.gif", RES_BLOCK_403, "V45.36 軟白名單不再繞過網域封殺（duckduckgo 非 blocked 但 path 命中 L1）"))
+
+    # --- V45.37 Naver 生態系端到端防護驗證 ---
+    cases.append(TestCase("Privacy: Naver GFP Tracking", "https://nam.veta.naver.com/gfp/v1?ba=www.example.com", RES_BLOCK_403, "V45.37 封堵 Naver GFP 廣告平台跨站追蹤"))
+    cases.append(TestCase("Privacy: Naver NLog Telemetry", "https://nlog.naver.com/beacon", RES_DROP_204, "V45.37 將 Naver 基礎遙測端點降級為靜默拋棄"))
 
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
@@ -2688,9 +2676,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
         exp = RES_REWRITE if is_api_prefix else RES_CLEAN_302
         cases.append(TestCase("Auto: Soft WL + Param", f"https://{d}/page?utm_source=fb", exp, "軟白名單精確匹配，含追蹤參數時依子域名決定淨化方式"))
 
-    # Auto-generated BLOCK_DOMAINS_REGEX coverage — one representative block + one non-match per pattern
     _REGEX_BLOCK_SAMPLES = [
-        # (hostname_to_block, hostname_nonmatch, pattern_note)
         ("ads.ettoday.net",                  "www.ettoday.net",          "ads?.ettoday.net"),
         ("ad2.ettoday.net",                  "ettoday.net",              "ads?\\d*.ettoday.net"),
         ("ads.ltn.com.tw",                   "www.ltn.com.tw",           "ads?.ltn.com.tw"),
@@ -2711,12 +2697,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     for d in RULES_DB["SILENT_REWRITE_DOMAINS"]["WILDCARDS"]:
         cases.append(TestCase("Auto: Silent Rewrite Domain", f"https://www.{d}/page?utm_source=test", RES_REWRITE, "靜默重寫域名使用 REWRITE 而非 302 重定向"))
 
-    # HEURISTIC regex: blocks ?ad_xxx=, ?ads_xxx=, ?campaign_xxx=, ?tracker_xxx= before param cleaning
     _heuristic_re = re.compile(r'[?&](ad|ads|campaign|tracker)_[a-z]+=', re.IGNORECASE)
     for prefix in RULES_DB["PARAMS_PREFIXES"]:
         sample_param = prefix.rstrip('_') + '_testval'
         test_path = f"/page?{sample_param}=test123"
-        # Skip if the HEURISTIC regex or PATH_BLOCK would block before param cleaning runs
         if _heuristic_re.search(test_path): continue
         if is_path_keyword_blocked(test_path): continue
         cases.append(TestCase("Auto: Prefix Param Clean", f"https://example.com{test_path}", RES_CLEAN_302, f"前綴 '{prefix}' 觸發參數淨化"))
@@ -2949,123 +2933,4 @@ def run_tests():
     }
     try {
         const payloadPath = process.argv[2];
-        const cases = JSON.parse(fs.readFileSync(payloadPath, 'utf8'));
-        const results = cases.map(c => ({ id: c.id, output: runTest(c) }));
-        console.log(JSON.stringify(results));
-    } catch (e) {
-        console.log(JSON.stringify([{ error: "Batch Failure", details: String(e) }]));
-    }
-    """)
-
-    _cache_key = _compute_node_cache_key()
-    _cached = _load_node_cache(_cache_key)
-
-    if _cached is not None:
-        print(f"2. [BATCH ENGINE] Cache HIT ({_cache_key}) — skipping Node.js ({len(final_cases)} cases loaded from cache).")
-        results = _cached
-    else:
-        fd_runner, runner_path = tempfile.mkstemp(suffix=".js")
-        os.close(fd_runner)
-        fd_payload, payload_path = tempfile.mkstemp(suffix=".json")
-        os.close(fd_payload)
-
-        try:
-            Path(runner_path).write_text(runner_code, encoding="utf-8")
-            payload_data = [{"id": i, "url": c.url, "is_e2e": c.is_e2e, "e2e_target_url": c.e2e_target_url} for i, c in enumerate(final_cases)]
-            with open(payload_path, 'w', encoding='utf-8') as f: json.dump(payload_data, f)
-
-            print(f"2. [BATCH ENGINE] Testing {len(final_cases)} SSOT Generated Cases via Node.js...")
-            p = Popen(["node", runner_path, payload_path], stdout=PIPE, stderr=PIPE, text=True, encoding="utf-8")
-            try:
-                stdout, stderr = p.communicate(timeout=120)
-            except Exception:
-                p.kill()
-                p.communicate()
-                print("[FATAL ERROR] Node.js runner timed out after 120s — process killed.")
-                sys.exit(1)
-
-            if p.returncode != 0:
-                print(f"[FATAL ERROR] Node Execution Failed:\n{stderr}")
-                sys.exit(1)
-
-            results = json.loads(stdout)
-            _save_node_cache(_cache_key, results)
-        finally:
-            Path(runner_path).unlink(missing_ok=True)
-            Path(payload_path).unlink(missing_ok=True)
-
-    result_map = {r['id']: r for r in results}
-    outcomes = []
-    for i, c in enumerate(final_cases):
-        res = result_map.get(i, {})
-        actual_output = res.get('output')
-        is_pass, status, details = evaluate_result(actual_output, c.expected)
-        if c.is_e2e and is_pass:
-            details = f"[E2E Passed] {c.expected_feature}"
-        outcomes.append(TestOutcome(c, status, details, is_pass))
-
-    passed = sum(1 for o in outcomes if o.is_pass)
-    total = len(outcomes)
-    failed = total - passed
-    rate = round((passed/total)*100, 1) if total else 0
-
-    category_stats = defaultdict(lambda: {"pass": 0, "fail": 0})
-    rows_html = ""
-    for o in outcomes:
-        cat = o.case.category
-        if o.is_pass: category_stats[cat]["pass"] += 1
-        else: category_stats[cat]["fail"] += 1
-        cls = "bg-pass" if o.is_pass else "bg-fail"
-        txt = "PASS" if o.is_pass else "FAIL"
-        color = "#10B981" if o.is_pass else "#EF4444"
-        rows_html += f"<tr data-category='{cat}' data-status='{txt}'><td><span class='category-tag'>{cat}</span></td><td class='url-cell'><a href='{o.case.url}' target='_blank'>{o.case.url}</a></td><td><span class='badge {cls}'>{txt}</span></td><td style='font-size:13px; color:var(--text-sub);'>{o.case.expected}</td><td style='font-size:13px; font-weight:600; color:{color};'>{o.actual}</td><td style='font-size:12px; color:var(--text-sub);'>{o.details}</td></tr>"
-
-    sorted_cats = sorted(category_stats.keys())
-    cat_options_html = "".join([f'<option value="{cat}">{cat}</option>' for cat in sorted_cats])
-    chart_data = {"passed": passed, "failed": failed, "categories": sorted_cats, "cat_passed": [category_stats[c]["pass"] for c in sorted_cats], "cat_failed": [category_stats[c]["fail"] for c in sorted_cats]}
-
-    initial_status_filter = "FAIL" if failed > 0 else "all"
-    overall_status_class = "status-pass" if failed == 0 else "status-fail"
-    overall_status_text = "ALL SYSTEMS GO" if failed == 0 else f"{failed} ISSUES FOUND"
-    rate_color_class = "text-success" if rate == 100 else ("text-warning" if rate > 90 else "text-danger")
-
-    public_dir = Path("public")
-    public_dir.mkdir(exist_ok=True)
-    report_name = public_dir / "index.html"
-
-    html = HTML_TEMPLATE.format(
-        version_name=f"V{VERSION}", gen_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        rate=rate, total=total, passed=passed, failed=failed, table_rows=rows_html,
-        initial_status_filter=initial_status_filter, overall_status_class=overall_status_class,
-        overall_status_text=overall_status_text, rate_color_class=rate_color_class,
-        category_options=cat_options_html, json_chart_data=json.dumps(chart_data)
-    )
-    with open(report_name, "w", encoding="utf-8") as f: f.write(html)
-
-    print("\n" + "="*55)
-    print(f"📊 測試統計 (Test Statistics)")
-    print(f"   - 總共測試案例 (Total Cases) : {total} CASES")
-    print(f"   - 成功通過 (Passed)          : {passed} CASES")
-    print(f"   - 失敗錯誤 (Failed)          : {failed} CASES")
-    print("="*55)
-
-    if passed == total:
-        # 測試通過後，將實際測試案例數回填至 SCRIPT_BUILD 常數
-        js_surge_content = js_surge_content.replace('__SSOT_TEST_COUNT__', str(total))
-        js_tampermonkey_content = js_tampermonkey_content.replace('__SSOT_TEST_COUNT__', str(total))
-        with open(js_surge_filename, "w", encoding="utf-8") as f: f.write(js_surge_content)
-        with open(js_tm_filename, "w", encoding="utf-8") as f: f.write(js_tampermonkey_content)
-
-        update_changelog()
-
-        print(f"\n✅  SSOT DUAL-TARGET BUILD & TEST PASSED")
-        print(f"📄  Surge Edition Saved: {js_surge_filename}")
-        print(f"📄  Tampermonkey Edition Saved: {js_tm_filename}")
-        print(f"📄  Test Report Saved for Pages: {report_name}")
-    else:
-        print(f"\n❌  SSOT TEST FAILED")
-        print(f"⚠️  JavaScript Generation SKIPPED due to test failures.")
-    print("="*55 + "\n")
-
-if __name__ == "__main__":
-    run_tests()
+        const cases = JSON.parse(fs
