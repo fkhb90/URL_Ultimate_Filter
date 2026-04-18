@@ -2933,4 +2933,122 @@ def run_tests():
     }
     try {
         const payloadPath = process.argv[2];
-        const cases = JSON.parse(fs
+        const cases = JSON.parse(fs.readFileSync(payloadPath, 'utf8'));
+        const results = cases.map(c => ({ id: c.id, output: runTest(c) }));
+        console.log(JSON.stringify(results));
+    } catch (e) {
+        console.log(JSON.stringify([{ error: "Batch Failure", details: String(e) }]));
+    }
+    """)
+
+    _cache_key = _compute_node_cache_key()
+    _cached = _load_node_cache(_cache_key)
+
+    if _cached is not None:
+        print(f"2. [BATCH ENGINE] Cache HIT ({_cache_key}) — skipping Node.js ({len(final_cases)} cases loaded from cache).")
+        results = _cached
+    else:
+        fd_runner, runner_path = tempfile.mkstemp(suffix=".js")
+        os.close(fd_runner)
+        fd_payload, payload_path = tempfile.mkstemp(suffix=".json")
+        os.close(fd_payload)
+
+        try:
+            Path(runner_path).write_text(runner_code, encoding="utf-8")
+            payload_data = [{"id": i, "url": c.url, "is_e2e": c.is_e2e, "e2e_target_url": c.e2e_target_url} for i, c in enumerate(final_cases)]
+            with open(payload_path, 'w', encoding='utf-8') as f: json.dump(payload_data, f)
+
+            print(f"2. [BATCH ENGINE] Testing {len(final_cases)} SSOT Generated Cases via Node.js...")
+            p = Popen(["node", runner_path, payload_path], stdout=PIPE, stderr=PIPE, text=True, encoding="utf-8")
+            try:
+                stdout, stderr = p.communicate(timeout=120)
+            except Exception:
+                p.kill()
+                p.communicate()
+                print("[FATAL ERROR] Node.js runner timed out after 120s — process killed.")
+                sys.exit(1)
+
+            if p.returncode != 0:
+                print(f"[FATAL ERROR] Node Execution Failed:\n{stderr}")
+                sys.exit(1)
+
+            results = json.loads(stdout)
+            _save_node_cache(_cache_key, results)
+        finally:
+            Path(runner_path).unlink(missing_ok=True)
+            Path(payload_path).unlink(missing_ok=True)
+
+    result_map = {r['id']: r for r in results}
+    outcomes = []
+    for i, c in enumerate(final_cases):
+        res = result_map.get(i, {})
+        actual_output = res.get('output')
+        is_pass, status, details = evaluate_result(actual_output, c.expected)
+        if c.is_e2e and is_pass:
+            details = f"[E2E Passed] {c.expected_feature}"
+        outcomes.append(TestOutcome(c, status, details, is_pass))
+
+    passed = sum(1 for o in outcomes if o.is_pass)
+    total = len(outcomes)
+    failed = total - passed
+    rate = round((passed/total)*100, 1) if total else 0
+
+    category_stats = defaultdict(lambda: {"pass": 0, "fail": 0})
+    rows_html = ""
+    for o in outcomes:
+        cat = o.case.category
+        if o.is_pass: category_stats[cat]["pass"] += 1
+        else: category_stats[cat]["fail"] += 1
+        cls = "bg-pass" if o.is_pass else "bg-fail"
+        txt = "PASS" if o.is_pass else "FAIL"
+        color = "#10B981" if o.is_pass else "#EF4444"
+        rows_html += f"<tr data-category='{cat}' data-status='{txt}'><td><span class='category-tag'>{cat}</span></td><td class='url-cell'><a href='{o.case.url}' target='_blank'>{o.case.url}</a></td><td><span class='badge {cls}'>{txt}</span></td><td style='font-size:13px; color:var(--text-sub);'>{o.case.expected}</td><td style='font-size:13px; font-weight:600; color:{color};'>{o.actual}</td><td style='font-size:12px; color:var(--text-sub);'>{o.details}</td></tr>"
+
+    sorted_cats = sorted(category_stats.keys())
+    cat_options_html = "".join([f'<option value="{cat}">{cat}</option>' for cat in sorted_cats])
+    chart_data = {"passed": passed, "failed": failed, "categories": sorted_cats, "cat_passed": [category_stats[c]["pass"] for c in sorted_cats], "cat_failed": [category_stats[c]["fail"] for c in sorted_cats]}
+
+    initial_status_filter = "FAIL" if failed > 0 else "all"
+    overall_status_class = "status-pass" if failed == 0 else "status-fail"
+    overall_status_text = "ALL SYSTEMS GO" if failed == 0 else f"{failed} ISSUES FOUND"
+    rate_color_class = "text-success" if rate == 100 else ("text-warning" if rate > 90 else "text-danger")
+
+    public_dir = Path("public")
+    public_dir.mkdir(exist_ok=True)
+    report_name = public_dir / "index.html"
+
+    html = HTML_TEMPLATE.format(
+        version_name=f"V{VERSION}", gen_time=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        rate=rate, total=total, passed=passed, failed=failed, table_rows=rows_html,
+        initial_status_filter=initial_status_filter, overall_status_class=overall_status_class,
+        overall_status_text=overall_status_text, rate_color_class=rate_color_class,
+        category_options=cat_options_html, json_chart_data=json.dumps(chart_data)
+    )
+    with open(report_name, "w", encoding="utf-8") as f: f.write(html)
+
+    print("\n" + "="*55)
+    print(f"📊 測試統計 (Test Statistics)")
+    print(f"   - 總共測試案例 (Total Cases) : {total} CASES")
+    print(f"   - 成功通過 (Passed)          : {passed} CASES")
+    print(f"   - 失敗錯誤 (Failed)          : {failed} CASES")
+    print("="*55)
+
+    if passed == total:
+        # 測試通過後，將實際測試案例數回填至 SCRIPT_BUILD 常數
+        js_surge_content = js_surge_content.replace('__SSOT_TEST_COUNT__', str(total))
+        js_tampermonkey_content = js_tampermonkey_content.replace('__SSOT_TEST_COUNT__', str(total))
+        with open(js_surge_filename, "w", encoding="utf-8") as f: f.write(js_surge_content)
+        with open(js_tm_filename, "w", encoding="utf-8") as f: f.write(js_tampermonkey_content)
+
+        update_changelog()
+
+        print(f"\n✅  SSOT DUAL-TARGET BUILD & TEST PASSED")
+        print(f"📄  Surge Edition Saved: {js_surge_filename}")
+        print(f"📄  Tampermonkey Edition Saved: {js_tm_filename}")
+        print(f"📄  Test Report Saved for Pages: {report_name}")
+    else:
+        print(f"\n❌  SSOT TEST FAILED")
+        print(f"⚠️  JavaScript Generation SKIPPED due to test failures.")
+    print("="*55 + "\n")
+
+if __name__ == "__main__":
