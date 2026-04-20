@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V45.41 - 2026-04-20
+- [Rules] 新增 `searchad-phinf.pstatic.net` 至 BLOCK_DOMAINS — 403 封鎖 Naver 搜尋廣告圖片 CDN，對應 RestaurantAdSummary.adImages 的圖片來源，斷開廣告卡片視覺呈現。
+- [Rules] 新增 `ntm.pstatic.net: ['DROP:/']` 至 CRITICAL_PATH_MAP — 204 靜默拋棄 Naver Tag Manager 標籤管理器腳本請求，防止廣告/分析標籤動態注入。
+- [Analysis] Naver Maps AD① 架構逆向完成：廣告以 Apollo GraphQL SSR (`window.__APOLLO_STATE__`) 嵌入 HTML，廣告型別 RestaurantAdSummary，廣告查詢 adBusinesses；Surge response body rewrite v2.0 已提供。
+- [Test Suite] 新增 2 項 V45.41 測試案例。
+
 ## V45.40 - 2026-04-20
 - [Rules] 新增 `ssl.pstatic.net: ['/adimg3.search/adpost/']` 至 CRITICAL_PATH_MAP — 403 阻斷 Naver Maps 廣告腳本 `ad.js`，切斷廣告點擊追蹤/歸因鏈路；pstatic.net 其他 CDN 資源不受影響。
 - [Rules] 新增 `api-biz-catcher.naver.com: ['DROP:/']` 至 CRITICAL_PATH_MAP — 204 靜默拋棄 BizCatcher 廣告互動遙測 (`/api/v1/callInfos/add`)，防止廣告主取得用戶點擊/通話歸因資料。
