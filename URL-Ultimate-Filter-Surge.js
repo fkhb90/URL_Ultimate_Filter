@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.40
+ * @version 45.41
  * @date    2026-04-20
- * @rules   1424 total (289 domains, 350 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1426 total (290 domains, 351 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.40';
-const SCRIPT_BUILD = 'V45.40 (2026-04-20) | 1424 rules | 2814 tests';
+const SCRIPT_VERSION = '45.41';
+const SCRIPT_BUILD = 'V45.41 (2026-04-20) | 1426 rules | 2819 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -206,7 +206,7 @@ const RULES = {
     'googlesyndication.com', 'outbrain.com', 'taboola.com', 'rubiconproject.com', 'pubmatic.com', 'openx.com',
     'smartadserver.com', 'spotx.tv', 'yandex.ru', 'addthis.com', 'onesignal.com', 'sharethis.com',
     'bat.bing.com', 'clarity.ms', 'elads.kocpc.com.tw', 'eservice.emarsys.net', 'at-display-as.deliveryhero.io', 'stun.services.mozilla1.com',
-    'analysis.chatglm.cn', 'ader.naver.com', 'wcs.naver.net', 'analytics.naver.com'
+    'analysis.chatglm.cn', 'ader.naver.com', 'wcs.naver.net', 'analytics.naver.com', 'searchad-phinf.pstatic.net'
   ]),
   BLOCK_DOMAINS_WILDCARDS: new Set([
     'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io', 'aotter.net', 'ssp.yahoo.com',
@@ -640,6 +640,9 @@ const RULES = {
       ])],
     ['ssl.pstatic.net', new Set([
         '/adimg3.search/adpost/'
+      ])],
+    ['ntm.pstatic.net', new Set([
+        'DROP:/'
       ])]
   ])
   },
