@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V45.37 - 2026-04-20
+- [Rules] 新增 `veta.naver.com` 至 BLOCK_DOMAINS_WILDCARDS — 封鎖 Naver GFP (Galaxy Full Page) 廣告遞送引擎及其所有子域 (含 nam.veta.naver.com)。
+- [Rules] 新增 `nlog.naver.com: ['DROP:/']` 至 CRITICAL_PATH_MAP — 全域 204 靜默拋棄 Naver 遙測日誌，防止 SDK 重試風暴。
+- [Test Suite] 新增 5 項 Naver 邊界測試案例：正向放行、廣告封殺、遙測拋棄、子域繼承、靜態偽裝邊界。
+
 ## V45.36 - 2026-04-16
 - [BugFix] 核心引擎架構修復：修正 `processRequest` 中網域層級條件判斷優先級倒置問題，確保 `isHardWhitelisted`、`isAbsoluteBypass` 與 `isOAuthSafeHarbor` 的放行權重高於 `isBlockedDomain` 萬用字元封殺，根除硬白名單子網域的誤殺漏洞。
 - [Architecture] 重新定義軟白名單語意：移除 `isBlockedDomain` 對 `isSoftWhitelisted` 的相依性，確立軟白名單僅作用於路徑掃描豁免，不干涉網域層級阻斷。
