@@ -3,13 +3,15 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.40 (2026-04-20)
+當前版本：V45.41 (2026-04-20)
 最新架構更新：
-- [Rules] Naver 廣告腳本攔截：新增 `ssl.pstatic.net: ['/adimg3.search/adpost/']` 至 CRITICAL_PATH_MAP，403 阻斷廣告點擊追蹤腳本 (`ad.js`) 載入；精確路徑封鎖，不影響 pstatic.net 其他 CDN 資源。
-- [Rules] Naver BizCatcher 廣告互動遙測靜默拋棄：新增 `api-biz-catcher.naver.com: ['DROP:/']`，204 靜默拋棄廣告點擊/通話歸因資料收集端點 (`/api/v1/callInfos/add`)。
-- [Test Suite] 新增 4 項 V45.40 測試案例（廣告腳本封鎖、BizCatcher DROP、pstatic 安全路徑放行）。
+- [Rules] Naver Maps 廣告圖片 CDN 封鎖：新增 `searchad-phinf.pstatic.net` 至 BLOCK_DOMAINS — 403 阻斷 Naver 搜尋廣告圖片 CDN，對應 Apollo State 中 `RestaurantAdSummary.adImages` 的圖片來源。
+- [Rules] Naver Tag Manager 靜默拋棄：新增 `ntm.pstatic.net: ['DROP:/']` 至 CRITICAL_PATH_MAP — 204 靜默拋棄 NTM 標籤管理器（等同 Google Tag Manager），防止廣告/分析標籤動態注入。
+- [Analysis] 完成 Naver Maps AD① 架構逆向分析：確認廣告資料以 Apollo GraphQL SSR (`window.__APOLLO_STATE__`) 嵌入 HTML，廣告型別為 `RestaurantAdSummary`，查詢為 `adBusinesses`；Surge response body rewrite 腳本 v2.0 已就緒。
+- [Test Suite] 新增 2 項 V45.41 測試案例（searchad-phinf 廣告圖片封鎖、ntm.pstatic NTM 遙測 DROP）。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.41 (2026-04-20): Naver Maps 廣告圖片 CDN 封鎖 (searchad-phinf.pstatic.net) + NTM 標籤管理器 DROP；Apollo State 逆向分析完成。
 - V45.40 (2026-04-20): Naver 地圖廣告腳本 ad.js 封鎖 + BizCatcher 互動遙測 DROP。
 - V45.39 (2026-04-20): Naver 追蹤基礎設施全面封堵 — wcs/lcs/analytics/cologger/inspector-collector/cr.shopping。
 - V45.38 (2026-04-20): Naver ader 廣告伺服器精確封鎖 + ncpt 用戶端追蹤 204 DROP。
@@ -49,13 +51,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.40"
+VERSION = "45.41"
 RELEASE_DATE = "2026-04-20"
 
 CURRENT_RELEASE_NOTES = """
-- [Rules] 新增 `ssl.pstatic.net: ['/adimg3.search/adpost/']` 至 CRITICAL_PATH_MAP — 403 阻斷 Naver Maps 廣告腳本 `ad.js`，切斷廣告點擊追蹤/歸因鏈路；pstatic.net 其他 CDN 資源不受影響。
-- [Rules] 新增 `api-biz-catcher.naver.com: ['DROP:/']` 至 CRITICAL_PATH_MAP — 204 靜默拋棄 BizCatcher 廣告互動遙測 (`/api/v1/callInfos/add`)，防止廣告主取得用戶點擊/通話歸因資料。
-- [Test Suite] 新增 4 項 V45.40 測試案例。
+- [Rules] 新增 `searchad-phinf.pstatic.net` 至 BLOCK_DOMAINS — 403 封鎖 Naver 搜尋廣告圖片 CDN，對應 RestaurantAdSummary.adImages 的圖片來源，斷開廣告卡片視覺呈現。
+- [Rules] 新增 `ntm.pstatic.net: ['DROP:/']` 至 CRITICAL_PATH_MAP — 204 靜默拋棄 Naver Tag Manager 標籤管理器腳本請求，防止廣告/分析標籤動態注入。
+- [Analysis] Naver Maps AD① 架構逆向完成：廣告以 Apollo GraphQL SSR (`window.__APOLLO_STATE__`) 嵌入 HTML，廣告型別 RestaurantAdSummary，廣告查詢 adBusinesses；Surge response body rewrite v2.0 已提供。
+- [Test Suite] 新增 2 項 V45.41 測試案例。
 """
 
 # ==========================================
@@ -318,7 +321,8 @@ RULES_DB = {
         'analysis.chatglm.cn',
         'ader.naver.com',
         'wcs.naver.net',
-        'analytics.naver.com'
+        'analytics.naver.com',
+        'searchad-phinf.pstatic.net'
     ],
     "BLOCK_DOMAINS_WILDCARDS": [
         'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io',
@@ -533,7 +537,8 @@ RULES_DB = {
         'inspector-collector.m.naver.com': ['DROP:/'],
         'cr.shopping.naver.com': ['DROP:/'],
         'api-biz-catcher.naver.com': ['DROP:/'],
-        'ssl.pstatic.net': ['/adimg3.search/adpost/']
+        'ssl.pstatic.net': ['/adimg3.search/adpost/'],
+        'ntm.pstatic.net': ['DROP:/']
     },
     "HIGH_CONFIDENCE": [
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
@@ -2699,6 +2704,12 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Naver BizCatcher Click Drop", "https://api-biz-catcher.naver.com/api/v1/callInfos/add?adId=123&bizType=LOCAL", RES_DROP_204, "V45.40 靜默拋棄 Naver BizCatcher 廣告點擊/通話互動遙測"))
     cases.append(TestCase("Safe: pstatic SPI Social Plugin", "https://ssl.pstatic.net/spi/js/release/ko_KR/splugin.m.js?1480556", RES_ALLOW, "V45.40 pstatic.net /spi/ 社交外掛為正常資源，不受 /adimg3.search/ 路徑封鎖影響"))
     cases.append(TestCase("Safe: pstatic Static Asset", "https://ssl.pstatic.net/static/common/img/naver_logo.png", RES_ALLOW, "V45.40 pstatic.net /static/ 通用靜態資源正常放行"))
+
+    # --- V45.41 Naver Maps 廣告圖片 CDN + NTM 標籤管理器封鎖 ---
+    # Apollo State 逆向分析：RestaurantAdSummary.adImages → searchad-phinf.pstatic.net
+    cases.append(TestCase("AdBlock: Naver SearchAd Photo CDN", "https://searchad-phinf.pstatic.net/MjAyMjExMDRfMTUy/MDAxNjY3NTM2NjIyMDYx.png", RES_BLOCK_403, "V45.41 Naver 搜尋廣告圖片 CDN 封鎖 — RestaurantAdSummary.adImages 圖片來源，斷開廣告卡片視覺呈現"))
+    # ntm.pstatic.net = Naver Tag Manager（Naver 版 GTM），防止廣告/分析標籤動態注入
+    cases.append(TestCase("Privacy: Naver NTM Tag Manager Drop", "https://ntm.pstatic.net/scripts/ntm_c92712568d67.js", RES_DROP_204, "V45.41 Naver Tag Manager 標籤管理器腳本 DROP — 防止廣告/遙測標籤動態注入"))
 
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
