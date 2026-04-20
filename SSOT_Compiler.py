@@ -3,13 +3,15 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.37 (2026-04-20)
+當前版本：V45.39 (2026-04-20)
 最新架構更新：
-- [Rules] Naver 廣告遞送引擎封鎖：新增 `veta.naver.com` 至 BLOCK_DOMAINS_WILDCARDS，覆蓋 `nam.veta.naver.com` (GFP 廣告 API) 等所有子域。
-- [Rules] Naver 遙測靜默拋棄：新增 `nlog.naver.com: ['DROP:/']` 至 CRITICAL_PATH_MAP，全域 204 DROP 防止 SDK 重試風暴。
-- [Test Suite] 新增 5 項 Naver 測試案例覆蓋正向放行、網域封殺、遙測拋棄、子域繼承與靜態副檔名偽裝邊界。
+- [Rules] Naver 追蹤基礎設施全面封堵（研究驅動）：依 urlscan.io / netify.ai / AdGuard 情報，系統性封堵 Naver 三層追蹤架構 — 腳本層 (`wcs.naver.net` BLOCK)、資料收集層 (`wcs.naver.com/m|b` + `lcs.naver.com/m` DROP)、服務層 (`analytics.naver.com` BLOCK)。
+- [Rules] Naver 購物與行動端遙測靜默拋棄：`cologger.shopping.naver.com`、`cr.shopping.naver.com`、`inspector-collector.m.naver.com` 全域 DROP。
+- [Test Suite] 新增 10 項 Naver V45.39 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.39 (2026-04-20): Naver 追蹤基礎設施全面封堵 — wcs/lcs/analytics/cologger/inspector-collector/cr.shopping。
+- V45.38 (2026-04-20): Naver ader 廣告伺服器精確封鎖 + ncpt 用戶端追蹤 204 DROP。
 - V45.37 (2026-04-20): Naver GFP 廣告封鎖 + nlog 遙測 204 DROP。
 - V45.36 (2026-04-16): 引擎優先級倒置修復 — 硬白名單/絕對放行/OAuth 提升至 block 判斷之前。
 - V45.35 (2026-04-13): 移除 Surge REJECT-DROP 列表自動產出 — 精簡建置輸出。
@@ -46,13 +48,16 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.37"
+VERSION = "45.39"
 RELEASE_DATE = "2026-04-20"
 
 CURRENT_RELEASE_NOTES = """
-- [Rules] 新增 `veta.naver.com` 至 BLOCK_DOMAINS_WILDCARDS — 封鎖 Naver GFP (Galaxy Full Page) 廣告遞送引擎及其所有子域 (含 nam.veta.naver.com)。
-- [Rules] 新增 `nlog.naver.com: ['DROP:/']` 至 CRITICAL_PATH_MAP — 全域 204 靜默拋棄 Naver 遙測日誌，防止 SDK 重試風暴。
-- [Test Suite] 新增 5 項 Naver 邊界測試案例：正向放行、廣告封殺、遙測拋棄、子域繼承、靜態偽裝邊界。
+- [Rules] 新增 `wcs.naver.net` 至 BLOCK_DOMAINS — 封鎖 Naver Analytics SDK 腳本 CDN (wcslog.js)，阻斷追蹤腳本載入。
+- [Rules] 新增 `analytics.naver.com` 至 BLOCK_DOMAINS — 封鎖 Naver Analytics 平台端點。
+- [Rules] 新增 `wcs.naver.com: ['DROP:/m', 'DROP:/b']` 至 CRITICAL_PATH_MAP — 精準 204 DROP Naver 追蹤像素 (/m) 與分析提交端點 (/b)。
+- [Rules] 新增 `lcs.naver.com: ['DROP:/m']` 至 CRITICAL_PATH_MAP — DROP Naver 日誌與內容統計效能遙測端點。
+- [Rules] 新增 `cologger.shopping.naver.com`、`cr.shopping.naver.com`、`inspector-collector.m.naver.com` 至 CRITICAL_PATH_MAP — 購物日誌、轉換追蹤、行動端資料收集器全域 DROP。
+- [Test Suite] 新增 10 項 Naver V45.39 邊界測試案例。
 """
 
 # ==========================================
@@ -312,7 +317,10 @@ RULES_DB = {
         'onesignal.com', 'sharethis.com', 'bat.bing.com', 'clarity.ms',
         'elads.kocpc.com.tw', 'eservice.emarsys.net', 'at-display-as.deliveryhero.io',
         'stun.services.mozilla1.com',
-        'analysis.chatglm.cn'
+        'analysis.chatglm.cn',
+        'ader.naver.com',
+        'wcs.naver.net',
+        'analytics.naver.com'
     ],
     "BLOCK_DOMAINS_WILDCARDS": [
         'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io',
@@ -519,7 +527,13 @@ RULES_DB = {
         'cmapi.tw.coupang.com': ['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/'],
         'disqus.com': ['/api/3.0/users/events', '/j/', '/tracking_pixel/'],
         'yahooapis.jp': ['/v2/acookie/lookup', '/acookie/'],
-        'nlog.naver.com': ['DROP:/']
+        'nlog.naver.com': ['DROP:/'],
+        'ncpt.naver.com': ['DROP:/client-logger/'],
+        'wcs.naver.com': ['DROP:/m', 'DROP:/b'],
+        'lcs.naver.com': ['DROP:/m'],
+        'cologger.shopping.naver.com': ['DROP:/'],
+        'inspector-collector.m.naver.com': ['DROP:/'],
+        'cr.shopping.naver.com': ['DROP:/']
     },
     "HIGH_CONFIDENCE": [
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
@@ -2656,6 +2670,29 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Naver nlog Telemetry Drop", "https://nlog.naver.com/log/event", RES_DROP_204, "V45.37 Naver 遙測日誌 MAP DROP 全域靜默拋棄，防止 SDK 重試風暴"))
     cases.append(TestCase("Privacy: Naver nlog Subdomain Drop", "https://sub.nlog.naver.com/api/v1", RES_DROP_204, "V45.37 nlog.naver.com 子域名繼承 MAP DROP 規則"))
     cases.append(TestCase("AdBlock: Naver GFP Static Disguise", "https://nam.veta.naver.com/gfp/v1/banner.jpg", RES_BLOCK_403, "V45.37 網域層級封殺優先於 .jpg 靜態副檔名豁免，偽裝靜態資源無法逃逸"))
+
+    # --- V45.38 Naver Ad Delivery Engine + Client Performance Tracking ---
+    cases.append(TestCase("AdBlock: Naver Ad Delivery Engine", "https://ader.naver.com/v1/ygM_hm75gBObJZcEnY-MlmUqPOJXWIHDnBwWo8S1W37WrgvKjJjlbt08n9QtXtEACOQHfnEMzQ83MO7xOZokzy-Ez0HoJ-NO3lAdeho_DXzfG0NII0v6xEtAhxIM6hik", RES_BLOCK_403, "V45.38 Naver 廣告遞送伺服器 /v1/[哈希Token] 精確封鎖"))
+    cases.append(TestCase("Privacy: Naver Client Logger Drop", "https://ncpt.naver.com/client-logger/accessLog", RES_DROP_204, "V45.38 Naver 用戶端效能追蹤 /client-logger/ 路徑精準 204 DROP"))
+    cases.append(TestCase("AdBlock: Naver ader Static Disguise", "https://ader.naver.com/assets/banner.png", RES_BLOCK_403, "V45.38 廣告遞送伺服器偽裝靜態資源無法逃逸，網域封殺優先"))
+    cases.append(TestCase("Safe: Naver ncpt Non-Telemetry Path", "https://ncpt.naver.com/api/config", RES_ALLOW, "V45.38 ncpt.naver.com 非遙測路徑不命中 /client-logger/ 規則，正常放行"))
+
+    # --- V45.39 Naver 追蹤基礎設施全面封堵 ---
+    # 腳本層
+    cases.append(TestCase("AdBlock: Naver WCS Script CDN", "https://wcs.naver.net/wcslog.js", RES_BLOCK_403, "V45.39 Naver Analytics SDK 腳本 CDN 封鎖 (AdGuard 同款規則 ||wcs.naver.net/wcslog.js)"))
+    cases.append(TestCase("AdBlock: Naver WCS Script Versioned", "https://wcs.naver.net/rc-0.7.0-beta/wcslog.js", RES_BLOCK_403, "V45.39 版本化 wcslog.js 路徑同樣命中 BLOCK_DOMAINS 封殺"))
+    # 資料收集層 — wcs.naver.com
+    cases.append(TestCase("Privacy: Naver WCS Pixel Drop", "https://wcs.naver.com/m?u=https%3A%2F%2Fnaver.com&sr=1920x1080&bw=1440", RES_DROP_204, "V45.39 Naver Analytics 追蹤像素 /m (image/gif) 精準 DROP"))
+    cases.append(TestCase("Privacy: Naver WCS Analytics POST Drop", "https://wcs.naver.com/b", RES_DROP_204, "V45.39 Naver Analytics 分析提交端點 /b (POST 204) 精準 DROP"))
+    # 資料收集層 — lcs.naver.com
+    cases.append(TestCase("Privacy: Naver LCS Performance Telemetry Drop", "https://lcs.naver.com/m?u=https%3A%2F%2Fcomic.naver.com&navigationStart=1712649600", RES_DROP_204, "V45.39 Naver LCS 效能計時遙測 /m 端點 DROP (navigationStart 等 DOMTiming 資料)"))
+    cases.append(TestCase("Safe: Naver LCS Non-Telemetry Path", "https://lcs.naver.com/api/v2/config", RES_ALLOW, "V45.39 lcs.naver.com 非遙測路徑不命中 /m 規則，保留可用性"))
+    # 平台層 — analytics.naver.com
+    cases.append(TestCase("AdBlock: Naver Analytics Platform", "https://analytics.naver.com/v1/collect?site=test", RES_BLOCK_403, "V45.39 Naver Analytics 平台端點封鎖"))
+    # 購物/行動服務層
+    cases.append(TestCase("Privacy: Naver Shopping Cologger Drop", "https://cologger.shopping.naver.com/v1/log?event=view", RES_DROP_204, "V45.39 Naver 購物行為日誌回傳 DROP"))
+    cases.append(TestCase("Privacy: Naver Shopping CR Conversion Drop", "https://cr.shopping.naver.com/conversion/track?orderId=abc123", RES_DROP_204, "V45.39 Naver 購物轉換追蹤 DROP (明確由使用者指定封鎖)"))
+    cases.append(TestCase("Privacy: Naver Mobile Inspector Drop", "https://inspector-collector.m.naver.com/collect?type=perf", RES_DROP_204, "V45.39 Naver 行動端效能資料收集器 DROP"))
 
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
