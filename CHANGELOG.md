@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V45.40 - 2026-04-20
+- [Rules] 新增 `ssl.pstatic.net: ['/adimg3.search/adpost/']` 至 CRITICAL_PATH_MAP — 403 阻斷 Naver Maps 廣告腳本 `ad.js`，切斷廣告點擊追蹤/歸因鏈路；pstatic.net 其他 CDN 資源不受影響。
+- [Rules] 新增 `api-biz-catcher.naver.com: ['DROP:/']` 至 CRITICAL_PATH_MAP — 204 靜默拋棄 BizCatcher 廣告互動遙測 (`/api/v1/callInfos/add`)，防止廣告主取得用戶點擊/通話歸因資料。
+- [Test Suite] 新增 4 項 V45.40 測試案例。
+
 ## V45.39 - 2026-04-20
 - [Rules] 新增 `wcs.naver.net` 至 BLOCK_DOMAINS — 封鎖 Naver Analytics SDK 腳本 CDN (wcslog.js)，阻斷追蹤腳本載入。
 - [Rules] 新增 `analytics.naver.com` 至 BLOCK_DOMAINS — 封鎖 Naver Analytics 平台端點。
