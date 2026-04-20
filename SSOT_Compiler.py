@@ -3,13 +3,14 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.36 (2026-04-16)
+當前版本：V45.37 (2026-04-20)
 最新架構更新：
-- [BugFix] 核心引擎架構修復：修正 `processRequest` 中網域層級條件判斷優先級倒置問題，確保 `isHardWhitelisted`、`isAbsoluteBypass` 與 `isOAuthSafeHarbor` 的放行權重高於 `isBlockedDomain` 萬用字元封殺，根除 `agirls.aotter.net` 等硬白名單子網域的誤殺漏洞。
-- [Architecture] 重新定義軟白名單語意：移除 `isBlockedDomain` 對 `isSoftWhitelisted` 的相依性，確立軟白名單僅作用於路徑掃描豁免，不干涉網域層級阻斷。
-- [Test Suite] Matrix Test Suite 新增優先級倒置與白名單複合性邊界測試。
+- [Rules] Naver 廣告遞送引擎封鎖：新增 `veta.naver.com` 至 BLOCK_DOMAINS_WILDCARDS，覆蓋 `nam.veta.naver.com` (GFP 廣告 API) 等所有子域。
+- [Rules] Naver 遙測靜默拋棄：新增 `nlog.naver.com: ['DROP:/']` 至 CRITICAL_PATH_MAP，全域 204 DROP 防止 SDK 重試風暴。
+- [Test Suite] 新增 5 項 Naver 測試案例覆蓋正向放行、網域封殺、遙測拋棄、子域繼承與靜態副檔名偽裝邊界。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.37 (2026-04-20): Naver GFP 廣告封鎖 + nlog 遙測 204 DROP。
 - V45.36 (2026-04-16): 引擎優先級倒置修復 — 硬白名單/絕對放行/OAuth 提升至 block 判斷之前。
 - V45.35 (2026-04-13): 移除 Surge REJECT-DROP 列表自動產出 — 精簡建置輸出。
 - V45.34 (2026-04-09): 回退 V45.33 — Grok 登入根因為 MITM，需 skip-mitm grok.com。
@@ -45,13 +46,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.36"
-RELEASE_DATE = "2026-04-16"
+VERSION = "45.37"
+RELEASE_DATE = "2026-04-20"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] 核心引擎架構修復：修正 `processRequest` 中網域層級條件判斷優先級倒置問題，確保 `isHardWhitelisted`、`isAbsoluteBypass` 與 `isOAuthSafeHarbor` 的放行權重高於 `isBlockedDomain` 萬用字元封殺，根除硬白名單子網域的誤殺漏洞。
-- [Architecture] 重新定義軟白名單語意：移除 `isBlockedDomain` 對 `isSoftWhitelisted` 的相依性，確立軟白名單僅作用於路徑掃描豁免，不干涉網域層級阻斷。
-- [Test Suite] Matrix Test Suite 新增優先級倒置與白名單複合性邊界測試。
+- [Rules] 新增 `veta.naver.com` 至 BLOCK_DOMAINS_WILDCARDS — 封鎖 Naver GFP (Galaxy Full Page) 廣告遞送引擎及其所有子域 (含 nam.veta.naver.com)。
+- [Rules] 新增 `nlog.naver.com: ['DROP:/']` 至 CRITICAL_PATH_MAP — 全域 204 靜默拋棄 Naver 遙測日誌，防止 SDK 重試風暴。
+- [Test Suite] 新增 5 項 Naver 邊界測試案例：正向放行、廣告封殺、遙測拋棄、子域繼承、靜態偽裝邊界。
 """
 
 # ==========================================
@@ -326,7 +327,8 @@ RULES_DB = {
         'treasuredata.com', 'treasure-data.com',
         'tagtoo.com.tw', 'scupio.net', 'clickforce.net',
         'log.aliyuncs.com', 'sls.aliyuncs.com',
-        'jpush.cn', 'jpush.io', 'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com'
+        'jpush.cn', 'jpush.io', 'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com',
+        'veta.naver.com'
     ],
     "BLOCK_DOMAINS_REGEX": [
         r'^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$',
@@ -516,7 +518,8 @@ RULES_DB = {
         'live-apm.shopee.tw': ['/apmapi/v1/event'],
         'cmapi.tw.coupang.com': ['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/'],
         'disqus.com': ['/api/3.0/users/events', '/j/', '/tracking_pixel/'],
-        'yahooapis.jp': ['/v2/acookie/lookup', '/acookie/']
+        'yahooapis.jp': ['/v2/acookie/lookup', '/acookie/'],
+        'nlog.naver.com': ['DROP:/']
     },
     "HIGH_CONFIDENCE": [
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
@@ -2646,6 +2649,13 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Matrix: AbsBypass vs BlockDomain", "https://api.ecpay.com.tw/track?fbclid=test", RES_ALLOW, "V45.36 絕對放行優先於網域封殺"))
     # SoftWhitelist 語意回歸驗證：不再作為 block 的 guard，僅用於路徑掃描豁免
     cases.append(TestCase("Matrix: SoftWL No Block Guard", "https://duckduckgo.com/tracking-pixel.gif", RES_BLOCK_403, "V45.36 軟白名單不再繞過網域封殺（duckduckgo 非 blocked 但 path 命中 L1）"))
+
+    # --- V45.37 Naver 廣告遞送引擎封鎖 + 遙測靜默拋棄 ---
+    cases.append(TestCase("Safe: Naver Main Service", "https://m.naver.com/", RES_ALLOW, "V45.37 Naver 主服務正常瀏覽不受廣告與遙測規則干擾"))
+    cases.append(TestCase("AdBlock: Naver GFP Ad API (Subdomain)", "https://nam.veta.naver.com/gfp/v1?u=m_naver_home_feed", RES_BLOCK_403, "V45.37 Naver GFP 廣告遞送 API 命中 veta.naver.com 萬用字元封殺"))
+    cases.append(TestCase("Privacy: Naver nlog Telemetry Drop", "https://nlog.naver.com/log/event", RES_DROP_204, "V45.37 Naver 遙測日誌 MAP DROP 全域靜默拋棄，防止 SDK 重試風暴"))
+    cases.append(TestCase("Privacy: Naver nlog Subdomain Drop", "https://sub.nlog.naver.com/api/v1", RES_DROP_204, "V45.37 nlog.naver.com 子域名繼承 MAP DROP 規則"))
+    cases.append(TestCase("AdBlock: Naver GFP Static Disguise", "https://nam.veta.naver.com/gfp/v1/banner.jpg", RES_BLOCK_403, "V45.37 網域層級封殺優先於 .jpg 靜態副檔名豁免，偽裝靜態資源無法逃逸"))
 
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
