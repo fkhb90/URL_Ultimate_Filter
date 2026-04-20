@@ -1,5 +1,13 @@
 # URL Ultimate Filter - Changelog
 
+## V45.39 - 2026-04-20
+- [Rules] 新增 `wcs.naver.net` 至 BLOCK_DOMAINS — 封鎖 Naver Analytics SDK 腳本 CDN (wcslog.js)，阻斷追蹤腳本載入。
+- [Rules] 新增 `analytics.naver.com` 至 BLOCK_DOMAINS — 封鎖 Naver Analytics 平台端點。
+- [Rules] 新增 `wcs.naver.com: ['DROP:/m', 'DROP:/b']` 至 CRITICAL_PATH_MAP — 精準 204 DROP Naver 追蹤像素 (/m) 與分析提交端點 (/b)。
+- [Rules] 新增 `lcs.naver.com: ['DROP:/m']` 至 CRITICAL_PATH_MAP — DROP Naver 日誌與內容統計效能遙測端點。
+- [Rules] 新增 `cologger.shopping.naver.com`、`cr.shopping.naver.com`、`inspector-collector.m.naver.com` 至 CRITICAL_PATH_MAP — 購物日誌、轉換追蹤、行動端資料收集器全域 DROP。
+- [Test Suite] 新增 10 項 Naver V45.39 邊界測試案例。
+
 ## V45.37 - 2026-04-20
 - [Rules] 新增 `veta.naver.com` 至 BLOCK_DOMAINS_WILDCARDS — 封鎖 Naver GFP (Galaxy Full Page) 廣告遞送引擎及其所有子域 (含 nam.veta.naver.com)。
 - [Rules] 新增 `nlog.naver.com: ['DROP:/']` 至 CRITICAL_PATH_MAP — 全域 204 靜默拋棄 Naver 遙測日誌，防止 SDK 重試風暴。
