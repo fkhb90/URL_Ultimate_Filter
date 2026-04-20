@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.36
+// @name         URL Ultimate Filter V45.37
 // @namespace    http://tampermonkey.net/
-// @version      45.36
-// @date         2026-04-16
-// @description  SSOT 前端防護盾牌 V45.36 (2026-04-16) | 1410 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1410 total (285 domains · 340 critical · 109 param)
+// @version      45.37
+// @date         2026-04-20
+// @description  SSOT 前端防護盾牌 V45.37 (2026-04-20) | 1412 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1412 total (286 domains · 341 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.36
- * @date    2026-04-16
- * @rules   1410 total (285 domains, 340 critical paths, 403 path keywords, 109 param rules)
+ * @version 45.37
+ * @date    2026-04-20
+ * @rules   1412 total (286 domains, 341 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.36';
-const SCRIPT_BUILD = 'V45.36 (2026-04-16) | 1410 rules | 2766 tests';
+const SCRIPT_VERSION = '45.37';
+const SCRIPT_BUILD = 'V45.37 (2026-04-20) | 1412 rules | 2775 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -232,7 +232,7 @@ const RULES = {
     'tenmax.io', 'clickforce.com.tw', 'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com',
     'adbottw.net', 'useinsider.com', 'insiderone.com', 'treasuredata.com', 'treasure-data.com', 'tagtoo.com.tw',
     'scupio.net', 'clickforce.net', 'log.aliyuncs.com', 'sls.aliyuncs.com', 'jpush.cn', 'jpush.io',
-    'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com'
+    'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com', 'veta.naver.com'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
@@ -628,6 +628,9 @@ const RULES = {
       ])],
     ['yahooapis.jp', new Set([
         '/v2/acookie/lookup', '/acookie/'
+      ])],
+    ['nlog.naver.com', new Set([
+        'DROP:/'
       ])]
   ])
   },
