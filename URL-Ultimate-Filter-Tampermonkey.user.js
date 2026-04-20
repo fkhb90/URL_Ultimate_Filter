@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.39
+// @name         URL Ultimate Filter V45.40
 // @namespace    http://tampermonkey.net/
-// @version      45.39
+// @version      45.40
 // @date         2026-04-20
-// @description  SSOT 前端防護盾牌 V45.39 (2026-04-20) | 1422 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1422 total (289 domains · 348 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V45.40 (2026-04-20) | 1424 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1424 total (289 domains · 350 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.39
+ * @version 45.40
  * @date    2026-04-20
- * @rules   1422 total (289 domains, 348 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1424 total (289 domains, 350 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.39';
-const SCRIPT_BUILD = 'V45.39 (2026-04-20) | 1422 rules | 2806 tests';
+const SCRIPT_VERSION = '45.40';
+const SCRIPT_BUILD = 'V45.40 (2026-04-20) | 1424 rules | 2814 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -649,6 +649,12 @@ const RULES = {
       ])],
     ['cr.shopping.naver.com', new Set([
         'DROP:/'
+      ])],
+    ['api-biz-catcher.naver.com', new Set([
+        'DROP:/'
+      ])],
+    ['ssl.pstatic.net', new Set([
+        '/adimg3.search/adpost/'
       ])]
   ])
   },
