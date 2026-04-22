@@ -3,14 +3,14 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.41 (2026-04-20)
+當前版本：V45.42 (2026-04-22)
 最新架構更新：
-- [Rules] Naver Maps 廣告圖片 CDN 封鎖：新增 `searchad-phinf.pstatic.net` 至 BLOCK_DOMAINS — 403 阻斷 Naver 搜尋廣告圖片 CDN，對應 Apollo State 中 `RestaurantAdSummary.adImages` 的圖片來源。
-- [Rules] Naver Tag Manager 靜默拋棄：新增 `ntm.pstatic.net: ['DROP:/']` 至 CRITICAL_PATH_MAP — 204 靜默拋棄 NTM 標籤管理器（等同 Google Tag Manager），防止廣告/分析標籤動態注入。
-- [Analysis] 完成 Naver Maps AD① 架構逆向分析：確認廣告資料以 Apollo GraphQL SSR (`window.__APOLLO_STATE__`) 嵌入 HTML，廣告型別為 `RestaurantAdSummary`，查詢為 `adBusinesses`；Surge response body rewrite 腳本 v2.0 已就緒。
-- [Test Suite] 新增 2 項 V45.41 測試案例（searchad-phinf 廣告圖片封鎖、ntm.pstatic NTM 遙測 DROP）。
+- [Rules] 關鍵字降級防護：將粗粒度關鍵字 'collect' 與 'collect?' 從 DROP 規則中移除，避免對電商 Headless API（如 /collection/）造成語意誤殺。
+- [Rules] 雙重保險豁免：於 PATH_EXEMPTIONS 新增 citiesocial.com 針對 /collection/ 路徑的專屬豁免，確保核心商品列表 API 不受任何子字串掃描干擾。
+- [Test Suite] 新增 2 項 V45.42 測試案例：citiesocial /collection/ 無參數放行 + api.citiesocial.com 帶追蹤參數靜默重寫（REWRITE）。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.42 (2026-04-22): DROP 移除粗粒度 'collect'/'collect?' + citiesocial.com /collection/ PATH_EXEMPTIONS 雙重保險；新增 2 項 citiesocial API 精準度測試案例。
 - V45.41 (2026-04-20): Naver Maps 廣告圖片 CDN 封鎖 (searchad-phinf.pstatic.net) + NTM 標籤管理器 DROP；Apollo State 逆向分析完成。
 - V45.40 (2026-04-20): Naver 地圖廣告腳本 ad.js 封鎖 + BizCatcher 互動遙測 DROP。
 - V45.39 (2026-04-20): Naver 追蹤基礎設施全面封堵 — wcs/lcs/analytics/cologger/inspector-collector/cr.shopping。
@@ -51,14 +51,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.41"
-RELEASE_DATE = "2026-04-20"
+VERSION = "45.42"
+RELEASE_DATE = "2026-04-22"
 
 CURRENT_RELEASE_NOTES = """
-- [Rules] 新增 `searchad-phinf.pstatic.net` 至 BLOCK_DOMAINS — 403 封鎖 Naver 搜尋廣告圖片 CDN，對應 RestaurantAdSummary.adImages 的圖片來源，斷開廣告卡片視覺呈現。
-- [Rules] 新增 `ntm.pstatic.net: ['DROP:/']` 至 CRITICAL_PATH_MAP — 204 靜默拋棄 Naver Tag Manager 標籤管理器腳本請求，防止廣告/分析標籤動態注入。
-- [Analysis] Naver Maps AD① 架構逆向完成：廣告以 Apollo GraphQL SSR (`window.__APOLLO_STATE__`) 嵌入 HTML，廣告型別 RestaurantAdSummary，廣告查詢 adBusinesses；Surge response body rewrite v2.0 已提供。
-- [Test Suite] 新增 2 項 V45.41 測試案例。
+- [Rules] DROP 關鍵字降級防護：移除粗粒度 'collect' 與 'collect?' — 防止 /collection/ 路徑（電商商品列表 API）遭 DROP 誤殺；路徑更精確的 '/collect?'、'/v1/collect' 等仍保留於 CRITICAL_PATH_GENERIC。
+- [Rules] PATH_EXEMPTIONS 雙重保險：新增 citiesocial.com → ['/collection/'] — 即使未來 DROP 規則變更，/collection/ 路徑仍受 PATH_EXEMPTION 短路保護，不受任何下游關鍵字掃描干擾。
+- [Test Suite] 新增 2 項 V45.42 測試案例：① www.citiesocial.com/collection/ 無參數直接放行；② api.citiesocial.com/collection/ 帶追蹤參數靜默重寫（REWRITE）。
 """
 
 # ==========================================
@@ -602,8 +601,8 @@ RULES_DB = {
     ],
     "DROP": [
         '?diag=', '?log=', '-log.', '/diag/', '/log/', '/logging/', '/logs/', 'adlog',
-        'ads-beacon', 'airbrake', 'amp-analytics', '/batch/', '/batch?', 'beacon', 'client-event', 'collect',
-        'collect?', 'collector', 'crashlytics', 'csp-report', 'data-pipeline', 'error-monitoring',
+        'ads-beacon', 'airbrake', 'amp-analytics', '/batch/', '/batch?', 'beacon', 'client-event',
+        'collector', 'crashlytics', 'csp-report', 'data-pipeline', 'error-monitoring',
         'error-report', 'heartbeat', 'ingest', 'intake', 'live-log', 'log-event', 'logevents',
         'loggly', 'log-hl', 'realtime-log', '/rum/', 'server-event', 'uploadmobiledata',
         'web-beacon', 'web-vitals', 'crash-report', 'diagnostic.log', 'profiler', 'stacktrace', 'trace.json',
@@ -639,7 +638,8 @@ RULES_DB = {
         "www.google.com": ["/url", "/search", "/s2/favicons"],
         "play.googleapis.com": ["/log/batch"],
         "threads.com": ["/post/"],
-        "threads.net": ["/post/"]
+        "threads.net": ["/post/"],
+        "citiesocial.com": ["/collection/"]
     }
 }
 
@@ -2710,6 +2710,13 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("AdBlock: Naver SearchAd Photo CDN", "https://searchad-phinf.pstatic.net/MjAyMjExMDRfMTUy/MDAxNjY3NTM2NjIyMDYx.png", RES_BLOCK_403, "V45.41 Naver 搜尋廣告圖片 CDN 封鎖 — RestaurantAdSummary.adImages 圖片來源，斷開廣告卡片視覺呈現"))
     # ntm.pstatic.net = Naver Tag Manager（Naver 版 GTM），防止廣告/分析標籤動態注入
     cases.append(TestCase("Privacy: Naver NTM Tag Manager Drop", "https://ntm.pstatic.net/scripts/ntm_c92712568d67.js", RES_DROP_204, "V45.41 Naver Tag Manager 標籤管理器腳本 DROP — 防止廣告/遙測標籤動態注入"))
+
+    # --- V45.42 citiesocial Headless API /collection/ 誤殺修正 ---
+    # 雙重保險：DROP 移除 'collect'/'collect?' + PATH_EXEMPTIONS 豁免 citiesocial.com /collection/
+    # 場景 A：無追蹤參數 → PATH_EXEMPTION 命中後 _performCleaning 無變更 → 直接放行
+    cases.append(TestCase("BugFix: citiesocial collection no-param passthrough", "https://www.citiesocial.com/collection/popular", RES_ALLOW, "V45.42 /collection/ 路徑含 'collect' 子串；PATH_EXEMPTIONS 豁免後無參數直接放行，不觸發 DROP 204"))
+    # 場景 B：帶追蹤參數 → PATH_EXEMPTION 命中後流入 _performCleaning；api. 子域名升級為 REWRITE 靜默剝離
+    cases.append(TestCase("BugFix: citiesocial API collection silent rewrite", "https://api.citiesocial.com/collection/products?utm_source=ig&fbclid=test", RES_REWRITE, "V45.42 api.citiesocial.com /collection/ 帶追蹤參數 → PATH_EXEMPTION 豁免 + api. 子域名觸發靜默重寫（REWRITE），追蹤參數剝離不暴露 302"))
 
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
