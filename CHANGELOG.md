@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V45.42 - 2026-04-22
+- [Rules] DROP 關鍵字降級防護：移除粗粒度 'collect' 與 'collect?' — 防止 /collection/ 路徑（電商商品列表 API）遭 DROP 誤殺；路徑更精確的 '/collect?'、'/v1/collect' 等仍保留於 CRITICAL_PATH_GENERIC。
+- [Rules] PATH_EXEMPTIONS 雙重保險：新增 citiesocial.com → ['/collection/'] — 即使未來 DROP 規則變更，/collection/ 路徑仍受 PATH_EXEMPTION 短路保護，不受任何下游關鍵字掃描干擾。
+- [Test Suite] 新增 2 項 V45.42 測試案例：① www.citiesocial.com/collection/ 無參數直接放行；② api.citiesocial.com/collection/ 帶追蹤參數靜默重寫（REWRITE）。
+
 ## V45.41 - 2026-04-20
 - [Rules] 新增 `searchad-phinf.pstatic.net` 至 BLOCK_DOMAINS — 403 封鎖 Naver 搜尋廣告圖片 CDN，對應 RestaurantAdSummary.adImages 的圖片來源，斷開廣告卡片視覺呈現。
 - [Rules] 新增 `ntm.pstatic.net: ['DROP:/']` 至 CRITICAL_PATH_MAP — 204 靜默拋棄 Naver Tag Manager 標籤管理器腳本請求，防止廣告/分析標籤動態注入。
