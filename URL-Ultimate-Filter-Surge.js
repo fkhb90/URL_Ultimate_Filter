@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.41
- * @date    2026-04-20
- * @rules   1426 total (290 domains, 351 critical paths, 403 path keywords, 109 param rules)
+ * @version 45.42
+ * @date    2026-04-22
+ * @rules   1424 total (290 domains, 351 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.41';
-const SCRIPT_BUILD = 'V45.41 (2026-04-20) | 1426 rules | 2819 tests';
+const SCRIPT_VERSION = '45.42';
+const SCRIPT_BUILD = 'V45.42 (2026-04-22) | 1424 rules | 2822 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -727,12 +727,12 @@ const RULES = {
     DROP: new Set([
     '?diag=', '?log=', '-log.', '/diag/', '/log/', '/logging/',
     '/logs/', 'adlog', 'ads-beacon', 'airbrake', 'amp-analytics', '/batch/',
-    '/batch?', 'beacon', 'client-event', 'collect', 'collect?', 'collector',
-    'crashlytics', 'csp-report', 'data-pipeline', 'error-monitoring', 'error-report', 'heartbeat',
-    'ingest', 'intake', 'live-log', 'log-event', 'logevents', 'loggly',
-    'log-hl', 'realtime-log', '/rum/', 'server-event', 'uploadmobiledata', 'web-beacon',
-    'web-vitals', 'crash-report', 'diagnostic.log', 'profiler', 'stacktrace', 'trace.json',
-    '/error_204', 'a=logerror', '/client/events'
+    '/batch?', 'beacon', 'client-event', 'collector', 'crashlytics', 'csp-report',
+    'data-pipeline', 'error-monitoring', 'error-report', 'heartbeat', 'ingest', 'intake',
+    'live-log', 'log-event', 'logevents', 'loggly', 'log-hl', 'realtime-log',
+    '/rum/', 'server-event', 'uploadmobiledata', 'web-beacon', 'web-vitals', 'crash-report',
+    'diagnostic.log', 'profiler', 'stacktrace', 'trace.json', '/error_204', 'a=logerror',
+    '/client/events'
   ])
   },
 
@@ -869,6 +869,9 @@ const RULES = {
       ])],
     ['threads.net', new Set([
         '/post/'
+      ])],
+    ['citiesocial.com', new Set([
+        '/collection/'
       ])]
   ])
   }
