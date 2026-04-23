@@ -53,7 +53,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.44"
+VERSION = "45.45"
 RELEASE_DATE = "2026-04-23"
 
 CURRENT_RELEASE_NOTES = """
@@ -539,7 +539,12 @@ RULES_DB = {
         'cr.shopping.naver.com': ['DROP:/'],
         'api-biz-catcher.naver.com': ['DROP:/'],
         'ssl.pstatic.net': ['/adimg3.search/adpost/'],
-        'ntm.pstatic.net': ['DROP:/']
+        'ntm.pstatic.net': ['DROP:/'],
+        'fp.amap.com': ['DROP:/ws/shield/location/fp/report'],
+        'awaken.amap.com': ['DROP:/ws/h5_log'],
+        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP:/ws/feature/preheat/bootevent', '/ws/valueadded/alimama/splash_screen'],
+        'm5-zb.amap.com': ['DROP:/ws/security/account/device_reporting'],
+        'm5-x.amap.com': ['DROP:/ws/shield/amapstream/upload']
     },
     "HIGH_CONFIDENCE": [
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
@@ -2726,6 +2731,15 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: citiesocial collection no-param passthrough", "https://www.citiesocial.com/collection/popular", RES_ALLOW, "V45.42 /collection/ 路徑含 'collect' 子串；PATH_EXEMPTIONS 豁免後無參數直接放行，不觸發 DROP 204"))
     # 場景 B：帶追蹤參數 → PATH_EXEMPTION 命中後流入 _performCleaning；api. 子域名升級為 REWRITE 靜默剝離
     cases.append(TestCase("BugFix: citiesocial API collection silent rewrite", "https://api.citiesocial.com/collection/products?utm_source=ig&fbclid=test", RES_REWRITE, "V45.42 api.citiesocial.com /collection/ 帶追蹤參數 → PATH_EXEMPTION 豁免 + api. 子域名觸發靜默重寫（REWRITE），追蹤參數剝離不暴露 302"))
+
+    # --- V45.45 高德地圖 (amap.com) 遙測端點封鎖 ---
+    cases.append(TestCase("Privacy: Amap FP Location Report Drop", "https://fp.amap.com/ws/shield/location/fp/report?ent=2&csid=5DA6023F-B342-4B5F-94C7-0490BBE3FB05", RES_DROP_204, "V45.45 高德地圖設備指紋上報端點 204 靜默拋棄，防止 SDK 重試風暴"))
+    cases.append(TestCase("Privacy: Amap H5 Log Drop", "https://awaken.amap.com/ws/h5_log?ent=2&csid=031B84E0-D5B5-4C82-B828-3BB9FD7F6E80", RES_DROP_204, "V45.45 高德地圖 H5 Web 日誌端點 204 靜默拋棄"))
+    cases.append(TestCase("Privacy: Amap V1 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v1/log?ent=2&csid=26AE456B-BD00-4994-9C1A-725F8BA54116", RES_DROP_204, "V45.45 高德地圖 /v1/log 遙測端點 204 靜默拋棄；CRITICAL_PATH_GENERIC /v1/logs 原有規則差一個 s 而漏網"))
+    cases.append(TestCase("AdBlock: Amap Alimama Splash Ad Block", "https://m5.amap.com/ws/valueadded/alimama/splash_screen?ent=2&csid=6C2C520C-E6E9-4805-95C2-C57F33A8931B", RES_BLOCK_403, "V45.45 阿里媽媽開屏廣告請求 403 封鎖；alimama.com 僅在 BLOCK_DOMAINS 做域名比對，路徑中的 /alimama/ 原無規則覆蓋"))
+    cases.append(TestCase("Privacy: Amap Boot Event Drop", "https://m5.amap.com/ws/feature/preheat/bootevent?ent=2", RES_DROP_204, "V45.45 高德地圖啟動事件上報 204 靜默拋棄"))
+    cases.append(TestCase("Privacy: Amap Device Reporting Drop", "https://m5-zb.amap.com/ws/security/account/device_reporting?ent=2&csid=55FFE722-0038-49A4-A3B4-136DDEB2EC64", RES_DROP_204, "V45.45 高德地圖設備指紋/ID 上報 204 靜默拋棄；PATH_BLOCK /reporting/ 需前後斜線，_reporting 底線前綴原本漏網"))
+    cases.append(TestCase("Privacy: Amap Stream Upload Drop", "https://m5-x.amap.com/ws/shield/amapstream/upload?ent=2&is_bin=1&csid=82F9F301-0B5C-41D7-8CAC-A05BF9603E75", RES_DROP_204, "V45.45 高德地圖加密二進位串流上傳 204 靜默拋棄（is_bin=1）"))
 
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
