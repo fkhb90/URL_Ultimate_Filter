@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V45.44 - 2026-04-23
+- [Rules] Ghostery CDN 雙重誤殺修正：新增 ghostery.com → ['/adblocker/'] 至 PATH_EXEMPTIONS — 修正兩個獨立攔截點：① /ublock-badware/ 含 PATH_BLOCK 關鍵字 'adware' 子字串（badware 為 b+adware，子字串命中）→ 403 Blocked by Keyword；② /trackerdbMv3/ 含 CRITICAL_PATH_GENERIC '/track' 子字串 → 403 Blocked by L1 (Script/Path)。PATH_EXEMPTIONS 短路於引擎第 1218 行，兩個攔截點均一次解決。
+- [Analysis] 根因修正：V45.43 說明錯誤將 ublock-badware 誤判為「現有規則已放行」；正確根因為 adware 子字串命中 PATH_BLOCK。
+- [Test Suite] 修正 2 項測試案例說明，準確記錄各自攔截層級與關鍵字。
+
 ## V45.42 - 2026-04-22
 - [Rules] DROP 關鍵字降級防護：移除粗粒度 'collect' 與 'collect?' — 防止 /collection/ 路徑（電商商品列表 API）遭 DROP 誤殺；路徑更精確的 '/collect?'、'/v1/collect' 等仍保留於 CRITICAL_PATH_GENERIC。
 - [Rules] PATH_EXEMPTIONS 雙重保險：新增 citiesocial.com → ['/collection/'] — 即使未來 DROP 規則變更，/collection/ 路徑仍受 PATH_EXEMPTION 短路保護，不受任何下游關鍵字掃描干擾。

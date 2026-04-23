@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.42
+// @name         URL Ultimate Filter V45.44
 // @namespace    http://tampermonkey.net/
-// @version      45.42
-// @date         2026-04-22
-// @description  SSOT 前端防護盾牌 V45.42 (2026-04-22) | 1424 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @version      45.44
+// @date         2026-04-23
+// @description  SSOT 前端防護盾牌 V45.44 (2026-04-23) | 1424 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
 // @rules        1424 total (290 domains · 351 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.42
- * @date    2026-04-22
+ * @version 45.44
+ * @date    2026-04-23
  * @rules   1424 total (290 domains, 351 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.42';
-const SCRIPT_BUILD = 'V45.42 (2026-04-22) | 1424 rules | 2822 tests';
+const SCRIPT_VERSION = '45.44';
+const SCRIPT_BUILD = 'V45.44 (2026-04-23) | 1424 rules | 2825 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -887,6 +887,9 @@ const RULES = {
       ])],
     ['citiesocial.com', new Set([
         '/collection/'
+      ])],
+    ['ghostery.com', new Set([
+        '/adblocker/'
       ])]
   ])
   }
