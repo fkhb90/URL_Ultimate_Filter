@@ -3,13 +3,15 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.42 (2026-04-22)
+當前版本：V45.44 (2026-04-23)
 最新架構更新：
-- [Rules] 關鍵字降級防護：將粗粒度關鍵字 'collect' 與 'collect?' 從 DROP 規則中移除，避免對電商 Headless API（如 /collection/）造成語意誤殺。
-- [Rules] 雙重保險豁免：於 PATH_EXEMPTIONS 新增 citiesocial.com 針對 /collection/ 路徑的專屬豁免，確保核心商品列表 API 不受任何子字串掃描干擾。
-- [Test Suite] 新增 2 項 V45.42 測試案例：citiesocial /collection/ 無參數放行 + api.citiesocial.com 帶追蹤參數靜默重寫（REWRITE）。
+- [Rules] Ghostery CDN 雙重誤殺修正：於 PATH_EXEMPTIONS 新增 ghostery.com → ['/adblocker/'] — ① /ublock-badware/ 含 PATH_BLOCK 關鍵字 'adware' 子字串（b+adware 命中）→ 403 Blocked by Keyword；② /trackerdbMv3/ 含 CRITICAL_PATH_GENERIC '/track' 子字串 → 403 Blocked by L1；兩個攔截點均由 PATH_EXEMPTIONS 短路解決。
+- [Analysis] 根因修正：V45.43 測試說明有誤（誤判 URL 1 為已放行），V45.44 修正為正確的 adware 子字串分析。
+- [Test Suite] 修正 2 項 V45.44 測試案例說明，準確記錄各自攔截關鍵字與引擎層級。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.44 (2026-04-23): 修正 V45.43 測試說明錯誤 — /ublock-badware/ 根因為 PATH_BLOCK 'adware' 子字串命中，非「已放行」；更新兩項 Ghostery 測試案例說明精確化。
+- V45.43 (2026-04-23): Ghostery CDN PATH_EXEMPTIONS 豁免 — /trackerdbMv3/ 誤殺修正；新增 2 項 Ghostery filter list 測試案例。
 - V45.42 (2026-04-22): DROP 移除粗粒度 'collect'/'collect?' + citiesocial.com /collection/ PATH_EXEMPTIONS 雙重保險；新增 2 項 citiesocial API 精準度測試案例。
 - V45.41 (2026-04-20): Naver Maps 廣告圖片 CDN 封鎖 (searchad-phinf.pstatic.net) + NTM 標籤管理器 DROP；Apollo State 逆向分析完成。
 - V45.40 (2026-04-20): Naver 地圖廣告腳本 ad.js 封鎖 + BizCatcher 互動遙測 DROP。
@@ -51,13 +53,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.42"
-RELEASE_DATE = "2026-04-22"
+VERSION = "45.44"
+RELEASE_DATE = "2026-04-23"
 
 CURRENT_RELEASE_NOTES = """
-- [Rules] DROP 關鍵字降級防護：移除粗粒度 'collect' 與 'collect?' — 防止 /collection/ 路徑（電商商品列表 API）遭 DROP 誤殺；路徑更精確的 '/collect?'、'/v1/collect' 等仍保留於 CRITICAL_PATH_GENERIC。
-- [Rules] PATH_EXEMPTIONS 雙重保險：新增 citiesocial.com → ['/collection/'] — 即使未來 DROP 規則變更，/collection/ 路徑仍受 PATH_EXEMPTION 短路保護，不受任何下游關鍵字掃描干擾。
-- [Test Suite] 新增 2 項 V45.42 測試案例：① www.citiesocial.com/collection/ 無參數直接放行；② api.citiesocial.com/collection/ 帶追蹤參數靜默重寫（REWRITE）。
+- [Rules] Ghostery CDN 雙重誤殺修正：新增 ghostery.com → ['/adblocker/'] 至 PATH_EXEMPTIONS — 修正兩個獨立攔截點：① /ublock-badware/ 含 PATH_BLOCK 關鍵字 'adware' 子字串（badware 為 b+adware，子字串命中）→ 403 Blocked by Keyword；② /trackerdbMv3/ 含 CRITICAL_PATH_GENERIC '/track' 子字串 → 403 Blocked by L1 (Script/Path)。PATH_EXEMPTIONS 短路於引擎第 1218 行，兩個攔截點均一次解決。
+- [Analysis] 根因修正：V45.43 說明錯誤將 ublock-badware 誤判為「現有規則已放行」；正確根因為 adware 子字串命中 PATH_BLOCK。
+- [Test Suite] 修正 2 項測試案例說明，準確記錄各自攔截層級與關鍵字。
 """
 
 # ==========================================
@@ -639,7 +641,8 @@ RULES_DB = {
         "play.googleapis.com": ["/log/batch"],
         "threads.com": ["/post/"],
         "threads.net": ["/post/"],
-        "citiesocial.com": ["/collection/"]
+        "citiesocial.com": ["/collection/"],
+        "ghostery.com": ["/adblocker/"]
     }
 }
 
@@ -2710,6 +2713,12 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("AdBlock: Naver SearchAd Photo CDN", "https://searchad-phinf.pstatic.net/MjAyMjExMDRfMTUy/MDAxNjY3NTM2NjIyMDYx.png", RES_BLOCK_403, "V45.41 Naver 搜尋廣告圖片 CDN 封鎖 — RestaurantAdSummary.adImages 圖片來源，斷開廣告卡片視覺呈現"))
     # ntm.pstatic.net = Naver Tag Manager（Naver 版 GTM），防止廣告/分析標籤動態注入
     cases.append(TestCase("Privacy: Naver NTM Tag Manager Drop", "https://ntm.pstatic.net/scripts/ntm_c92712568d67.js", RES_DROP_204, "V45.41 Naver Tag Manager 標籤管理器腳本 DROP — 防止廣告/遙測標籤動態注入"))
+
+    # --- V45.44 Ghostery CDN filter list 資源豁免 ---
+    # URL1: /ublock-badware/ 含 PATH_BLOCK 關鍵字 'adware' 子字串（b+adware）→ 403 Blocked by Keyword
+    # URL2: /trackerdbMv3/ 含 CRITICAL_PATH_GENERIC '/track' 子字串 → 403 Blocked by L1
+    cases.append(TestCase("BugFix: Ghostery filter list JSON", "https://cdn.ghostery.com/adblocker/configs/trackerdbMv3/allowed-lists.json", RES_ALLOW, "V45.44 /trackerdbMv3/ 含 '/track' 子串命中 criticalPathScanner (L1)；PATH_EXEMPTIONS /adblocker/ 短路豁免"))
+    cases.append(TestCase("BugFix: Ghostery diff resource", "https://cdn.ghostery.com/adblocker/resources/ublock-badware/112a64e240606b34b114113a715020b1915d79a279ac317f28796951f9aec048/diffs/d094e59955e7ecf554b128dd1232d29dcbe3e5c304c4e14a122138b933f102fa", RES_ALLOW, "V45.44 /ublock-badware/ 含 PATH_BLOCK 'adware' 子字串（b+adware 命中）→ 403 Blocked by Keyword；PATH_EXEMPTIONS /adblocker/ 短路豁免"))
 
     # --- V45.42 citiesocial Headless API /collection/ 誤殺修正 ---
     # 雙重保險：DROP 移除 'collect'/'collect?' + PATH_EXEMPTIONS 豁免 citiesocial.com /collection/
