@@ -46,7 +46,8 @@ jobs:
           # 將所有編譯器產出物加入暫存區
           git add URL-Ultimate-Filter-Surge.js \
                   URL-Ultimate-Filter-Tampermonkey.user.js \
-                  CHANGELOG.md
+                  CHANGELOG.md \
+                  public/index.html
 
           # 建立本地的自動編譯 Commit，加上 [skip ci] 防止觸發無限流水線迴圈
           git commit -m "Auto-build: Update JS filters and CHANGELOG [skip ci]" || echo "No changes to commit"
