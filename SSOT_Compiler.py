@@ -3,13 +3,14 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.44 (2026-04-23)
+當前版本：V45.45 (2026-04-23)
 最新架構更新：
-- [Rules] Ghostery CDN 雙重誤殺修正：於 PATH_EXEMPTIONS 新增 ghostery.com → ['/adblocker/'] — ① /ublock-badware/ 含 PATH_BLOCK 關鍵字 'adware' 子字串（b+adware 命中）→ 403 Blocked by Keyword；② /trackerdbMv3/ 含 CRITICAL_PATH_GENERIC '/track' 子字串 → 403 Blocked by L1；兩個攔截點均由 PATH_EXEMPTIONS 短路解決。
-- [Analysis] 根因修正：V45.43 測試說明有誤（誤判 URL 1 為已放行），V45.44 修正為正確的 adware 子字串分析。
-- [Test Suite] 修正 2 項 V45.44 測試案例說明，準確記錄各自攔截關鍵字與引擎層級。
+- [Rules] 高德地圖 (amap.com) 遙測端點封鎖：新增 5 個子域名至 CRITICAL_PATH_MAP，DROP 204 靜默拋棄 6 條遙測路徑，403 封鎖阿里媽媽開屏廣告路徑。
+- [BugFix] 修補 3 條規則邊界漏洞：/v1/log 差一個 s、底線路徑繞過 /reporting/ 斜線邊界、fp 縮寫繞過 fingerprint 關鍵字。
+- [Test Suite] 新增 7 項 V45.45 高德地圖遙測端點測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.45 (2026-04-23): 高德地圖遙測端點全面封鎖 — fp.amap.com 指紋上報、awaken.amap.com H5日誌、m5.amap.com v1/log 與開屏廣告、m5-zb.amap.com 設備上報、m5-x.amap.com 串流上傳；修補底線/縮寫/s 後綴三類規則邊界漏洞；新增 7 項測試案例。
 - V45.44 (2026-04-23): 修正 V45.43 測試說明錯誤 — /ublock-badware/ 根因為 PATH_BLOCK 'adware' 子字串命中，非「已放行」；更新兩項 Ghostery 測試案例說明精確化。
 - V45.43 (2026-04-23): Ghostery CDN PATH_EXEMPTIONS 豁免 — /trackerdbMv3/ 誤殺修正；新增 2 項 Ghostery filter list 測試案例。
 - V45.42 (2026-04-22): DROP 移除粗粒度 'collect'/'collect?' + citiesocial.com /collection/ PATH_EXEMPTIONS 雙重保險；新增 2 項 citiesocial API 精準度測試案例。
@@ -57,9 +58,15 @@ VERSION = "45.45"
 RELEASE_DATE = "2026-04-23"
 
 CURRENT_RELEASE_NOTES = """
-- [Rules] Ghostery CDN 雙重誤殺修正：新增 ghostery.com → ['/adblocker/'] 至 PATH_EXEMPTIONS — 修正兩個獨立攔截點：① /ublock-badware/ 含 PATH_BLOCK 關鍵字 'adware' 子字串（badware 為 b+adware，子字串命中）→ 403 Blocked by Keyword；② /trackerdbMv3/ 含 CRITICAL_PATH_GENERIC '/track' 子字串 → 403 Blocked by L1 (Script/Path)。PATH_EXEMPTIONS 短路於引擎第 1218 行，兩個攔截點均一次解決。
-- [Analysis] 根因修正：V45.43 說明錯誤將 ublock-badware 誤判為「現有規則已放行」；正確根因為 adware 子字串命中 PATH_BLOCK。
-- [Test Suite] 修正 2 項測試案例說明，準確記錄各自攔截層級與關鍵字。
+- [Rules] 高德地圖 (amap.com) 遙測端點封鎖：新增 5 個子域名至 CRITICAL_PATH_MAP，DROP 204 靜默拋棄 6 條遙測路徑，403 封鎖阿里媽媽開屏廣告路徑。
+  - fp.amap.com → DROP:/ws/shield/location/fp/report（設備指紋上報）
+  - awaken.amap.com → DROP:/ws/h5_log（H5 Web 日誌）
+  - m5.amap.com → DROP:/ws/shield/nest/updatable/v1/log（遙測日誌，CRITICAL_PATH_GENERIC /v1/logs 差一個 s 漏網）
+  - m5.amap.com → DROP:/ws/feature/preheat/bootevent（啟動事件上報）
+  - m5.amap.com → /ws/valueadded/alimama/splash_screen（阿里媽媽開屏廣告 403，alimama.com 僅做域名比對不覆蓋路徑）
+  - m5-zb.amap.com → DROP:/ws/security/account/device_reporting（設備 ID 指紋上報，_reporting 底線繞過 /reporting/ 斜線邊界）
+  - m5-x.amap.com → DROP:/ws/shield/amapstream/upload（加密二進位串流，is_bin=1）
+- [Test Suite] 新增 7 項 V45.45 高德地圖遙測端點測試案例。
 """
 
 # ==========================================
