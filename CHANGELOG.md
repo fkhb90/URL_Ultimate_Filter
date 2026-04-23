@@ -1,5 +1,16 @@
 # URL Ultimate Filter - Changelog
 
+## V45.45 - 2026-04-23
+- [Rules] 高德地圖 (amap.com) 遙測端點封鎖：新增 5 個子域名至 CRITICAL_PATH_MAP，DROP 204 靜默拋棄 6 條遙測路徑，403 封鎖 1 條開屏廣告路徑。
+  - `fp.amap.com → DROP:/ws/shield/location/fp/report` — 設備指紋（fp = fingerprint）位置上報
+  - `awaken.amap.com → DROP:/ws/h5_log` — H5 Web 日誌；`h5_log` 底線命名繞過 DROP 關鍵字 `/log/`（需前後斜線）
+  - `m5.amap.com → DROP:/ws/shield/nest/updatable/v1/log` — 遙測日誌；原有規則 `/v1/logs` 差一個 s 而漏網
+  - `m5.amap.com → DROP:/ws/feature/preheat/bootevent` — App 啟動事件上報
+  - `m5.amap.com → /ws/valueadded/alimama/splash_screen` — 阿里媽媽開屏廣告 403 封鎖；`alimama.com` 僅在 BLOCK_DOMAINS 做域名比對，路徑中的 `/alimama/` 原無 PATH_BLOCK 覆蓋
+  - `m5-zb.amap.com → DROP:/ws/security/account/device_reporting` — 設備 ID 指紋上報；PATH_BLOCK `/reporting/` 需前後斜線，`_reporting` 底線前綴漏網
+  - `m5-x.amap.com → DROP:/ws/shield/amapstream/upload` — 加密二進位串流上傳（`is_bin=1`，`in=` 為加密設備指紋）
+- [Test Suite] 新增 7 項 V45.45 測試案例。
+
 ## V45.44 - 2026-04-23
 - [Rules] Ghostery CDN 雙重誤殺修正：新增 ghostery.com → ['/adblocker/'] 至 PATH_EXEMPTIONS — 修正兩個獨立攔截點：① /ublock-badware/ 含 PATH_BLOCK 關鍵字 'adware' 子字串（badware 為 b+adware，子字串命中）→ 403 Blocked by Keyword；② /trackerdbMv3/ 含 CRITICAL_PATH_GENERIC '/track' 子字串 → 403 Blocked by L1 (Script/Path)。PATH_EXEMPTIONS 短路於引擎第 1218 行，兩個攔截點均一次解決。
 - [Analysis] 根因修正：V45.43 說明錯誤將 ublock-badware 誤判為「現有規則已放行」；正確根因為 adware 子字串命中 PATH_BLOCK。
