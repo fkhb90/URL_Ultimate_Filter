@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V45.49 - 2026-04-24
+- [AdBlock] 高德地圖搜尋廣告 POI 端點封鎖：`m5.amap.com → /ws/shield/search_poi/tips_adv` 403 封鎖，切斷地圖搜尋結果中的廣告 POI 注入（`tips_adv` = advertisement tips；`in=` 夾帶加密廣告投放資料）。
+- [Test Suite] 新增 1 項 V45.49 測試案例。
+
 ## V45.48 - 2026-04-24
 - [Privacy] Airbridge (AB180) 韓國主流 MMP 歸因追蹤 SDK 全面封鎖：
   - `airbridge.io` → BLOCK_DOMAINS_WILDCARDS — 萬用字元封鎖所有子域名（static CDN、sdk-download Maven、per-app deep link 子域名）

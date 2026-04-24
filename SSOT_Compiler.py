@@ -3,12 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.48 (2026-04-24)
+當前版本：V45.49 (2026-04-24)
 最新架構更新：
-- [Privacy] Airbridge (AB180) 韓國主流 MMP 歸因追蹤 SDK 全面封鎖：airbridge.io 萬用字元封鎖所有子域名（含 per-app deep link），api/core 端點升級為 204 DROP 防重試，abr.ge 追蹤短連結域名與 deeplink.page 舊版深度連結域名納入封鎖。
-- [Test Suite] 新增 5 項 V45.48 Airbridge 測試案例。
+- [AdBlock] 高德地圖搜尋廣告 POI 端點封鎖：m5.amap.com /ws/shield/search_poi/tips_adv 403 封鎖，切斷地圖搜尋結果中的廣告 POI 注入（tips_adv = advertisement tips，in= 夾帶加密廣告投放資料）。
+- [Test Suite] 新增 1 項 V45.49 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.49 (2026-04-24): 高德地圖搜尋廣告 POI 封鎖 — m5.amap.com /ws/shield/search_poi/tips_adv 403。
 - V45.48 (2026-04-24): Airbridge MMP 全面封鎖 — airbridge.io wildcards + api/core DROP + abr.ge + deeplink.page。
 - V45.47 (2026-04-24): WOWPASS log.wowpass.io 全域 DROP — /api/v1/log 尾無 s 漏網，/v1/log 通用規則有誤殺風險，以域名層精準覆蓋。
 - V45.46 (2026-04-24): 高德地圖遙測端點全面補強 — 新增 info.amap.com /ws/shield/galaxy/data、passport.amap.com /ws/auth/session-report、m5.amap.com /ws/shield/frogserver/aocs/updatable/；補齊 adiu/logs/dualstack-logs/wb/amdc/cgicol/grid/tm 與 nogw alimama 備援；加入 m5 updatable `v\\d+/log` 邊界防禦與對應測試。
@@ -55,7 +56,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.48"
+VERSION = "45.49"
 RELEASE_DATE = "2026-04-24"
 
 CURRENT_RELEASE_NOTES = """
@@ -566,7 +567,7 @@ RULES_DB = {
         'ntm.pstatic.net': ['DROP:/'],
         'fp.amap.com': ['DROP:/ws/shield/location/fp/report'],
         'awaken.amap.com': ['DROP:/ws/h5_log'],
-        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/', '/ws/valueadded/alimama/splash_screen'],
+        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv'],
         'm5-zb.amap.com': ['DROP:/ws/security/account/device_reporting'],
         'm5-x.amap.com': ['DROP:/ws/shield/amapstream/upload'],
         'info.amap.com': ['DROP:/ws/shield/galaxy/data'],
@@ -2830,6 +2831,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("AdBlock: Airbridge Web SDK Block", "https://static.airbridge.io/sdk/latest/airbridge.min.js", RES_BLOCK_403, "V45.48 Airbridge Web SDK JS 403 封鎖；airbridge.io wildcards 覆蓋所有靜態 CDN 子域名"))
     cases.append(TestCase("AdBlock: Airbridge Per-App Subdomain Block", "https://wowpass.airbridge.io/open", RES_BLOCK_403, "V45.48 Airbridge per-app Universal Link / deep link 子域名 403 封鎖"))
     cases.append(TestCase("AdBlock: Airbridge Tracking Link Block", "https://abr.ge/@wowpass/instagram", RES_BLOCK_403, "V45.48 Airbridge 追蹤短連結域名 abr.ge 403 封鎖，切斷點擊歸因"))
+
+    # --- V45.49 高德地圖搜尋廣告 POI 端點封鎖 ---
+    cases.append(TestCase("AdBlock: Amap Search POI Ad Block", "https://m5.amap.com/ws/shield/search_poi/tips_adv?ent=2&in=MqNRFU7dpqjuU2%2BJudnw&csid=96ACEAF2-4C21-42B7-8C19-96DFE64D49CB", RES_BLOCK_403, "V45.49 高德地圖搜尋結果廣告 POI 注入端點 403 封鎖；tips_adv = advertisement tips，in= 夾帶加密廣告投放資料"))
     cases.append(TestCase("Privacy: Amap CGI Collector Drop", "https://cgicol.amap.com/collect?module=legacy", RES_DROP_204, "封鎖舊世代 CGI 行為採集通道"))
     cases.append(TestCase("Privacy: Amap Grid Heatmap Drop", "https://grid.amap.com/grid/heatmap/upload?tile=13", RES_DROP_204, "封鎖網格化地理熱區與行為分析上報"))
     cases.append(TestCase("Privacy: Amap Task Monitor Drop", "https://tm.amap.com/task/report?cpu=high", RES_DROP_204, "封鎖 Task Monitor 非同步任務監控遙測"))

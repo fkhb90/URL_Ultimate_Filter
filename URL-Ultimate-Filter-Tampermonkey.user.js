@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.48
+// @name         URL Ultimate Filter V45.49
 // @namespace    http://tampermonkey.net/
-// @version      45.48
+// @version      45.49
 // @date         2026-04-24
-// @description  SSOT 前端防護盾牌 V45.48 (2026-04-24) | 1451 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1451 total (293 domains · 375 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V45.49 (2026-04-24) | 1452 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1452 total (293 domains · 376 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.48
+ * @version 45.49
  * @date    2026-04-24
- * @rules   1451 total (293 domains, 375 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1452 total (293 domains, 376 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.48';
-const SCRIPT_BUILD = 'V45.48 (2026-04-24) | 1451 rules | 2906 tests';
+const SCRIPT_VERSION = '45.49';
+const SCRIPT_BUILD = 'V45.49 (2026-04-24) | 1452 rules | 2909 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -668,7 +668,7 @@ const RULES = {
       ])],
     ['m5.amap.com', new Set([
         'DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/',
-        '/ws/valueadded/alimama/splash_screen'
+        '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv'
       ])],
     ['m5-zb.amap.com', new Set([
         'DROP:/ws/security/account/device_reporting'
