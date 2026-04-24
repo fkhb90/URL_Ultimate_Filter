@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.45
- * @date    2026-04-23
- * @rules   1431 total (290 domains, 358 critical paths, 403 path keywords, 109 param rules)
+ * @version 45.46
+ * @date    2026-04-24
+ * @rules   1445 total (290 domains, 372 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.45';
-const SCRIPT_BUILD = 'V45.45 (2026-04-23) | 1431 rules | 2846 tests';
+const SCRIPT_VERSION = '45.46';
+const SCRIPT_BUILD = 'V45.46 (2026-04-24) | 1445 rules | 2888 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -651,13 +651,47 @@ const RULES = {
         'DROP:/ws/h5_log'
       ])],
     ['m5.amap.com', new Set([
-        'DROP:/ws/shield/nest/updatable/v1/log', 'DROP:/ws/feature/preheat/bootevent', '/ws/valueadded/alimama/splash_screen'
+        'DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/',
+        '/ws/valueadded/alimama/splash_screen'
       ])],
     ['m5-zb.amap.com', new Set([
         'DROP:/ws/security/account/device_reporting'
       ])],
     ['m5-x.amap.com', new Set([
         'DROP:/ws/shield/amapstream/upload'
+      ])],
+    ['info.amap.com', new Set([
+        'DROP:/ws/shield/galaxy/data'
+      ])],
+    ['passport.amap.com', new Set([
+        'DROP:/ws/auth/session-report'
+      ])],
+    ['adiu.amap.com', new Set([
+        'DROP:/'
+      ])],
+    ['logs.amap.com', new Set([
+        'DROP:/'
+      ])],
+    ['dualstack-logs.amap.com', new Set([
+        'DROP:/'
+      ])],
+    ['amap-aos-info-nogw.amap.com', new Set([
+        '/ws/aos/alimama/', '/ws/aos/alimama/splash_screen'
+      ])],
+    ['wb.amap.com', new Set([
+        'DROP:/channel.php'
+      ])],
+    ['amdc.m.taobao.com', new Set([
+        'DROP:/'
+      ])],
+    ['cgicol.amap.com', new Set([
+        'DROP:/'
+      ])],
+    ['grid.amap.com', new Set([
+        'DROP:/'
+      ])],
+    ['tm.amap.com', new Set([
+        'DROP:/'
       ])]
   ])
   },
@@ -1160,6 +1194,28 @@ function getCriticalBlockedPaths(hostname) {
   return value;
 }
 
+const criticalMapRuleRegexCache = new Map();
+
+function matchCriticalMapRule(rule, pathLower) {
+  if (!rule) return { matched: false, isDrop: false };
+
+  if (rule.startsWith('DROP_RE:') || rule.startsWith('RE:')) {
+    const isDrop = rule.startsWith('DROP_RE:');
+    const pattern = rule.substring(isDrop ? 8 : 3);
+    let re = criticalMapRuleRegexCache.get(pattern);
+    if (re === undefined) {
+      try { re = new RegExp(pattern, 'i'); } catch (_) { re = null; }
+      criticalMapRuleRegexCache.set(pattern, re);
+    }
+    if (!re) return { matched: false, isDrop };
+    return { matched: re.test(pathLower), isDrop };
+  }
+
+  const isDrop = rule.startsWith('DROP:');
+  const checkPath = isDrop ? rule.substring(5) : rule;
+  return { matched: pathLower.includes(checkPath), isDrop };
+}
+
 function _performCleaning(url, hostname, pathLower, hostProfile) {
   const cleanResult = HELPERS.cleanTrackingParams(url, hostname, pathLower, hostProfile);
   if (cleanResult) {
@@ -1206,7 +1262,8 @@ function processRequest(request) {
       const _earlyMap = getCriticalBlockedPaths(hostname);
       if (_earlyMap) {
         for (const bp of _earlyMap) {
-          if (bp && bp.startsWith('DROP:') && pathLower.includes(bp.substring(5))) {
+          const matched = matchCriticalMapRule(bp, pathLower);
+          if (matched.matched && matched.isDrop) {
             stats.blocks++;
             return { response: { status: 204 } };
           }
@@ -1255,11 +1312,10 @@ function processRequest(request) {
     if (blockedPaths && blockedPaths !== false) {
       for (const badPath of blockedPaths) {
         if (badPath) {
-          const isDrop = badPath.startsWith('DROP:');
-          const checkPath = isDrop ? badPath.substring(5) : badPath;
-          if (pathLower.includes(checkPath)) {
+          const matched = matchCriticalMapRule(badPath, pathLower);
+          if (matched.matched) {
             stats.blocks++;
-            if (isDrop) return { response: { status: 204 } };
+            if (matched.isDrop) return { response: { status: 204 } };
             return { response: { status: 403, body: 'Blocked by Map' } };
           }
         }
