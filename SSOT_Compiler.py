@@ -3,12 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.47 (2026-04-24)
+當前版本：V45.48 (2026-04-24)
 最新架構更新：
-- [Privacy] WOWPASS 韓國旅遊預付卡 App 遙測封鎖：log.wowpass.io → DROP:/ 全域靜默拋棄。根因：/api/v1/log 尾無 s，CRITICAL_PATH_GENERIC /v1/logs 漏網；/v1/log 通用規則有誤殺 /v1/login 風險，改以域名層精準 DROP 解決。
-- [Test Suite] 新增 1 項 V45.47 測試案例。
+- [Privacy] Airbridge (AB180) 韓國主流 MMP 歸因追蹤 SDK 全面封鎖：airbridge.io 萬用字元封鎖所有子域名（含 per-app deep link），api/core 端點升級為 204 DROP 防重試，abr.ge 追蹤短連結域名與 deeplink.page 舊版深度連結域名納入封鎖。
+- [Test Suite] 新增 5 項 V45.48 Airbridge 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.48 (2026-04-24): Airbridge MMP 全面封鎖 — airbridge.io wildcards + api/core DROP + abr.ge + deeplink.page。
 - V45.47 (2026-04-24): WOWPASS log.wowpass.io 全域 DROP — /api/v1/log 尾無 s 漏網，/v1/log 通用規則有誤殺風險，以域名層精準覆蓋。
 - V45.46 (2026-04-24): 高德地圖遙測端點全面補強 — 新增 info.amap.com /ws/shield/galaxy/data、passport.amap.com /ws/auth/session-report、m5.amap.com /ws/shield/frogserver/aocs/updatable/；補齊 adiu/logs/dualstack-logs/wb/amdc/cgicol/grid/tm 與 nogw alimama 備援；加入 m5 updatable `v\\d+/log` 邊界防禦與對應測試。
 - V45.44 (2026-04-23): 修正 V45.43 測試說明錯誤 — /ublock-badware/ 根因為 PATH_BLOCK 'adware' 子字串命中，非「已放行」；更新兩項 Ghostery 測試案例說明精確化。
@@ -54,7 +55,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.47"
+VERSION = "45.48"
 RELEASE_DATE = "2026-04-24"
 
 CURRENT_RELEASE_NOTES = """
@@ -75,7 +76,13 @@ CURRENT_RELEASE_NOTES = """
   - m5-zb.amap.com → DROP:/ws/security/account/device_reporting（設備 ID 指紋上報，_reporting 底線繞過 /reporting/ 斜線邊界）
   - m5-x.amap.com → DROP:/ws/shield/amapstream/upload（加密二進位串流，is_bin=1）
 - [Privacy] WOWPASS 韓國旅遊預付卡 App 遙測封鎖：log.wowpass.io → DROP:/ 全域靜默拋棄。根因：/api/v1/log 尾無 s，CRITICAL_PATH_GENERIC /v1/logs 漏網；/v1/log 通用規則有誤殺 /v1/login 風險，改以域名層精準 DROP 解決。
-- [Test Suite] 新增 1 項 V45.47 測試案例（累計補強 16 項）。
+- [Privacy] Airbridge (AB180) 韓國主流 MMP 歸因追蹤 SDK 全面封鎖：
+  - airbridge.io → BLOCK_DOMAINS_WILDCARDS（萬用字元封鎖所有子域名，含 static/sdk-download/per-app deep link）
+  - api.airbridge.io → DROP:/（歸因與 S2S 事件 API，204 靜默拋棄防 SDK 重試風暴）
+  - core.airbridge.io → DROP:/（Bridge page API + UDL SDK，204 靜默拋棄）
+  - abr.ge → BLOCK_DOMAINS_WILDCARDS（追蹤短連結域名，含 {APP}.abr.ge per-app 子域名）
+  - deeplink.page → BLOCK_DOMAINS_WILDCARDS（舊版深度連結域名）
+- [Test Suite] 新增 5 項 V45.48 Airbridge 測試案例。
 """
 
 # ==========================================
@@ -347,6 +354,7 @@ RULES_DB = {
         'cootlogix.com', 'ottadvisors.com', 'newaddiscover.com', 'app-ads-services.com',
         'app-measurement.com', 'adjust.com', 'adjust.net', 'appsflyer.com', 'onelink.me',
         'branch.io', 'app.link', 'kochava.com', 'scorecardresearch.com', 'rayjump.com',
+        'airbridge.io', 'abr.ge', 'deeplink.page',
         'mintegral.net', 'tiktokv.com', 'byteoversea.com', 'criteo.com', 'criteo.net',
         'adservices.google.com', 'ad2n.com', 'vpon.com', 'tenmax.io', 'clickforce.com.tw', 
         'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com', 'adbottw.net',
@@ -572,7 +580,9 @@ RULES_DB = {
         'cgicol.amap.com': ['DROP:/'],
         'grid.amap.com': ['DROP:/'],
         'tm.amap.com': ['DROP:/'],
-        'log.wowpass.io': ['DROP:/']
+        'log.wowpass.io': ['DROP:/'],
+        'api.airbridge.io': ['DROP:/'],
+        'core.airbridge.io': ['DROP:/']
     },
     "HIGH_CONFIDENCE": [
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
@@ -2813,6 +2823,13 @@ def generate_full_coverage_cases() -> List[TestCase]:
 
     # --- V45.47 WOWPASS 韓國旅遊預付卡 App 遙測封鎖 ---
     cases.append(TestCase("Privacy: WOWPASS Log Endpoint Drop", "https://log.wowpass.io/api/v1/log", RES_DROP_204, "V45.47 WOWPASS App 私有遙測端點 DROP；/api/v1/log 尾無 s 漏網 CRITICAL_PATH_GENERIC，/v1/log 通用規則有誤殺 /v1/login 風險，改以 log.wowpass.io 域名層全域 DROP"))
+
+    # --- V45.48 Airbridge (AB180) 韓國主流 MMP 歸因追蹤 SDK 封鎖 ---
+    cases.append(TestCase("Privacy: Airbridge Attribution API Drop", "https://api.airbridge.io/events/v1/apps/wowpass/mobile-app/open", RES_DROP_204, "V45.48 Airbridge 歸因與 S2S 事件 API 204 靜默拋棄，防止 SDK 重試風暴"))
+    cases.append(TestCase("Privacy: Airbridge Core Bridge API Drop", "https://core.airbridge.io/index/wowpass/default", RES_DROP_204, "V45.48 Airbridge Bridge page API 204 靜默拋棄"))
+    cases.append(TestCase("AdBlock: Airbridge Web SDK Block", "https://static.airbridge.io/sdk/latest/airbridge.min.js", RES_BLOCK_403, "V45.48 Airbridge Web SDK JS 403 封鎖；airbridge.io wildcards 覆蓋所有靜態 CDN 子域名"))
+    cases.append(TestCase("AdBlock: Airbridge Per-App Subdomain Block", "https://wowpass.airbridge.io/open", RES_BLOCK_403, "V45.48 Airbridge per-app Universal Link / deep link 子域名 403 封鎖"))
+    cases.append(TestCase("AdBlock: Airbridge Tracking Link Block", "https://abr.ge/@wowpass/instagram", RES_BLOCK_403, "V45.48 Airbridge 追蹤短連結域名 abr.ge 403 封鎖，切斷點擊歸因"))
     cases.append(TestCase("Privacy: Amap CGI Collector Drop", "https://cgicol.amap.com/collect?module=legacy", RES_DROP_204, "封鎖舊世代 CGI 行為採集通道"))
     cases.append(TestCase("Privacy: Amap Grid Heatmap Drop", "https://grid.amap.com/grid/heatmap/upload?tile=13", RES_DROP_204, "封鎖網格化地理熱區與行為分析上報"))
     cases.append(TestCase("Privacy: Amap Task Monitor Drop", "https://tm.amap.com/task/report?cpu=high", RES_DROP_204, "封鎖 Task Monitor 非同步任務監控遙測"))

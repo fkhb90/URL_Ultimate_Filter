@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.47
+ * @version 45.48
  * @date    2026-04-24
- * @rules   1446 total (290 domains, 373 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1451 total (293 domains, 375 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.47';
-const SCRIPT_BUILD = 'V45.47 (2026-04-24) | 1446 rules | 2891 tests';
+const SCRIPT_VERSION = '45.48';
+const SCRIPT_BUILD = 'V45.48 (2026-04-24) | 1451 rules | 2906 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -212,12 +212,13 @@ const RULES = {
     'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io', 'aotter.net', 'ssp.yahoo.com',
     'pbs.yahoo.com', 'ay.delivery', 'cootlogix.com', 'ottadvisors.com', 'newaddiscover.com', 'app-ads-services.com',
     'app-measurement.com', 'adjust.com', 'adjust.net', 'appsflyer.com', 'onelink.me', 'branch.io',
-    'app.link', 'kochava.com', 'scorecardresearch.com', 'rayjump.com', 'mintegral.net', 'tiktokv.com',
-    'byteoversea.com', 'criteo.com', 'criteo.net', 'adservices.google.com', 'ad2n.com', 'vpon.com',
-    'tenmax.io', 'clickforce.com.tw', 'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com',
-    'adbottw.net', 'useinsider.com', 'insiderone.com', 'treasuredata.com', 'treasure-data.com', 'tagtoo.com.tw',
-    'scupio.net', 'clickforce.net', 'log.aliyuncs.com', 'sls.aliyuncs.com', 'jpush.cn', 'jpush.io',
-    'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com', 'veta.naver.com'
+    'app.link', 'kochava.com', 'scorecardresearch.com', 'rayjump.com', 'airbridge.io', 'abr.ge',
+    'deeplink.page', 'mintegral.net', 'tiktokv.com', 'byteoversea.com', 'criteo.com', 'criteo.net',
+    'adservices.google.com', 'ad2n.com', 'vpon.com', 'tenmax.io', 'clickforce.com.tw', 'onead.com.tw',
+    'bridgewell.com', 'tagtoo.co', 'scupio.com', 'adbottw.net', 'useinsider.com', 'insiderone.com',
+    'treasuredata.com', 'treasure-data.com', 'tagtoo.com.tw', 'scupio.net', 'clickforce.net', 'log.aliyuncs.com',
+    'sls.aliyuncs.com', 'jpush.cn', 'jpush.io', 'jiguang.cn', 'igexin.com', 'getui.com',
+    'getui.net', 'gepush.com', 'veta.naver.com'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
@@ -694,6 +695,12 @@ const RULES = {
         'DROP:/'
       ])],
     ['log.wowpass.io', new Set([
+        'DROP:/'
+      ])],
+    ['api.airbridge.io', new Set([
+        'DROP:/'
+      ])],
+    ['core.airbridge.io', new Set([
         'DROP:/'
       ])]
   ])

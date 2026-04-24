@@ -1,5 +1,14 @@
 # URL Ultimate Filter - Changelog
 
+## V45.48 - 2026-04-24
+- [Privacy] Airbridge (AB180) 韓國主流 MMP 歸因追蹤 SDK 全面封鎖：
+  - `airbridge.io` → BLOCK_DOMAINS_WILDCARDS — 萬用字元封鎖所有子域名（static CDN、sdk-download Maven、per-app deep link 子域名）
+  - `api.airbridge.io` → `DROP:/` — 歸因與 S2S 事件 API 204 靜默拋棄，防止 SDK 重試風暴
+  - `core.airbridge.io` → `DROP:/` — Bridge page API + UDL SDK 204 靜默拋棄
+  - `abr.ge` → BLOCK_DOMAINS_WILDCARDS — 追蹤短連結域名（含 `{APP}.abr.ge` per-app 子域名）
+  - `deeplink.page` → BLOCK_DOMAINS_WILDCARDS — 舊版深度連結域名
+- [Test Suite] 新增 5 項 V45.48 Airbridge 測試案例。
+
 ## V45.47 - 2026-04-24
 - [Privacy] WOWPASS 韓國旅遊預付卡 App 遙測封鎖：`log.wowpass.io` → `DROP:/` 全域靜默拋棄，覆蓋私有日誌端點 `/api/v1/log`。根因：路徑尾無 s，CRITICAL_PATH_GENERIC `/v1/logs` 無法命中；`/v1/log` 不能加入通用規則（子字串命中 `/v1/login`、`/v1/logout` 產生誤殺），改以域名層精準覆蓋。
 - [Test Suite] 新增 1 項 V45.47 測試案例。
