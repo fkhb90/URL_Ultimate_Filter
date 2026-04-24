@@ -3,14 +3,15 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.45 (2026-04-23)
+當前版本：V45.46 (2026-04-24)
 最新架構更新：
-- [Rules] 高德地圖 (amap.com) 遙測端點封鎖：新增 5 個子域名至 CRITICAL_PATH_MAP，DROP 204 靜默拋棄 6 條遙測路徑，403 封鎖阿里媽媽開屏廣告路徑。
-- [BugFix] 修補 3 條規則邊界漏洞：/v1/log 差一個 s、底線路徑繞過 /reporting/ 斜線邊界、fp 縮寫繞過 fingerprint 關鍵字。
-- [Test Suite] 新增 7 項 V45.45 高德地圖遙測端點測試案例。
+- [Rules] 高德地圖 (amap.com) 遙測端點封鎖再補強：新增 info/passport 盾系遙測端點與 m5 frogserver updatable 通道攔截。
+- [Rules] Amap/AMDC 全域與精準防護：adiu/logs/dualstack-logs/wb/amdc/cgicol/grid/tm 及 nogw alimama 備援廣告路徑納入攔截。
+- [BugFix] 擴展 m5.updatable 邊界防禦：`DROP_RE` 攔截 `/ws/shield/nest/updatable/v\\d+/log` 全版本族群（含 v2 與未來版本）。
+- [Test Suite] 新增 15 項 Amap/AMDC 防護補強測試案例（含 info/passport/frogserver 與 v2/v77 版本化 log 路徑）。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
-- V45.45 (2026-04-23): 高德地圖遙測端點全面封鎖 — fp.amap.com 指紋上報、awaken.amap.com H5日誌、m5.amap.com v1/log 與開屏廣告、m5-zb.amap.com 設備上報、m5-x.amap.com 串流上傳；修補底線/縮寫/s 後綴三類規則邊界漏洞；新增 7 項測試案例。
+- V45.46 (2026-04-24): 高德地圖遙測端點全面補強 — 新增 info.amap.com /ws/shield/galaxy/data、passport.amap.com /ws/auth/session-report、m5.amap.com /ws/shield/frogserver/aocs/updatable/；補齊 adiu/logs/dualstack-logs/wb/amdc/cgicol/grid/tm 與 nogw alimama 備援；加入 m5 updatable `v\\d+/log` 邊界防禦與對應測試。
 - V45.44 (2026-04-23): 修正 V45.43 測試說明錯誤 — /ublock-badware/ 根因為 PATH_BLOCK 'adware' 子字串命中，非「已放行」；更新兩項 Ghostery 測試案例說明精確化。
 - V45.43 (2026-04-23): Ghostery CDN PATH_EXEMPTIONS 豁免 — /trackerdbMv3/ 誤殺修正；新增 2 項 Ghostery filter list 測試案例。
 - V45.42 (2026-04-22): DROP 移除粗粒度 'collect'/'collect?' + citiesocial.com /collection/ PATH_EXEMPTIONS 雙重保險；新增 2 項 citiesocial API 精準度測試案例。
@@ -54,19 +55,27 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.45"
-RELEASE_DATE = "2026-04-23"
+VERSION = "45.46"
+RELEASE_DATE = "2026-04-24"
 
 CURRENT_RELEASE_NOTES = """
-- [Rules] 高德地圖 (amap.com) 遙測端點封鎖：新增 5 個子域名至 CRITICAL_PATH_MAP，DROP 204 靜默拋棄 6 條遙測路徑，403 封鎖阿里媽媽開屏廣告路徑。
+- [Rules] 高德地圖 (amap.com) 遙測端點封鎖升級：補齊 adiu/logs/dualstack-logs/wb/cgicol/grid/tm 與 amdc.m.taobao.com，擴充阿里媽媽 nogw 備援廣告路徑，新增 info/passport/frogserver 三條漏網遙測通道。
+  - info.amap.com → DROP:/ws/shield/galaxy/data（盾系 galaxy 遙測資料上報）
+  - passport.amap.com → DROP:/ws/auth/session-report（工作階段遙測上報）
+  - m5.amap.com → DROP:/ws/shield/frogserver/aocs/updatable/（frogserver/aocs updatable 通道）
+  - adiu.amap.com / logs.amap.com / dualstack-logs.amap.com / cgicol.amap.com / grid.amap.com / tm.amap.com → DROP:/（全域遙測通道靜默拋棄）
+  - wb.amap.com → DROP:/channel.php（安裝歸因與導流追蹤）
+  - amdc.m.taobao.com → DROP:/（AMDC HTTPDNS 調度與隱私回傳通道）
+  - amap-aos-info-nogw.amap.com → /ws/aos/alimama/、/ws/aos/alimama/splash_screen（阿里媽媽廣告備援 403 封鎖）
+  - m5.amap.com → DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)（版本化 vN/log 邊界防禦）
   - fp.amap.com → DROP:/ws/shield/location/fp/report（設備指紋上報）
   - awaken.amap.com → DROP:/ws/h5_log（H5 Web 日誌）
-  - m5.amap.com → DROP:/ws/shield/nest/updatable/v1/log（遙測日誌，CRITICAL_PATH_GENERIC /v1/logs 差一個 s 漏網）
+  - m5.amap.com → DROP:/ws/shield/nest/updatable/v1/log（保留明確規則，並由 DROP_RE 兜底版本升級）
   - m5.amap.com → DROP:/ws/feature/preheat/bootevent（啟動事件上報）
   - m5.amap.com → /ws/valueadded/alimama/splash_screen（阿里媽媽開屏廣告 403，alimama.com 僅做域名比對不覆蓋路徑）
   - m5-zb.amap.com → DROP:/ws/security/account/device_reporting（設備 ID 指紋上報，_reporting 底線繞過 /reporting/ 斜線邊界）
   - m5-x.amap.com → DROP:/ws/shield/amapstream/upload（加密二進位串流，is_bin=1）
-- [Test Suite] 新增 7 項 V45.45 高德地圖遙測端點測試案例。
+- [Test Suite] 新增 15 項 Amap/AMDC 防護補強測試案例。
 """
 
 # ==========================================
@@ -549,9 +558,20 @@ RULES_DB = {
         'ntm.pstatic.net': ['DROP:/'],
         'fp.amap.com': ['DROP:/ws/shield/location/fp/report'],
         'awaken.amap.com': ['DROP:/ws/h5_log'],
-        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP:/ws/feature/preheat/bootevent', '/ws/valueadded/alimama/splash_screen'],
+        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/', '/ws/valueadded/alimama/splash_screen'],
         'm5-zb.amap.com': ['DROP:/ws/security/account/device_reporting'],
-        'm5-x.amap.com': ['DROP:/ws/shield/amapstream/upload']
+        'm5-x.amap.com': ['DROP:/ws/shield/amapstream/upload'],
+        'info.amap.com': ['DROP:/ws/shield/galaxy/data'],
+        'passport.amap.com': ['DROP:/ws/auth/session-report'],
+        'adiu.amap.com': ['DROP:/'],
+        'logs.amap.com': ['DROP:/'],
+        'dualstack-logs.amap.com': ['DROP:/'],
+        'amap-aos-info-nogw.amap.com': ['/ws/aos/alimama/', '/ws/aos/alimama/splash_screen'],
+        'wb.amap.com': ['DROP:/channel.php'],
+        'amdc.m.taobao.com': ['DROP:/'],
+        'cgicol.amap.com': ['DROP:/'],
+        'grid.amap.com': ['DROP:/'],
+        'tm.amap.com': ['DROP:/']
     },
     "HIGH_CONFIDENCE": [
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
@@ -1101,6 +1121,28 @@ function getCriticalBlockedPaths(hostname) {
   return value;
 }
 
+const criticalMapRuleRegexCache = new Map();
+
+function matchCriticalMapRule(rule, pathLower) {
+  if (!rule) return { matched: false, isDrop: false };
+
+  if (rule.startsWith('DROP_RE:') || rule.startsWith('RE:')) {
+    const isDrop = rule.startsWith('DROP_RE:');
+    const pattern = rule.substring(isDrop ? 8 : 3);
+    let re = criticalMapRuleRegexCache.get(pattern);
+    if (re === undefined) {
+      try { re = new RegExp(pattern, 'i'); } catch (_) { re = null; }
+      criticalMapRuleRegexCache.set(pattern, re);
+    }
+    if (!re) return { matched: false, isDrop };
+    return { matched: re.test(pathLower), isDrop };
+  }
+
+  const isDrop = rule.startsWith('DROP:');
+  const checkPath = isDrop ? rule.substring(5) : rule;
+  return { matched: pathLower.includes(checkPath), isDrop };
+}
+
 function _performCleaning(url, hostname, pathLower, hostProfile) {
   const cleanResult = HELPERS.cleanTrackingParams(url, hostname, pathLower, hostProfile);
   if (cleanResult) {
@@ -1147,7 +1189,8 @@ function processRequest(request) {
       const _earlyMap = getCriticalBlockedPaths(hostname);
       if (_earlyMap) {
         for (const bp of _earlyMap) {
-          if (bp && bp.startsWith('DROP:') && pathLower.includes(bp.substring(5))) {
+          const matched = matchCriticalMapRule(bp, pathLower);
+          if (matched.matched && matched.isDrop) {
             stats.blocks++;
             return { response: { status: 204 } };
           }
@@ -1196,11 +1239,10 @@ function processRequest(request) {
     if (blockedPaths && blockedPaths !== false) {
       for (const badPath of blockedPaths) {
         if (badPath) {
-          const isDrop = badPath.startsWith('DROP:');
-          const checkPath = isDrop ? badPath.substring(5) : badPath;
-          if (pathLower.includes(checkPath)) {
+          const matched = matchCriticalMapRule(badPath, pathLower);
+          if (matched.matched) {
             stats.blocks++;
-            if (isDrop) return { response: { status: 204 } };
+            if (matched.isDrop) return { response: { status: 204 } };
             return { response: { status: 403, body: 'Blocked by Map' } };
           }
         }
@@ -2400,7 +2442,21 @@ def generate_full_coverage_cases() -> List[TestCase]:
             for i in range(1, len(_hostname_parts))
         )
         for p in paths:
-            if p.startswith("DROP:"):
+            if p.startswith("DROP_RE:") or p.startswith("RE:"):
+                is_drop_regex = p.startswith("DROP_RE:")
+                pattern = p[8:] if is_drop_regex else p[3:]
+                sample_path = None
+                if "updatable/v\\d+/log" in pattern:
+                    sample_path = "/ws/shield/nest/updatable/v77/log"
+                if not sample_path:
+                    continue
+                url_base = f"https://{hostname}{sample_path}"
+                expected = RES_DROP_204 if is_drop_regex else RES_BLOCK_403
+                cases.append(TestCase("Auto: Critical Map (Regex)", url_base, expected, "Regex routing on CRITICAL_PATH_MAP"))
+                if not _parent_in_map:
+                    sub_url = f"https://sub.{hostname}{sample_path}"
+                    cases.append(TestCase("Auto: Critical Map Subdomain (Regex)", sub_url, expected, f"子域名繼承 MAP Regex 規則: sub.{hostname}"))
+            elif p.startswith("DROP:"):
                 clean_path = p[5:]
                 url_base = f"https://{hostname}" + (clean_path if clean_path.startswith("/") else f"/{clean_path}")
                 cases.append(TestCase("Auto: Critical Map (Drop Routing)", url_base, RES_DROP_204, "Action Routing 支援 DROP 權重解析"))
@@ -2739,14 +2795,28 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # 場景 B：帶追蹤參數 → PATH_EXEMPTION 命中後流入 _performCleaning；api. 子域名升級為 REWRITE 靜默剝離
     cases.append(TestCase("BugFix: citiesocial API collection silent rewrite", "https://api.citiesocial.com/collection/products?utm_source=ig&fbclid=test", RES_REWRITE, "V45.42 api.citiesocial.com /collection/ 帶追蹤參數 → PATH_EXEMPTION 豁免 + api. 子域名觸發靜默重寫（REWRITE），追蹤參數剝離不暴露 302"))
 
-    # --- V45.45 高德地圖 (amap.com) 遙測端點封鎖 ---
-    cases.append(TestCase("Privacy: Amap FP Location Report Drop", "https://fp.amap.com/ws/shield/location/fp/report?ent=2&csid=5DA6023F-B342-4B5F-94C7-0490BBE3FB05", RES_DROP_204, "V45.45 高德地圖設備指紋上報端點 204 靜默拋棄，防止 SDK 重試風暴"))
-    cases.append(TestCase("Privacy: Amap H5 Log Drop", "https://awaken.amap.com/ws/h5_log?ent=2&csid=031B84E0-D5B5-4C82-B828-3BB9FD7F6E80", RES_DROP_204, "V45.45 高德地圖 H5 Web 日誌端點 204 靜默拋棄"))
-    cases.append(TestCase("Privacy: Amap V1 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v1/log?ent=2&csid=26AE456B-BD00-4994-9C1A-725F8BA54116", RES_DROP_204, "V45.45 高德地圖 /v1/log 遙測端點 204 靜默拋棄；CRITICAL_PATH_GENERIC /v1/logs 原有規則差一個 s 而漏網"))
-    cases.append(TestCase("AdBlock: Amap Alimama Splash Ad Block", "https://m5.amap.com/ws/valueadded/alimama/splash_screen?ent=2&csid=6C2C520C-E6E9-4805-95C2-C57F33A8931B", RES_BLOCK_403, "V45.45 阿里媽媽開屏廣告請求 403 封鎖；alimama.com 僅在 BLOCK_DOMAINS 做域名比對，路徑中的 /alimama/ 原無規則覆蓋"))
-    cases.append(TestCase("Privacy: Amap Boot Event Drop", "https://m5.amap.com/ws/feature/preheat/bootevent?ent=2", RES_DROP_204, "V45.45 高德地圖啟動事件上報 204 靜默拋棄"))
-    cases.append(TestCase("Privacy: Amap Device Reporting Drop", "https://m5-zb.amap.com/ws/security/account/device_reporting?ent=2&csid=55FFE722-0038-49A4-A3B4-136DDEB2EC64", RES_DROP_204, "V45.45 高德地圖設備指紋/ID 上報 204 靜默拋棄；PATH_BLOCK /reporting/ 需前後斜線，_reporting 底線前綴原本漏網"))
-    cases.append(TestCase("Privacy: Amap Stream Upload Drop", "https://m5-x.amap.com/ws/shield/amapstream/upload?ent=2&is_bin=1&csid=82F9F301-0B5C-41D7-8CAC-A05BF9603E75", RES_DROP_204, "V45.45 高德地圖加密二進位串流上傳 204 靜默拋棄（is_bin=1）"))
+    # --- V45.46 高德地圖 (amap.com) 遙測端點封鎖 ---
+    cases.append(TestCase("Privacy: Amap FP Location Report Drop", "https://fp.amap.com/ws/shield/location/fp/report?ent=2&csid=5DA6023F-B342-4B5F-94C7-0490BBE3FB05", RES_DROP_204, "V45.46 高德地圖設備指紋上報端點 204 靜默拋棄，防止 SDK 重試風暴"))
+    cases.append(TestCase("Privacy: Amap H5 Log Drop", "https://awaken.amap.com/ws/h5_log?ent=2&csid=031B84E0-D5B5-4C82-B828-3BB9FD7F6E80", RES_DROP_204, "V45.46 高德地圖 H5 Web 日誌端點 204 靜默拋棄"))
+    cases.append(TestCase("Privacy: Amap V1 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v1/log?ent=2&csid=26AE456B-BD00-4994-9C1A-725F8BA54116", RES_DROP_204, "V45.46 高德地圖 /v1/log 遙測端點 204 靜默拋棄；CRITICAL_PATH_GENERIC /v1/logs 原有規則差一個 s 而漏網"))
+    cases.append(TestCase("AdBlock: Amap Alimama Splash Ad Block", "https://m5.amap.com/ws/valueadded/alimama/splash_screen?ent=2&csid=6C2C520C-E6E9-4805-95C2-C57F33A8931B", RES_BLOCK_403, "V45.46 阿里媽媽開屏廣告請求 403 封鎖；alimama.com 僅在 BLOCK_DOMAINS 做域名比對，路徑中的 /alimama/ 原無規則覆蓋"))
+    cases.append(TestCase("Privacy: Amap Boot Event Drop", "https://m5.amap.com/ws/feature/preheat/bootevent?ent=2", RES_DROP_204, "V45.46 高德地圖啟動事件上報 204 靜默拋棄"))
+    cases.append(TestCase("Privacy: Amap Device Reporting Drop", "https://m5-zb.amap.com/ws/security/account/device_reporting?ent=2&csid=55FFE722-0038-49A4-A3B4-136DDEB2EC64", RES_DROP_204, "V45.46 高德地圖設備指紋/ID 上報 204 靜默拋棄；PATH_BLOCK /reporting/ 需前後斜線，_reporting 底線前綴原本漏網"))
+    cases.append(TestCase("Privacy: Amap Stream Upload Drop", "https://m5-x.amap.com/ws/shield/amapstream/upload?ent=2&is_bin=1&csid=82F9F301-0B5C-41D7-8CAC-A05BF9603E75", RES_DROP_204, "V45.46 高德地圖加密二進位串流上傳 204 靜默拋棄（is_bin=1）"))
+    cases.append(TestCase("Privacy: Amap ADIU Fingerprint Core Drop", "https://adiu.amap.com/ws/device/adiu?ent=2&csid=AA01", RES_DROP_204, "補齊 ADIU 設備硬體指紋核心通道，避免跨應用輪廓追蹤"))
+    cases.append(TestCase("Privacy: Amap Logs Batch Drop", "https://logs.amap.com/ws/log/upload?batch=1", RES_DROP_204, "補齊 logs.amap.com 大批次遙測上報通道"))
+    cases.append(TestCase("Privacy: Amap Dualstack Logs Drop", "https://dualstack-logs.amap.com/ws/log/upload?ipv6=1", RES_DROP_204, "補齊 dualstack-logs.amap.com IPv6/雙棧備援遙測通道"))
+    cases.append(TestCase("AdBlock: Amap AOS Nogw Alimama Block", "https://amap-aos-info-nogw.amap.com/ws/aos/alimama/splash_screen?ent=2", RES_BLOCK_403, "封鎖阿里媽媽 nogw 備援開屏廣告路徑"))
+    cases.append(TestCase("Privacy: Amap WB Channel Attribution Drop", "https://wb.amap.com/channel.php?source=app&deep_link=1", RES_DROP_204, "封鎖安裝歸因與導流追蹤入口 /channel.php"))
+    cases.append(TestCase("Privacy: AMDC Mobile Dispatch Drop", "https://amdc.m.taobao.com/amdc/mobileDispatch", RES_DROP_204, "封鎖 AMDC HTTPDNS 前置調度與網路特徵回傳通道"))
+    cases.append(TestCase("Privacy: Amap CGI Collector Drop", "https://cgicol.amap.com/collect?module=legacy", RES_DROP_204, "封鎖舊世代 CGI 行為採集通道"))
+    cases.append(TestCase("Privacy: Amap Grid Heatmap Drop", "https://grid.amap.com/grid/heatmap/upload?tile=13", RES_DROP_204, "封鎖網格化地理熱區與行為分析上報"))
+    cases.append(TestCase("Privacy: Amap Task Monitor Drop", "https://tm.amap.com/task/report?cpu=high", RES_DROP_204, "封鎖 Task Monitor 非同步任務監控遙測"))
+    cases.append(TestCase("Privacy: Amap Updatable V2 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v2/log?ent=2", RES_DROP_204, "補齊 /v2/log 版本化 API 邊界防禦"))
+    cases.append(TestCase("Privacy: Amap Updatable Future V77 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v77/log?ent=2", RES_DROP_204, "DROP_RE 覆蓋未來 vN/log 版本升級路徑"))
+    cases.append(TestCase("Privacy: Amap Galaxy Data Drop", "https://info.amap.com/ws/shield/galaxy/data?ent=2&csid=615A3F7F-1E14-4AEF-B540-0DFFB75FD376", RES_DROP_204, "封鎖 info.amap.com 盾系 galaxy 遙測資料回傳"))
+    cases.append(TestCase("Privacy: Amap Session Report Drop", "https://passport.amap.com/ws/auth/session-report?ent=2&csid=65AA4022-A95A-4103-B319-04431EF195D6", RES_DROP_204, "封鎖 passport.amap.com session-report 工作階段遙測上報"))
+    cases.append(TestCase("Privacy: Amap Frogserver Updatable Drop", "https://m5.amap.com/ws/shield/frogserver/aocs/updatable/1?ent=2&csid=5877A52E-74BD-4CF9-94F6-C59DE3823A7C", RES_DROP_204, "封鎖 m5 frogserver aocs updatable 遙測/策略更新通道"))
 
     # =====================================================================
     #  擴展測試矩陣：邊界、變異、優先級衝突、完整覆蓋
