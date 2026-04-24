@@ -1,5 +1,24 @@
 # URL Ultimate Filter - Changelog
 
+## V45.46 - 2026-04-24
+- [Rules] 高德地圖 (amap.com) 遙測端點封鎖升級：補齊 adiu/logs/dualstack-logs/wb/cgicol/grid/tm 與 amdc.m.taobao.com，擴充阿里媽媽 nogw 備援廣告路徑，新增 info/passport/frogserver 三條漏網遙測通道。
+  - info.amap.com → DROP:/ws/shield/galaxy/data（盾系 galaxy 遙測資料上報）
+  - passport.amap.com → DROP:/ws/auth/session-report（工作階段遙測上報）
+  - m5.amap.com → DROP:/ws/shield/frogserver/aocs/updatable/（frogserver/aocs updatable 通道）
+  - adiu.amap.com / logs.amap.com / dualstack-logs.amap.com / cgicol.amap.com / grid.amap.com / tm.amap.com → DROP:/（全域遙測通道靜默拋棄）
+  - wb.amap.com → DROP:/channel.php（安裝歸因與導流追蹤）
+  - amdc.m.taobao.com → DROP:/（AMDC HTTPDNS 調度與隱私回傳通道）
+  - amap-aos-info-nogw.amap.com → /ws/aos/alimama/、/ws/aos/alimama/splash_screen（阿里媽媽廣告備援 403 封鎖）
+  - m5.amap.com → DROP_RE:^/ws/shield/nest/updatable/v\d+/log(?:[/?#]|$)（版本化 vN/log 邊界防禦）
+  - fp.amap.com → DROP:/ws/shield/location/fp/report（設備指紋上報）
+  - awaken.amap.com → DROP:/ws/h5_log（H5 Web 日誌）
+  - m5.amap.com → DROP:/ws/shield/nest/updatable/v1/log（保留明確規則，並由 DROP_RE 兜底版本升級）
+  - m5.amap.com → DROP:/ws/feature/preheat/bootevent（啟動事件上報）
+  - m5.amap.com → /ws/valueadded/alimama/splash_screen（阿里媽媽開屏廣告 403，alimama.com 僅做域名比對不覆蓋路徑）
+  - m5-zb.amap.com → DROP:/ws/security/account/device_reporting（設備 ID 指紋上報，_reporting 底線繞過 /reporting/ 斜線邊界）
+  - m5-x.amap.com → DROP:/ws/shield/amapstream/upload（加密二進位串流，is_bin=1）
+- [Test Suite] 新增 15 項 Amap/AMDC 防護補強測試案例。
+
 ## V45.45 - 2026-04-23
 - [Rules] 高德地圖 (amap.com) 遙測端點封鎖：新增 5 個子域名至 CRITICAL_PATH_MAP，DROP 204 靜默拋棄 6 條遙測路徑，403 封鎖 1 條開屏廣告路徑。
   - `fp.amap.com → DROP:/ws/shield/location/fp/report` — 設備指紋（fp = fingerprint）位置上報
