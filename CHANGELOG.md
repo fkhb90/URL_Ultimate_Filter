@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V45.47 - 2026-04-24
+- [Privacy] WOWPASS 韓國旅遊預付卡 App 遙測封鎖：`log.wowpass.io` → `DROP:/` 全域靜默拋棄，覆蓋私有日誌端點 `/api/v1/log`。根因：路徑尾無 s，CRITICAL_PATH_GENERIC `/v1/logs` 無法命中；`/v1/log` 不能加入通用規則（子字串命中 `/v1/login`、`/v1/logout` 產生誤殺），改以域名層精準覆蓋。
+- [Test Suite] 新增 1 項 V45.47 測試案例。
+
 ## V45.46 - 2026-04-24
 - [Rules] 高德地圖 (amap.com) 遙測端點封鎖升級：補齊 adiu/logs/dualstack-logs/wb/cgicol/grid/tm 與 amdc.m.taobao.com，擴充阿里媽媽 nogw 備援廣告路徑，新增 info/passport/frogserver 三條漏網遙測通道。
   - info.amap.com → DROP:/ws/shield/galaxy/data（盾系 galaxy 遙測資料上報）
