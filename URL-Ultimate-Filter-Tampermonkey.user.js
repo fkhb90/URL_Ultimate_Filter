@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.59
+// @name         URL Ultimate Filter V45.60
 // @namespace    http://tampermonkey.net/
-// @version      45.59
+// @version      45.60
 // @date         2026-04-27
-// @description  SSOT 前端防護盾牌 V45.59 (2026-04-27) | 1471 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1471 total (297 domains · 391 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V45.60 (2026-04-27) | 1472 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1472 total (297 domains · 392 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.59
+ * @version 45.60
  * @date    2026-04-27
- * @rules   1471 total (297 domains, 391 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1472 total (297 domains, 392 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.59';
-const SCRIPT_BUILD = 'V45.59 (2026-04-27) | 1471 rules | 2973 tests';
+const SCRIPT_VERSION = '45.60';
+const SCRIPT_BUILD = 'V45.60 (2026-04-27) | 1472 rules | 2976 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -721,6 +721,9 @@ const RULES = {
       ])],
     ['store.is.autonavi.com', new Set([
         'DROP:/'
+      ])],
+    ['render-prod-tile.amap.com', new Set([
+        'DROP:/ws/render/bmd/'
       ])],
     ['log.wowpass.io', new Set([
         'DROP:/'
