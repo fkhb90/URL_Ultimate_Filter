@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.61
+ * @version 45.62
  * @date    2026-04-27
- * @rules   1474 total (297 domains, 394 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1476 total (297 domains, 396 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.61';
-const SCRIPT_BUILD = 'V45.61 (2026-04-27) | 1474 rules | 2982 tests';
+const SCRIPT_VERSION = '45.62';
+const SCRIPT_BUILD = 'V45.62 (2026-04-27) | 1476 rules | 2988 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -660,7 +660,7 @@ const RULES = {
         'DROP:/ws/aos/voice/ip_info/'
       ])],
     ['m5-zb.amap.com', new Set([
-        'DROP:/ws/security/account/device_reporting', 'DROP:/ws/car/user/performance/rules'
+        'DROP:/ws/security/account/device_reporting', 'DROP:/ws/car/user/performance/rules', 'DROP:/ws/boss/'
       ])],
     ['m5-x.amap.com', new Set([
         'DROP:/ws/shield/amapstream/upload'
@@ -712,6 +712,9 @@ const RULES = {
       ])],
     ['render-prod-backup-tile.amap.com', new Set([
         'DROP:/ws/render/bmd/'
+      ])],
+    ['render.amap.com', new Set([
+        'DROP:/ws/render/tmc/'
       ])],
     ['log.wowpass.io', new Set([
         'DROP:/'
