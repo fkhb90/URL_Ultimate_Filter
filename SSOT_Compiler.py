@@ -3,12 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.59 (2026-04-27)
+當前版本：V45.60 (2026-04-27)
 最新架構更新：
-- [Privacy] Naver NELO 外部日誌收集器封鎖：kr-col-ext.nelo.navercorp.com 加入 CRITICAL_PATH_MAP DROP:/（Naver 企業日誌平台外部採集節點，與 inspector-collector.m.naver.com 同屬 Naver 日誌基礎設施）。
-- [Test Suite] 新增 1 項 V45.59 測試案例。
+- [AdBlock] 高德地圖 BMD 廣告圖磚封鎖：render-prod-tile.amap.com 加入 CRITICAL_PATH_MAP DROP:/ws/render/bmd/（Brand/Marketing Display 廣告覆蓋圖磚；攜帶 adiu= 廣告設備 ID，tileType=6 確認廣告內容類型；路徑精確封鎖不影響正常地圖圖磚）。
+- [Test Suite] 新增 1 項 V45.60 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.60 (2026-04-27): 高德地圖 BMD 廣告覆蓋圖磚 render-prod-tile.amap.com /ws/render/bmd/ DROP。
 - V45.59 (2026-04-27): Naver NELO 外部日誌收集器 kr-col-ext.nelo.navercorp.com DROP。
 - V45.58 (2026-04-27): 高德 optimus-ads.amap.com 廣告系統 DROP + AutoNavi store.is.autonavi.com 門店追蹤 DROP。
 - V45.57 (2026-04-27): 高德 adashx.ut.amap.com UT 廣告分析 DROP + qchannel01.cn 渠道追蹤封鎖。
@@ -66,10 +67,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.59"
+VERSION = "45.60"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [AdBlock] 高德地圖 BMD 廣告圖磚封鎖：
+  - render-prod-tile.amap.com → CRITICAL_PATH_MAP DROP:/ws/render/bmd/（Brand/Marketing Display 廣告覆蓋圖磚端點；adiu= 參數攜帶廣告設備 ID，tileType=6 確認廣告內容；路徑精確封鎖，不影響正常地圖圖磚載入）
 - [Privacy] Naver NELO 外部日誌收集器封鎖：
   - kr-col-ext.nelo.navercorp.com → CRITICAL_PATH_MAP DROP:/（Naver 企業日誌平台 NELO 的外部採集節點；kr = 韓國區、col = collector、ext = external；與 inspector-collector.m.naver.com 同屬 Naver 日誌基礎設施）
 - [Privacy] 高德/AutoNavi 廣告與追蹤端點補強：
@@ -636,6 +639,7 @@ RULES_DB = {
         'adashx.ut.amap.com': ['DROP:/'],
         'optimus-ads.amap.com': ['DROP:/'],
         'store.is.autonavi.com': ['DROP:/'],
+        'render-prod-tile.amap.com': ['DROP:/ws/render/bmd/'],
         'log.wowpass.io': ['DROP:/'],
         'api.airbridge.io': ['DROP:/'],
         'core.airbridge.io': ['DROP:/'],
@@ -2930,6 +2934,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V45.59 Naver NELO 外部日誌收集器 ---
     cases.append(TestCase("Privacy: Naver NELO External Collector Drop", "https://kr-col-ext.nelo.navercorp.com/v2/log", RES_DROP_204, "V45.59 Naver 企業日誌平台 NELO 外部採集節點 DROP；kr=韓國區、col=collector、ext=external；與 inspector-collector.m.naver.com 同系列"))
     cases.append(TestCase("Privacy: Amap Grid Heatmap Drop", "https://grid.amap.com/grid/heatmap/upload?tile=13", RES_DROP_204, "封鎖網格化地理熱區與行為分析上報"))
+    # --- V45.60 Amap BMD 廣告圖磚 ---
+    cases.append(TestCase("AdBlock: Amap BMD Ad Tile Drop", "https://render-prod-tile.amap.com/ws/render/bmd/tile?version=1777378798&tileType=6&tileId=3940726194844848&lang=zh-Hans&adiu=PnVF7RFnFbzclTCc6KwUMvKb2sZLsCIIh5fx1qD1ELXiiSM1", RES_DROP_204, "V45.60 高德地圖 BMD 廣告覆蓋圖磚 DROP；Brand/Marketing Display 廣告疊加層；adiu= 廣告設備 ID + tileType=6 確認廣告類型"))
     cases.append(TestCase("Privacy: Amap Task Monitor Drop", "https://tm.amap.com/task/report?cpu=high", RES_DROP_204, "封鎖 Task Monitor 非同步任務監控遙測"))
     cases.append(TestCase("Privacy: Amap Updatable V2 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v2/log?ent=2", RES_DROP_204, "補齊 /v2/log 版本化 API 邊界防禦"))
     cases.append(TestCase("Privacy: Amap Updatable Future V77 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v77/log?ent=2", RES_DROP_204, "DROP_RE 覆蓋未來 vN/log 版本升級路徑"))
