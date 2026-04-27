@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.49
+// @name         URL Ultimate Filter V45.50
 // @namespace    http://tampermonkey.net/
-// @version      45.49
-// @date         2026-04-24
-// @description  SSOT 前端防護盾牌 V45.49 (2026-04-24) | 1452 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1452 total (293 domains · 376 critical · 109 param)
+// @version      45.50
+// @date         2026-04-27
+// @description  SSOT 前端防護盾牌 V45.50 (2026-04-27) | 1460 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1460 total (293 domains · 384 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.49
- * @date    2026-04-24
- * @rules   1452 total (293 domains, 376 critical paths, 403 path keywords, 109 param rules)
+ * @version 45.50
+ * @date    2026-04-27
+ * @rules   1460 total (293 domains, 384 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.49';
-const SCRIPT_BUILD = 'V45.49 (2026-04-24) | 1452 rules | 2909 tests';
+const SCRIPT_VERSION = '45.50';
+const SCRIPT_BUILD = 'V45.50 (2026-04-27) | 1460 rules | 2934 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -327,7 +327,7 @@ const RULES = {
         '/fingerprinted/'
       ])],
     ['chatgpt.com', new Set([
-        '/ces/statsc/flush', '/v1/rgstr'
+        '/ces/statsc/flush', '/v1/rgstr', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'
       ])],
     ['tw.fd-api.com', new Set([
         'DROP:/api/v5/action-log'
@@ -622,7 +622,7 @@ const RULES = {
       ])],
     ['cmapi.tw.coupang.com', new Set([
         '/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/',
-        '/category-banner-ads/', '/plp-ads/'
+        '/category-banner-ads/', '/plp-ads/', '/ad-info'
       ])],
     ['disqus.com', new Set([
         '/api/3.0/users/events', '/j/', '/tracking_pixel/'
@@ -668,7 +668,7 @@ const RULES = {
       ])],
     ['m5.amap.com', new Set([
         'DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/',
-        '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv'
+        '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/'
       ])],
     ['m5-zb.amap.com', new Set([
         'DROP:/ws/security/account/device_reporting'
@@ -717,6 +717,18 @@ const RULES = {
       ])],
     ['core.airbridge.io', new Set([
         'DROP:/'
+      ])],
+    ['center.amap.com', new Set([
+        'DROP:/ws/amc/'
+      ])],
+    ['g.alicdn.com', new Set([
+        '/alilog/'
+      ])],
+    ['prodregistryv2.org', new Set([
+        'DROP:/v1/rgstr'
+      ])],
+    ['apis.naver.com', new Set([
+        '/papago/papago_app/promotions'
       ])]
   ])
   },

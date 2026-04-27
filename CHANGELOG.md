@@ -1,5 +1,40 @@
 # URL Ultimate Filter - Changelog
 
+## V45.50 - 2026-04-27
+- [Rules] 多平台遙測與廣告端點補強（8 條新規則，9 項測試）：
+  - m5.amap.com → DROP:/ws/amc/（AMC 轉化追蹤 conv/operate 端點靜默拋棄）
+  - center.amap.com → DROP:/ws/amc/（center 子域 AMC raise_list 轉化追蹤 DROP）
+  - cmapi.tw.coupang.com → /ad-info（Coupang modular 廣告 POI 注入端點 403 封鎖）
+  - g.alicdn.com → /alilog/（阿里巴巴 APlus 分析 SDK CDN 腳本 403 封鎖）
+  - prodregistryv2.org → DROP:/v1/rgstr（PostHog 分析登記端點 204 DROP）
+  - chatgpt.com → DROP:/ces/v1/m + DROP:/ces/v1/t（CES Client Event Service 遙測端點 204 DROP）
+  - apis.naver.com → /papago/papago_app/promotions（Naver Papago 推廣內容 API 403 封鎖）
+- [Safe] 確認 member.tw.coupang.com OAuth2 PKCE 授權流程正常放行（新增驗證測試案例）。
+- [Rules] 高德地圖 (amap.com) 遙測端點封鎖升級：補齊 adiu/logs/dualstack-logs/wb/cgicol/grid/tm 與 amdc.m.taobao.com，擴充阿里媽媽 nogw 備援廣告路徑，新增 info/passport/frogserver 三條漏網遙測通道。
+  - info.amap.com → DROP:/ws/shield/galaxy/data（盾系 galaxy 遙測資料上報）
+  - passport.amap.com → DROP:/ws/auth/session-report（工作階段遙測上報）
+  - m5.amap.com → DROP:/ws/shield/frogserver/aocs/updatable/（frogserver/aocs updatable 通道）
+  - adiu.amap.com / logs.amap.com / dualstack-logs.amap.com / cgicol.amap.com / grid.amap.com / tm.amap.com → DROP:/（全域遙測通道靜默拋棄）
+  - wb.amap.com → DROP:/channel.php（安裝歸因與導流追蹤）
+  - amdc.m.taobao.com → DROP:/（AMDC HTTPDNS 調度與隱私回傳通道）
+  - amap-aos-info-nogw.amap.com → /ws/aos/alimama/、/ws/aos/alimama/splash_screen（阿里媽媽廣告備援 403 封鎖）
+  - m5.amap.com → DROP_RE:^/ws/shield/nest/updatable/v\d+/log(?:[/?#]|$)（版本化 vN/log 邊界防禦）
+  - fp.amap.com → DROP:/ws/shield/location/fp/report（設備指紋上報）
+  - awaken.amap.com → DROP:/ws/h5_log（H5 Web 日誌）
+  - m5.amap.com → DROP:/ws/shield/nest/updatable/v1/log（保留明確規則，並由 DROP_RE 兜底版本升級）
+  - m5.amap.com → DROP:/ws/feature/preheat/bootevent（啟動事件上報）
+  - m5.amap.com → /ws/valueadded/alimama/splash_screen（阿里媽媽開屏廣告 403，alimama.com 僅做域名比對不覆蓋路徑）
+  - m5-zb.amap.com → DROP:/ws/security/account/device_reporting（設備 ID 指紋上報，_reporting 底線繞過 /reporting/ 斜線邊界）
+  - m5-x.amap.com → DROP:/ws/shield/amapstream/upload（加密二進位串流，is_bin=1）
+- [Privacy] WOWPASS 韓國旅遊預付卡 App 遙測封鎖：log.wowpass.io → DROP:/ 全域靜默拋棄。根因：/api/v1/log 尾無 s，CRITICAL_PATH_GENERIC /v1/logs 漏網；/v1/log 通用規則有誤殺 /v1/login 風險，改以域名層精準 DROP 解決。
+- [Privacy] Airbridge (AB180) 韓國主流 MMP 歸因追蹤 SDK 全面封鎖：
+  - airbridge.io → BLOCK_DOMAINS_WILDCARDS（萬用字元封鎖所有子域名，含 static/sdk-download/per-app deep link）
+  - api.airbridge.io → DROP:/（歸因與 S2S 事件 API，204 靜默拋棄防 SDK 重試風暴）
+  - core.airbridge.io → DROP:/（Bridge page API + UDL SDK，204 靜默拋棄）
+  - abr.ge → BLOCK_DOMAINS_WILDCARDS（追蹤短連結域名，含 {APP}.abr.ge per-app 子域名）
+  - deeplink.page → BLOCK_DOMAINS_WILDCARDS（舊版深度連結域名）
+- [Test Suite] 新增 5 項 V45.48 Airbridge 測試案例。
+
 ## V45.49 - 2026-04-24
 - [AdBlock] 高德地圖搜尋廣告 POI 端點封鎖：`m5.amap.com → /ws/shield/search_poi/tips_adv` 403 封鎖，切斷地圖搜尋結果中的廣告 POI 注入（`tips_adv` = advertisement tips；`in=` 夾帶加密廣告投放資料）。
 - [Test Suite] 新增 1 項 V45.49 測試案例。
