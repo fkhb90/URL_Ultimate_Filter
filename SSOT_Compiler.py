@@ -3,13 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.55 (2026-04-27)
+當前版本：V45.56 (2026-04-27)
 最新架構更新：
-- [Privacy] Kakao Tiara 分析 SDK 補漏：stat.tiara.daum.net 加入 BLOCK_DOMAINS（track.tiara.daum.net 已有，stat 子域漏封）。
-- [Privacy] zztfly.com 中國行動分析 SDK 封鎖：BLOCK_DOMAINS_WILDCARDS 新增 zztfly.com，封鎖 devc（設備識別）與 cfgc（SDK 設定）子域。
-- [Test Suite] 新增 3 項 V45.55 測試案例。
+- [Privacy] Google growth-pa.googleapis.com 封鎖：加入 PRIORITY_BLOCK_DOMAINS，與 crashlyticsreports-pa / firebaselogging-pa 同屬 Google Product Analytics (-pa) 系列遙測端點。
+- [Test Suite] 新增 1 項 V45.56 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.56 (2026-04-27): Google growth-pa.googleapis.com 成長分析端點封鎖。
 - V45.55 (2026-04-27): stat.tiara.daum.net 補漏 + zztfly.com 中國行動 SDK 封鎖。
 - V45.54 (2026-04-27): 高德 AOS 語音 IP 查詢端點 m5.amap.com /ws/aos/voice/ip_info/ DROP。
 - V45.53 (2026-04-27): 高德 gbfs batchCalcByFeatureCode DROP + DeepSeek ip_to_country_code DROP。
@@ -63,10 +63,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.55"
+VERSION = "45.56"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] Google growth-pa.googleapis.com 成長分析端點封鎖：
+  - growth-pa.googleapis.com → PRIORITY_BLOCK_DOMAINS（Google Product Analytics -pa 系列遙測端點；與 crashlyticsreports-pa / firebaselogging-pa 同列）
 - [Privacy] Kakao Tiara 分析 SDK 補漏 + zztfly.com 中國行動分析 SDK 封鎖：
   - stat.tiara.daum.net → BLOCK_DOMAINS（Kakao Tiara 分析 SDK 統計端點；track.tiara.daum.net 已封鎖，stat 子域漏封）
   - zztfly.com → BLOCK_DOMAINS_WILDCARDS（中國行動分析 SDK 基礎設施：devc. = 設備識別端點，cfgc. = SDK 設定拉取端點）
@@ -179,7 +181,7 @@ RULES_DB = {
         'penphone92.com', 'sir90hl.com', 'uymgg1.com',
         'admob.com', 'ads.google.com', 'adservice.google.com', 'adservice.google.com.tw',
         'doubleclick.net', 'googleadservices.com', 'googlesyndication.com',
-        'crashlyticsreports-pa.googleapis.com', 'firebaselogging-pa.googleapis.com',
+        'crashlyticsreports-pa.googleapis.com', 'firebaselogging-pa.googleapis.com', 'growth-pa.googleapis.com',
         'imasdk.googleapis.com', 'measurement.adservices.google.com', 'privacysandbox.googleapis.com',
         'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com',
         '2o7.net', 'adobedc.net', 'demdex.net', 'everesttech.net', 'omtrdc.net',
@@ -2900,6 +2902,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Kakao Tiara Stat Block", "https://stat.tiara.daum.net/stat?A=D&brs=SAFARI&os=IOS", RES_BLOCK_403, "V45.55 Kakao Tiara 分析 SDK stat 統計端點封鎖；track. 已封鎖，stat. 補漏"))
     cases.append(TestCase("Privacy: zztfly Device Client Block", "https://devc.zztfly.com/api/v1/device/register", RES_BLOCK_403, "V45.55 zztfly.com 中國行動 SDK 設備識別端點封鎖"))
     cases.append(TestCase("Privacy: zztfly Config Client Block", "https://cfgc.zztfly.com/config/fetch?appid=123", RES_BLOCK_403, "V45.55 zztfly.com SDK 設定拉取端點封鎖"))
+    # --- V45.56 Google growth-pa 成長分析端點 ---
+    cases.append(TestCase("Privacy: Google growth-pa Block", "https://growth-pa.googleapis.com/v1/growthlogs", RES_BLOCK_403, "V45.56 Google growth-pa.googleapis.com 成長分析端點封鎖；與 crashlyticsreports-pa / firebaselogging-pa 同屬 PRIORITY_BLOCK_DOMAINS -pa 系列"))
     cases.append(TestCase("Privacy: Amap CGI Collector Drop", "https://cgicol.amap.com/collect?module=legacy", RES_DROP_204, "封鎖舊世代 CGI 行為採集通道"))
     cases.append(TestCase("Privacy: Amap Grid Heatmap Drop", "https://grid.amap.com/grid/heatmap/upload?tile=13", RES_DROP_204, "封鎖網格化地理熱區與行為分析上報"))
     cases.append(TestCase("Privacy: Amap Task Monitor Drop", "https://tm.amap.com/task/report?cpu=high", RES_DROP_204, "封鎖 Task Monitor 非同步任務監控遙測"))
