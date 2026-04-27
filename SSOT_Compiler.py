@@ -3,12 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.58 (2026-04-27)
+當前版本：V45.59 (2026-04-27)
 最新架構更新：
-- [Privacy] 高德/AutoNavi 廣告與追蹤端點補強：optimus-ads.amap.com（廣告最佳化系統）與 store.is.autonavi.com（AutoNavi 母品牌門店追蹤）加入 CRITICAL_PATH_MAP DROP:/。
-- [Test Suite] 新增 2 項 V45.58 測試案例。
+- [Privacy] Naver NELO 外部日誌收集器封鎖：kr-col-ext.nelo.navercorp.com 加入 CRITICAL_PATH_MAP DROP:/（Naver 企業日誌平台外部採集節點，與 inspector-collector.m.naver.com 同屬 Naver 日誌基礎設施）。
+- [Test Suite] 新增 1 項 V45.59 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.59 (2026-04-27): Naver NELO 外部日誌收集器 kr-col-ext.nelo.navercorp.com DROP。
 - V45.58 (2026-04-27): 高德 optimus-ads.amap.com 廣告系統 DROP + AutoNavi store.is.autonavi.com 門店追蹤 DROP。
 - V45.57 (2026-04-27): 高德 adashx.ut.amap.com UT 廣告分析 DROP + qchannel01.cn 渠道追蹤封鎖。
 - V45.56 (2026-04-27): Google growth-pa.googleapis.com 成長分析端點封鎖。
@@ -65,10 +66,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.58"
+VERSION = "45.59"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] Naver NELO 外部日誌收集器封鎖：
+  - kr-col-ext.nelo.navercorp.com → CRITICAL_PATH_MAP DROP:/（Naver 企業日誌平台 NELO 的外部採集節點；kr = 韓國區、col = collector、ext = external；與 inspector-collector.m.naver.com 同屬 Naver 日誌基礎設施）
 - [Privacy] 高德/AutoNavi 廣告與追蹤端點補強：
   - optimus-ads.amap.com → CRITICAL_PATH_MAP DROP:/（Amap 廣告最佳化系統；optimus = 最佳化，ads 明示廣告用途；與 adiu/logs/cgicol 等 amap 全域 DROP 系列一致）
   - store.is.autonavi.com → CRITICAL_PATH_MAP DROP:/（AutoNavi 母品牌門店資訊追蹤端點；store.is = 門店資訊服務，屬位置與行為遙測）
@@ -609,6 +612,7 @@ RULES_DB = {
         'lcs.naver.com': ['DROP:/m'],
         'cologger.shopping.naver.com': ['DROP:/'],
         'inspector-collector.m.naver.com': ['DROP:/'],
+        'kr-col-ext.nelo.navercorp.com': ['DROP:/'],
         'cr.shopping.naver.com': ['DROP:/'],
         'api-biz-catcher.naver.com': ['DROP:/'],
         'ssl.pstatic.net': ['/adimg3.search/adpost/'],
@@ -2923,6 +2927,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V45.58 Amap optimus-ads + AutoNavi store.is ---
     cases.append(TestCase("Privacy: Amap Optimus Ads Drop", "https://optimus-ads.amap.com/api/ads/recommend", RES_DROP_204, "V45.58 高德地圖廣告最佳化系統 DROP；optimus = 最佳化，ads 明示廣告用途，CRITICAL_PATH_MAP 全域 DROP"))
     cases.append(TestCase("Privacy: AutoNavi Store IS Drop", "https://store.is.autonavi.com/api/store/track?sid=abc", RES_DROP_204, "V45.58 AutoNavi 母品牌門店資訊追蹤端點 DROP；store.is = 門店資訊服務，位置/行為遙測"))
+    # --- V45.59 Naver NELO 外部日誌收集器 ---
+    cases.append(TestCase("Privacy: Naver NELO External Collector Drop", "https://kr-col-ext.nelo.navercorp.com/v2/log", RES_DROP_204, "V45.59 Naver 企業日誌平台 NELO 外部採集節點 DROP；kr=韓國區、col=collector、ext=external；與 inspector-collector.m.naver.com 同系列"))
     cases.append(TestCase("Privacy: Amap Grid Heatmap Drop", "https://grid.amap.com/grid/heatmap/upload?tile=13", RES_DROP_204, "封鎖網格化地理熱區與行為分析上報"))
     cases.append(TestCase("Privacy: Amap Task Monitor Drop", "https://tm.amap.com/task/report?cpu=high", RES_DROP_204, "封鎖 Task Monitor 非同步任務監控遙測"))
     cases.append(TestCase("Privacy: Amap Updatable V2 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v2/log?ent=2", RES_DROP_204, "補齊 /v2/log 版本化 API 邊界防禦"))
