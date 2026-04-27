@@ -3,12 +3,14 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.52 (2026-04-27)
+當前版本：V45.53 (2026-04-27)
 最新架構更新：
-- [BugFix] ByteDance Rangers SDK 誤殺修正（PATH_EXEMPTIONS 精準豁免策略）：volccdn.com CDN 的 /data-static/log-sdk/ 路徑加入 PATH_EXEMPTIONS，讓 SDK JS 可正常下載；snssdk.com 加入 BLOCK_DOMAINS_WILDCARDS，補上 Rangers 資料回傳通道缺口（mon/log/applog 等子域），搭配已有的 byteoversea.com 封鎖，確保 SDK 載入但資料無法離開設備。
-- [Test Suite] 新增 3 項 V45.52 測試案例（CDN 放行 + snssdk 封鎖驗證）。
+- [Privacy] 高德地圖 gbfs 地理位置遙測端點封鎖：m5.amap.com /ws/feature/gbfs/batchCalcByFeatureCode/ DROP（batchCalcByFeatureCode/aloc 攜帶 csid 設備指紋 + 加密 in= 資料包，特徵與其他已封鎖遙測端點一致）。
+- [Privacy] DeepSeek 聊天 IP 地理位置查詢封鎖：chat.deepseek.com /api/v0/ip_to_country_code DROP（明確 IP→國家碼查詢端點，封鎖後聊天功能不受影響）。
+- [Test Suite] 新增 2 項 V45.53 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.53 (2026-04-27): 高德 gbfs batchCalcByFeatureCode DROP + DeepSeek ip_to_country_code DROP。
 - V45.52 (2026-04-27): BugFix — ByteDance Rangers SDK CDN 豁免 + snssdk.com wildcard 封鎖，讓 App 正常啟動同時阻止資料回傳。
 - V45.51 (2026-04-27): BugFix — member.tw.coupang.com OAuth2 誤殺修正，加入 OAUTH_SAFE_HARBOR_DOMAINS 豁免 audience/uuid PATH_BLOCK 關鍵字誤判。
 - V45.50 (2026-04-27): 多平台補強 — Amap AMC /ws/amc/ DROP、Coupang ad-info 403、APlus CDN /alilog/ 403、PostHog prodregistryv2 DROP、ChatGPT /ces/v1/ DROP、Naver Papago promotions 403。
@@ -59,10 +61,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.52"
+VERSION = "45.53"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] 高德地圖 gbfs 地理遙測端點 + DeepSeek IP 地理查詢封鎖：
+  - m5.amap.com → DROP:/ws/feature/gbfs/batchCalcByFeatureCode/（gbfs batchCalc aloc 攜帶 csid 設備指紋 + 超長加密 in= 資料包，與已封鎖的 AMC/shield/frogserver 遙測特徵完全一致，判定為位置遙測上報偽裝為功能 API）
+  - chat.deepseek.com → DROP:/api/v0/ip_to_country_code（IP→國家碼地理位置查詢，屬使用者地理分佈分析，封鎖後聊天功能不受影響；deepseek.com 不在任何白名單，路徑亦無現有關鍵字命中）
 - [BugFix] ByteDance Rangers SDK CDN 誤殺修正（「讓 JS 載入，封鎖它打電話回家」策略）：
   - 根因：criticalPathScanner 命中 CRITICAL_PATH_GENERIC '/collect'（路徑含 /collect/），無靜態資源豁免
   - 修法 1：PATH_EXEMPTIONS 新增 volccdn.com → /data-static/log-sdk/，引擎步驟 6 短路 ALLOW，SDK JS 可正常下載
@@ -591,7 +596,7 @@ RULES_DB = {
         'ntm.pstatic.net': ['DROP:/'],
         'fp.amap.com': ['DROP:/ws/shield/location/fp/report'],
         'awaken.amap.com': ['DROP:/ws/h5_log'],
-        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/'],
+        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/', 'DROP:/ws/feature/gbfs/batchcalcbyfeaturecode/'],
         'm5-zb.amap.com': ['DROP:/ws/security/account/device_reporting'],
         'm5-x.amap.com': ['DROP:/ws/shield/amapstream/upload'],
         'info.amap.com': ['DROP:/ws/shield/galaxy/data'],
@@ -612,6 +617,7 @@ RULES_DB = {
         'g.alicdn.com': ['/alilog/'],
         'prodregistryv2.org': ['DROP:/v1/rgstr'],
         'apis.naver.com': ['/papago/papago_app/promotions'],
+        'chat.deepseek.com': ['DROP:/api/v0/ip_to_country_code'],
     },
     "HIGH_CONFIDENCE": [
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
@@ -2877,6 +2883,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Safe: ByteDance Rangers SDK CDN Allow", "https://lf3-data.volccdn.com/obj/data-static/log-sdk/collect/5.0/collect-rangers-v5.1.12.js", RES_ALLOW, "V45.52 BugFix: volccdn.com /data-static/log-sdk/ PATH_EXEMPTIONS 豁免，Rangers SDK JS 可正常下載；App 啟動不受影響"))
     cases.append(TestCase("Privacy: snssdk Rangers Data Block", "https://mon.snssdk.com/monitor/collect?app_id=123", RES_BLOCK_403, "V45.52 snssdk.com wildcard 封鎖 Rangers SDK mon. 資料回傳主通道（SDK 載入後無法上傳行為資料）"))
     cases.append(TestCase("Privacy: snssdk Log Upload Block", "https://log.snssdk.com/v2/api/ranger/log?aid=123", RES_BLOCK_403, "V45.52 snssdk.com wildcard 封鎖 Rangers SDK log. 日誌上傳端點"))
+    # --- V45.53 高德 gbfs 遙測 + DeepSeek IP 地理查詢 ---
+    cases.append(TestCase("Privacy: Amap gbfs BatchCalc Location Drop", "https://m5.amap.com/ws/feature/gbfs/batchCalcByFeatureCode/aloc?ent=2&in=ZrE7Y0A0&csid=F1A1612C-1274-41AA-A0A2-76617C0D15DC", RES_DROP_204, "V45.53 高德地圖 gbfs batchCalcByFeatureCode/aloc 地理遙測上報端點 204 DROP（csid 設備指紋 + 加密 in= 資料包）"))
+    cases.append(TestCase("Privacy: DeepSeek IP Country Drop", "https://chat.deepseek.com/api/v0/ip_to_country_code", RES_DROP_204, "V45.53 DeepSeek IP→國家碼地理位置查詢端點 204 DROP；chat.deepseek.com 首次加入 CRITICAL_PATH_MAP"))
     cases.append(TestCase("Privacy: Amap CGI Collector Drop", "https://cgicol.amap.com/collect?module=legacy", RES_DROP_204, "封鎖舊世代 CGI 行為採集通道"))
     cases.append(TestCase("Privacy: Amap Grid Heatmap Drop", "https://grid.amap.com/grid/heatmap/upload?tile=13", RES_DROP_204, "封鎖網格化地理熱區與行為分析上報"))
     cases.append(TestCase("Privacy: Amap Task Monitor Drop", "https://tm.amap.com/task/report?cpu=high", RES_DROP_204, "封鎖 Task Monitor 非同步任務監控遙測"))
