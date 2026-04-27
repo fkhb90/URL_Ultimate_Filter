@@ -3,12 +3,14 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.56 (2026-04-27)
+當前版本：V45.57 (2026-04-27)
 最新架構更新：
-- [Privacy] Google growth-pa.googleapis.com 封鎖：加入 PRIORITY_BLOCK_DOMAINS，與 crashlyticsreports-pa / firebaselogging-pa 同屬 Google Product Analytics (-pa) 系列遙測端點。
-- [Test Suite] 新增 1 項 V45.56 測試案例。
+- [Privacy] 高德地圖 UT 廣告分析端點封鎖：adashx.ut.amap.com 加入 CRITICAL_PATH_MAP DROP:/（UT 廣告看板遙測，與 adiu/logs/cgicol/grid/tm 同屬 amap 全域 DROP 系列）。
+- [Privacy] qchannel01.cn 中國渠道追蹤封鎖：加入 BLOCK_DOMAINS_WILDCARDS，封鎖 i. / www. 等所有子域名。
+- [Test Suite] 新增 2 項 V45.57 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.57 (2026-04-27): 高德 adashx.ut.amap.com UT 廣告分析 DROP + qchannel01.cn 渠道追蹤封鎖。
 - V45.56 (2026-04-27): Google growth-pa.googleapis.com 成長分析端點封鎖。
 - V45.55 (2026-04-27): stat.tiara.daum.net 補漏 + zztfly.com 中國行動 SDK 封鎖。
 - V45.54 (2026-04-27): 高德 AOS 語音 IP 查詢端點 m5.amap.com /ws/aos/voice/ip_info/ DROP。
@@ -63,10 +65,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.56"
+VERSION = "45.57"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] 高德地圖 UT 廣告分析端點封鎖 + qchannel01.cn 中國渠道追蹤封鎖：
+  - adashx.ut.amap.com → CRITICAL_PATH_MAP DROP:/（UT 廣告看板遙測端點；adashx = ad dashboard X；ut.amap.com 為高德 UserTracker 子域；與 adiu/logs/cgicol/grid/tm 同屬全域 DROP 系列）
+  - qchannel01.cn → BLOCK_DOMAINS_WILDCARDS（中國渠道追蹤域名；封鎖 i.qchannel01.cn、www.qchannel01.cn 等所有子域名）
+  - mdap.alipay.com → 已在 BLOCK_DOMAINS (V45.x 先前版本)，無需重複新增
 - [Privacy] Google growth-pa.googleapis.com 成長分析端點封鎖：
   - growth-pa.googleapis.com → PRIORITY_BLOCK_DOMAINS（Google Product Analytics -pa 系列遙測端點；與 crashlyticsreports-pa / firebaselogging-pa 同列）
 - [Privacy] Kakao Tiara 分析 SDK 補漏 + zztfly.com 中國行動分析 SDK 封鎖：
@@ -395,7 +401,7 @@ RULES_DB = {
         'branch.io', 'app.link', 'kochava.com', 'scorecardresearch.com', 'rayjump.com',
         'airbridge.io', 'abr.ge', 'deeplink.page',
         'mintegral.net', 'tiktokv.com', 'byteoversea.com', 'snssdk.com', 'criteo.com', 'criteo.net',
-        'zztfly.com',
+        'zztfly.com', 'qchannel01.cn',
         'adservices.google.com', 'ad2n.com', 'vpon.com', 'tenmax.io', 'clickforce.com.tw', 
         'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com', 'adbottw.net',
         'useinsider.com', 'insiderone.com',
@@ -620,6 +626,7 @@ RULES_DB = {
         'cgicol.amap.com': ['DROP:/'],
         'grid.amap.com': ['DROP:/'],
         'tm.amap.com': ['DROP:/'],
+        'adashx.ut.amap.com': ['DROP:/'],
         'log.wowpass.io': ['DROP:/'],
         'api.airbridge.io': ['DROP:/'],
         'core.airbridge.io': ['DROP:/'],
@@ -2904,6 +2911,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: zztfly Config Client Block", "https://cfgc.zztfly.com/config/fetch?appid=123", RES_BLOCK_403, "V45.55 zztfly.com SDK 設定拉取端點封鎖"))
     # --- V45.56 Google growth-pa 成長分析端點 ---
     cases.append(TestCase("Privacy: Google growth-pa Block", "https://growth-pa.googleapis.com/v1/growthlogs", RES_BLOCK_403, "V45.56 Google growth-pa.googleapis.com 成長分析端點封鎖；與 crashlyticsreports-pa / firebaselogging-pa 同屬 PRIORITY_BLOCK_DOMAINS -pa 系列"))
+    # --- V45.57 高德 adashx.ut + qchannel01.cn ---
+    cases.append(TestCase("Privacy: Amap adashx UT Ad Analytics Drop", "https://adashx.ut.amap.com/api/track/event", RES_DROP_204, "V45.57 高德地圖 UT 廣告看板遙測 DROP；adashx = ad dashboard X；ut.amap.com 為 UserTracker 子域，同系列 adiu/logs/cgicol 全域 DROP"))
+    cases.append(TestCase("Privacy: qchannel01 Tracking Block", "https://i.qchannel01.cn/track?channel=abc&uid=123", RES_BLOCK_403, "V45.57 qchannel01.cn 中國渠道追蹤域名封鎖；BLOCK_DOMAINS_WILDCARDS 覆蓋 i./www. 等所有子域名"))
     cases.append(TestCase("Privacy: Amap CGI Collector Drop", "https://cgicol.amap.com/collect?module=legacy", RES_DROP_204, "封鎖舊世代 CGI 行為採集通道"))
     cases.append(TestCase("Privacy: Amap Grid Heatmap Drop", "https://grid.amap.com/grid/heatmap/upload?tile=13", RES_DROP_204, "封鎖網格化地理熱區與行為分析上報"))
     cases.append(TestCase("Privacy: Amap Task Monitor Drop", "https://tm.amap.com/task/report?cpu=high", RES_DROP_204, "封鎖 Task Monitor 非同步任務監控遙測"))
