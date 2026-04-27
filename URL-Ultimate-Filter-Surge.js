@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.56
+ * @version 45.57
  * @date    2026-04-27
- * @rules   1466 total (296 domains, 387 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1468 total (297 domains, 388 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.56';
-const SCRIPT_BUILD = 'V45.56 (2026-04-27) | 1466 rules | 2958 tests';
+const SCRIPT_VERSION = '45.57';
+const SCRIPT_BUILD = 'V45.57 (2026-04-27) | 1468 rules | 2964 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -214,11 +214,11 @@ const RULES = {
     'app-measurement.com', 'adjust.com', 'adjust.net', 'appsflyer.com', 'onelink.me', 'branch.io',
     'app.link', 'kochava.com', 'scorecardresearch.com', 'rayjump.com', 'airbridge.io', 'abr.ge',
     'deeplink.page', 'mintegral.net', 'tiktokv.com', 'byteoversea.com', 'snssdk.com', 'criteo.com',
-    'criteo.net', 'zztfly.com', 'adservices.google.com', 'ad2n.com', 'vpon.com', 'tenmax.io',
-    'clickforce.com.tw', 'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com', 'adbottw.net',
-    'useinsider.com', 'insiderone.com', 'treasuredata.com', 'treasure-data.com', 'tagtoo.com.tw', 'scupio.net',
-    'clickforce.net', 'log.aliyuncs.com', 'sls.aliyuncs.com', 'jpush.cn', 'jpush.io', 'jiguang.cn',
-    'igexin.com', 'getui.com', 'getui.net', 'gepush.com', 'veta.naver.com'
+    'criteo.net', 'zztfly.com', 'qchannel01.cn', 'adservices.google.com', 'ad2n.com', 'vpon.com',
+    'tenmax.io', 'clickforce.com.tw', 'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com',
+    'adbottw.net', 'useinsider.com', 'insiderone.com', 'treasuredata.com', 'treasure-data.com', 'tagtoo.com.tw',
+    'scupio.net', 'clickforce.net', 'log.aliyuncs.com', 'sls.aliyuncs.com', 'jpush.cn', 'jpush.io',
+    'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com', 'veta.naver.com'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
@@ -693,6 +693,9 @@ const RULES = {
         'DROP:/'
       ])],
     ['tm.amap.com', new Set([
+        'DROP:/'
+      ])],
+    ['adashx.ut.amap.com', new Set([
         'DROP:/'
       ])],
     ['log.wowpass.io', new Set([
