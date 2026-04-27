@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.50
+// @name         URL Ultimate Filter V45.51
 // @namespace    http://tampermonkey.net/
-// @version      45.50
+// @version      45.51
 // @date         2026-04-27
-// @description  SSOT 前端防護盾牌 V45.50 (2026-04-27) | 1460 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @description  SSOT 前端防護盾牌 V45.51 (2026-04-27) | 1460 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
 // @rules        1460 total (293 domains · 384 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
@@ -15,22 +15,22 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.50
+ * @version 45.51
  * @date    2026-04-27
  * @rules   1460 total (293 domains, 384 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.50';
-const SCRIPT_BUILD = 'V45.50 (2026-04-27) | 1460 rules | 2934 tests';
+const SCRIPT_VERSION = '45.51';
+const SCRIPT_BUILD = 'V45.51 (2026-04-27) | 1460 rules | 2935 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
     DOMAINS: new Set([
     'accounts.google.com', 'accounts.google.com.tw', 'accounts.youtube.com', 'appleid.apple.com', 'idmsa.apple.com', 'facebook.com',
     'www.facebook.com', 'm.facebook.com', 'login.microsoftonline.com', 'login.live.com', 'github.com', 'api.twitter.com',
-    'api.x.com'
+    'api.x.com', 'member.tw.coupang.com'
   ]),
     PATHS_REGEX: [ /\/(login|oauth|oauth2|authorize|signin|session)(\/|\?|$)/i ]
 };
