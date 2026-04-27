@@ -3,12 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.49 (2026-04-24)
+當前版本：V45.50 (2026-04-27)
 最新架構更新：
-- [AdBlock] 高德地圖搜尋廣告 POI 端點封鎖：m5.amap.com /ws/shield/search_poi/tips_adv 403 封鎖，切斷地圖搜尋結果中的廣告 POI 注入（tips_adv = advertisement tips，in= 夾帶加密廣告投放資料）。
-- [Test Suite] 新增 1 項 V45.49 測試案例。
+- [Rules] 多平台遙測與廣告端點補強：高德 AMC 轉化追蹤 (m5/center.amap.com /ws/amc/ DROP)、Coupang cmapi ad-info 廣告 POI (403)、阿里巴巴 APlus 分析 CDN 腳本 (g.alicdn.com /alilog/ 403)、PostHog 分析登記 (prodregistryv2.org /v1/rgstr DROP)、ChatGPT CES v1 遙測 (chatgpt.com /ces/v1/m+t DROP)、Naver Papago 推廣 API (apis.naver.com /promotions 403)。
+- [Test Suite] 新增 9 項 V45.50 測試案例（含 1 項放行驗證）。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.50 (2026-04-27): 多平台補強 — Amap AMC /ws/amc/ DROP、Coupang ad-info 403、APlus CDN /alilog/ 403、PostHog prodregistryv2 DROP、ChatGPT /ces/v1/ DROP、Naver Papago promotions 403。
 - V45.49 (2026-04-24): 高德地圖搜尋廣告 POI 封鎖 — m5.amap.com /ws/shield/search_poi/tips_adv 403。
 - V45.48 (2026-04-24): Airbridge MMP 全面封鎖 — airbridge.io wildcards + api/core DROP + abr.ge + deeplink.page。
 - V45.47 (2026-04-24): WOWPASS log.wowpass.io 全域 DROP — /api/v1/log 尾無 s 漏網，/v1/log 通用規則有誤殺風險，以域名層精準覆蓋。
@@ -56,10 +57,19 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.49"
-RELEASE_DATE = "2026-04-24"
+VERSION = "45.50"
+RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Rules] 多平台遙測與廣告端點補強（8 條新規則，9 項測試）：
+  - m5.amap.com → DROP:/ws/amc/（AMC 轉化追蹤 conv/operate 端點靜默拋棄）
+  - center.amap.com → DROP:/ws/amc/（center 子域 AMC raise_list 轉化追蹤 DROP）
+  - cmapi.tw.coupang.com → /ad-info（Coupang modular 廣告 POI 注入端點 403 封鎖）
+  - g.alicdn.com → /alilog/（阿里巴巴 APlus 分析 SDK CDN 腳本 403 封鎖）
+  - prodregistryv2.org → DROP:/v1/rgstr（PostHog 分析登記端點 204 DROP）
+  - chatgpt.com → DROP:/ces/v1/m + DROP:/ces/v1/t（CES Client Event Service 遙測端點 204 DROP）
+  - apis.naver.com → /papago/papago_app/promotions（Naver Papago 推廣內容 API 403 封鎖）
+- [Safe] 確認 member.tw.coupang.com OAuth2 PKCE 授權流程正常放行（新增驗證測試案例）。
 - [Rules] 高德地圖 (amap.com) 遙測端點封鎖升級：補齊 adiu/logs/dualstack-logs/wb/cgicol/grid/tm 與 amdc.m.taobao.com，擴充阿里媽媽 nogw 備援廣告路徑，新增 info/passport/frogserver 三條漏網遙測通道。
   - info.amap.com → DROP:/ws/shield/galaxy/data（盾系 galaxy 遙測資料上報）
   - passport.amap.com → DROP:/ws/auth/session-report（工作階段遙測上報）
@@ -454,7 +464,7 @@ RULES_DB = {
         'www.google.com': ['/log', '/pagead/1p-user-list/'],
         'play.google.com': ['/log'],
         'js.stripe.com': ['/fingerprinted/'],
-        'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr'],
+        'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'],
         'tw.fd-api.com': ['DROP:/api/v5/action-log'],
         'chatbot.shopee.tw': ['/report/v1/log'],
         'data-rep.livetech.shopee.tw': ['/dataapi/dataweb/event/'],
@@ -552,7 +562,7 @@ RULES_DB = {
         'patronus.idata.shopeemobile.com': ['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'],
         'dp.tracking.shopee.tw': ['/v4/event_batch'],
         'live-apm.shopee.tw': ['/apmapi/v1/event'],
-        'cmapi.tw.coupang.com': ['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/'],
+        'cmapi.tw.coupang.com': ['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/', '/ad-info'],
         'disqus.com': ['/api/3.0/users/events', '/j/', '/tracking_pixel/'],
         'yahooapis.jp': ['/v2/acookie/lookup', '/acookie/'],
         'nlog.naver.com': ['DROP:/'],
@@ -567,7 +577,7 @@ RULES_DB = {
         'ntm.pstatic.net': ['DROP:/'],
         'fp.amap.com': ['DROP:/ws/shield/location/fp/report'],
         'awaken.amap.com': ['DROP:/ws/h5_log'],
-        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv'],
+        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/'],
         'm5-zb.amap.com': ['DROP:/ws/security/account/device_reporting'],
         'm5-x.amap.com': ['DROP:/ws/shield/amapstream/upload'],
         'info.amap.com': ['DROP:/ws/shield/galaxy/data'],
@@ -583,7 +593,11 @@ RULES_DB = {
         'tm.amap.com': ['DROP:/'],
         'log.wowpass.io': ['DROP:/'],
         'api.airbridge.io': ['DROP:/'],
-        'core.airbridge.io': ['DROP:/']
+        'core.airbridge.io': ['DROP:/'],
+        'center.amap.com': ['DROP:/ws/amc/'],
+        'g.alicdn.com': ['/alilog/'],
+        'prodregistryv2.org': ['DROP:/v1/rgstr'],
+        'apis.naver.com': ['/papago/papago_app/promotions'],
     },
     "HIGH_CONFIDENCE": [
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
@@ -2834,6 +2848,16 @@ def generate_full_coverage_cases() -> List[TestCase]:
 
     # --- V45.49 高德地圖搜尋廣告 POI 端點封鎖 ---
     cases.append(TestCase("AdBlock: Amap Search POI Ad Block", "https://m5.amap.com/ws/shield/search_poi/tips_adv?ent=2&in=MqNRFU7dpqjuU2%2BJudnw&csid=96ACEAF2-4C21-42B7-8C19-96DFE64D49CB", RES_BLOCK_403, "V45.49 高德地圖搜尋結果廣告 POI 注入端點 403 封鎖；tips_adv = advertisement tips，in= 夾帶加密廣告投放資料"))
+    # --- V45.50 多平台遙測與廣告端點補強 ---
+    cases.append(TestCase("Privacy: Amap AMC Conv Operate Drop", "https://m5.amap.com/ws/amc/server/conv/operate?ent=2&csid=670A8E55-846A-4CB1-87AB-DBC9A4D71F28", RES_DROP_204, "V45.50 高德 AMC (Amap Marketing Cloud) 轉化追蹤 conv/operate 端點 204 DROP，切斷轉化事件回傳"))
+    cases.append(TestCase("Privacy: Amap Center AMC Conv Drop", "https://center.amap.com/ws/amc/server/conv/raise_list?ent=2&csid=5B965901-0334-485E-98C1-065530502478", RES_DROP_204, "V45.50 center.amap.com AMC raise_list 廣告轉化清單拉取端點 204 DROP"))
+    cases.append(TestCase("AdBlock: Coupang cmapi ad-info Block", "https://cmapi.tw.coupang.com/modular/v1/pages/53/ad-info?responseType=FLATTENED", RES_BLOCK_403, "V45.50 Coupang cmapi modular 廣告 POI 注入端點 403 封鎖（廣告資訊回傳接口）"))
+    cases.append(TestCase("Privacy: Alibaba APlus Analytics CDN Block", "https://g.alicdn.com/alilog/s/8.15.25/plugin/aplus_client.js", RES_BLOCK_403, "V45.50 阿里巴巴 APlus 分析 SDK CDN 腳本 g.alicdn.com /alilog/ 路徑 403 封鎖"))
+    cases.append(TestCase("Privacy: PostHog Registry Drop", "https://prodregistryv2.org/v1/rgstr?k=client-jGsou7hG3B4NmNew53QhE2fmdMo5Z2nIXNYMIPJl1FI&st=javascript-client-react&sv=3.25.3", RES_DROP_204, "V45.50 PostHog 分析 SDK 登記端點 /v1/rgstr 204 DROP（javascript-client-react SDK 事件上報）"))
+    cases.append(TestCase("Privacy: ChatGPT CES v1 m Drop", "https://chatgpt.com/ces/v1/m", RES_DROP_204, "V45.50 ChatGPT Client Event Service /ces/v1/m 遙測端點 204 DROP"))
+    cases.append(TestCase("Privacy: ChatGPT CES v1 t Drop", "https://chatgpt.com/ces/v1/t", RES_DROP_204, "V45.50 ChatGPT Client Event Service /ces/v1/t 追蹤端點 204 DROP"))
+    cases.append(TestCase("AdBlock: Naver Papago Promotions Block", "https://apis.naver.com/papago/papago_app/promotions?appVer=1.11.9&locale=zh-TW&os=ios", RES_BLOCK_403, "V45.50 Naver Papago 翻譯 App 推廣/廣告內容 API 403 封鎖"))
+    cases.append(TestCase("Safe: Coupang OAuth2 Authorize", "https://member.tw.coupang.com/stepup/authorize?redirect_uri=coupang%3A%2Foauth2redirect&scope=offline+openid+core&client_id=441c99ae-26f9-4e4e-903f-dc5886fe0a9a", RES_ALLOW, "V45.50 Coupang OAuth2 PKCE 登入授權流程正常放行（member.tw.coupang.com 非追蹤域名）"))
     cases.append(TestCase("Privacy: Amap CGI Collector Drop", "https://cgicol.amap.com/collect?module=legacy", RES_DROP_204, "封鎖舊世代 CGI 行為採集通道"))
     cases.append(TestCase("Privacy: Amap Grid Heatmap Drop", "https://grid.amap.com/grid/heatmap/upload?tile=13", RES_DROP_204, "封鎖網格化地理熱區與行為分析上報"))
     cases.append(TestCase("Privacy: Amap Task Monitor Drop", "https://tm.amap.com/task/report?cpu=high", RES_DROP_204, "封鎖 Task Monitor 非同步任務監控遙測"))
