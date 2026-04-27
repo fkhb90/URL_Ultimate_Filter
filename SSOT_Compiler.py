@@ -3,13 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.57 (2026-04-27)
+當前版本：V45.58 (2026-04-27)
 最新架構更新：
-- [Privacy] 高德地圖 UT 廣告分析端點封鎖：adashx.ut.amap.com 加入 CRITICAL_PATH_MAP DROP:/（UT 廣告看板遙測，與 adiu/logs/cgicol/grid/tm 同屬 amap 全域 DROP 系列）。
-- [Privacy] qchannel01.cn 中國渠道追蹤封鎖：加入 BLOCK_DOMAINS_WILDCARDS，封鎖 i. / www. 等所有子域名。
-- [Test Suite] 新增 2 項 V45.57 測試案例。
+- [Privacy] 高德/AutoNavi 廣告與追蹤端點補強：optimus-ads.amap.com（廣告最佳化系統）與 store.is.autonavi.com（AutoNavi 母品牌門店追蹤）加入 CRITICAL_PATH_MAP DROP:/。
+- [Test Suite] 新增 2 項 V45.58 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.58 (2026-04-27): 高德 optimus-ads.amap.com 廣告系統 DROP + AutoNavi store.is.autonavi.com 門店追蹤 DROP。
 - V45.57 (2026-04-27): 高德 adashx.ut.amap.com UT 廣告分析 DROP + qchannel01.cn 渠道追蹤封鎖。
 - V45.56 (2026-04-27): Google growth-pa.googleapis.com 成長分析端點封鎖。
 - V45.55 (2026-04-27): stat.tiara.daum.net 補漏 + zztfly.com 中國行動 SDK 封鎖。
@@ -65,10 +65,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.57"
+VERSION = "45.58"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] 高德/AutoNavi 廣告與追蹤端點補強：
+  - optimus-ads.amap.com → CRITICAL_PATH_MAP DROP:/（Amap 廣告最佳化系統；optimus = 最佳化，ads 明示廣告用途；與 adiu/logs/cgicol 等 amap 全域 DROP 系列一致）
+  - store.is.autonavi.com → CRITICAL_PATH_MAP DROP:/（AutoNavi 母品牌門店資訊追蹤端點；store.is = 門店資訊服務，屬位置與行為遙測）
 - [Privacy] 高德地圖 UT 廣告分析端點封鎖 + qchannel01.cn 中國渠道追蹤封鎖：
   - adashx.ut.amap.com → CRITICAL_PATH_MAP DROP:/（UT 廣告看板遙測端點；adashx = ad dashboard X；ut.amap.com 為高德 UserTracker 子域；與 adiu/logs/cgicol/grid/tm 同屬全域 DROP 系列）
   - qchannel01.cn → BLOCK_DOMAINS_WILDCARDS（中國渠道追蹤域名；封鎖 i.qchannel01.cn、www.qchannel01.cn 等所有子域名）
@@ -627,6 +630,8 @@ RULES_DB = {
         'grid.amap.com': ['DROP:/'],
         'tm.amap.com': ['DROP:/'],
         'adashx.ut.amap.com': ['DROP:/'],
+        'optimus-ads.amap.com': ['DROP:/'],
+        'store.is.autonavi.com': ['DROP:/'],
         'log.wowpass.io': ['DROP:/'],
         'api.airbridge.io': ['DROP:/'],
         'core.airbridge.io': ['DROP:/'],
@@ -2915,6 +2920,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Amap adashx UT Ad Analytics Drop", "https://adashx.ut.amap.com/api/track/event", RES_DROP_204, "V45.57 高德地圖 UT 廣告看板遙測 DROP；adashx = ad dashboard X；ut.amap.com 為 UserTracker 子域，同系列 adiu/logs/cgicol 全域 DROP"))
     cases.append(TestCase("Privacy: qchannel01 Tracking Block", "https://i.qchannel01.cn/track?channel=abc&uid=123", RES_BLOCK_403, "V45.57 qchannel01.cn 中國渠道追蹤域名封鎖；BLOCK_DOMAINS_WILDCARDS 覆蓋 i./www. 等所有子域名"))
     cases.append(TestCase("Privacy: Amap CGI Collector Drop", "https://cgicol.amap.com/collect?module=legacy", RES_DROP_204, "封鎖舊世代 CGI 行為採集通道"))
+    # --- V45.58 Amap optimus-ads + AutoNavi store.is ---
+    cases.append(TestCase("Privacy: Amap Optimus Ads Drop", "https://optimus-ads.amap.com/api/ads/recommend", RES_DROP_204, "V45.58 高德地圖廣告最佳化系統 DROP；optimus = 最佳化，ads 明示廣告用途，CRITICAL_PATH_MAP 全域 DROP"))
+    cases.append(TestCase("Privacy: AutoNavi Store IS Drop", "https://store.is.autonavi.com/api/store/track?sid=abc", RES_DROP_204, "V45.58 AutoNavi 母品牌門店資訊追蹤端點 DROP；store.is = 門店資訊服務，位置/行為遙測"))
     cases.append(TestCase("Privacy: Amap Grid Heatmap Drop", "https://grid.amap.com/grid/heatmap/upload?tile=13", RES_DROP_204, "封鎖網格化地理熱區與行為分析上報"))
     cases.append(TestCase("Privacy: Amap Task Monitor Drop", "https://tm.amap.com/task/report?cpu=high", RES_DROP_204, "封鎖 Task Monitor 非同步任務監控遙測"))
     cases.append(TestCase("Privacy: Amap Updatable V2 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v2/log?ent=2", RES_DROP_204, "補齊 /v2/log 版本化 API 邊界防禦"))

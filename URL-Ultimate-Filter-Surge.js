@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.57
+ * @version 45.58
  * @date    2026-04-27
- * @rules   1468 total (297 domains, 388 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1470 total (297 domains, 390 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.57';
-const SCRIPT_BUILD = 'V45.57 (2026-04-27) | 1468 rules | 2964 tests';
+const SCRIPT_VERSION = '45.58';
+const SCRIPT_BUILD = 'V45.58 (2026-04-27) | 1470 rules | 2970 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -696,6 +696,12 @@ const RULES = {
         'DROP:/'
       ])],
     ['adashx.ut.amap.com', new Set([
+        'DROP:/'
+      ])],
+    ['optimus-ads.amap.com', new Set([
+        'DROP:/'
+      ])],
+    ['store.is.autonavi.com', new Set([
         'DROP:/'
       ])],
     ['log.wowpass.io', new Set([
