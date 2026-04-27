@@ -3,12 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.51 (2026-04-27)
+當前版本：V45.52 (2026-04-27)
 最新架構更新：
-- [BugFix] Coupang OAuth2 誤殺修正：member.tw.coupang.com 加入 OAUTH_SAFE_HARBOR_DOMAINS，完全豁免主決策流程關鍵字掃描。根因：OAuth 標準參數 `audience=` 命中 PATH_BLOCK 'audience' 關鍵字；SOFT_WHITELIST 無法屏蔽關鍵字掃描，需升級為 OAuth 安全港（等同 accounts.google.com 語義）。
-- [Test Suite] 新增 1 項 V45.51 BugFix 驗證測試案例（含 audience/uuid 等誤殺關鍵字的完整 OAuth URL）。
+- [BugFix] ByteDance Rangers SDK 誤殺修正（PATH_EXEMPTIONS 精準豁免策略）：volccdn.com CDN 的 /data-static/log-sdk/ 路徑加入 PATH_EXEMPTIONS，讓 SDK JS 可正常下載；snssdk.com 加入 BLOCK_DOMAINS_WILDCARDS，補上 Rangers 資料回傳通道缺口（mon/log/applog 等子域），搭配已有的 byteoversea.com 封鎖，確保 SDK 載入但資料無法離開設備。
+- [Test Suite] 新增 3 項 V45.52 測試案例（CDN 放行 + snssdk 封鎖驗證）。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.52 (2026-04-27): BugFix — ByteDance Rangers SDK CDN 豁免 + snssdk.com wildcard 封鎖，讓 App 正常啟動同時阻止資料回傳。
 - V45.51 (2026-04-27): BugFix — member.tw.coupang.com OAuth2 誤殺修正，加入 OAUTH_SAFE_HARBOR_DOMAINS 豁免 audience/uuid PATH_BLOCK 關鍵字誤判。
 - V45.50 (2026-04-27): 多平台補強 — Amap AMC /ws/amc/ DROP、Coupang ad-info 403、APlus CDN /alilog/ 403、PostHog prodregistryv2 DROP、ChatGPT /ces/v1/ DROP、Naver Papago promotions 403。
 - V45.49 (2026-04-24): 高德地圖搜尋廣告 POI 封鎖 — m5.amap.com /ws/shield/search_poi/tips_adv 403。
@@ -58,10 +59,16 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.51"
+VERSION = "45.52"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [BugFix] ByteDance Rangers SDK CDN 誤殺修正（「讓 JS 載入，封鎖它打電話回家」策略）：
+  - 根因：criticalPathScanner 命中 CRITICAL_PATH_GENERIC '/collect'（路徑含 /collect/），無靜態資源豁免
+  - 修法 1：PATH_EXEMPTIONS 新增 volccdn.com → /data-static/log-sdk/，引擎步驟 6 短路 ALLOW，SDK JS 可正常下載
+  - 修法 2：BLOCK_DOMAINS_WILDCARDS 新增 snssdk.com，封鎖 Rangers 資料回傳端點（mon/log/applog.snssdk.com 等）
+  - 既有 byteoversea.com wildcard 已封鎖國際版資料通道；snssdk.com 補上國內/亞洲版缺口
+  - 淨效果：App 正常啟動，SDK 無法將行為資料上傳至 ByteDance 後端
 - [BugFix] Coupang OAuth2 登入流程誤殺修正：
   - 根因：member.tw.coupang.com 在 SOFT_WHITELIST（via coupang.com），SOFT_WHITELIST 不屏蔽關鍵字掃描
   - 觸發詞：OAuth 標準參數 `audience=` 命中 PATH_BLOCK 'audience' 關鍵字 → "Blocked by Keyword"
@@ -373,7 +380,7 @@ RULES_DB = {
         'app-measurement.com', 'adjust.com', 'adjust.net', 'appsflyer.com', 'onelink.me',
         'branch.io', 'app.link', 'kochava.com', 'scorecardresearch.com', 'rayjump.com',
         'airbridge.io', 'abr.ge', 'deeplink.page',
-        'mintegral.net', 'tiktokv.com', 'byteoversea.com', 'criteo.com', 'criteo.net',
+        'mintegral.net', 'tiktokv.com', 'byteoversea.com', 'snssdk.com', 'criteo.com', 'criteo.net',
         'adservices.google.com', 'ad2n.com', 'vpon.com', 'tenmax.io', 'clickforce.com.tw', 
         'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com', 'adbottw.net',
         'useinsider.com', 'insiderone.com',
@@ -707,7 +714,8 @@ RULES_DB = {
         "threads.com": ["/post/"],
         "threads.net": ["/post/"],
         "citiesocial.com": ["/collection/"],
-        "ghostery.com": ["/adblocker/"]
+        "ghostery.com": ["/adblocker/"],
+        "volccdn.com": ["/data-static/log-sdk/"]
     }
 }
 
@@ -2865,6 +2873,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: ChatGPT CES v1 t Drop", "https://chatgpt.com/ces/v1/t", RES_DROP_204, "V45.50 ChatGPT Client Event Service /ces/v1/t 追蹤端點 204 DROP"))
     cases.append(TestCase("AdBlock: Naver Papago Promotions Block", "https://apis.naver.com/papago/papago_app/promotions?appVer=1.11.9&locale=zh-TW&os=ios", RES_BLOCK_403, "V45.50 Naver Papago 翻譯 App 推廣/廣告內容 API 403 封鎖"))
     cases.append(TestCase("Safe: Coupang OAuth2 Authorize (full)", "https://member.tw.coupang.com/stepup/authorize?redirect_uri=coupang%3A%2Foauth2redirect&scope=offline%20openid%20core&audience=https%3A%2F%2Fwww.tw.coupang.com&log_info=%7B%22uuid%22%3A%2233B2CBE1%22%7D&client_id=441c99ae-26f9-4e4e-903f-dc5886fe0a9a&code_challenge=JeR-MPNo9Q&state=abc", RES_ALLOW, "V45.51 BugFix: audience/uuid 等 PATH_BLOCK 關鍵字出現在 OAuth 查詢參數中誤殺；member.tw.coupang.com 加入 OAUTH_SAFE_HARBOR_DOMAINS 完全豁免"))
+    # --- V45.52 ByteDance Rangers SDK 精準豁免 ---
+    cases.append(TestCase("Safe: ByteDance Rangers SDK CDN Allow", "https://lf3-data.volccdn.com/obj/data-static/log-sdk/collect/5.0/collect-rangers-v5.1.12.js", RES_ALLOW, "V45.52 BugFix: volccdn.com /data-static/log-sdk/ PATH_EXEMPTIONS 豁免，Rangers SDK JS 可正常下載；App 啟動不受影響"))
+    cases.append(TestCase("Privacy: snssdk Rangers Data Block", "https://mon.snssdk.com/monitor/collect?app_id=123", RES_BLOCK_403, "V45.52 snssdk.com wildcard 封鎖 Rangers SDK mon. 資料回傳主通道（SDK 載入後無法上傳行為資料）"))
+    cases.append(TestCase("Privacy: snssdk Log Upload Block", "https://log.snssdk.com/v2/api/ranger/log?aid=123", RES_BLOCK_403, "V45.52 snssdk.com wildcard 封鎖 Rangers SDK log. 日誌上傳端點"))
     cases.append(TestCase("Privacy: Amap CGI Collector Drop", "https://cgicol.amap.com/collect?module=legacy", RES_DROP_204, "封鎖舊世代 CGI 行為採集通道"))
     cases.append(TestCase("Privacy: Amap Grid Heatmap Drop", "https://grid.amap.com/grid/heatmap/upload?tile=13", RES_DROP_204, "封鎖網格化地理熱區與行為分析上報"))
     cases.append(TestCase("Privacy: Amap Task Monitor Drop", "https://tm.amap.com/task/report?cpu=high", RES_DROP_204, "封鎖 Task Monitor 非同步任務監控遙測"))

@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.51
+// @name         URL Ultimate Filter V45.52
 // @namespace    http://tampermonkey.net/
-// @version      45.51
+// @version      45.52
 // @date         2026-04-27
-// @description  SSOT 前端防護盾牌 V45.51 (2026-04-27) | 1460 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1460 total (293 domains · 384 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V45.52 (2026-04-27) | 1461 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1461 total (294 domains · 384 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.51
+ * @version 45.52
  * @date    2026-04-27
- * @rules   1460 total (293 domains, 384 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1461 total (294 domains, 384 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.51';
-const SCRIPT_BUILD = 'V45.51 (2026-04-27) | 1460 rules | 2935 tests';
+const SCRIPT_VERSION = '45.52';
+const SCRIPT_BUILD = 'V45.52 (2026-04-27) | 1461 rules | 2941 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -228,12 +228,12 @@ const RULES = {
     'pbs.yahoo.com', 'ay.delivery', 'cootlogix.com', 'ottadvisors.com', 'newaddiscover.com', 'app-ads-services.com',
     'app-measurement.com', 'adjust.com', 'adjust.net', 'appsflyer.com', 'onelink.me', 'branch.io',
     'app.link', 'kochava.com', 'scorecardresearch.com', 'rayjump.com', 'airbridge.io', 'abr.ge',
-    'deeplink.page', 'mintegral.net', 'tiktokv.com', 'byteoversea.com', 'criteo.com', 'criteo.net',
-    'adservices.google.com', 'ad2n.com', 'vpon.com', 'tenmax.io', 'clickforce.com.tw', 'onead.com.tw',
-    'bridgewell.com', 'tagtoo.co', 'scupio.com', 'adbottw.net', 'useinsider.com', 'insiderone.com',
-    'treasuredata.com', 'treasure-data.com', 'tagtoo.com.tw', 'scupio.net', 'clickforce.net', 'log.aliyuncs.com',
-    'sls.aliyuncs.com', 'jpush.cn', 'jpush.io', 'jiguang.cn', 'igexin.com', 'getui.com',
-    'getui.net', 'gepush.com', 'veta.naver.com'
+    'deeplink.page', 'mintegral.net', 'tiktokv.com', 'byteoversea.com', 'snssdk.com', 'criteo.com',
+    'criteo.net', 'adservices.google.com', 'ad2n.com', 'vpon.com', 'tenmax.io', 'clickforce.com.tw',
+    'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com', 'adbottw.net', 'useinsider.com',
+    'insiderone.com', 'treasuredata.com', 'treasure-data.com', 'tagtoo.com.tw', 'scupio.net', 'clickforce.net',
+    'log.aliyuncs.com', 'sls.aliyuncs.com', 'jpush.cn', 'jpush.io', 'jiguang.cn', 'igexin.com',
+    'getui.com', 'getui.net', 'gepush.com', 'veta.naver.com'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
@@ -961,6 +961,9 @@ const RULES = {
       ])],
     ['ghostery.com', new Set([
         '/adblocker/'
+      ])],
+    ['volccdn.com', new Set([
+        '/data-static/log-sdk/'
       ])]
   ])
   }
