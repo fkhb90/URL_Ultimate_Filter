@@ -3,12 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.50 (2026-04-27)
+當前版本：V45.51 (2026-04-27)
 最新架構更新：
-- [Rules] 多平台遙測與廣告端點補強：高德 AMC 轉化追蹤 (m5/center.amap.com /ws/amc/ DROP)、Coupang cmapi ad-info 廣告 POI (403)、阿里巴巴 APlus 分析 CDN 腳本 (g.alicdn.com /alilog/ 403)、PostHog 分析登記 (prodregistryv2.org /v1/rgstr DROP)、ChatGPT CES v1 遙測 (chatgpt.com /ces/v1/m+t DROP)、Naver Papago 推廣 API (apis.naver.com /promotions 403)。
-- [Test Suite] 新增 9 項 V45.50 測試案例（含 1 項放行驗證）。
+- [BugFix] Coupang OAuth2 誤殺修正：member.tw.coupang.com 加入 OAUTH_SAFE_HARBOR_DOMAINS，完全豁免主決策流程關鍵字掃描。根因：OAuth 標準參數 `audience=` 命中 PATH_BLOCK 'audience' 關鍵字；SOFT_WHITELIST 無法屏蔽關鍵字掃描，需升級為 OAuth 安全港（等同 accounts.google.com 語義）。
+- [Test Suite] 新增 1 項 V45.51 BugFix 驗證測試案例（含 audience/uuid 等誤殺關鍵字的完整 OAuth URL）。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.51 (2026-04-27): BugFix — member.tw.coupang.com OAuth2 誤殺修正，加入 OAUTH_SAFE_HARBOR_DOMAINS 豁免 audience/uuid PATH_BLOCK 關鍵字誤判。
 - V45.50 (2026-04-27): 多平台補強 — Amap AMC /ws/amc/ DROP、Coupang ad-info 403、APlus CDN /alilog/ 403、PostHog prodregistryv2 DROP、ChatGPT /ces/v1/ DROP、Naver Papago promotions 403。
 - V45.49 (2026-04-24): 高德地圖搜尋廣告 POI 封鎖 — m5.amap.com /ws/shield/search_poi/tips_adv 403。
 - V45.48 (2026-04-24): Airbridge MMP 全面封鎖 — airbridge.io wildcards + api/core DROP + abr.ge + deeplink.page。
@@ -57,10 +58,15 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.50"
+VERSION = "45.51"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [BugFix] Coupang OAuth2 登入流程誤殺修正：
+  - 根因：member.tw.coupang.com 在 SOFT_WHITELIST（via coupang.com），SOFT_WHITELIST 不屏蔽關鍵字掃描
+  - 觸發詞：OAuth 標準參數 `audience=` 命中 PATH_BLOCK 'audience' 關鍵字 → "Blocked by Keyword"
+  - 修法：將 member.tw.coupang.com 加入 OAUTH_SAFE_HARBOR_DOMAINS，主決策流程 isOAuthSafeHarbor 短路返回，完全豁免關鍵字/域名封鎖掃描（等同 accounts.google.com 語義）
+  - 補充：OAuth 路徑正則保護 (matchesAnyRegex OAUTH_PATHS_REGEX) 僅存在於 cleanTrackingParams，主流程無路徑正則備援，SAFE_HARBOR 是正確修法
 - [Rules] 多平台遙測與廣告端點補強（8 條新規則，9 項測試）：
   - m5.amap.com → DROP:/ws/amc/（AMC 轉化追蹤 conv/operate 端點靜默拋棄）
   - center.amap.com → DROP:/ws/amc/（center 子域 AMC raise_list 轉化追蹤 DROP）
@@ -106,7 +112,8 @@ RULES_DB = {
         'appleid.apple.com', 'idmsa.apple.com',
         'facebook.com', 'www.facebook.com', 'm.facebook.com',
         'login.microsoftonline.com', 'login.live.com',
-        'github.com', 'api.twitter.com', 'api.x.com'
+        'github.com', 'api.twitter.com', 'api.x.com',
+        'member.tw.coupang.com'
     ],
     "PARAM_CLEANING_EXEMPTED_DOMAINS": {
         "EXACT": [
@@ -2857,7 +2864,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: ChatGPT CES v1 m Drop", "https://chatgpt.com/ces/v1/m", RES_DROP_204, "V45.50 ChatGPT Client Event Service /ces/v1/m 遙測端點 204 DROP"))
     cases.append(TestCase("Privacy: ChatGPT CES v1 t Drop", "https://chatgpt.com/ces/v1/t", RES_DROP_204, "V45.50 ChatGPT Client Event Service /ces/v1/t 追蹤端點 204 DROP"))
     cases.append(TestCase("AdBlock: Naver Papago Promotions Block", "https://apis.naver.com/papago/papago_app/promotions?appVer=1.11.9&locale=zh-TW&os=ios", RES_BLOCK_403, "V45.50 Naver Papago 翻譯 App 推廣/廣告內容 API 403 封鎖"))
-    cases.append(TestCase("Safe: Coupang OAuth2 Authorize", "https://member.tw.coupang.com/stepup/authorize?redirect_uri=coupang%3A%2Foauth2redirect&scope=offline+openid+core&client_id=441c99ae-26f9-4e4e-903f-dc5886fe0a9a", RES_ALLOW, "V45.50 Coupang OAuth2 PKCE 登入授權流程正常放行（member.tw.coupang.com 非追蹤域名）"))
+    cases.append(TestCase("Safe: Coupang OAuth2 Authorize (full)", "https://member.tw.coupang.com/stepup/authorize?redirect_uri=coupang%3A%2Foauth2redirect&scope=offline%20openid%20core&audience=https%3A%2F%2Fwww.tw.coupang.com&log_info=%7B%22uuid%22%3A%2233B2CBE1%22%7D&client_id=441c99ae-26f9-4e4e-903f-dc5886fe0a9a&code_challenge=JeR-MPNo9Q&state=abc", RES_ALLOW, "V45.51 BugFix: audience/uuid 等 PATH_BLOCK 關鍵字出現在 OAuth 查詢參數中誤殺；member.tw.coupang.com 加入 OAUTH_SAFE_HARBOR_DOMAINS 完全豁免"))
     cases.append(TestCase("Privacy: Amap CGI Collector Drop", "https://cgicol.amap.com/collect?module=legacy", RES_DROP_204, "封鎖舊世代 CGI 行為採集通道"))
     cases.append(TestCase("Privacy: Amap Grid Heatmap Drop", "https://grid.amap.com/grid/heatmap/upload?tile=13", RES_DROP_204, "封鎖網格化地理熱區與行為分析上報"))
     cases.append(TestCase("Privacy: Amap Task Monitor Drop", "https://tm.amap.com/task/report?cpu=high", RES_DROP_204, "封鎖 Task Monitor 非同步任務監控遙測"))
