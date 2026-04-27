@@ -3,12 +3,14 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.60 (2026-04-27)
+當前版本：V45.61 (2026-04-27)
 最新架構更新：
-- [AdBlock] 高德地圖 BMD 廣告圖磚封鎖：render-prod-tile.amap.com 加入 CRITICAL_PATH_MAP DROP:/ws/render/bmd/（Brand/Marketing Display 廣告覆蓋圖磚；攜帶 adiu= 廣告設備 ID，tileType=6 確認廣告內容類型；路徑精確封鎖不影響正常地圖圖磚）。
-- [Test Suite] 新增 1 項 V45.60 測試案例。
+- [Privacy] 高德地圖車機用戶效能規則遙測封鎖：m5-zb.amap.com 新增 DROP:/ws/car/user/performance/rules（携帶 in= 加密遙測包 + csid= 設備指紋，與已封鎖的 device_reporting 同屬 m5-zb 遙測系列）。
+- [AdBlock] 高德地圖 BMD 廣告圖磚備援 CDN 封鎖：render-prod-backup-tile.amap.com 加入 CRITICAL_PATH_MAP DROP:/ws/render/bmd/（V45.60 主 CDN 之備援節點，相同 adiu= + bmd 路徑）。
+- [Test Suite] 新增 2 項 V45.61 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.61 (2026-04-27): m5-zb 車機效能規則遙測 DROP + BMD 廣告備援 CDN render-prod-backup-tile 封鎖。
 - V45.60 (2026-04-27): 高德地圖 BMD 廣告覆蓋圖磚 render-prod-tile.amap.com /ws/render/bmd/ DROP。
 - V45.59 (2026-04-27): Naver NELO 外部日誌收集器 kr-col-ext.nelo.navercorp.com DROP。
 - V45.58 (2026-04-27): 高德 optimus-ads.amap.com 廣告系統 DROP + AutoNavi store.is.autonavi.com 門店追蹤 DROP。
@@ -67,10 +69,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.60"
+VERSION = "45.61"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] 高德地圖車機用戶效能規則遙測封鎖 + BMD 廣告備援 CDN 封鎖：
+  - m5-zb.amap.com → 追加 DROP:/ws/car/user/performance/rules（車機用戶效能規則端點；in= 加密遙測包 + csid= 設備指紋與其他 m5-zb 遙測路徑特徵一致）
+  - render-prod-backup-tile.amap.com → CRITICAL_PATH_MAP DROP:/ws/render/bmd/（V45.60 render-prod-tile.amap.com 之備援 CDN 節點；相同 adiu= 廣告設備 ID + bmd 廣告圖磚路徑）
 - [AdBlock] 高德地圖 BMD 廣告圖磚封鎖：
   - render-prod-tile.amap.com → CRITICAL_PATH_MAP DROP:/ws/render/bmd/（Brand/Marketing Display 廣告覆蓋圖磚端點；adiu= 參數攜帶廣告設備 ID，tileType=6 確認廣告內容；路徑精確封鎖，不影響正常地圖圖磚載入）
 - [Privacy] Naver NELO 外部日誌收集器封鎖：
@@ -623,7 +628,7 @@ RULES_DB = {
         'fp.amap.com': ['DROP:/ws/shield/location/fp/report'],
         'awaken.amap.com': ['DROP:/ws/h5_log'],
         'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/', 'DROP:/ws/feature/gbfs/batchcalcbyfeaturecode/', 'DROP:/ws/aos/voice/ip_info/'],
-        'm5-zb.amap.com': ['DROP:/ws/security/account/device_reporting'],
+        'm5-zb.amap.com': ['DROP:/ws/security/account/device_reporting', 'DROP:/ws/car/user/performance/rules'],
         'm5-x.amap.com': ['DROP:/ws/shield/amapstream/upload'],
         'info.amap.com': ['DROP:/ws/shield/galaxy/data'],
         'passport.amap.com': ['DROP:/ws/auth/session-report'],
@@ -640,6 +645,7 @@ RULES_DB = {
         'optimus-ads.amap.com': ['DROP:/'],
         'store.is.autonavi.com': ['DROP:/'],
         'render-prod-tile.amap.com': ['DROP:/ws/render/bmd/'],
+        'render-prod-backup-tile.amap.com': ['DROP:/ws/render/bmd/'],
         'log.wowpass.io': ['DROP:/'],
         'api.airbridge.io': ['DROP:/'],
         'core.airbridge.io': ['DROP:/'],
@@ -2936,6 +2942,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Amap Grid Heatmap Drop", "https://grid.amap.com/grid/heatmap/upload?tile=13", RES_DROP_204, "封鎖網格化地理熱區與行為分析上報"))
     # --- V45.60 Amap BMD 廣告圖磚 ---
     cases.append(TestCase("AdBlock: Amap BMD Ad Tile Drop", "https://render-prod-tile.amap.com/ws/render/bmd/tile?version=1777378798&tileType=6&tileId=3940726194844848&lang=zh-Hans&adiu=PnVF7RFnFbzclTCc6KwUMvKb2sZLsCIIh5fx1qD1ELXiiSM1", RES_DROP_204, "V45.60 高德地圖 BMD 廣告覆蓋圖磚 DROP；Brand/Marketing Display 廣告疊加層；adiu= 廣告設備 ID + tileType=6 確認廣告類型"))
+    # --- V45.61 m5-zb 車機效能規則遙測 + BMD 備援 CDN ---
+    cases.append(TestCase("Privacy: Amap m5-zb Car Performance Rules Drop", "https://m5-zb.amap.com/ws/car/user/performance/rules?ent=2&csid=C564D4E4-B39B-4A4C-867B-795EB9A8A4AE", RES_DROP_204, "V45.61 高德地圖車機用戶效能規則遙測 DROP；in= 加密遙測包 + csid= 設備指紋，與 device_reporting 同屬 m5-zb 遙測系列"))
+    cases.append(TestCase("AdBlock: Amap BMD Backup CDN Tile Drop", "https://render-prod-backup-tile.amap.com/ws/render/bmd/tile?version=1777380396&tileType=1&adiu=PnVF7RFnFbzclTCc6KwUMvKb2sZLsCIIh5fx1qD1ELXiiSM1", RES_DROP_204, "V45.61 高德地圖 BMD 廣告圖磚備援 CDN DROP；render-prod-tile.amap.com 之 backup 節點，相同 adiu= + bmd 路徑"))
     cases.append(TestCase("Privacy: Amap Task Monitor Drop", "https://tm.amap.com/task/report?cpu=high", RES_DROP_204, "封鎖 Task Monitor 非同步任務監控遙測"))
     cases.append(TestCase("Privacy: Amap Updatable V2 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v2/log?ent=2", RES_DROP_204, "補齊 /v2/log 版本化 API 邊界防禦"))
     cases.append(TestCase("Privacy: Amap Updatable Future V77 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v77/log?ent=2", RES_DROP_204, "DROP_RE 覆蓋未來 vN/log 版本升級路徑"))
