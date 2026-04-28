@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.65
+// @name         URL Ultimate Filter V45.66
 // @namespace    http://tampermonkey.net/
-// @version      45.65
+// @version      45.66
 // @date         2026-04-27
-// @description  SSOT 前端防護盾牌 V45.65 (2026-04-27) | 1480 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1480 total (297 domains · 400 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V45.66 (2026-04-27) | 1482 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1482 total (298 domains · 401 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.65
+ * @version 45.66
  * @date    2026-04-27
- * @rules   1480 total (297 domains, 400 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1482 total (298 domains, 401 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.65';
-const SCRIPT_BUILD = 'V45.65 (2026-04-27) | 1480 rules | 3000 tests';
+const SCRIPT_VERSION = '45.66';
+const SCRIPT_BUILD = 'V45.66 (2026-04-27) | 1482 rules | 3006 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -233,7 +233,8 @@ const RULES = {
     'tenmax.io', 'clickforce.com.tw', 'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com',
     'adbottw.net', 'useinsider.com', 'insiderone.com', 'treasuredata.com', 'treasure-data.com', 'tagtoo.com.tw',
     'scupio.net', 'clickforce.net', 'log.aliyuncs.com', 'sls.aliyuncs.com', 'jpush.cn', 'jpush.io',
-    'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com', 'veta.naver.com'
+    'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com', 'veta.naver.com',
+    'goqual.com'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
@@ -665,6 +666,9 @@ const RULES = {
       ])],
     ['ntm.pstatic.net', new Set([
         'DROP:/'
+      ])],
+    ['map.pstatic.net', new Set([
+        'DROP:/evtp/'
       ])],
     ['fp.amap.com', new Set([
         'DROP:/ws/shield/location/fp/report'
