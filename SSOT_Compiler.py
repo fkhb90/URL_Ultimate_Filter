@@ -3,12 +3,14 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.65 (2026-04-27)
+當前版本：V45.66 (2026-04-27)
 最新架構更新：
-- [Privacy] 高德地圖 m5.amap.com shield/search 搜尋資料上報封鎖：m5 追加 DROP:/ws/shield/search/data_report（shield 系統搜尋行為資料上報；in= 加密包 + csid= 設備指紋，與既有 shield 封鎖路徑同屬一脈）。
-- [Test Suite] 新增 1 項 V45.65 測試案例。
+- [Privacy] goqual.com 韓國 IoT 平台遙測封鎖：BLOCK_DOMAINS_WILDCARDS 新增 goqual.com（a1-cube.cube.goqual.com /log.json 設備日誌回傳；覆蓋 cube 等所有子域）。
+- [AdBlock] Naver Maps evtp 廣告 POI 圖磚封鎖：map.pstatic.net 加入 CRITICAL_PATH_MAP DROP:/evtp/（이벤트 프로모션 타일 = 地圖贊助廣告 POI 疊加層，同 Amap BMD 廣告圖磚性質）。
+- [Test Suite] 新增 2 項 V45.66 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.66 (2026-04-27): goqual.com IoT 遙測封鎖 + Naver Maps evtp 廣告 POI 圖磚 DROP。
 - V45.65 (2026-04-27): 高德 m5 shield/search/data_report 搜尋資料上報 DROP。
 - V45.64 (2026-04-27): 高德 mps.amap.com lyrdata 渲染遙測 DROP + m5 ipx dot_report DROP。
 - V45.63 (2026-04-27): Claude.ai /api/event_logging/ 遙測批次上傳 DROP。
@@ -72,10 +74,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.65"
+VERSION = "45.66"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] goqual.com 韓國 IoT 平台遙測封鎖 + Naver Maps evtp 廣告 POI 圖磚封鎖：
+  - goqual.com → BLOCK_DOMAINS_WILDCARDS（韓國智慧家居 IoT 平台；a1-cube.cube.goqual.com /log.json 設備遙測日誌；wildcard 覆蓋 cube./a1-cube.cube. 等所有子域）
+  - map.pstatic.net → CRITICAL_PATH_MAP DROP:/evtp/（이벤트 프로모션 타일 = 地圖贊助商廣告 POI 疊加圖磚；與 Naver searchad-phinf CDN 同屬廣告基礎設施；座標式路徑 /v1/4/14/6.json 確認為圖磚格式）
 - [Privacy] 高德地圖 m5.amap.com shield/search 搜尋資料上報封鎖：
   - m5.amap.com → 追加 DROP:/ws/shield/search/data_report（shield 系統搜尋行為資料上報；in= 加密包 + csid= 設備指紋；與既有 DROP:/ws/shield/nest、DROP:/ws/shield/frogserver 同屬 shield 遙測系列）
 - [Privacy] 高德地圖 mps.amap.com 地圖渲染遙測封鎖 + m5.amap.com IPX 資料點上報封鎖：
@@ -436,7 +441,7 @@ RULES_DB = {
         'tagtoo.com.tw', 'scupio.net', 'clickforce.net',
         'log.aliyuncs.com', 'sls.aliyuncs.com',
         'jpush.cn', 'jpush.io', 'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com',
-        'veta.naver.com'
+        'veta.naver.com', 'goqual.com'
     ],
     "BLOCK_DOMAINS_REGEX": [
         r'^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$',
@@ -639,6 +644,7 @@ RULES_DB = {
         'api-biz-catcher.naver.com': ['DROP:/'],
         'ssl.pstatic.net': ['/adimg3.search/adpost/'],
         'ntm.pstatic.net': ['DROP:/'],
+        'map.pstatic.net': ['DROP:/evtp/'],
         'fp.amap.com': ['DROP:/ws/shield/location/fp/report'],
         'awaken.amap.com': ['DROP:/ws/h5_log'],
         'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/', 'DROP:/ws/shield/search/data_report', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/', 'DROP:/ws/feature/gbfs/batchcalcbyfeaturecode/', 'DROP:/ws/aos/voice/ip_info/', 'DROP:/ws/ipx/'],
@@ -2972,6 +2978,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Amap Task Monitor Drop", "https://tm.amap.com/task/report?cpu=high", RES_DROP_204, "封鎖 Task Monitor 非同步任務監控遙測"))
     # --- V45.65 m5 shield/search/data_report ---
     cases.append(TestCase("Privacy: Amap m5 Shield Search Data Report Drop", "https://m5.amap.com/ws/shield/search/data_report?ent=2&csid=B42DA439-CAC7-44F8-9115-D8B9C7D4E172", RES_DROP_204, "V45.65 高德地圖 m5 shield/search/data_report 搜尋行為資料上報 DROP；in= 加密包 + csid=，與既有 shield 封鎖路徑同屬一脈"))
+    # --- V45.66 goqual.com IoT + Naver Maps evtp ---
+    cases.append(TestCase("Privacy: Goqual IoT Log Block", "https://a1-cube.cube.goqual.com/log.json", RES_BLOCK_403, "V45.66 goqual.com 韓國智慧家居 IoT 平台設備遙測日誌封鎖；BLOCK_DOMAINS_WILDCARDS 覆蓋所有子域"))
+    cases.append(TestCase("AdBlock: Naver Maps EVTP Ad Tile Drop", "https://map.pstatic.net/evtp/poi/event/tile/v1/4/14/6.json?version=463500", RES_DROP_204, "V45.66 Naver Maps 이벤트 프로모션 타일 廣告 POI 疊加圖磚 DROP；與 searchad-phinf 同屬 Naver 廣告基礎設施"))
     cases.append(TestCase("Privacy: Amap Updatable V2 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v2/log?ent=2", RES_DROP_204, "補齊 /v2/log 版本化 API 邊界防禦"))
     cases.append(TestCase("Privacy: Amap Updatable Future V77 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v77/log?ent=2", RES_DROP_204, "DROP_RE 覆蓋未來 vN/log 版本升級路徑"))
     cases.append(TestCase("Privacy: Amap Galaxy Data Drop", "https://info.amap.com/ws/shield/galaxy/data?ent=2&csid=615A3F7F-1E14-4AEF-B540-0DFFB75FD376", RES_DROP_204, "封鎖 info.amap.com 盾系 galaxy 遙測資料回傳"))
