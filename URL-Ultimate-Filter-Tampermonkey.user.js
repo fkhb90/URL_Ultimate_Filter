@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.63
+// @name         URL Ultimate Filter V45.64
 // @namespace    http://tampermonkey.net/
-// @version      45.63
+// @version      45.64
 // @date         2026-04-27
-// @description  SSOT 前端防護盾牌 V45.63 (2026-04-27) | 1477 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1477 total (297 domains · 397 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V45.64 (2026-04-27) | 1479 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1479 total (297 domains · 399 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.63
+ * @version 45.64
  * @date    2026-04-27
- * @rules   1477 total (297 domains, 397 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1479 total (297 domains, 399 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.63';
-const SCRIPT_BUILD = 'V45.63 (2026-04-27) | 1477 rules | 2991 tests';
+const SCRIPT_VERSION = '45.64';
+const SCRIPT_BUILD = 'V45.64 (2026-04-27) | 1479 rules | 2997 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -675,7 +675,7 @@ const RULES = {
     ['m5.amap.com', new Set([
         'DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/',
         '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/', 'DROP:/ws/feature/gbfs/batchcalcbyfeaturecode/',
-        'DROP:/ws/aos/voice/ip_info/'
+        'DROP:/ws/aos/voice/ip_info/', 'DROP:/ws/ipx/'
       ])],
     ['m5-zb.amap.com', new Set([
         'DROP:/ws/security/account/device_reporting', 'DROP:/ws/car/user/performance/rules', 'DROP:/ws/boss/'
@@ -703,6 +703,9 @@ const RULES = {
       ])],
     ['wb.amap.com', new Set([
         'DROP:/channel.php'
+      ])],
+    ['mps.amap.com', new Set([
+        'DROP:/ws/mps/lyrdata/'
       ])],
     ['amdc.m.taobao.com', new Set([
         'DROP:/'
