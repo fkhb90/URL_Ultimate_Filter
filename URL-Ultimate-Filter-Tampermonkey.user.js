@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.62
+// @name         URL Ultimate Filter V45.63
 // @namespace    http://tampermonkey.net/
-// @version      45.62
+// @version      45.63
 // @date         2026-04-27
-// @description  SSOT 前端防護盾牌 V45.62 (2026-04-27) | 1476 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1476 total (297 domains · 396 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V45.63 (2026-04-27) | 1477 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1477 total (297 domains · 397 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.62
+ * @version 45.63
  * @date    2026-04-27
- * @rules   1476 total (297 domains, 396 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1477 total (297 domains, 397 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.62';
-const SCRIPT_BUILD = 'V45.62 (2026-04-27) | 1476 rules | 2988 tests';
+const SCRIPT_VERSION = '45.63';
+const SCRIPT_BUILD = 'V45.63 (2026-04-27) | 1477 rules | 2991 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -244,6 +244,9 @@ const RULES = {
     MAP: new Map([
     ['statsig.anthropic.com', new Set([
         'DROP:/v1/rgstr'
+      ])],
+    ['claude.ai', new Set([
+        'DROP:/api/event_logging/'
       ])],
     ['logx.optimizely.com', new Set([
         'DROP:/v1/events'
