@@ -3,13 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.62 (2026-04-27)
+當前版本：V45.63 (2026-04-27)
 最新架構更新：
-- [Privacy] 高德地圖 BOSS 系統遙測封鎖：m5-zb.amap.com 追加 DROP:/ws/boss/（BOSS = Business Operation Support System；transportation/diversion/amap_c_card 路徑攜帶 in= 加密遙測包 + csid= 設備指紋，以 /ws/boss/ 前綴覆蓋整個 boss 子路徑）。
-- [Privacy] 高德地圖 render.amap.com TMC 交通資料上傳封鎖：新增 CRITICAL_PATH_MAP DROP:/ws/render/tmc/（TMC = Traffic Message Channel；大型 in= 加密包 + is_bin=1 + csid= 為資料上傳特徵，非正常圖磚請求）。
-- [Test Suite] 新增 2 項 V45.62 測試案例。
+- [Privacy] Claude.ai 事件記錄遙測封鎖：claude.ai 加入 CRITICAL_PATH_MAP DROP:/api/event_logging/（純遙測批次上傳端點，不影響對話功能；CRITICAL_PATH_MAP 在引擎第一步執行，早於 SOFT_WHITELIST 檢查；與 statsig.anthropic.com 同屬 Anthropic 遙測基礎設施）。
+- [Test Suite] 新增 1 項 V45.63 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.63 (2026-04-27): Claude.ai /api/event_logging/ 遙測批次上傳 DROP。
 - V45.62 (2026-04-27): m5-zb BOSS 系統遙測 DROP:/ws/boss/ + render.amap.com TMC 交通資料上傳 DROP。
 - V45.61 (2026-04-27): m5-zb 車機效能規則遙測 DROP + BMD 廣告備援 CDN render-prod-backup-tile 封鎖。
 - V45.60 (2026-04-27): 高德地圖 BMD 廣告覆蓋圖磚 render-prod-tile.amap.com /ws/render/bmd/ DROP。
@@ -70,10 +70,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.62"
+VERSION = "45.63"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] Claude.ai 事件記錄遙測封鎖：
+  - claude.ai → CRITICAL_PATH_MAP DROP:/api/event_logging/（/api/event_logging/v2/batch 為純遙測批次上傳；不影響對話/API 功能；CRITICAL_PATH_MAP 第一步執行早於 SOFT_WHITELIST；與 statsig.anthropic.com DROP:/v1/rgstr 同屬 Anthropic 遙測基礎設施封鎖）
 - [Privacy] 高德地圖 BOSS 系統遙測封鎖 + render.amap.com TMC 交通資料上傳封鎖：
   - m5-zb.amap.com → 追加 DROP:/ws/boss/（BOSS = Business Operation Support System；transportation/diversion/amap_c_card 等路徑攜帶 in= 加密遙測包 + csid= 設備指紋；以前綴覆蓋整個 boss 子路徑）
   - render.amap.com → CRITICAL_PATH_MAP DROP:/ws/render/tmc/（TMC = Traffic Message Channel；大型 in= 加密包 + is_bin=1 + csid= 屬資料上傳特徵，非正常圖磚拉取請求）
@@ -491,6 +493,7 @@ RULES_DB = {
     ],
     "CRITICAL_PATH_MAP": {
         'statsig.anthropic.com': ['DROP:/v1/rgstr'],
+        'claude.ai': ['DROP:/api/event_logging/'],
         'logx.optimizely.com': ['DROP:/v1/events'],
         'cpdl-deferrer.91app.com': ['DROP:deferrer-log'],
         'siftscience.com': ['DROP:/v3/accounts/', 'DROP:/mobile_events'],
@@ -2953,6 +2956,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V45.62 m5-zb BOSS 系統 + render.amap.com TMC ---
     cases.append(TestCase("Privacy: Amap m5-zb BOSS Diversion Drop", "https://m5-zb.amap.com/ws/boss/transportation/diversion/amap_c_card?ent=2&csid=DC0C477E-EFF1-40D9-93DD-E71E9F12387B", RES_DROP_204, "V45.62 高德地圖 BOSS 系統 transportation/diversion 遙測 DROP；DROP:/ws/boss/ 前綴覆蓋整個 boss 子路徑"))
     cases.append(TestCase("Privacy: Amap render TMC Upload Drop", "https://render.amap.com/ws/render/tmc/?ent=2&is_bin=1&csid=2E6907B1-6CA5-4D62-AB35-2875999FAB31", RES_DROP_204, "V45.62 高德地圖 render.amap.com TMC 交通資料上傳 DROP；is_bin=1 + csid= + 大型 in= 為上傳特徵，非正常圖磚拉取"))
+    # --- V45.63 Claude.ai 事件記錄遙測 ---
+    cases.append(TestCase("Privacy: Claude.ai Event Logging Drop", "https://claude.ai/api/event_logging/v2/batch?", RES_DROP_204, "V45.63 Claude.ai 事件記錄批次遙測上傳 DROP；CRITICAL_PATH_MAP 第一步執行早於 SOFT_WHITELIST；與 statsig.anthropic.com 同屬 Anthropic 遙測基礎設施"))
     cases.append(TestCase("Privacy: Amap Task Monitor Drop", "https://tm.amap.com/task/report?cpu=high", RES_DROP_204, "封鎖 Task Monitor 非同步任務監控遙測"))
     cases.append(TestCase("Privacy: Amap Updatable V2 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v2/log?ent=2", RES_DROP_204, "補齊 /v2/log 版本化 API 邊界防禦"))
     cases.append(TestCase("Privacy: Amap Updatable Future V77 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v77/log?ent=2", RES_DROP_204, "DROP_RE 覆蓋未來 vN/log 版本升級路徑"))
