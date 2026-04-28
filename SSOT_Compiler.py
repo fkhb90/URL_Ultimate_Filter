@@ -3,16 +3,15 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.68 (2026-04-27)
+當前版本：V45.69 (2026-04-27)
 最新架構更新：
-- [Privacy] Alibaba Cloud DYPNS 雙棧 API 封鎖：dypnsapi-dualstack.aliyuncs.com 加入 BLOCK_DOMAINS（阿里雲電話號碼服務 API 雙棧端點，與 log./sls.aliyuncs.com 同屬 Alibaba Cloud 後端服務）。
-- [Privacy] 淘寶行動端 ACS 服務封鎖：acs.m.taobao.com 加入 CRITICAL_PATH_MAP DROP:/（與 amdc.m.taobao.com 同屬淘寶行動端遙測/服務基礎設施）。
-- [Test Suite] 新增 2 項 V45.68 測試案例。
+- [Privacy] Meta AI 監控遙測與分析端點封鎖：www.meta.ai 加入 CRITICAL_PATH_MAP DROP:/monitoring + DROP:/api/analytics（/monitoring 攜帶 o/p/r 物件/版位/地區 ID；/api/analytics 明示分析追蹤；/animations/ UI 動畫資源不受影響）。
+- [Test Suite] 新增 2 項 V45.69 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.69 (2026-04-27): Meta AI /monitoring + /api/analytics 遙測分析 DROP。
 - V45.68 (2026-04-27): dypnsapi-dualstack.aliyuncs.com 封鎖 + acs.m.taobao.com DROP。
 - V45.67 (2026-04-27): Naver GFP 廣告 SDK 封鎖（tveta/glad + melona/gfp-nac-module）+ Naver Maps nvbpc/wmts/adm 廣告圖磚 DROP。
-- V45.66 (2026-04-27): goqual.com IoT 遙測封鎖 + Naver Maps evtp 廣告 POI 圖磚 DROP。
 - V45.64 (2026-04-27): 高德 mps.amap.com lyrdata 渲染遙測 DROP + m5 ipx dot_report DROP。
 - V45.63 (2026-04-27): Claude.ai /api/event_logging/ 遙測批次上傳 DROP。
 - V45.62 (2026-04-27): m5-zb BOSS 系統遙測 DROP:/ws/boss/ + render.amap.com TMC 交通資料上傳 DROP。
@@ -75,10 +74,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.68"
+VERSION = "45.69"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] Meta AI 監控遙測與分析端點封鎖：
+  - www.meta.ai → CRITICAL_PATH_MAP DROP:/monitoring（/monitoring?o=&p=&r= 攜帶物件/版位/地區識別碼，為後台監控遙測上報）
+  - www.meta.ai → CRITICAL_PATH_MAP DROP:/api/analytics（/api/analytics 明示分析追蹤端點）
+  - /animations/feedback-{positive,negative}.json → 功能性 Lottie UI 動畫資源，不封鎖
 - [Privacy] Alibaba Cloud DYPNS 雙棧 API 封鎖 + 淘寶行動端 ACS 服務封鎖：
   - dypnsapi-dualstack.aliyuncs.com → BLOCK_DOMAINS（阿里雲 DYPNS 電話號碼服務 API 雙棧端點；與 log.aliyuncs.com/sls.aliyuncs.com 同屬 Alibaba Cloud 後端遙測/服務基礎設施）
   - acs.m.taobao.com → CRITICAL_PATH_MAP DROP:/（淘寶行動端 App Configuration/Communication Service；與 amdc.m.taobao.com 同屬行動端服務基礎設施，全域 DROP）
@@ -514,6 +517,7 @@ RULES_DB = {
     "CRITICAL_PATH_MAP": {
         'statsig.anthropic.com': ['DROP:/v1/rgstr'],
         'claude.ai': ['DROP:/api/event_logging/'],
+        'www.meta.ai': ['DROP:/monitoring', 'DROP:/api/analytics'],
         'logx.optimizely.com': ['DROP:/v1/events'],
         'cpdl-deferrer.91app.com': ['DROP:deferrer-log'],
         'siftscience.com': ['DROP:/v3/accounts/', 'DROP:/mobile_events'],
@@ -2998,6 +3002,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Alibaba DYPNS Dualstack Block", "https://dypnsapi-dualstack.aliyuncs.com/api/v1/check", RES_BLOCK_403, "V45.68 阿里雲 DYPNS 電話號碼服務 API 雙棧端點封鎖；BLOCK_DOMAINS 精確封鎖"))
     cases.append(TestCase("Privacy: Taobao ACS Drop", "https://acs.m.taobao.com/gw/mtop.common.getconf/1.0/?ttid=test", RES_DROP_204, "V45.68 淘寶行動端 ACS 服務全域 DROP；與 amdc.m.taobao.com 同屬行動端基礎設施"))
     cases.append(TestCase("Privacy: Amap Updatable V2 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v2/log?ent=2", RES_DROP_204, "補齊 /v2/log 版本化 API 邊界防禦"))
+    # --- V45.69 Meta AI /monitoring + /api/analytics ---
+    cases.append(TestCase("Privacy: Meta AI Monitoring Drop", "https://www.meta.ai/monitoring?o=4509963614355457&p=4510506330423296&r=us", RES_DROP_204, "V45.69 Meta AI /monitoring 遙測監控 DROP；o/p/r 物件/版位/地區 ID 確認為後台遙測"))
+    cases.append(TestCase("Privacy: Meta AI Analytics Drop", "https://www.meta.ai/api/analytics", RES_DROP_204, "V45.69 Meta AI /api/analytics 分析追蹤端點 DROP"))
+    cases.append(TestCase("Safe: Meta AI Feedback Animation Allow", "https://www.meta.ai/animations/feedback-positive.json", RES_ALLOW, "V45.69 Meta AI Lottie UI 動畫資源正常放行；/monitoring + /api/analytics 精確封鎖不影響 /animations/"))
     cases.append(TestCase("Privacy: Amap Updatable Future V77 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v77/log?ent=2", RES_DROP_204, "DROP_RE 覆蓋未來 vN/log 版本升級路徑"))
     cases.append(TestCase("Privacy: Amap Galaxy Data Drop", "https://info.amap.com/ws/shield/galaxy/data?ent=2&csid=615A3F7F-1E14-4AEF-B540-0DFFB75FD376", RES_DROP_204, "封鎖 info.amap.com 盾系 galaxy 遙測資料回傳"))
     cases.append(TestCase("Privacy: Amap Session Report Drop", "https://passport.amap.com/ws/auth/session-report?ent=2&csid=65AA4022-A95A-4103-B319-04431EF195D6", RES_DROP_204, "封鎖 passport.amap.com session-report 工作階段遙測上報"))
