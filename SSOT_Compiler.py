@@ -3,13 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.64 (2026-04-27)
+當前版本：V45.65 (2026-04-27)
 最新架構更新：
-- [Privacy] 高德地圖 mps.amap.com 地圖渲染遙測封鎖：新增 CRITICAL_PATH_MAP DROP:/ws/mps/lyrdata/（無座標參數僅攜帶 csid= 設備指紋，為渲染事件上報而非正常圖磚拉取）。
-- [Privacy] 高德地圖 m5.amap.com IPX 資料點上報封鎖：m5 追加 DROP:/ws/ipx/（ipx = in-product experience 遙測命名空間；dot_report 攜帶超大 in= 加密包 + csid=，明確遙測特徵）。
-- [Test Suite] 新增 2 項 V45.64 測試案例。
+- [Privacy] 高德地圖 m5.amap.com shield/search 搜尋資料上報封鎖：m5 追加 DROP:/ws/shield/search/data_report（shield 系統搜尋行為資料上報；in= 加密包 + csid= 設備指紋，與既有 shield 封鎖路徑同屬一脈）。
+- [Test Suite] 新增 1 項 V45.65 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.65 (2026-04-27): 高德 m5 shield/search/data_report 搜尋資料上報 DROP。
 - V45.64 (2026-04-27): 高德 mps.amap.com lyrdata 渲染遙測 DROP + m5 ipx dot_report DROP。
 - V45.63 (2026-04-27): Claude.ai /api/event_logging/ 遙測批次上傳 DROP。
 - V45.62 (2026-04-27): m5-zb BOSS 系統遙測 DROP:/ws/boss/ + render.amap.com TMC 交通資料上傳 DROP。
@@ -72,10 +72,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.64"
+VERSION = "45.65"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] 高德地圖 m5.amap.com shield/search 搜尋資料上報封鎖：
+  - m5.amap.com → 追加 DROP:/ws/shield/search/data_report（shield 系統搜尋行為資料上報；in= 加密包 + csid= 設備指紋；與既有 DROP:/ws/shield/nest、DROP:/ws/shield/frogserver 同屬 shield 遙測系列）
 - [Privacy] 高德地圖 mps.amap.com 地圖渲染遙測封鎖 + m5.amap.com IPX 資料點上報封鎖：
   - mps.amap.com → CRITICAL_PATH_MAP DROP:/ws/mps/lyrdata/（lyrdata/rendermap 無座標參數僅攜帶 csid= 設備指紋，非正常圖層拉取；為地圖渲染事件遙測上報）
   - m5.amap.com → 追加 DROP:/ws/ipx/（ipx = in-product experience 遙測命名空間；/ws/ipx/v2/res/dot_report 攜帶超大 in= 加密包 + csid=，以前綴覆蓋整個 ipx 子路徑）
@@ -639,7 +641,7 @@ RULES_DB = {
         'ntm.pstatic.net': ['DROP:/'],
         'fp.amap.com': ['DROP:/ws/shield/location/fp/report'],
         'awaken.amap.com': ['DROP:/ws/h5_log'],
-        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/', 'DROP:/ws/feature/gbfs/batchcalcbyfeaturecode/', 'DROP:/ws/aos/voice/ip_info/', 'DROP:/ws/ipx/'],
+        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/', 'DROP:/ws/shield/search/data_report', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/', 'DROP:/ws/feature/gbfs/batchcalcbyfeaturecode/', 'DROP:/ws/aos/voice/ip_info/', 'DROP:/ws/ipx/'],
         'm5-zb.amap.com': ['DROP:/ws/security/account/device_reporting', 'DROP:/ws/car/user/performance/rules', 'DROP:/ws/boss/'],
         'm5-x.amap.com': ['DROP:/ws/shield/amapstream/upload'],
         'info.amap.com': ['DROP:/ws/shield/galaxy/data'],
@@ -2968,6 +2970,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Amap MPS Lyrdata Render Drop", "https://mps.amap.com/ws/mps/lyrdata/rendermap?ent=2&csid=2BD6DC51-9E20-4457-9D07-AC98235B563B", RES_DROP_204, "V45.64 高德地圖 mps.amap.com lyrdata 渲染遙測 DROP；無座標參數僅帶 csid= 設備指紋，為渲染事件上報非正常圖層拉取"))
     cases.append(TestCase("Privacy: Amap m5 IPX Dot Report Drop", "https://m5.amap.com/ws/ipx/v2/res/dot_report?ent=2&csid=92F87535-95D9-4FCF-BF92-7DEF29CFC9DC", RES_DROP_204, "V45.64 高德地圖 m5 ipx dot_report 資料點上報 DROP；ipx = in-product experience 遙測命名空間，DROP:/ws/ipx/ 前綴覆蓋"))
     cases.append(TestCase("Privacy: Amap Task Monitor Drop", "https://tm.amap.com/task/report?cpu=high", RES_DROP_204, "封鎖 Task Monitor 非同步任務監控遙測"))
+    # --- V45.65 m5 shield/search/data_report ---
+    cases.append(TestCase("Privacy: Amap m5 Shield Search Data Report Drop", "https://m5.amap.com/ws/shield/search/data_report?ent=2&csid=B42DA439-CAC7-44F8-9115-D8B9C7D4E172", RES_DROP_204, "V45.65 高德地圖 m5 shield/search/data_report 搜尋行為資料上報 DROP；in= 加密包 + csid=，與既有 shield 封鎖路徑同屬一脈"))
     cases.append(TestCase("Privacy: Amap Updatable V2 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v2/log?ent=2", RES_DROP_204, "補齊 /v2/log 版本化 API 邊界防禦"))
     cases.append(TestCase("Privacy: Amap Updatable Future V77 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v77/log?ent=2", RES_DROP_204, "DROP_RE 覆蓋未來 vN/log 版本升級路徑"))
     cases.append(TestCase("Privacy: Amap Galaxy Data Drop", "https://info.amap.com/ws/shield/galaxy/data?ent=2&csid=615A3F7F-1E14-4AEF-B540-0DFFB75FD376", RES_DROP_204, "封鎖 info.amap.com 盾系 galaxy 遙測資料回傳"))
