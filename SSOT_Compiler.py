@@ -3,13 +3,14 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.66 (2026-04-27)
+當前版本：V45.67 (2026-04-27)
 最新架構更新：
-- [Privacy] goqual.com 韓國 IoT 平台遙測封鎖：BLOCK_DOMAINS_WILDCARDS 新增 goqual.com（a1-cube.cube.goqual.com /log.json 設備日誌回傳；覆蓋 cube 等所有子域）。
-- [AdBlock] Naver Maps evtp 廣告 POI 圖磚封鎖：map.pstatic.net 加入 CRITICAL_PATH_MAP DROP:/evtp/（이벤트 프로모션 타일 = 地圖贊助廣告 POI 疊加層，同 Amap BMD 廣告圖磚性質）。
-- [Test Suite] 新增 2 項 V45.66 測試案例。
+- [AdBlock] Naver pstatic.net GFP 廣告 SDK 封鎖：ssl.pstatic.net 追加 /tveta/libs/glad/（TV 廣告平台 GFP Display SDK）與 /melona/libs/gfp-nac-module/（GFP Native Ad Content 同步器），403 封鎖廣告腳本載入。
+- [AdBlock] Naver Maps nvbpc/wmts/adm 廣告圖磚封鎖：map.pstatic.net 追加 DROP:/nvbpc/wmts/adm/（Ad Manager WMTS 地理定向廣告向量圖磚，UUID 廣告素材 ID + pbf 格式確認，同 evtp 廣告性質）。
+- [Test Suite] 新增 3 項 V45.67 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.67 (2026-04-27): Naver GFP 廣告 SDK 封鎖（tveta/glad + melona/gfp-nac-module）+ Naver Maps nvbpc/wmts/adm 廣告圖磚 DROP。
 - V45.66 (2026-04-27): goqual.com IoT 遙測封鎖 + Naver Maps evtp 廣告 POI 圖磚 DROP。
 - V45.65 (2026-04-27): 高德 m5 shield/search/data_report 搜尋資料上報 DROP。
 - V45.64 (2026-04-27): 高德 mps.amap.com lyrdata 渲染遙測 DROP + m5 ipx dot_report DROP。
@@ -74,10 +75,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.66"
+VERSION = "45.67"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [AdBlock] Naver pstatic.net GFP 廣告 SDK 封鎖 + Naver Maps nvbpc/wmts/adm 廣告圖磚封鎖：
+  - ssl.pstatic.net → 追加 /tveta/libs/glad/（tveta TV 廣告平台，glad = GFP Linked Ad SDK，gfp-display-sdk.js 廣告展示 SDK；403 阻止腳本載入）
+  - ssl.pstatic.net → 追加 /melona/libs/gfp-nac-module/（GFP Native Ad Content 模組；synchronizer.js 廣告同步器；403 阻止腳本載入）
+  - map.pstatic.net → 追加 DROP:/nvbpc/wmts/adm/（wmts/adm = Ad Manager WMTS 服務；UUID 廣告素材 ID + getTile/x/y/z/pbf 向量圖磚格式；地理定向廣告圖磚，與 evtp 同屬廣告疊加層）
 - [Privacy] goqual.com 韓國 IoT 平台遙測封鎖 + Naver Maps evtp 廣告 POI 圖磚封鎖：
   - goqual.com → BLOCK_DOMAINS_WILDCARDS（韓國智慧家居 IoT 平台；a1-cube.cube.goqual.com /log.json 設備遙測日誌；wildcard 覆蓋 cube./a1-cube.cube. 等所有子域）
   - map.pstatic.net → CRITICAL_PATH_MAP DROP:/evtp/（이벤트 프로모션 타일 = 地圖贊助商廣告 POI 疊加圖磚；與 Naver searchad-phinf CDN 同屬廣告基礎設施；座標式路徑 /v1/4/14/6.json 確認為圖磚格式）
@@ -642,9 +647,9 @@ RULES_DB = {
         'kr-col-ext.nelo.navercorp.com': ['DROP:/'],
         'cr.shopping.naver.com': ['DROP:/'],
         'api-biz-catcher.naver.com': ['DROP:/'],
-        'ssl.pstatic.net': ['/adimg3.search/adpost/'],
+        'ssl.pstatic.net': ['/adimg3.search/adpost/', '/tveta/libs/glad/', '/melona/libs/gfp-nac-module/'],
         'ntm.pstatic.net': ['DROP:/'],
-        'map.pstatic.net': ['DROP:/evtp/'],
+        'map.pstatic.net': ['DROP:/evtp/', 'DROP:/nvbpc/wmts/adm/'],
         'fp.amap.com': ['DROP:/ws/shield/location/fp/report'],
         'awaken.amap.com': ['DROP:/ws/h5_log'],
         'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/', 'DROP:/ws/shield/search/data_report', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/', 'DROP:/ws/feature/gbfs/batchcalcbyfeaturecode/', 'DROP:/ws/aos/voice/ip_info/', 'DROP:/ws/ipx/'],
@@ -2981,6 +2986,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V45.66 goqual.com IoT + Naver Maps evtp ---
     cases.append(TestCase("Privacy: Goqual IoT Log Block", "https://a1-cube.cube.goqual.com/log.json", RES_BLOCK_403, "V45.66 goqual.com 韓國智慧家居 IoT 平台設備遙測日誌封鎖；BLOCK_DOMAINS_WILDCARDS 覆蓋所有子域"))
     cases.append(TestCase("AdBlock: Naver Maps EVTP Ad Tile Drop", "https://map.pstatic.net/evtp/poi/event/tile/v1/4/14/6.json?version=463500", RES_DROP_204, "V45.66 Naver Maps 이벤트 프로모션 타일 廣告 POI 疊加圖磚 DROP；與 searchad-phinf 同屬 Naver 廣告基礎設施"))
+    # --- V45.67 Naver GFP SDK + nvbpc/wmts/adm ---
+    cases.append(TestCase("AdBlock: Naver GFP Display SDK Block", "https://ssl.pstatic.net/tveta/libs/glad/prod/3.9.0/gfp-display-sdk.js", RES_BLOCK_403, "V45.67 Naver tveta TV 廣告平台 GFP Display SDK 封鎖；glad = GFP Linked Ad SDK；403 阻止廣告腳本載入"))
+    cases.append(TestCase("AdBlock: Naver GFP NAC Synchronizer Block", "https://ssl.pstatic.net/melona/libs/gfp-nac-module/synchronizer.js", RES_BLOCK_403, "V45.67 Naver GFP Native Ad Content 模組同步器封鎖；gfp-nac-module = 原生廣告內容 GFP 模組；403 封鎖"))
+    cases.append(TestCase("AdBlock: Naver Maps NVBPC WMTS Ad Tile Drop", "https://map.pstatic.net/nvbpc/wmts/adm/71019042-d2dc-4189-9239-9217a6a67f3f/getTile/55905/25391/16/pbf", RES_DROP_204, "V45.67 Naver Maps Ad Manager WMTS 地理定向廣告向量圖磚 DROP；UUID 廣告素材 ID + pbf 格式，同 evtp 廣告疊加層性質"))
     cases.append(TestCase("Privacy: Amap Updatable V2 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v2/log?ent=2", RES_DROP_204, "補齊 /v2/log 版本化 API 邊界防禦"))
     cases.append(TestCase("Privacy: Amap Updatable Future V77 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v77/log?ent=2", RES_DROP_204, "DROP_RE 覆蓋未來 vN/log 版本升級路徑"))
     cases.append(TestCase("Privacy: Amap Galaxy Data Drop", "https://info.amap.com/ws/shield/galaxy/data?ent=2&csid=615A3F7F-1E14-4AEF-B540-0DFFB75FD376", RES_DROP_204, "封鎖 info.amap.com 盾系 galaxy 遙測資料回傳"))
