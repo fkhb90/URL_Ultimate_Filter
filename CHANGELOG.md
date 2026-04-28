@@ -1,5 +1,95 @@
 # URL Ultimate Filter - Changelog
 
+## V45.68 - 2026-04-28
+- [Privacy] Alibaba Cloud DYPNS 雙棧 API 封鎖 + 淘寶行動端 ACS 服務封鎖：
+  - dypnsapi-dualstack.aliyuncs.com → BLOCK_DOMAINS（阿里雲 DYPNS 電話號碼服務 API 雙棧端點；與 log.aliyuncs.com/sls.aliyuncs.com 同屬 Alibaba Cloud 後端遙測/服務基礎設施）
+  - acs.m.taobao.com → CRITICAL_PATH_MAP DROP:/（淘寶行動端 App Configuration/Communication Service；與 amdc.m.taobao.com 同屬行動端服務基礎設施，全域 DROP）
+- [AdBlock] Naver pstatic.net GFP 廣告 SDK 封鎖 + Naver Maps nvbpc/wmts/adm 廣告圖磚封鎖：
+  - ssl.pstatic.net → 追加 /tveta/libs/glad/（tveta TV 廣告平台，glad = GFP Linked Ad SDK，gfp-display-sdk.js 廣告展示 SDK；403 阻止腳本載入）
+  - ssl.pstatic.net → 追加 /melona/libs/gfp-nac-module/（GFP Native Ad Content 模組；synchronizer.js 廣告同步器；403 阻止腳本載入）
+  - map.pstatic.net → 追加 DROP:/nvbpc/wmts/adm/（wmts/adm = Ad Manager WMTS 服務；UUID 廣告素材 ID + getTile/x/y/z/pbf 向量圖磚格式；地理定向廣告圖磚，與 evtp 同屬廣告疊加層）
+- [Privacy] goqual.com 韓國 IoT 平台遙測封鎖 + Naver Maps evtp 廣告 POI 圖磚封鎖：
+  - goqual.com → BLOCK_DOMAINS_WILDCARDS（韓國智慧家居 IoT 平台；a1-cube.cube.goqual.com /log.json 設備遙測日誌；wildcard 覆蓋 cube./a1-cube.cube. 等所有子域）
+  - map.pstatic.net → CRITICAL_PATH_MAP DROP:/evtp/（이벤트 프로모션 타일 = 地圖贊助商廣告 POI 疊加圖磚；與 Naver searchad-phinf CDN 同屬廣告基礎設施；座標式路徑 /v1/4/14/6.json 確認為圖磚格式）
+- [Privacy] 高德地圖 m5.amap.com shield/search 搜尋資料上報封鎖：
+  - m5.amap.com → 追加 DROP:/ws/shield/search/data_report（shield 系統搜尋行為資料上報；in= 加密包 + csid= 設備指紋；與既有 DROP:/ws/shield/nest、DROP:/ws/shield/frogserver 同屬 shield 遙測系列）
+- [Privacy] 高德地圖 mps.amap.com 地圖渲染遙測封鎖 + m5.amap.com IPX 資料點上報封鎖：
+  - mps.amap.com → CRITICAL_PATH_MAP DROP:/ws/mps/lyrdata/（lyrdata/rendermap 無座標參數僅攜帶 csid= 設備指紋，非正常圖層拉取；為地圖渲染事件遙測上報）
+  - m5.amap.com → 追加 DROP:/ws/ipx/（ipx = in-product experience 遙測命名空間；/ws/ipx/v2/res/dot_report 攜帶超大 in= 加密包 + csid=，以前綴覆蓋整個 ipx 子路徑）
+- [Privacy] Claude.ai 事件記錄遙測封鎖：
+  - claude.ai → CRITICAL_PATH_MAP DROP:/api/event_logging/（/api/event_logging/v2/batch 為純遙測批次上傳；不影響對話/API 功能；CRITICAL_PATH_MAP 第一步執行早於 SOFT_WHITELIST；與 statsig.anthropic.com DROP:/v1/rgstr 同屬 Anthropic 遙測基礎設施封鎖）
+- [Privacy] 高德地圖 BOSS 系統遙測封鎖 + render.amap.com TMC 交通資料上傳封鎖：
+  - m5-zb.amap.com → 追加 DROP:/ws/boss/（BOSS = Business Operation Support System；transportation/diversion/amap_c_card 等路徑攜帶 in= 加密遙測包 + csid= 設備指紋；以前綴覆蓋整個 boss 子路徑）
+  - render.amap.com → CRITICAL_PATH_MAP DROP:/ws/render/tmc/（TMC = Traffic Message Channel；大型 in= 加密包 + is_bin=1 + csid= 屬資料上傳特徵，非正常圖磚拉取請求）
+- [Privacy] 高德地圖車機用戶效能規則遙測封鎖 + BMD 廣告備援 CDN 封鎖：
+  - m5-zb.amap.com → 追加 DROP:/ws/car/user/performance/rules（車機用戶效能規則端點；in= 加密遙測包 + csid= 設備指紋與其他 m5-zb 遙測路徑特徵一致）
+  - render-prod-backup-tile.amap.com → CRITICAL_PATH_MAP DROP:/ws/render/bmd/（V45.60 render-prod-tile.amap.com 之備援 CDN 節點；相同 adiu= 廣告設備 ID + bmd 廣告圖磚路徑）
+- [AdBlock] 高德地圖 BMD 廣告圖磚封鎖：
+  - render-prod-tile.amap.com → CRITICAL_PATH_MAP DROP:/ws/render/bmd/（Brand/Marketing Display 廣告覆蓋圖磚端點；adiu= 參數攜帶廣告設備 ID，tileType=6 確認廣告內容；路徑精確封鎖，不影響正常地圖圖磚載入）
+- [Privacy] Naver NELO 外部日誌收集器封鎖：
+  - kr-col-ext.nelo.navercorp.com → CRITICAL_PATH_MAP DROP:/（Naver 企業日誌平台 NELO 的外部採集節點；kr = 韓國區、col = collector、ext = external；與 inspector-collector.m.naver.com 同屬 Naver 日誌基礎設施）
+- [Privacy] 高德/AutoNavi 廣告與追蹤端點補強：
+  - optimus-ads.amap.com → CRITICAL_PATH_MAP DROP:/（Amap 廣告最佳化系統；optimus = 最佳化，ads 明示廣告用途；與 adiu/logs/cgicol 等 amap 全域 DROP 系列一致）
+  - store.is.autonavi.com → CRITICAL_PATH_MAP DROP:/（AutoNavi 母品牌門店資訊追蹤端點；store.is = 門店資訊服務，屬位置與行為遙測）
+- [Privacy] 高德地圖 UT 廣告分析端點封鎖 + qchannel01.cn 中國渠道追蹤封鎖：
+  - adashx.ut.amap.com → CRITICAL_PATH_MAP DROP:/（UT 廣告看板遙測端點；adashx = ad dashboard X；ut.amap.com 為高德 UserTracker 子域；與 adiu/logs/cgicol/grid/tm 同屬全域 DROP 系列）
+  - qchannel01.cn → BLOCK_DOMAINS_WILDCARDS（中國渠道追蹤域名；封鎖 i.qchannel01.cn、www.qchannel01.cn 等所有子域名）
+  - mdap.alipay.com → 已在 BLOCK_DOMAINS (V45.x 先前版本)，無需重複新增
+- [Privacy] Google growth-pa.googleapis.com 成長分析端點封鎖：
+  - growth-pa.googleapis.com → PRIORITY_BLOCK_DOMAINS（Google Product Analytics -pa 系列遙測端點；與 crashlyticsreports-pa / firebaselogging-pa 同列）
+- [Privacy] Kakao Tiara 分析 SDK 補漏 + zztfly.com 中國行動分析 SDK 封鎖：
+  - stat.tiara.daum.net → BLOCK_DOMAINS（Kakao Tiara 分析 SDK 統計端點；track.tiara.daum.net 已封鎖，stat 子域漏封）
+  - zztfly.com → BLOCK_DOMAINS_WILDCARDS（中國行動分析 SDK 基礎設施：devc. = 設備識別端點，cfgc. = SDK 設定拉取端點）
+- [Privacy] 高德地圖 AOS 語音 IP 資訊端點封鎖：
+  - m5.amap.com → DROP:/ws/aos/voice/ip_info/（AOS 語音功能 IP 資訊查詢，攜帶 csid 設備指紋 + 加密 in= 資料包，特徵一致；雙斜線 //ws/ 為請求 bug，引擎 substring match 仍命中 /ws/ 子字串）
+- [Privacy] 高德地圖 gbfs 地理遙測端點 + DeepSeek IP 地理查詢封鎖：
+  - m5.amap.com → DROP:/ws/feature/gbfs/batchCalcByFeatureCode/（gbfs batchCalc aloc 攜帶 csid 設備指紋 + 超長加密 in= 資料包，與已封鎖的 AMC/shield/frogserver 遙測特徵完全一致，判定為位置遙測上報偽裝為功能 API）
+  - chat.deepseek.com → DROP:/api/v0/ip_to_country_code（IP→國家碼地理位置查詢，屬使用者地理分佈分析，封鎖後聊天功能不受影響；deepseek.com 不在任何白名單，路徑亦無現有關鍵字命中）
+- [BugFix] ByteDance Rangers SDK CDN 誤殺修正（「讓 JS 載入，封鎖它打電話回家」策略）：
+  - 根因：criticalPathScanner 命中 CRITICAL_PATH_GENERIC '/collect'（路徑含 /collect/），無靜態資源豁免
+  - 修法 1：PATH_EXEMPTIONS 新增 volccdn.com → /data-static/log-sdk/，引擎步驟 6 短路 ALLOW，SDK JS 可正常下載
+  - 修法 2：BLOCK_DOMAINS_WILDCARDS 新增 snssdk.com，封鎖 Rangers 資料回傳端點（mon/log/applog.snssdk.com 等）
+  - 既有 byteoversea.com wildcard 已封鎖國際版資料通道；snssdk.com 補上國內/亞洲版缺口
+  - 淨效果：App 正常啟動，SDK 無法將行為資料上傳至 ByteDance 後端
+- [BugFix] Coupang OAuth2 登入流程誤殺修正：
+  - 根因：member.tw.coupang.com 在 SOFT_WHITELIST（via coupang.com），SOFT_WHITELIST 不屏蔽關鍵字掃描
+  - 觸發詞：OAuth 標準參數 `audience=` 命中 PATH_BLOCK 'audience' 關鍵字 → "Blocked by Keyword"
+  - 修法：將 member.tw.coupang.com 加入 OAUTH_SAFE_HARBOR_DOMAINS，主決策流程 isOAuthSafeHarbor 短路返回，完全豁免關鍵字/域名封鎖掃描（等同 accounts.google.com 語義）
+  - 補充：OAuth 路徑正則保護 (matchesAnyRegex OAUTH_PATHS_REGEX) 僅存在於 cleanTrackingParams，主流程無路徑正則備援，SAFE_HARBOR 是正確修法
+- [Rules] 多平台遙測與廣告端點補強（8 條新規則，9 項測試）：
+  - m5.amap.com → DROP:/ws/amc/（AMC 轉化追蹤 conv/operate 端點靜默拋棄）
+  - center.amap.com → DROP:/ws/amc/（center 子域 AMC raise_list 轉化追蹤 DROP）
+  - cmapi.tw.coupang.com → /ad-info（Coupang modular 廣告 POI 注入端點 403 封鎖）
+  - g.alicdn.com → /alilog/（阿里巴巴 APlus 分析 SDK CDN 腳本 403 封鎖）
+  - prodregistryv2.org → DROP:/v1/rgstr（PostHog 分析登記端點 204 DROP）
+  - chatgpt.com → DROP:/ces/v1/m + DROP:/ces/v1/t（CES Client Event Service 遙測端點 204 DROP）
+  - apis.naver.com → /papago/papago_app/promotions（Naver Papago 推廣內容 API 403 封鎖）
+- [Safe] 確認 member.tw.coupang.com OAuth2 PKCE 授權流程正常放行（新增驗證測試案例）。
+- [Rules] 高德地圖 (amap.com) 遙測端點封鎖升級：補齊 adiu/logs/dualstack-logs/wb/cgicol/grid/tm 與 amdc.m.taobao.com，擴充阿里媽媽 nogw 備援廣告路徑，新增 info/passport/frogserver 三條漏網遙測通道。
+  - info.amap.com → DROP:/ws/shield/galaxy/data（盾系 galaxy 遙測資料上報）
+  - passport.amap.com → DROP:/ws/auth/session-report（工作階段遙測上報）
+  - m5.amap.com → DROP:/ws/shield/frogserver/aocs/updatable/（frogserver/aocs updatable 通道）
+  - adiu.amap.com / logs.amap.com / dualstack-logs.amap.com / cgicol.amap.com / grid.amap.com / tm.amap.com → DROP:/（全域遙測通道靜默拋棄）
+  - wb.amap.com → DROP:/channel.php（安裝歸因與導流追蹤）
+  - amdc.m.taobao.com → DROP:/（AMDC HTTPDNS 調度與隱私回傳通道）
+  - amap-aos-info-nogw.amap.com → /ws/aos/alimama/、/ws/aos/alimama/splash_screen（阿里媽媽廣告備援 403 封鎖）
+  - m5.amap.com → DROP_RE:^/ws/shield/nest/updatable/v\d+/log(?:[/?#]|$)（版本化 vN/log 邊界防禦）
+  - fp.amap.com → DROP:/ws/shield/location/fp/report（設備指紋上報）
+  - awaken.amap.com → DROP:/ws/h5_log（H5 Web 日誌）
+  - m5.amap.com → DROP:/ws/shield/nest/updatable/v1/log（保留明確規則，並由 DROP_RE 兜底版本升級）
+  - m5.amap.com → DROP:/ws/feature/preheat/bootevent（啟動事件上報）
+  - m5.amap.com → /ws/valueadded/alimama/splash_screen（阿里媽媽開屏廣告 403，alimama.com 僅做域名比對不覆蓋路徑）
+  - m5-zb.amap.com → DROP:/ws/security/account/device_reporting（設備 ID 指紋上報，_reporting 底線繞過 /reporting/ 斜線邊界）
+  - m5-x.amap.com → DROP:/ws/shield/amapstream/upload（加密二進位串流，is_bin=1）
+- [Privacy] WOWPASS 韓國旅遊預付卡 App 遙測封鎖：log.wowpass.io → DROP:/ 全域靜默拋棄。根因：/api/v1/log 尾無 s，CRITICAL_PATH_GENERIC /v1/logs 漏網；/v1/log 通用規則有誤殺 /v1/login 風險，改以域名層精準 DROP 解決。
+- [Privacy] Airbridge (AB180) 韓國主流 MMP 歸因追蹤 SDK 全面封鎖：
+  - airbridge.io → BLOCK_DOMAINS_WILDCARDS（萬用字元封鎖所有子域名，含 static/sdk-download/per-app deep link）
+  - api.airbridge.io → DROP:/（歸因與 S2S 事件 API，204 靜默拋棄防 SDK 重試風暴）
+  - core.airbridge.io → DROP:/（Bridge page API + UDL SDK，204 靜默拋棄）
+  - abr.ge → BLOCK_DOMAINS_WILDCARDS（追蹤短連結域名，含 {APP}.abr.ge per-app 子域名）
+  - deeplink.page → BLOCK_DOMAINS_WILDCARDS（舊版深度連結域名）
+- [Test Suite] 新增 5 項 V45.48 Airbridge 測試案例。
+
 ## V45.67 - 2026-04-28
 - [AdBlock] Naver pstatic.net GFP 廣告 SDK 封鎖 + Naver Maps nvbpc/wmts/adm 廣告圖磚封鎖：
   - ssl.pstatic.net → 追加 /tveta/libs/glad/（tveta TV 廣告平台，glad = GFP Linked Ad SDK，gfp-display-sdk.js 廣告展示 SDK；403 阻止腳本載入）
