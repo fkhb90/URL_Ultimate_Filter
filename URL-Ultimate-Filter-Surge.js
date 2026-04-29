@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.73
+ * @version 45.74
  * @date    2026-04-27
- * @rules   1492 total (300 domains, 409 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1494 total (300 domains, 411 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.73';
-const SCRIPT_BUILD = 'V45.73 (2026-04-27) | 1492 rules | 3039 tests';
+const SCRIPT_VERSION = '45.74';
+const SCRIPT_BUILD = 'V45.74 (2026-04-27) | 1494 rules | 3045 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -671,7 +671,8 @@ const RULES = {
         'DROP:/ws/feature/gbfs/batchcalcbyfeaturecode/', 'DROP:/ws/aos/voice/ip_info/', 'DROP:/ws/ipx/'
       ])],
     ['m5-zb.amap.com', new Set([
-        'DROP:/ws/security/account/device_reporting', 'DROP:/ws/car/user/performance/rules', 'DROP:/ws/boss/'
+        'DROP:/ws/security/account/device_reporting', 'DROP:/ws/car/user/performance/rules', 'DROP:/ws/boss/', 'DROP:/ws/ccoupon/',
+        'DROP:/ws/vip/jointly-channel'
       ])],
     ['m5-x.amap.com', new Set([
         'DROP:/ws/shield/amapstream/upload'
