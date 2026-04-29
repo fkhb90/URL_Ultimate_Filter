@@ -77,10 +77,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.74"
+VERSION = "45.75"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] 高德地圖 m5 語音搜尋指引查詢遙測封鎖：
+  - m5.amap.com → 追加 DROP:/ws/search/voice/guide_query（語音導航指引查詢端點；in= 大型加密包 + csid= 設備指紋；語音查詢不以 URL 加密包方式傳輸，大型 in= 表明夾帶行為上下文遙測資料）
+  - acs.m.taobao.com → 已於 V45.68 封鎖（CRITICAL_PATH_MAP DROP:/），無需重複處理
 - [Privacy] 高德地圖 m5-zb.amap.com 優惠券與 VIP 聯合頻道遙測封鎖：
   - m5-zb.amap.com → 追加 DROP:/ws/ccoupon/（ccoupon = 優惠券系統；preload 端點攜帶 in= 加密包 + csid= 設備指紋，上傳用戶上下文以個人化優惠券投放，屬行為分析遙測）
   - m5-zb.amap.com → 追加 DROP:/ws/vip/jointly-channel（VIP 聯合頻道合作行銷追蹤端點；in= 加密包 + csid= 設備指紋，上傳用戶 VIP 狀態與設備資料用於合作夥伴投放追蹤）
@@ -676,7 +679,7 @@ RULES_DB = {
         'map.pstatic.net': ['DROP:/evtp/', 'DROP:/nvbpc/wmts/adm/'],
         'fp.amap.com': ['DROP:/ws/shield/location/fp/report'],
         'awaken.amap.com': ['DROP:/ws/h5_log'],
-        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/', 'DROP:/ws/shield/search/data_report', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/', 'DROP:/ws/feature/gbfs/batchcalcbyfeaturecode/', 'DROP:/ws/aos/voice/ip_info/', 'DROP:/ws/ipx/'],
+        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/', 'DROP:/ws/shield/search/data_report', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/', 'DROP:/ws/feature/gbfs/batchcalcbyfeaturecode/', 'DROP:/ws/aos/voice/ip_info/', 'DROP:/ws/ipx/', 'DROP:/ws/search/voice/guide_query'],
         'm5-zb.amap.com': ['DROP:/ws/security/account/device_reporting', 'DROP:/ws/car/user/performance/rules', 'DROP:/ws/boss/', 'DROP:/ws/ccoupon/', 'DROP:/ws/vip/jointly-channel'],
         'm5-x.amap.com': ['DROP:/ws/shield/amapstream/upload'],
         'info.amap.com': ['DROP:/ws/shield/galaxy/data'],
@@ -3003,6 +3006,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V45.74 m5-zb ccoupon + vip/jointly-channel ---
     cases.append(TestCase("Privacy: Amap m5-zb CCoupon Preload Drop", "https://m5-zb.amap.com/ws/ccoupon/amap/preload?ent=2&in=bwTMO9VI9x&csid=9CA1F186-09B0-4E42-972C-E2257DA7CF62", RES_DROP_204, "V45.74 高德地圖 m5-zb ccoupon preload 優惠券個人化遙測 DROP；in= 加密包 + csid= 設備指紋，上傳用戶上下文供優惠券投放分析"))
     cases.append(TestCase("Privacy: Amap m5-zb VIP JointlyChannel Drop", "https://m5-zb.amap.com/ws/vip/jointly-channel?ent=2&in=OO5Fa2AWpAQ2&csid=80CD3897-FF33-4A2A-9692-A13DD1C6196C", RES_DROP_204, "V45.74 高德地圖 m5-zb VIP jointly-channel 合作行銷追蹤 DROP；in= 加密包 + csid= 設備指紋，VIP 聯合頻道合作夥伴投放追蹤"))
+    # --- V45.75 m5 search/voice/guide_query + acs.m.taobao confirm ---
+    cases.append(TestCase("Privacy: Amap m5 Voice Guide Query Drop", "https://m5.amap.com/ws/search/voice/guide_query_v2?ent=2&in=VFFz0&csid=43AB65BB-3308-49D9-A1D4-D78259607D92", RES_DROP_204, "V45.75 高德地圖 m5 語音指引查詢遙測 DROP；in= 大型加密包 + csid= 設備指紋；語音查詢不以 URL 加密包方式傳輸，大型 in= 表明夾帶行為上下文遙測"))
     # --- V45.63 Claude.ai 事件記錄遙測 ---
     cases.append(TestCase("Privacy: Claude.ai Event Logging Drop", "https://claude.ai/api/event_logging/v2/batch?", RES_DROP_204, "V45.63 Claude.ai 事件記錄批次遙測上傳 DROP；CRITICAL_PATH_MAP 第一步執行早於 SOFT_WHITELIST；與 statsig.anthropic.com 同屬 Anthropic 遙測基礎設施"))
     # --- V45.64 Amap mps lyrdata + m5 ipx dot_report ---
