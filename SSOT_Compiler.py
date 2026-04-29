@@ -3,12 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.71 (2026-04-27)
+當前版本：V45.72 (2026-04-27)
 最新架構更新：
-- [Privacy] 高德地圖 center.amap.com 位置分享 LBS 遙測封鎖：center 追加 DROP:/ws/share/mainpage/lbs/info（share/mainpage LBS info 攜帶 in= 加密包 + csid= 設備指紋，為位置分享遙測上報；m5 /ws/aos/download/map/offline/lightly/plan/increment 判定為功能性離線圖資增量計劃拉取，不封鎖）。
-- [Test Suite] 新增 1 項 V45.71 測試案例。
+- [Privacy] 高德地圖 m5.amap.com frogserver 規則升級：DROP:/ws/shield/frogserver/aocs/updatable/ 升級為 DROP:/ws/shield/frogserver/，前綴覆蓋所有 frogserver 子路徑（含新增 rd/displist remote dispatch list + 既有 aocs/updatable）。
+- [Test Suite] 新增 1 項 V45.72 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.72 (2026-04-27): 高德 m5 shield/frogserver/ 前綴升級，涵蓋 rd/displist + aocs/updatable 所有子路徑。
 - V45.71 (2026-04-27): 高德 center.amap.com share/mainpage/lbs/info 遙測 DROP。
 - V45.70 (2026-04-27): 阿里巴巴城盾 alibabachengdun.com 裝置指紋 SDK 封鎖。
 - V45.69 (2026-04-27): Meta AI /monitoring + /api/analytics 遙測分析 DROP。
@@ -76,13 +77,16 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.71"
+VERSION = "45.72"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] 高德地圖 m5.amap.com frogserver 規則升級：
+  - m5.amap.com → DROP:/ws/shield/frogserver/aocs/updatable/ 升級為 DROP:/ws/shield/frogserver/（frogserver 所有子路徑均屬 shield 監控體系；新增 rd/displist = remote dispatch list，前綴覆蓋更完整）
+  - m5.amap.com /ws/aos/download/map/offline/lightly/plan/increment → 判定功能性（離線圖資增量計劃拉取，無 in= 上傳，不列入封鎖）
+  - api-e189.21cn.com /gw/client/accountMsg.do → 判定功能性（189郵箱帳號訊息 API，不列入封鎖）
 - [Privacy] 高德地圖 center.amap.com 位置分享 LBS 遙測封鎖：
   - center.amap.com → 追加 DROP:/ws/share/mainpage/lbs/info（share/mainpage LBS info 端點；in= 加密包 + csid= 設備指紋，位置分享遙測上報特徵明確）
-  - m5.amap.com /ws/aos/download/map/offline/lightly/plan/increment → 判定功能性（離線圖資增量計劃 GET 拉取，無 in= 加密上傳，封鎖後離線地圖無法增量更新，不列入封鎖）
 - [Privacy] 阿里巴巴城盾裝置指紋 SDK 封鎖：
   - alibabachengdun.com → BLOCK_DOMAINS_WILDCARDS（城盾 = Alibaba 裝置識別/風控 SDK 後端；umdc.alibabachengdun.com /sg/data.json + mum.alibabachengdun.com /repTg.json，攜帶 pn=com.autonavi.amap/pv/os/sv 完整設備指紋；wildcard 一次覆蓋所有子域）
 - [Privacy] Meta AI 監控遙測與分析端點封鎖：
@@ -666,7 +670,7 @@ RULES_DB = {
         'map.pstatic.net': ['DROP:/evtp/', 'DROP:/nvbpc/wmts/adm/'],
         'fp.amap.com': ['DROP:/ws/shield/location/fp/report'],
         'awaken.amap.com': ['DROP:/ws/h5_log'],
-        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/aocs/updatable/', 'DROP:/ws/shield/search/data_report', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/', 'DROP:/ws/feature/gbfs/batchcalcbyfeaturecode/', 'DROP:/ws/aos/voice/ip_info/', 'DROP:/ws/ipx/'],
+        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/', 'DROP:/ws/shield/search/data_report', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/', 'DROP:/ws/feature/gbfs/batchcalcbyfeaturecode/', 'DROP:/ws/aos/voice/ip_info/', 'DROP:/ws/ipx/'],
         'm5-zb.amap.com': ['DROP:/ws/security/account/device_reporting', 'DROP:/ws/car/user/performance/rules', 'DROP:/ws/boss/'],
         'm5-x.amap.com': ['DROP:/ws/shield/amapstream/upload'],
         'info.amap.com': ['DROP:/ws/shield/galaxy/data'],
@@ -3018,6 +3022,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Alibaba Chengdun MUM RepTg Block", "https://mum.alibabachengdun.com/repTg.json?pn=com.autonavi.amap&pv=16.13.8&pt=1&os=1", RES_BLOCK_403, "V45.70 阿里巴巴城盾 MUM repTg 上報節點封鎖；repTg = report Tag 設備指紋上報"))
     # --- V45.71 center.amap.com share/mainpage/lbs/info ---
     cases.append(TestCase("Privacy: Amap Center Share LBS Info Drop", "https://center.amap.com/ws/share/mainpage/lbs/info?ent=2&csid=48D0E906-DC1B-44D9-8157-4BFA4B158C24", RES_DROP_204, "V45.71 高德地圖 center.amap.com 位置分享 LBS 遙測 DROP；in= 加密包 + csid=，share/mainpage 分享主頁遙測"))
+    # --- V45.72 m5 frogserver/ 前綴升級 ---
+    cases.append(TestCase("Privacy: Amap m5 Frogserver RD Displist Drop", "https://m5.amap.com/ws/shield/frogserver/rd/displist?ent=2&csid=5A42B4DE-376B-4318-BCD1-F885E994DCD3", RES_DROP_204, "V45.72 高德地圖 m5 frogserver rd/displist remote dispatch list DROP；DROP:/ws/shield/frogserver/ 前綴升級覆蓋所有 frogserver 子路徑"))
     cases.append(TestCase("Privacy: Amap Updatable Future V77 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v77/log?ent=2", RES_DROP_204, "DROP_RE 覆蓋未來 vN/log 版本升級路徑"))
     cases.append(TestCase("Privacy: Amap Galaxy Data Drop", "https://info.amap.com/ws/shield/galaxy/data?ent=2&csid=615A3F7F-1E14-4AEF-B540-0DFFB75FD376", RES_DROP_204, "封鎖 info.amap.com 盾系 galaxy 遙測資料回傳"))
     cases.append(TestCase("Privacy: Amap Session Report Drop", "https://passport.amap.com/ws/auth/session-report?ent=2&csid=65AA4022-A95A-4103-B319-04431EF195D6", RES_DROP_204, "封鎖 passport.amap.com session-report 工作階段遙測上報"))
