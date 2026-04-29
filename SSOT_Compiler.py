@@ -77,10 +77,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.72"
+VERSION = "45.73"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] 高德地圖任務進度遙測封鎖：
+  - center.amap.com → 追加 DROP:/ws/user/task/（用戶任務進度上報端點；update/progress 攜帶 in= 加密包 + csid= 設備指紋，行為進度遙測特徵明確）
+  - m5.amap.com /ws/faas/amap-navigation/task-platform/get-tasks → 判定功能性（任務列表拉取，無 in= 加密包，GET 語意，不列入封鎖）
 - [Privacy] 高德地圖 m5.amap.com frogserver 規則升級：
   - m5.amap.com → DROP:/ws/shield/frogserver/aocs/updatable/ 升級為 DROP:/ws/shield/frogserver/（frogserver 所有子路徑均屬 shield 監控體系；新增 rd/displist = remote dispatch list，前綴覆蓋更完整）
   - m5.amap.com /ws/aos/download/map/offline/lightly/plan/increment → 判定功能性（離線圖資增量計劃拉取，無 in= 上傳，不列入封鎖）
@@ -695,7 +698,7 @@ RULES_DB = {
         'log.wowpass.io': ['DROP:/'],
         'api.airbridge.io': ['DROP:/'],
         'core.airbridge.io': ['DROP:/'],
-        'center.amap.com': ['DROP:/ws/amc/', 'DROP:/ws/share/mainpage/lbs/info'],
+        'center.amap.com': ['DROP:/ws/amc/', 'DROP:/ws/share/mainpage/lbs/info', 'DROP:/ws/user/task/'],
         'g.alicdn.com': ['/alilog/'],
         'prodregistryv2.org': ['DROP:/v1/rgstr'],
         'apis.naver.com': ['/papago/papago_app/promotions'],
@@ -3022,6 +3025,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Alibaba Chengdun MUM RepTg Block", "https://mum.alibabachengdun.com/repTg.json?pn=com.autonavi.amap&pv=16.13.8&pt=1&os=1", RES_BLOCK_403, "V45.70 阿里巴巴城盾 MUM repTg 上報節點封鎖；repTg = report Tag 設備指紋上報"))
     # --- V45.71 center.amap.com share/mainpage/lbs/info ---
     cases.append(TestCase("Privacy: Amap Center Share LBS Info Drop", "https://center.amap.com/ws/share/mainpage/lbs/info?ent=2&csid=48D0E906-DC1B-44D9-8157-4BFA4B158C24", RES_DROP_204, "V45.71 高德地圖 center.amap.com 位置分享 LBS 遙測 DROP；in= 加密包 + csid=，share/mainpage 分享主頁遙測"))
+    # --- V45.73 center.amap.com user/task/ + m5 faas get-tasks functional ---
+    cases.append(TestCase("Privacy: Amap Center User Task Progress Drop", "https://center.amap.com/ws/user/task/update/progress?ent=2&in=a652B3Dk2jB73&csid=DDDF777E-983E-4434-97F3-BF74B2EDBBE4", RES_DROP_204, "V45.73 高德地圖 center.amap.com 用戶任務進度上報 DROP；in= 加密包 + csid=，update/progress 行為進度遙測"))
+    cases.append(TestCase("Functional: Amap m5 FaaS Get Tasks Pass", "https://m5.amap.com/ws/faas/amap-navigation/task-platform/get-tasks?ent=2&csid=40FDA3EF-194B-49E2-B72E-B066396EFAD5", RES_ALLOW, "V45.73 高德地圖 m5 task-platform get-tasks 任務列表拉取功能性請求；無 in= 加密包，GET 語意，允許通過"))
     # --- V45.72 m5 frogserver/ 前綴升級 ---
     cases.append(TestCase("Privacy: Amap m5 Frogserver RD Displist Drop", "https://m5.amap.com/ws/shield/frogserver/rd/displist?ent=2&csid=5A42B4DE-376B-4318-BCD1-F885E994DCD3", RES_DROP_204, "V45.72 高德地圖 m5 frogserver rd/displist remote dispatch list DROP；DROP:/ws/shield/frogserver/ 前綴升級覆蓋所有 frogserver 子路徑"))
     cases.append(TestCase("Privacy: Amap Updatable Future V77 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v77/log?ent=2", RES_DROP_204, "DROP_RE 覆蓋未來 vN/log 版本升級路徑"))
