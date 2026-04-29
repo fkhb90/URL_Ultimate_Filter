@@ -77,10 +77,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.76"
+VERSION = "45.77"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] 高德地圖 m5 天氣服務歷史遙測封鎖：
+  - m5.amap.com → 追加 DROP:/ws/render/weatherservice/（天氣服務歷史天氣端點；in= 大型加密包 + is_bin=1 + csid= 設備指紋；與 render.amap.com TMC 相同二進位上傳特徵；功能性天氣查詢應帶明文座標參數而非加密二進位包）
 - [AdBlock] 高德地圖廣告推廣端點封鎖：
   - m5-zb.amap.com → 追加 DROP:/ws/galaxy/（Galaxy 星河廣告平台；show 端點明文攜帶 device_id + resource_type:popup + position + position_max_day/interval 廣告頻次上限參數，屬廣告展示請求）
   - m5.amap.com → 追加 DROP:/ws/promote/（promote 推廣命名空間；refresh/card 端點攜帶 in= 加密包 + csid= 設備指紋，推廣卡片重整夾帶行為遙測上傳）
@@ -682,7 +684,7 @@ RULES_DB = {
         'map.pstatic.net': ['DROP:/evtp/', 'DROP:/nvbpc/wmts/adm/'],
         'fp.amap.com': ['DROP:/ws/shield/location/fp/report'],
         'awaken.amap.com': ['DROP:/ws/h5_log'],
-        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/', 'DROP:/ws/shield/search/data_report', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/', 'DROP:/ws/feature/gbfs/batchcalcbyfeaturecode/', 'DROP:/ws/aos/voice/ip_info/', 'DROP:/ws/ipx/', 'DROP:/ws/search/voice/guide_query', 'DROP:/ws/promote/'],
+        'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/', 'DROP:/ws/shield/search/data_report', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/', 'DROP:/ws/feature/gbfs/batchcalcbyfeaturecode/', 'DROP:/ws/aos/voice/ip_info/', 'DROP:/ws/ipx/', 'DROP:/ws/search/voice/guide_query', 'DROP:/ws/promote/', 'DROP:/ws/render/weatherservice/'],
         'm5-zb.amap.com': ['DROP:/ws/security/account/device_reporting', 'DROP:/ws/car/user/performance/rules', 'DROP:/ws/boss/', 'DROP:/ws/ccoupon/', 'DROP:/ws/vip/jointly-channel', 'DROP:/ws/galaxy/'],
         'm5-x.amap.com': ['DROP:/ws/shield/amapstream/upload'],
         'info.amap.com': ['DROP:/ws/shield/galaxy/data'],
@@ -3014,6 +3016,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V45.76 m5-zb galaxy 廣告展示 + m5 promote 推廣卡片 ---
     cases.append(TestCase("AdBlock: Amap m5-zb Galaxy Show Drop", "https://m5-zb.amap.com/ws/galaxy/show?global=%7B%22device_id%22:%22ubejf77i7f555jfdfhci56defa89fd%22,%22resource_type%22:%22popup%22,%22position%22:9020%7D&appChannel=C3320", RES_DROP_204, "V45.76 高德地圖 m5-zb Galaxy 星河廣告平台展示 DROP；明文攜帶 device_id + resource_type:popup + position 廣告頻次上限，屬廣告展示請求"))
     cases.append(TestCase("AdBlock: Amap m5 Promote Refresh Card Drop", "https://m5.amap.com/ws/promote/refresh/card?ent=2&in=30iVtwQGAC&csid=92C6B4C7-D486-4F8C-99C0-E9BF09655631", RES_DROP_204, "V45.76 高德地圖 m5 promote 推廣命名空間卡片重整 DROP；in= 加密包 + csid= 設備指紋，推廣卡片重整夾帶行為遙測上傳"))
+    # --- V45.77 m5 render/weatherservice 天氣歷史遙測 ---
+    cases.append(TestCase("Privacy: Amap m5 Weather History Drop", "https://m5.amap.com/ws/render/weatherservice/historyweather?ent=2&in=Pf7sHyzphSd5&is_bin=1&csid=826A988E-5FCE-4300-B710-81E22892D8F0", RES_DROP_204, "V45.77 高德地圖 m5 天氣服務歷史天氣遙測 DROP；in= 加密包 + is_bin=1 + csid=，與 render.amap.com TMC 相同二進位上傳特徵"))
     # --- V45.63 Claude.ai 事件記錄遙測 ---
     cases.append(TestCase("Privacy: Claude.ai Event Logging Drop", "https://claude.ai/api/event_logging/v2/batch?", RES_DROP_204, "V45.63 Claude.ai 事件記錄批次遙測上傳 DROP；CRITICAL_PATH_MAP 第一步執行早於 SOFT_WHITELIST；與 statsig.anthropic.com 同屬 Anthropic 遙測基礎設施"))
     # --- V45.64 Amap mps lyrdata + m5 ipx dot_report ---

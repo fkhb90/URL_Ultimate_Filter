@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.76
+ * @version 45.77
  * @date    2026-04-27
- * @rules   1497 total (300 domains, 414 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1498 total (300 domains, 415 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.76';
-const SCRIPT_BUILD = 'V45.76 (2026-04-27) | 1497 rules | 3054 tests';
+const SCRIPT_VERSION = '45.77';
+const SCRIPT_BUILD = 'V45.77 (2026-04-27) | 1498 rules | 3057 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -669,7 +669,7 @@ const RULES = {
         'DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/',
         'DROP:/ws/shield/search/data_report', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/',
         'DROP:/ws/feature/gbfs/batchcalcbyfeaturecode/', 'DROP:/ws/aos/voice/ip_info/', 'DROP:/ws/ipx/', 'DROP:/ws/search/voice/guide_query',
-        'DROP:/ws/promote/'
+        'DROP:/ws/promote/', 'DROP:/ws/render/weatherservice/'
       ])],
     ['m5-zb.amap.com', new Set([
         'DROP:/ws/security/account/device_reporting', 'DROP:/ws/car/user/performance/rules', 'DROP:/ws/boss/', 'DROP:/ws/ccoupon/',
