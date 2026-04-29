@@ -77,10 +77,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.73"
+VERSION = "45.74"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] 高德地圖 m5-zb.amap.com 優惠券與 VIP 聯合頻道遙測封鎖：
+  - m5-zb.amap.com → 追加 DROP:/ws/ccoupon/（ccoupon = 優惠券系統；preload 端點攜帶 in= 加密包 + csid= 設備指紋，上傳用戶上下文以個人化優惠券投放，屬行為分析遙測）
+  - m5-zb.amap.com → 追加 DROP:/ws/vip/jointly-channel（VIP 聯合頻道合作行銷追蹤端點；in= 加密包 + csid= 設備指紋，上傳用戶 VIP 狀態與設備資料用於合作夥伴投放追蹤）
 - [Privacy] 高德地圖任務進度遙測封鎖：
   - center.amap.com → 追加 DROP:/ws/user/task/（用戶任務進度上報端點；update/progress 攜帶 in= 加密包 + csid= 設備指紋，行為進度遙測特徵明確）
   - m5.amap.com /ws/faas/amap-navigation/task-platform/get-tasks → 判定功能性（任務列表拉取，無 in= 加密包，GET 語意，不列入封鎖）
@@ -674,7 +677,7 @@ RULES_DB = {
         'fp.amap.com': ['DROP:/ws/shield/location/fp/report'],
         'awaken.amap.com': ['DROP:/ws/h5_log'],
         'm5.amap.com': ['DROP:/ws/shield/nest/updatable/v1/log', 'DROP_RE:^/ws/shield/nest/updatable/v\\d+/log(?:[/?#]|$)', 'DROP:/ws/feature/preheat/bootevent', 'DROP:/ws/shield/frogserver/', 'DROP:/ws/shield/search/data_report', '/ws/valueadded/alimama/splash_screen', '/ws/shield/search_poi/tips_adv', 'DROP:/ws/amc/', 'DROP:/ws/feature/gbfs/batchcalcbyfeaturecode/', 'DROP:/ws/aos/voice/ip_info/', 'DROP:/ws/ipx/'],
-        'm5-zb.amap.com': ['DROP:/ws/security/account/device_reporting', 'DROP:/ws/car/user/performance/rules', 'DROP:/ws/boss/'],
+        'm5-zb.amap.com': ['DROP:/ws/security/account/device_reporting', 'DROP:/ws/car/user/performance/rules', 'DROP:/ws/boss/', 'DROP:/ws/ccoupon/', 'DROP:/ws/vip/jointly-channel'],
         'm5-x.amap.com': ['DROP:/ws/shield/amapstream/upload'],
         'info.amap.com': ['DROP:/ws/shield/galaxy/data'],
         'passport.amap.com': ['DROP:/ws/auth/session-report'],
@@ -2997,6 +3000,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V45.62 m5-zb BOSS 系統 + render.amap.com TMC ---
     cases.append(TestCase("Privacy: Amap m5-zb BOSS Diversion Drop", "https://m5-zb.amap.com/ws/boss/transportation/diversion/amap_c_card?ent=2&csid=DC0C477E-EFF1-40D9-93DD-E71E9F12387B", RES_DROP_204, "V45.62 高德地圖 BOSS 系統 transportation/diversion 遙測 DROP；DROP:/ws/boss/ 前綴覆蓋整個 boss 子路徑"))
     cases.append(TestCase("Privacy: Amap render TMC Upload Drop", "https://render.amap.com/ws/render/tmc/?ent=2&is_bin=1&csid=2E6907B1-6CA5-4D62-AB35-2875999FAB31", RES_DROP_204, "V45.62 高德地圖 render.amap.com TMC 交通資料上傳 DROP；is_bin=1 + csid= + 大型 in= 為上傳特徵，非正常圖磚拉取"))
+    # --- V45.74 m5-zb ccoupon + vip/jointly-channel ---
+    cases.append(TestCase("Privacy: Amap m5-zb CCoupon Preload Drop", "https://m5-zb.amap.com/ws/ccoupon/amap/preload?ent=2&in=bwTMO9VI9x&csid=9CA1F186-09B0-4E42-972C-E2257DA7CF62", RES_DROP_204, "V45.74 高德地圖 m5-zb ccoupon preload 優惠券個人化遙測 DROP；in= 加密包 + csid= 設備指紋，上傳用戶上下文供優惠券投放分析"))
+    cases.append(TestCase("Privacy: Amap m5-zb VIP JointlyChannel Drop", "https://m5-zb.amap.com/ws/vip/jointly-channel?ent=2&in=OO5Fa2AWpAQ2&csid=80CD3897-FF33-4A2A-9692-A13DD1C6196C", RES_DROP_204, "V45.74 高德地圖 m5-zb VIP jointly-channel 合作行銷追蹤 DROP；in= 加密包 + csid= 設備指紋，VIP 聯合頻道合作夥伴投放追蹤"))
     # --- V45.63 Claude.ai 事件記錄遙測 ---
     cases.append(TestCase("Privacy: Claude.ai Event Logging Drop", "https://claude.ai/api/event_logging/v2/batch?", RES_DROP_204, "V45.63 Claude.ai 事件記錄批次遙測上傳 DROP；CRITICAL_PATH_MAP 第一步執行早於 SOFT_WHITELIST；與 statsig.anthropic.com 同屬 Anthropic 遙測基礎設施"))
     # --- V45.64 Amap mps lyrdata + m5 ipx dot_report ---
