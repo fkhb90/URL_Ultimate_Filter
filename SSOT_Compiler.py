@@ -3,12 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.69 (2026-04-27)
+當前版本：V45.70 (2026-04-27)
 最新架構更新：
-- [Privacy] Meta AI 監控遙測與分析端點封鎖：www.meta.ai 加入 CRITICAL_PATH_MAP DROP:/monitoring + DROP:/api/analytics（/monitoring 攜帶 o/p/r 物件/版位/地區 ID；/api/analytics 明示分析追蹤；/animations/ UI 動畫資源不受影響）。
-- [Test Suite] 新增 2 項 V45.69 測試案例。
+- [Privacy] 阿里巴巴城盾裝置指紋 SDK 封鎖：alibabachengdun.com 加入 BLOCK_DOMAINS_WILDCARDS（城盾 = Alibaba 裝置識別/風控 SDK；umdc. 用戶行動設備採集 + mum. repTg 上報節點，攜帶 pn/pv/os/sv 完整設備指紋參數，覆蓋所有子域）。
+- [Test Suite] 新增 2 項 V45.70 測試案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.70 (2026-04-27): 阿里巴巴城盾 alibabachengdun.com 裝置指紋 SDK 封鎖。
 - V45.69 (2026-04-27): Meta AI /monitoring + /api/analytics 遙測分析 DROP。
 - V45.68 (2026-04-27): dypnsapi-dualstack.aliyuncs.com 封鎖 + acs.m.taobao.com DROP。
 - V45.67 (2026-04-27): Naver GFP 廣告 SDK 封鎖（tveta/glad + melona/gfp-nac-module）+ Naver Maps nvbpc/wmts/adm 廣告圖磚 DROP。
@@ -74,10 +75,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.69"
+VERSION = "45.70"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] 阿里巴巴城盾裝置指紋 SDK 封鎖：
+  - alibabachengdun.com → BLOCK_DOMAINS_WILDCARDS（城盾 = Alibaba 裝置識別/風控 SDK 後端；umdc.alibabachengdun.com /sg/data.json + mum.alibabachengdun.com /repTg.json，攜帶 pn=com.autonavi.amap/pv/os/sv 完整設備指紋；wildcard 一次覆蓋所有子域）
 - [Privacy] Meta AI 監控遙測與分析端點封鎖：
   - www.meta.ai → CRITICAL_PATH_MAP DROP:/monitoring（/monitoring?o=&p=&r= 攜帶物件/版位/地區識別碼，為後台監控遙測上報）
   - www.meta.ai → CRITICAL_PATH_MAP DROP:/api/analytics（/api/analytics 明示分析追蹤端點）
@@ -452,7 +455,7 @@ RULES_DB = {
         'tagtoo.com.tw', 'scupio.net', 'clickforce.net',
         'log.aliyuncs.com', 'sls.aliyuncs.com',
         'jpush.cn', 'jpush.io', 'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com',
-        'veta.naver.com', 'goqual.com'
+        'veta.naver.com', 'goqual.com', 'alibabachengdun.com'
     ],
     "BLOCK_DOMAINS_REGEX": [
         r'^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$',
@@ -3006,6 +3009,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Meta AI Monitoring Drop", "https://www.meta.ai/monitoring?o=4509963614355457&p=4510506330423296&r=us", RES_DROP_204, "V45.69 Meta AI /monitoring 遙測監控 DROP；o/p/r 物件/版位/地區 ID 確認為後台遙測"))
     cases.append(TestCase("Privacy: Meta AI Analytics Drop", "https://www.meta.ai/api/analytics", RES_DROP_204, "V45.69 Meta AI /api/analytics 分析追蹤端點 DROP"))
     cases.append(TestCase("Safe: Meta AI Feedback Animation Allow", "https://www.meta.ai/animations/feedback-positive.json", RES_ALLOW, "V45.69 Meta AI Lottie UI 動畫資源正常放行；/monitoring + /api/analytics 精確封鎖不影響 /animations/"))
+    # --- V45.70 alibabachengdun.com 城盾 SDK ---
+    cases.append(TestCase("Privacy: Alibaba Chengdun UMDC Block", "https://umdc.alibabachengdun.com/sg/data.json?evt=9002&pn=com.autonavi.amap&pv=16.13.8&pt=1&os=1", RES_BLOCK_403, "V45.70 阿里巴巴城盾 UMDC 用戶行動設備採集節點封鎖；pn=com.autonavi.amap 確認來源，BLOCK_DOMAINS_WILDCARDS 覆蓋所有子域"))
+    cases.append(TestCase("Privacy: Alibaba Chengdun MUM RepTg Block", "https://mum.alibabachengdun.com/repTg.json?pn=com.autonavi.amap&pv=16.13.8&pt=1&os=1", RES_BLOCK_403, "V45.70 阿里巴巴城盾 MUM repTg 上報節點封鎖；repTg = report Tag 設備指紋上報"))
     cases.append(TestCase("Privacy: Amap Updatable Future V77 Log Drop", "https://m5.amap.com/ws/shield/nest/updatable/v77/log?ent=2", RES_DROP_204, "DROP_RE 覆蓋未來 vN/log 版本升級路徑"))
     cases.append(TestCase("Privacy: Amap Galaxy Data Drop", "https://info.amap.com/ws/shield/galaxy/data?ent=2&csid=615A3F7F-1E14-4AEF-B540-0DFFB75FD376", RES_DROP_204, "封鎖 info.amap.com 盾系 galaxy 遙測資料回傳"))
     cases.append(TestCase("Privacy: Amap Session Report Drop", "https://passport.amap.com/ws/auth/session-report?ent=2&csid=65AA4022-A95A-4103-B319-04431EF195D6", RES_DROP_204, "封鎖 passport.amap.com session-report 工作階段遙測上報"))
