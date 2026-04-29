@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.69
+// @name         URL Ultimate Filter V45.70
 // @namespace    http://tampermonkey.net/
-// @version      45.69
+// @version      45.70
 // @date         2026-04-27
-// @description  SSOT 前端防護盾牌 V45.69 (2026-04-27) | 1489 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1489 total (299 domains · 407 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V45.70 (2026-04-27) | 1490 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1490 total (300 domains · 407 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.69
+ * @version 45.70
  * @date    2026-04-27
- * @rules   1489 total (299 domains, 407 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1490 total (300 domains, 407 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.69';
-const SCRIPT_BUILD = 'V45.69 (2026-04-27) | 1489 rules | 3027 tests';
+const SCRIPT_VERSION = '45.70';
+const SCRIPT_BUILD = 'V45.70 (2026-04-27) | 1490 rules | 3031 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -235,7 +235,7 @@ const RULES = {
     'adbottw.net', 'useinsider.com', 'insiderone.com', 'treasuredata.com', 'treasure-data.com', 'tagtoo.com.tw',
     'scupio.net', 'clickforce.net', 'log.aliyuncs.com', 'sls.aliyuncs.com', 'jpush.cn', 'jpush.io',
     'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com', 'veta.naver.com',
-    'goqual.com'
+    'goqual.com', 'alibabachengdun.com'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
