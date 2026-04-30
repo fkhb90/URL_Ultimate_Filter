@@ -77,10 +77,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.79"
+VERSION = "45.80"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] 阿里雲裝置安全稽核 SAF 端點封鎖：
+  - saf.aliyuncs.com → BLOCK_DOMAINS_WILDCARDS（SAF = Security Audit/Fraud 裝置安全稽核框架；cn-shanghai.device.saf.aliyuncs.com 為地區節點，wildcard 覆蓋所有地區與子路徑；mobile.events.data.microsoft.com 已於先前版本封鎖，無需處理）
 - [BugFix] legy.line-apps.com 誤封修正：
   - 根因：相簿 API 路徑 /ext/album/api/v6/albums/5273466119896961102/photos 中，相簿 ID 數字 5273466119896961102 包含子字串 96110（PATH_BLOCK 中的中國賭博/詐欺域名關鍵字），觸發 "Blocked by Keyword" 誤殺
   - 修正：legy.line-apps.com 從 SOFT_WHITELIST 升至 HARD_WHITELIST（Soft-WL 只跳過靜態資源路徑掃描，API 請求仍跑 pathScanner；Hard-WL 完全豁免路徑掃描；legy.line-apps.com 為 LINE 相簿擴充功能 API 節點，屬可信功能性服務端點）
@@ -484,7 +486,8 @@ RULES_DB = {
         'tagtoo.com.tw', 'scupio.net', 'clickforce.net',
         'log.aliyuncs.com', 'sls.aliyuncs.com',
         'jpush.cn', 'jpush.io', 'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com',
-        'veta.naver.com', 'goqual.com', 'alibabachengdun.com'
+        'veta.naver.com', 'goqual.com', 'alibabachengdun.com',
+        'saf.aliyuncs.com'
     ],
     "BLOCK_DOMAINS_REGEX": [
         r'^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$',
@@ -3026,6 +3029,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("AdBlock: Amap m5 Promote Refresh Card Drop", "https://m5.amap.com/ws/promote/refresh/card?ent=2&in=30iVtwQGAC&csid=92C6B4C7-D486-4F8C-99C0-E9BF09655631", RES_DROP_204, "V45.76 高德地圖 m5 promote 推廣命名空間卡片重整 DROP；in= 加密包 + csid= 設備指紋，推廣卡片重整夾帶行為遙測上傳"))
     # --- V45.77 m5 render/weatherservice 天氣歷史遙測 ---
     cases.append(TestCase("Privacy: Amap m5 Weather History Drop", "https://m5.amap.com/ws/render/weatherservice/historyweather?ent=2&in=Pf7sHyzphSd5&is_bin=1&csid=826A988E-5FCE-4300-B710-81E22892D8F0", RES_DROP_204, "V45.77 高德地圖 m5 天氣服務歷史天氣遙測 DROP；in= 加密包 + is_bin=1 + csid=，與 render.amap.com TMC 相同二進位上傳特徵"))
+    # --- V45.80 阿里雲 SAF 裝置安全稽核封鎖 ---
+    cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
     # --- V45.79 legy.line-apps.com 誤封修正 (96110 子字串誤殺) ---
     cases.append(TestCase("BugFix: LINE Album Photo API Pass", "https://legy.line-apps.com/ext/album/api/v6/albums/5273466119896961102/photos?orderBy=createTimeDesc&filterType=all&include=album", RES_ALLOW, "V45.79 LINE 相簿照片 API 誤封修正；相簿 ID 5273466119896961102 含子字串 96110 觸發 PATH_BLOCK 誤殺；legy.line-apps.com 升至 HARD_WHITELIST 完全豁免路徑掃描"))
     cases.append(TestCase("BugFix: LINE Album Support Promotion Pass", "https://legy.line-apps.com/ext/album/support/v1/promotion?language=zh-Hant_TW&os=iOS&isPremium=false", RES_ALLOW, "V45.79 LINE 相簿支援推廣頁確認通過；promotion 路徑無關鍵字命中，原本即放行；Hard-WL 升級後同樣通過"))
