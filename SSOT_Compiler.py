@@ -77,10 +77,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.77"
+VERSION = "45.78"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] Mistral AI 聊天介面數據湖事件上報封鎖：
+  - chat.mistral.ai → CRITICAL_PATH_MAP DROP:/api/trpc/event.（tRPC event 路由；event.sendEventToDatalake 名稱完全自我揭露，將使用者互動事件批次傳送至數據湖分析基礎設施；前綴覆蓋所有 event.* 遙測程序；chat.mistral.ai 功能性對話介面不整域封鎖）
 - [Privacy] 高德地圖 m5 天氣服務歷史遙測封鎖：
   - m5.amap.com → 追加 DROP:/ws/render/weatherservice/（天氣服務歷史天氣端點；in= 大型加密包 + is_bin=1 + csid= 設備指紋；與 render.amap.com TMC 相同二進位上傳特徵；功能性天氣查詢應帶明文座標參數而非加密二進位包）
 - [AdBlock] 高德地圖廣告推廣端點封鎖：
@@ -543,6 +545,7 @@ RULES_DB = {
         'statsig.anthropic.com': ['DROP:/v1/rgstr'],
         'claude.ai': ['DROP:/api/event_logging/'],
         'www.meta.ai': ['DROP:/monitoring', 'DROP:/api/analytics'],
+        'chat.mistral.ai': ['DROP:/api/trpc/event.'],
         'logx.optimizely.com': ['DROP:/v1/events'],
         'cpdl-deferrer.91app.com': ['DROP:deferrer-log'],
         'siftscience.com': ['DROP:/v3/accounts/', 'DROP:/mobile_events'],
@@ -3018,6 +3021,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("AdBlock: Amap m5 Promote Refresh Card Drop", "https://m5.amap.com/ws/promote/refresh/card?ent=2&in=30iVtwQGAC&csid=92C6B4C7-D486-4F8C-99C0-E9BF09655631", RES_DROP_204, "V45.76 高德地圖 m5 promote 推廣命名空間卡片重整 DROP；in= 加密包 + csid= 設備指紋，推廣卡片重整夾帶行為遙測上傳"))
     # --- V45.77 m5 render/weatherservice 天氣歷史遙測 ---
     cases.append(TestCase("Privacy: Amap m5 Weather History Drop", "https://m5.amap.com/ws/render/weatherservice/historyweather?ent=2&in=Pf7sHyzphSd5&is_bin=1&csid=826A988E-5FCE-4300-B710-81E22892D8F0", RES_DROP_204, "V45.77 高德地圖 m5 天氣服務歷史天氣遙測 DROP；in= 加密包 + is_bin=1 + csid=，與 render.amap.com TMC 相同二進位上傳特徵"))
+    # --- V45.78 Mistral AI 數據湖事件上報 ---
+    cases.append(TestCase("Privacy: Mistral Chat SendEventToDatalake Drop", "https://chat.mistral.ai/api/trpc/event.sendEventToDatalake?batch=1", RES_DROP_204, "V45.78 Mistral AI 聊天介面 tRPC event.sendEventToDatalake 數據湖事件批次上報 DROP；路徑名稱完全自我揭露；DROP:/api/trpc/event. 前綴覆蓋所有 event.* 遙測程序"))
     # --- V45.63 Claude.ai 事件記錄遙測 ---
     cases.append(TestCase("Privacy: Claude.ai Event Logging Drop", "https://claude.ai/api/event_logging/v2/batch?", RES_DROP_204, "V45.63 Claude.ai 事件記錄批次遙測上傳 DROP；CRITICAL_PATH_MAP 第一步執行早於 SOFT_WHITELIST；與 statsig.anthropic.com 同屬 Anthropic 遙測基礎設施"))
     # --- V45.64 Amap mps lyrdata + m5 ipx dot_report ---
