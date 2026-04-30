@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.77
+ * @version 45.78
  * @date    2026-04-27
- * @rules   1498 total (300 domains, 415 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1499 total (300 domains, 416 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.77';
-const SCRIPT_BUILD = 'V45.77 (2026-04-27) | 1498 rules | 3057 tests';
+const SCRIPT_VERSION = '45.78';
+const SCRIPT_BUILD = 'V45.78 (2026-04-27) | 1499 rules | 3060 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -237,6 +237,9 @@ const RULES = {
       ])],
     ['www.meta.ai', new Set([
         'DROP:/monitoring', 'DROP:/api/analytics'
+      ])],
+    ['chat.mistral.ai', new Set([
+        'DROP:/api/trpc/event.'
       ])],
     ['logx.optimizely.com', new Set([
         'DROP:/v1/events'
