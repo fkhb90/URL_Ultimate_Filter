@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.78
+ * @version 45.79
  * @date    2026-04-27
  * @rules   1499 total (300 domains, 416 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.78';
-const SCRIPT_BUILD = 'V45.78 (2026-04-27) | 1499 rules | 3060 tests';
+const SCRIPT_VERSION = '45.79';
+const SCRIPT_BUILD = 'V45.79 (2026-04-27) | 1499 rules | 3062 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -124,7 +124,7 @@ const RULES = {
     'code.createjs.com', 'raw.githubusercontent.com', 'userscripts.adtidy.org', 'api.github.com', 'api.vercel.com', 'gateway.facebook.com',
     'graph.instagram.com', 'graph.threads.net', 'i.instagram.com', 'api.discord.com', 'api.twitch.tv', 'api.line.me',
     'today.line.me', 'pro.104.com.tw', 'appapi.104.com.tw', 'datadog.pool.ntp.org', 'ewp.uber.com', 'copilot.microsoft.com',
-    'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net'
+    'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net', 'legy.line-apps.com'
   ]),
     WILDCARDS: new Set([
     'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com', 'mitake.com.tw', 'money-link.com.tw',
@@ -140,11 +140,11 @@ const RULES = {
     EXACT: new Set([
     'gateway.shopback.com.tw', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com', 'api.fastly.com', 'api.heroku.com',
     'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com', 'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org',
-    'api.zendesk.com', 'duckduckgo.com', 'legy.line-apps.com', 'secure.gravatar.com', 'api.asana.com', 'api.dropboxapi.com',
-    'api.figma.com', 'api.notion.com', 'api.trello.com', 'api.cloudflare.com', 'auth.docker.io', 'database.windows.net',
-    'login.docker.com', 'api.irentcar.com.tw', 'usiot.roborock.com', 'prism.ec.yahoo.com', 'graphql.ec.yahoo.com', 'visuals.feedly.com',
-    'api.revenuecat.com', 'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com', 'cmapi.tw.coupang.com', 'api.ipify.org',
-    'gcp-data-api.ltn.com.tw', 's.pinimg.com', 'cdn.shopify.com'
+    'api.zendesk.com', 'duckduckgo.com', 'secure.gravatar.com', 'api.asana.com', 'api.dropboxapi.com', 'api.figma.com',
+    'api.notion.com', 'api.trello.com', 'api.cloudflare.com', 'auth.docker.io', 'database.windows.net', 'login.docker.com',
+    'api.irentcar.com.tw', 'usiot.roborock.com', 'prism.ec.yahoo.com', 'graphql.ec.yahoo.com', 'visuals.feedly.com', 'api.revenuecat.com',
+    'api-paywalls.revenuecat.com', 'account.uber.com', 'xlb.uber.com', 'cmapi.tw.coupang.com', 'api.ipify.org', 'gcp-data-api.ltn.com.tw',
+    's.pinimg.com', 'cdn.shopify.com'
   ]),
     WILDCARDS: new Set([
     'chatgpt.com', 'shopee.com', 'shopeemobile.com', 'shopee.io', 'youtube.com', 'facebook.com',

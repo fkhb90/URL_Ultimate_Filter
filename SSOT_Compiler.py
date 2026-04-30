@@ -77,10 +77,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.78"
+VERSION = "45.79"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [BugFix] legy.line-apps.com 誤封修正：
+  - 根因：相簿 API 路徑 /ext/album/api/v6/albums/5273466119896961102/photos 中，相簿 ID 數字 5273466119896961102 包含子字串 96110（PATH_BLOCK 中的中國賭博/詐欺域名關鍵字），觸發 "Blocked by Keyword" 誤殺
+  - 修正：legy.line-apps.com 從 SOFT_WHITELIST 升至 HARD_WHITELIST（Soft-WL 只跳過靜態資源路徑掃描，API 請求仍跑 pathScanner；Hard-WL 完全豁免路徑掃描；legy.line-apps.com 為 LINE 相簿擴充功能 API 節點，屬可信功能性服務端點）
+  - legy.line-apps.com /ext/album/support/v1/promotion → 確認通過（promotion 路徑無任何關鍵字命中，原本即正常放行，不受本次修正影響）
 - [Privacy] Mistral AI 聊天介面數據湖事件上報封鎖：
   - chat.mistral.ai → CRITICAL_PATH_MAP DROP:/api/trpc/event.（tRPC event 路由；event.sendEventToDatalake 名稱完全自我揭露，將使用者互動事件批次傳送至數據湖分析基礎設施；前綴覆蓋所有 event.* 遙測程序；chat.mistral.ai 功能性對話介面不整域封鎖）
 - [Privacy] 高德地圖 m5 天氣服務歷史遙測封鎖：
@@ -359,8 +363,9 @@ RULES_DB = {
             'userscripts.adtidy.org', 'api.github.com', 'api.vercel.com',
             'gateway.facebook.com', 'graph.instagram.com', 'graph.threads.net', 'i.instagram.com',
             'api.discord.com', 'api.twitch.tv', 'api.line.me', 'today.line.me',
-            'pro.104.com.tw', 'appapi.104.com.tw', 'datadog.pool.ntp.org', 'ewp.uber.com', 'copilot.microsoft.com', 
-            'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net'
+            'pro.104.com.tw', 'appapi.104.com.tw', 'datadog.pool.ntp.org', 'ewp.uber.com', 'copilot.microsoft.com',
+            'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net',
+            'legy.line-apps.com'
         ],
         "WILDCARDS": [
             'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com',
@@ -377,7 +382,7 @@ RULES_DB = {
             'gateway.shopback.com.tw', 'api.anthropic.com', 'api.cohere.ai', 'api.digitalocean.com',
             'api.fastly.com', 'api.heroku.com', 'api.hubapi.com', 'api.mailgun.com', 'api.netlify.com',
             'api.pagerduty.com', 'api.sendgrid.com', 'api.telegram.org', 'api.zendesk.com', 'duckduckgo.com',
-            'legy.line-apps.com', 'secure.gravatar.com', 'api.asana.com',
+            'secure.gravatar.com', 'api.asana.com',
             'api.dropboxapi.com', 'api.figma.com', 'api.notion.com', 'api.trello.com', 'api.cloudflare.com',
             'auth.docker.io', 'database.windows.net', 'login.docker.com', 'api.irentcar.com.tw',
             'usiot.roborock.com',
@@ -3021,6 +3026,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("AdBlock: Amap m5 Promote Refresh Card Drop", "https://m5.amap.com/ws/promote/refresh/card?ent=2&in=30iVtwQGAC&csid=92C6B4C7-D486-4F8C-99C0-E9BF09655631", RES_DROP_204, "V45.76 高德地圖 m5 promote 推廣命名空間卡片重整 DROP；in= 加密包 + csid= 設備指紋，推廣卡片重整夾帶行為遙測上傳"))
     # --- V45.77 m5 render/weatherservice 天氣歷史遙測 ---
     cases.append(TestCase("Privacy: Amap m5 Weather History Drop", "https://m5.amap.com/ws/render/weatherservice/historyweather?ent=2&in=Pf7sHyzphSd5&is_bin=1&csid=826A988E-5FCE-4300-B710-81E22892D8F0", RES_DROP_204, "V45.77 高德地圖 m5 天氣服務歷史天氣遙測 DROP；in= 加密包 + is_bin=1 + csid=，與 render.amap.com TMC 相同二進位上傳特徵"))
+    # --- V45.79 legy.line-apps.com 誤封修正 (96110 子字串誤殺) ---
+    cases.append(TestCase("BugFix: LINE Album Photo API Pass", "https://legy.line-apps.com/ext/album/api/v6/albums/5273466119896961102/photos?orderBy=createTimeDesc&filterType=all&include=album", RES_ALLOW, "V45.79 LINE 相簿照片 API 誤封修正；相簿 ID 5273466119896961102 含子字串 96110 觸發 PATH_BLOCK 誤殺；legy.line-apps.com 升至 HARD_WHITELIST 完全豁免路徑掃描"))
+    cases.append(TestCase("BugFix: LINE Album Support Promotion Pass", "https://legy.line-apps.com/ext/album/support/v1/promotion?language=zh-Hant_TW&os=iOS&isPremium=false", RES_ALLOW, "V45.79 LINE 相簿支援推廣頁確認通過；promotion 路徑無關鍵字命中，原本即放行；Hard-WL 升級後同樣通過"))
     # --- V45.78 Mistral AI 數據湖事件上報 ---
     cases.append(TestCase("Privacy: Mistral Chat SendEventToDatalake Drop", "https://chat.mistral.ai/api/trpc/event.sendEventToDatalake?batch=1", RES_DROP_204, "V45.78 Mistral AI 聊天介面 tRPC event.sendEventToDatalake 數據湖事件批次上報 DROP；路徑名稱完全自我揭露；DROP:/api/trpc/event. 前綴覆蓋所有 event.* 遙測程序"))
     # --- V45.63 Claude.ai 事件記錄遙測 ---
