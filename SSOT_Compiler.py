@@ -77,10 +77,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.84"
+VERSION = "45.85"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] Anthropic API 事件記錄遙測封鎖：
+  - api.anthropic.com → CRITICAL_PATH_MAP DROP:/api/event_logging/（與 claude.ai 相同遙測批次上報端點；CRITICAL_PATH_MAP 先於 HARD_WHITELIST 執行，精準封鎖遙測路徑，不影響 /v1/messages 等開發者 API 功能）
 - [Privacy] Howxm 用戶調研 SDK 封鎖：
   - howxm.com → BLOCK_DOMAINS_WILDCARDS（好询 = 中國 SaaS 用戶調研/NPS/問卷 SDK 平台；static.howxm.com 提供 sdk-body-*.js 主 SDK bundle；整域為追蹤基礎設施）
 - [BugFix] chat2-api.qianwen.com session/delete/batch 誤封修正（策略調整）：
@@ -560,6 +562,7 @@ RULES_DB = {
     "CRITICAL_PATH_MAP": {
         'statsig.anthropic.com': ['DROP:/v1/rgstr'],
         'claude.ai': ['DROP:/api/event_logging/'],
+        'api.anthropic.com': ['DROP:/api/event_logging/'],
         'www.meta.ai': ['DROP:/monitoring', 'DROP:/api/analytics'],
         'chat.mistral.ai': ['DROP:/api/trpc/event.'],
         'logx.optimizely.com': ['DROP:/v1/events'],
@@ -3053,6 +3056,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Mistral Chat SendEventToDatalake Drop", "https://chat.mistral.ai/api/trpc/event.sendEventToDatalake?batch=1", RES_DROP_204, "V45.78 Mistral AI 聊天介面 tRPC event.sendEventToDatalake 數據湖事件批次上報 DROP；路徑名稱完全自我揭露；DROP:/api/trpc/event. 前綴覆蓋所有 event.* 遙測程序"))
     # --- V45.63 Claude.ai 事件記錄遙測 ---
     cases.append(TestCase("Privacy: Claude.ai Event Logging Drop", "https://claude.ai/api/event_logging/v2/batch?", RES_DROP_204, "V45.63 Claude.ai 事件記錄批次遙測上傳 DROP；CRITICAL_PATH_MAP 第一步執行早於 SOFT_WHITELIST；與 statsig.anthropic.com 同屬 Anthropic 遙測基礎設施"))
+    # --- V45.85 api.anthropic.com 事件記錄遙測 ---
+    cases.append(TestCase("Privacy: Anthropic API Event Logging Drop", "https://api.anthropic.com/api/event_logging/v2/batch", RES_DROP_204, "V45.85 Anthropic API 事件記錄遙測 DROP；與 claude.ai 相同端點；CRITICAL_PATH_MAP 先於 HARD_WHITELIST 執行，精準封鎖遙測，不影響 /v1/messages 開發者 API"))
     # --- V45.64 Amap mps lyrdata + m5 ipx dot_report ---
     cases.append(TestCase("Privacy: Amap MPS Lyrdata Render Drop", "https://mps.amap.com/ws/mps/lyrdata/rendermap?ent=2&csid=2BD6DC51-9E20-4457-9D07-AC98235B563B", RES_DROP_204, "V45.64 高德地圖 mps.amap.com lyrdata 渲染遙測 DROP；無座標參數僅帶 csid= 設備指紋，為渲染事件上報非正常圖層拉取"))
     cases.append(TestCase("Privacy: Amap m5 IPX Dot Report Drop", "https://m5.amap.com/ws/ipx/v2/res/dot_report?ent=2&csid=92F87535-95D9-4FCF-BF92-7DEF29CFC9DC", RES_DROP_204, "V45.64 高德地圖 m5 ipx dot_report 資料點上報 DROP；ipx = in-product experience 遙測命名空間，DROP:/ws/ipx/ 前綴覆蓋"))
