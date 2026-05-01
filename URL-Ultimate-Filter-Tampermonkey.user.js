@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.86
+// @name         URL Ultimate Filter V45.87
 // @namespace    http://tampermonkey.net/
-// @version      45.86
+// @version      45.87
 // @date         2026-04-27
-// @description  SSOT 前端防護盾牌 V45.86 (2026-04-27) | 1505 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1505 total (305 domains · 417 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V45.87 (2026-04-27) | 1506 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1506 total (306 domains · 417 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.86
+ * @version 45.87
  * @date    2026-04-27
- * @rules   1505 total (305 domains, 417 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1506 total (306 domains, 417 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.86';
-const SCRIPT_BUILD = 'V45.86 (2026-04-27) | 1505 rules | 3080 tests';
+const SCRIPT_VERSION = '45.87';
+const SCRIPT_BUILD = 'V45.87 (2026-04-27) | 1506 rules | 3082 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -212,17 +212,17 @@ const RULES = {
     'nsclick.baidu.com', 'sp1.baidu.com', 'voice.baidu.com', '3gimg.qq.com', 'fusion.qq.com', 'ios.bugly.qq.com',
     'lives.l.qq.com', 'monitor.uu.qq.com', 'pingma.qq.com', 'sdk.e.qq.com', 'wup.imtt.qq.com', 'appcloud.zhihu.com',
     'appcloud2.in.zhihu.com', 'crash2.zhihu.com', 'mqtt.zhihu.com', 'sugar.zhihu.com', 'agn.aty.sohu.com', 'apm.gotokeep.com',
-    'apm.volccdn.com', 'gator.volces.com', 'cn-huabei-1-lg.xf-yun.com', 'log.b612kaji.com', 'pc-mon.snssdk.com', 'sensorsdata.cn',
-    'stat.m.jd.com', 'trackapp.guahao.cn', 'traffic.mogujie.com', 'wmlog.meituan.com', 'zgsdk.zhugeio.com', 'admaster.com.cn',
-    'adview.cn', 'alimama.com', 'gridsum.com', 'growingio.com', 'kuaishou.com', 'miaozhen.com',
-    'mmstat.com', 'pangolin-sdk-toutiao.com', 'talkingdata.cn', 'tanx.com', 'umeng.cn', 'umeng.co',
-    'umengcloud.com', 'youmi.net', 'zhugeio.com', 'appnext.hs.llnwd.net', 'fusioncdn.com', 'abema-adx.ameba.jp',
-    'ad.12306.cn', 'ad.360in.com', 'adroll.com', 'ads.yahoo.com', 'adserver.yahoo.com', 'appnexus.com',
-    'bluekai.com', 'casalemedia.com', 'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'outbrain.com',
-    'taboola.com', 'rubiconproject.com', 'pubmatic.com', 'openx.com', 'smartadserver.com', 'spotx.tv',
-    'yandex.ru', 'addthis.com', 'onesignal.com', 'sharethis.com', 'bat.bing.com', 'clarity.ms',
-    'elads.kocpc.com.tw', 'eservice.emarsys.net', 'at-display-as.deliveryhero.io', 'stun.services.mozilla1.com', 'analysis.chatglm.cn', 'ader.naver.com',
-    'wcs.naver.net', 'analytics.naver.com', 'searchad-phinf.pstatic.net'
+    'apm.volccdn.com', 'gator.volces.com', 'anonymous-communication.ghostery.net', 'cn-huabei-1-lg.xf-yun.com', 'log.b612kaji.com', 'pc-mon.snssdk.com',
+    'sensorsdata.cn', 'stat.m.jd.com', 'trackapp.guahao.cn', 'traffic.mogujie.com', 'wmlog.meituan.com', 'zgsdk.zhugeio.com',
+    'admaster.com.cn', 'adview.cn', 'alimama.com', 'gridsum.com', 'growingio.com', 'kuaishou.com',
+    'miaozhen.com', 'mmstat.com', 'pangolin-sdk-toutiao.com', 'talkingdata.cn', 'tanx.com', 'umeng.cn',
+    'umeng.co', 'umengcloud.com', 'youmi.net', 'zhugeio.com', 'appnext.hs.llnwd.net', 'fusioncdn.com',
+    'abema-adx.ameba.jp', 'ad.12306.cn', 'ad.360in.com', 'adroll.com', 'ads.yahoo.com', 'adserver.yahoo.com',
+    'appnexus.com', 'bluekai.com', 'casalemedia.com', 'doubleclick.net', 'googleadservices.com', 'googlesyndication.com',
+    'outbrain.com', 'taboola.com', 'rubiconproject.com', 'pubmatic.com', 'openx.com', 'smartadserver.com',
+    'spotx.tv', 'yandex.ru', 'addthis.com', 'onesignal.com', 'sharethis.com', 'bat.bing.com',
+    'clarity.ms', 'elads.kocpc.com.tw', 'eservice.emarsys.net', 'at-display-as.deliveryhero.io', 'stun.services.mozilla1.com', 'analysis.chatglm.cn',
+    'ader.naver.com', 'wcs.naver.net', 'analytics.naver.com', 'searchad-phinf.pstatic.net'
   ]),
   BLOCK_DOMAINS_WILDCARDS: new Set([
     'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io', 'aotter.net', 'ssp.yahoo.com',

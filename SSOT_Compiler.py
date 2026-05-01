@@ -77,10 +77,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.86"
+VERSION = "45.87"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] Ghostery 匿名數據貢獻端點封鎖：
+  - anonymous-communication.ghostery.net → BLOCK_DOMAINS（Ghostery Human Web / Contributor 匿名瀏覽數據回報系統；即使標榜匿名，本質為使用者活動遙測上報；Ghostery 核心封鎖功能不依賴此端點）
 - [Privacy] ByteDance Volcano APM 與 Volces 數據聚合閘道封鎖：
   - apm.volccdn.com → BLOCK_DOMAINS（ByteDance Volcano CDN APM 子域；Application Performance Monitoring 應用效能監控遙測收集；volccdn.com CDN 主幹不受影響）
   - gator.volces.com → BLOCK_DOMAINS（火山引擎 Volces 數據聚合閘道；gator = data aggregator/collector，ByteDance 企業雲遙測收集端點）
@@ -465,6 +467,7 @@ RULES_DB = {
         'monitor.uu.qq.com', 'pingma.qq.com', 'sdk.e.qq.com', 'wup.imtt.qq.com', 'appcloud.zhihu.com',
         'appcloud2.in.zhihu.com', 'crash2.zhihu.com', 'mqtt.zhihu.com', 'sugar.zhihu.com', 'agn.aty.sohu.com',
         'apm.gotokeep.com', 'apm.volccdn.com', 'gator.volces.com',
+        'anonymous-communication.ghostery.net',
         'cn-huabei-1-lg.xf-yun.com', 'log.b612kaji.com', 'pc-mon.snssdk.com',
         'sensorsdata.cn', 'stat.m.jd.com', 'trackapp.guahao.cn', 'traffic.mogujie.com', 'wmlog.meituan.com',
         'zgsdk.zhugeio.com', 'admaster.com.cn', 'adview.cn', 'alimama.com',
@@ -3060,6 +3063,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Mistral Chat SendEventToDatalake Drop", "https://chat.mistral.ai/api/trpc/event.sendEventToDatalake?batch=1", RES_DROP_204, "V45.78 Mistral AI 聊天介面 tRPC event.sendEventToDatalake 數據湖事件批次上報 DROP；路徑名稱完全自我揭露；DROP:/api/trpc/event. 前綴覆蓋所有 event.* 遙測程序"))
     # --- V45.63 Claude.ai 事件記錄遙測 ---
     cases.append(TestCase("Privacy: Claude.ai Event Logging Drop", "https://claude.ai/api/event_logging/v2/batch?", RES_DROP_204, "V45.63 Claude.ai 事件記錄批次遙測上傳 DROP；CRITICAL_PATH_MAP 第一步執行早於 SOFT_WHITELIST；與 statsig.anthropic.com 同屬 Anthropic 遙測基礎設施"))
+    # --- V45.87 Ghostery 匿名數據貢獻端點 ---
+    cases.append(TestCase("Privacy: Ghostery Anonymous Communication Block", "https://anonymous-communication.ghostery.net/hw", RES_BLOCK_403, "V45.87 Ghostery Human Web 匿名瀏覽數據回報端點封鎖；核心封鎖功能不依賴此節點"))
     # --- V45.86 ByteDance Volcano APM + Volces gator ---
     cases.append(TestCase("Privacy: ByteDance Volcano APM Block", "https://apm.volccdn.com/applog/v2/list", RES_BLOCK_403, "V45.86 ByteDance Volcano CDN APM 應用效能監控遙測封鎖；apm.volccdn.com 精準子域封鎖"))
     cases.append(TestCase("Privacy: ByteDance Volces Gator Block", "https://gator.volces.com/collect/v2", RES_BLOCK_403, "V45.86 火山引擎 Volces 數據聚合閘道封鎖；gator = data aggregator/collector"))
