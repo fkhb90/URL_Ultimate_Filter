@@ -77,13 +77,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.82"
+VERSION = "45.83"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] chat2-api.qianwen.com session/delete/batch 誤封修正：
+- [BugFix] chat2-api.qianwen.com session/delete/batch 誤封修正（策略調整）：
   - 根因：rawPath 包含完整 query string，pathLower = /api/v1/session/delete/batch?biz_id=...，命中 DROP 關鍵字 /batch?（設計用於遙測批次上傳，此處誤殺功能性刪除 API）
-  - 修正：qianwen.com → HARD_WHITELIST WILDCARDS（通義千問 AI 服務，與已列入 HARD_WHITELIST EXACT 的 qianwen.aliyun.com 同屬一服務；HARD_WHITELIST 豁免所有路徑掃描包含 DROP 關鍵字）
+  - 修正 V45.82（HARD_WHITELIST WILDCARDS）已回退，改用 PATH_EXEMPTIONS 精準放行
+  - 修正 V45.83：chat2-api.qianwen.com → PATH_EXEMPTIONS [/api/v1/session/delete/batch]（引擎步驟 6 域名路徑豁免，早於 DROP 關鍵字掃描短路 ALLOW；僅放行此特定路徑，不影響其他規則）
 - [Privacy] Adapty 訂閱變現分析 SDK 封鎖：
   - adapty.io → BLOCK_DOMAINS_WILDCARDS（Adapty = 行動應用訂閱管理與 Paywall A/B 測試分析 SDK；核心功能為使用者購買漏斗追蹤、設備識別、收益歸因；fallback.adapty.io /api/v1/sdk/.../net-config.json 為 SDK 初始化配置拉取，封鎖整域阻止 SDK 初始化；與 adjust.com/appsflyer.com 同屬行動端追蹤 SDK 基礎設施）
 - [Privacy] 阿里雲裝置安全稽核 SAF 端點封鎖：
@@ -381,8 +382,7 @@ RULES_DB = {
             'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io',
             'archive.is', 'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com',
             'perma.cc', 'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org',
-            'googlevideo.com', 'app.goo.gl', 'goo.gl', 'browserleaks.com',
-            'qianwen.com'
+            'googlevideo.com', 'app.goo.gl', 'goo.gl', 'browserleaks.com'
         ]
     },
     "SOFT_WHITELIST": {
@@ -834,7 +834,8 @@ RULES_DB = {
         "threads.net": ["/post/"],
         "citiesocial.com": ["/collection/"],
         "ghostery.com": ["/adblocker/"],
-        "volccdn.com": ["/data-static/log-sdk/"]
+        "volccdn.com": ["/data-static/log-sdk/"],
+        "chat2-api.qianwen.com": ["/api/v1/session/delete/batch"]
     }
 }
 
@@ -3035,8 +3036,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("AdBlock: Amap m5 Promote Refresh Card Drop", "https://m5.amap.com/ws/promote/refresh/card?ent=2&in=30iVtwQGAC&csid=92C6B4C7-D486-4F8C-99C0-E9BF09655631", RES_DROP_204, "V45.76 高德地圖 m5 promote 推廣命名空間卡片重整 DROP；in= 加密包 + csid= 設備指紋，推廣卡片重整夾帶行為遙測上傳"))
     # --- V45.77 m5 render/weatherservice 天氣歷史遙測 ---
     cases.append(TestCase("Privacy: Amap m5 Weather History Drop", "https://m5.amap.com/ws/render/weatherservice/historyweather?ent=2&in=Pf7sHyzphSd5&is_bin=1&csid=826A988E-5FCE-4300-B710-81E22892D8F0", RES_DROP_204, "V45.77 高德地圖 m5 天氣服務歷史天氣遙測 DROP；in= 加密包 + is_bin=1 + csid=，與 render.amap.com TMC 相同二進位上傳特徵"))
-    # --- V45.82 qianwen.com /batch? DROP 誤封修正 ---
-    cases.append(TestCase("BugFix: Qianwen Chat Session Delete Batch Pass", "https://chat2-api.qianwen.com/api/v1/session/delete/batch?biz_id=ai_qwen&chat_client=h5&device=pc", RES_ALLOW, "V45.82 通義千問 session/delete/batch 誤封修正；rawPath 含 query string 導致 DROP /batch? 命中；qianwen.com → HARD_WHITELIST WILDCARDS 豁免"))
+    # --- V45.83 chat2-api.qianwen.com PATH_EXEMPTIONS 精準放行 ---
+    cases.append(TestCase("BugFix: Qianwen Chat Session Delete Batch Pass", "https://chat2-api.qianwen.com/api/v1/session/delete/batch?biz_id=ai_qwen&chat_client=h5&device=pc", RES_ALLOW, "V45.83 通義千問 session/delete/batch 誤封修正；PATH_EXEMPTIONS 步驟 6 域名路徑豁免早於 DROP /batch? 關鍵字掃描，精準放行此路徑"))
     # --- V45.81 Adapty 訂閱變現分析 SDK 封鎖 ---
     cases.append(TestCase("Privacy: Adapty SDK Net-Config Block", "https://fallback.adapty.io/api/v1/sdk/company/public_live_2pe9Z1ae/app/net-config.json", RES_BLOCK_403, "V45.81 Adapty 訂閱變現分析 SDK 初始化配置封鎖；adapty.io wildcard；Paywall A/B 測試/購買漏斗追蹤/設備識別，與 adjust.com/appsflyer.com 同類"))
     # --- V45.80 阿里雲 SAF 裝置安全稽核封鎖 ---
