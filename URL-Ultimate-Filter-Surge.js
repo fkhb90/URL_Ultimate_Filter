@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.81
+ * @version 45.82
  * @date    2026-04-27
- * @rules   1501 total (302 domains, 416 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1502 total (302 domains, 416 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.81';
-const SCRIPT_BUILD = 'V45.81 (2026-04-27) | 1501 rules | 3068 tests';
+const SCRIPT_VERSION = '45.82';
+const SCRIPT_BUILD = 'V45.82 (2026-04-27) | 1502 rules | 3069 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -132,7 +132,7 @@ const RULES = {
     'windowsupdate.com', 'atlassian.net', 'auth0.com', 'okta.com', 'nextdns.io', 'archive.is',
     'archive.li', 'archive.ph', 'archive.today', 'archive.vn', 'cc.bingj.com', 'perma.cc',
     'timetravel.mementoweb.org', 'web-static.archive.org', 'web.archive.org', 'googlevideo.com', 'app.goo.gl', 'goo.gl',
-    'browserleaks.com'
+    'browserleaks.com', 'qianwen.com'
   ])
   },
 
