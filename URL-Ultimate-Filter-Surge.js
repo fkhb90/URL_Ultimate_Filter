@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.83
+ * @version 45.84
  * @date    2026-04-27
- * @rules   1501 total (302 domains, 416 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1502 total (303 domains, 416 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.83';
-const SCRIPT_BUILD = 'V45.83 (2026-04-27) | 1501 rules | 3070 tests';
+const SCRIPT_VERSION = '45.84';
+const SCRIPT_BUILD = 'V45.84 (2026-04-27) | 1502 rules | 3073 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -220,7 +220,7 @@ const RULES = {
     'adbottw.net', 'useinsider.com', 'insiderone.com', 'treasuredata.com', 'treasure-data.com', 'tagtoo.com.tw',
     'scupio.net', 'clickforce.net', 'log.aliyuncs.com', 'sls.aliyuncs.com', 'jpush.cn', 'jpush.io',
     'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com', 'veta.naver.com',
-    'goqual.com', 'alibabachengdun.com', 'saf.aliyuncs.com', 'adapty.io'
+    'goqual.com', 'alibabachengdun.com', 'saf.aliyuncs.com', 'adapty.io', 'howxm.com'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
