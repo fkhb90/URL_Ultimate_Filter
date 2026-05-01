@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V45.87
+// @name         URL Ultimate Filter V45.88
 // @namespace    http://tampermonkey.net/
-// @version      45.87
+// @version      45.88
 // @date         2026-04-27
-// @description  SSOT 前端防護盾牌 V45.87 (2026-04-27) | 1506 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1506 total (306 domains · 417 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V45.88 (2026-04-27) | 1507 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1507 total (307 domains · 417 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 45.87
+ * @version 45.88
  * @date    2026-04-27
- * @rules   1506 total (306 domains, 417 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1507 total (307 domains, 417 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.87';
-const SCRIPT_BUILD = 'V45.87 (2026-04-27) | 1506 rules | 3082 tests';
+const SCRIPT_VERSION = '45.88';
+const SCRIPT_BUILD = 'V45.88 (2026-04-27) | 1507 rules | 3084 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -187,42 +187,42 @@ const RULES = {
     'csc.yahoo.com', 'beap.gemini.yahoo.com', 'opus.analytics.yahoo.com', 'noa.yahoo.com', 'sspap.pchome.tw', 'rtb.pchome.tw',
     'log.pchome.com.tw', 'ad.pchome.com.tw', 'vm5apis.com', 'vlitag.com', 'intentarget.com', 'innity.net',
     'ad-specs.guoshippartners.com', 'cdn.ad.plus', 'cdn.doublemax.net', 'udmserve.net', 'signal-snacks.gliastudios.com', 'adc.tamedia.com.tw',
-    'log.zoom.us', 'metrics.uber.com', 'event-tracker.uber.com', 'cn-geo1.uber.com', 'udp.yahoo.com', 'analytics.yahoo.com',
-    'effirst.com', 'px.effirst.com', 'simonsignal.com', 'analytics.etmall.com.tw', 'bam.nr-data.net', 'bam-cell.nr-data.net',
-    'lrkt-in.com', 'cdn.lr-ingest.com', 'r.lr-ingest.io', 'api-iam.intercom.io', 'openfpcdn.io', 'fingerprintjs.com',
-    'fundingchoicesmessages.google.com', 'hotjar.com', 'segment.io', 'mixpanel.com', 'amplitude.com', 'crazyegg.com',
-    'bugsnag.com', 'sentry.io', 'newrelic.com', 'logrocket.com', 'fpjs.io', 'adunblock1.static-cloudflare.workers.dev',
-    'guce.oath.com', 'app-site-association.cdn-apple.com', 'cdn-edge-tracking.com', 'edge-telemetry.akamai.com', 'edgecompute-analytics.com', 'monitoring.edge-compute.io',
-    'realtime-edge.fastly.com', 'log.felo.ai', 'event.sc.gearupportal.com', 'pidetupop.com', 'adform.net', 'adsrvr.org',
-    'analytics.line.me', 'analytics.slashdotmedia.com', 'analytics.strava.com', 'api.pendo.io', 'c.clarity.ms', 'c.segment.com',
-    'chartbeat.com', 'clicktale.net', 'clicky.com', 'comscore.com', 'customer.io', 'data.investing.com',
-    'datadoghq.com', 'dynatrace.com', 'fullstory.com', 'heap.io', 'inspectlet.com', 'iterable.com',
-    'keen.io', 'kissmetrics.com', 'loggly.com', 'matomo.cloud', 'mgid.com', 'mouseflow.com',
-    'mparticle.com', 'mlytics.com', 'nr-data.net', 'oceanengine.com', 'openx.net', 'optimizely.com',
-    'piwik.pro', 'posthog.com', 'quantserve.com', 'revcontent.com', 'rudderstack.com', 'segment.com',
-    'semasio.net', 'snowplowanalytics.com', 'statcounter.com', 'statsig.com', 'static.ads-twitter.com', 'sumo.com',
-    'sumome.com', 'tealium.com', 'track.hubspot.com', 'track.tiara.daum.net', 'stat.tiara.daum.net', 'track.tiara.kakao.com',
-    'vwo.com', 'yieldlab.net', 'fingerprint.com', 'doubleverify.com', 'iasds.com', 'moat.com',
-    'moatads.com', 'sdk.iad-07.braze.com', 'serving-sys.com', 'tw.ad.doubleverify.com', 'agkn.com', 'id5-sync.com',
-    'liveramp.com', 'permutive.com', 'tags.tiqcdn.com', 'klaviyo.com', 'marketo.com', 'mktoresp.com',
-    'pardot.com', 'instana.io', 'launchdarkly.com', 'raygun.io', 'navify.com', 'cnzz.com',
-    'umeng.com', 'talkingdata.com', 'mdap.alipay.com', 'loggw-ex.alipay.com', 'dypnsapi-dualstack.aliyuncs.com', 'pgdt.gtimg.cn',
-    'afd.baidu.com', 'als.baidu.com', 'cpro.baidu.com', 'dlswbr.baidu.com', 'duclick.baidu.com', 'feed.baidu.com',
-    'h2tcbox.baidu.com', 'hm.baidu.com', 'hmma.baidu.com', 'mobads-logs.baidu.com', 'mobads.baidu.com', 'nadvideo2.baidu.com',
-    'nsclick.baidu.com', 'sp1.baidu.com', 'voice.baidu.com', '3gimg.qq.com', 'fusion.qq.com', 'ios.bugly.qq.com',
-    'lives.l.qq.com', 'monitor.uu.qq.com', 'pingma.qq.com', 'sdk.e.qq.com', 'wup.imtt.qq.com', 'appcloud.zhihu.com',
-    'appcloud2.in.zhihu.com', 'crash2.zhihu.com', 'mqtt.zhihu.com', 'sugar.zhihu.com', 'agn.aty.sohu.com', 'apm.gotokeep.com',
-    'apm.volccdn.com', 'gator.volces.com', 'anonymous-communication.ghostery.net', 'cn-huabei-1-lg.xf-yun.com', 'log.b612kaji.com', 'pc-mon.snssdk.com',
-    'sensorsdata.cn', 'stat.m.jd.com', 'trackapp.guahao.cn', 'traffic.mogujie.com', 'wmlog.meituan.com', 'zgsdk.zhugeio.com',
-    'admaster.com.cn', 'adview.cn', 'alimama.com', 'gridsum.com', 'growingio.com', 'kuaishou.com',
-    'miaozhen.com', 'mmstat.com', 'pangolin-sdk-toutiao.com', 'talkingdata.cn', 'tanx.com', 'umeng.cn',
-    'umeng.co', 'umengcloud.com', 'youmi.net', 'zhugeio.com', 'appnext.hs.llnwd.net', 'fusioncdn.com',
-    'abema-adx.ameba.jp', 'ad.12306.cn', 'ad.360in.com', 'adroll.com', 'ads.yahoo.com', 'adserver.yahoo.com',
-    'appnexus.com', 'bluekai.com', 'casalemedia.com', 'doubleclick.net', 'googleadservices.com', 'googlesyndication.com',
-    'outbrain.com', 'taboola.com', 'rubiconproject.com', 'pubmatic.com', 'openx.com', 'smartadserver.com',
-    'spotx.tv', 'yandex.ru', 'addthis.com', 'onesignal.com', 'sharethis.com', 'bat.bing.com',
-    'clarity.ms', 'elads.kocpc.com.tw', 'eservice.emarsys.net', 'at-display-as.deliveryhero.io', 'stun.services.mozilla1.com', 'analysis.chatglm.cn',
-    'ader.naver.com', 'wcs.naver.net', 'analytics.naver.com', 'searchad-phinf.pstatic.net'
+    'log.zoom.us', 'metrics.uber.com', 'event-tracker.uber.com', 'tracking.ibt.uber.com', 'cn-geo1.uber.com', 'udp.yahoo.com',
+    'analytics.yahoo.com', 'effirst.com', 'px.effirst.com', 'simonsignal.com', 'analytics.etmall.com.tw', 'bam.nr-data.net',
+    'bam-cell.nr-data.net', 'lrkt-in.com', 'cdn.lr-ingest.com', 'r.lr-ingest.io', 'api-iam.intercom.io', 'openfpcdn.io',
+    'fingerprintjs.com', 'fundingchoicesmessages.google.com', 'hotjar.com', 'segment.io', 'mixpanel.com', 'amplitude.com',
+    'crazyegg.com', 'bugsnag.com', 'sentry.io', 'newrelic.com', 'logrocket.com', 'fpjs.io',
+    'adunblock1.static-cloudflare.workers.dev', 'guce.oath.com', 'app-site-association.cdn-apple.com', 'cdn-edge-tracking.com', 'edge-telemetry.akamai.com', 'edgecompute-analytics.com',
+    'monitoring.edge-compute.io', 'realtime-edge.fastly.com', 'log.felo.ai', 'event.sc.gearupportal.com', 'pidetupop.com', 'adform.net',
+    'adsrvr.org', 'analytics.line.me', 'analytics.slashdotmedia.com', 'analytics.strava.com', 'api.pendo.io', 'c.clarity.ms',
+    'c.segment.com', 'chartbeat.com', 'clicktale.net', 'clicky.com', 'comscore.com', 'customer.io',
+    'data.investing.com', 'datadoghq.com', 'dynatrace.com', 'fullstory.com', 'heap.io', 'inspectlet.com',
+    'iterable.com', 'keen.io', 'kissmetrics.com', 'loggly.com', 'matomo.cloud', 'mgid.com',
+    'mouseflow.com', 'mparticle.com', 'mlytics.com', 'nr-data.net', 'oceanengine.com', 'openx.net',
+    'optimizely.com', 'piwik.pro', 'posthog.com', 'quantserve.com', 'revcontent.com', 'rudderstack.com',
+    'segment.com', 'semasio.net', 'snowplowanalytics.com', 'statcounter.com', 'statsig.com', 'static.ads-twitter.com',
+    'sumo.com', 'sumome.com', 'tealium.com', 'track.hubspot.com', 'track.tiara.daum.net', 'stat.tiara.daum.net',
+    'track.tiara.kakao.com', 'vwo.com', 'yieldlab.net', 'fingerprint.com', 'doubleverify.com', 'iasds.com',
+    'moat.com', 'moatads.com', 'sdk.iad-07.braze.com', 'serving-sys.com', 'tw.ad.doubleverify.com', 'agkn.com',
+    'id5-sync.com', 'liveramp.com', 'permutive.com', 'tags.tiqcdn.com', 'klaviyo.com', 'marketo.com',
+    'mktoresp.com', 'pardot.com', 'instana.io', 'launchdarkly.com', 'raygun.io', 'navify.com',
+    'cnzz.com', 'umeng.com', 'talkingdata.com', 'mdap.alipay.com', 'loggw-ex.alipay.com', 'dypnsapi-dualstack.aliyuncs.com',
+    'pgdt.gtimg.cn', 'afd.baidu.com', 'als.baidu.com', 'cpro.baidu.com', 'dlswbr.baidu.com', 'duclick.baidu.com',
+    'feed.baidu.com', 'h2tcbox.baidu.com', 'hm.baidu.com', 'hmma.baidu.com', 'mobads-logs.baidu.com', 'mobads.baidu.com',
+    'nadvideo2.baidu.com', 'nsclick.baidu.com', 'sp1.baidu.com', 'voice.baidu.com', '3gimg.qq.com', 'fusion.qq.com',
+    'ios.bugly.qq.com', 'lives.l.qq.com', 'monitor.uu.qq.com', 'pingma.qq.com', 'sdk.e.qq.com', 'wup.imtt.qq.com',
+    'appcloud.zhihu.com', 'appcloud2.in.zhihu.com', 'crash2.zhihu.com', 'mqtt.zhihu.com', 'sugar.zhihu.com', 'agn.aty.sohu.com',
+    'apm.gotokeep.com', 'apm.volccdn.com', 'gator.volces.com', 'anonymous-communication.ghostery.net', 'cn-huabei-1-lg.xf-yun.com', 'log.b612kaji.com',
+    'pc-mon.snssdk.com', 'sensorsdata.cn', 'stat.m.jd.com', 'trackapp.guahao.cn', 'traffic.mogujie.com', 'wmlog.meituan.com',
+    'zgsdk.zhugeio.com', 'admaster.com.cn', 'adview.cn', 'alimama.com', 'gridsum.com', 'growingio.com',
+    'kuaishou.com', 'miaozhen.com', 'mmstat.com', 'pangolin-sdk-toutiao.com', 'talkingdata.cn', 'tanx.com',
+    'umeng.cn', 'umeng.co', 'umengcloud.com', 'youmi.net', 'zhugeio.com', 'appnext.hs.llnwd.net',
+    'fusioncdn.com', 'abema-adx.ameba.jp', 'ad.12306.cn', 'ad.360in.com', 'adroll.com', 'ads.yahoo.com',
+    'adserver.yahoo.com', 'appnexus.com', 'bluekai.com', 'casalemedia.com', 'doubleclick.net', 'googleadservices.com',
+    'googlesyndication.com', 'outbrain.com', 'taboola.com', 'rubiconproject.com', 'pubmatic.com', 'openx.com',
+    'smartadserver.com', 'spotx.tv', 'yandex.ru', 'addthis.com', 'onesignal.com', 'sharethis.com',
+    'bat.bing.com', 'clarity.ms', 'elads.kocpc.com.tw', 'eservice.emarsys.net', 'at-display-as.deliveryhero.io', 'stun.services.mozilla1.com',
+    'analysis.chatglm.cn', 'ader.naver.com', 'wcs.naver.net', 'analytics.naver.com', 'searchad-phinf.pstatic.net'
   ]),
   BLOCK_DOMAINS_WILDCARDS: new Set([
     'sentry.io', 'pidetupop.com', 'cdn-net.com', 'lr-ingest.io', 'aotter.net', 'ssp.yahoo.com',
