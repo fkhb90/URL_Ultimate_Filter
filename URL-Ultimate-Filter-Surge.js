@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.80
+ * @version 45.81
  * @date    2026-04-27
- * @rules   1500 total (301 domains, 416 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1501 total (302 domains, 416 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.80';
-const SCRIPT_BUILD = 'V45.80 (2026-04-27) | 1500 rules | 3065 tests';
+const SCRIPT_VERSION = '45.81';
+const SCRIPT_BUILD = 'V45.81 (2026-04-27) | 1501 rules | 3068 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -220,7 +220,7 @@ const RULES = {
     'adbottw.net', 'useinsider.com', 'insiderone.com', 'treasuredata.com', 'treasure-data.com', 'tagtoo.com.tw',
     'scupio.net', 'clickforce.net', 'log.aliyuncs.com', 'sls.aliyuncs.com', 'jpush.cn', 'jpush.io',
     'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com', 'veta.naver.com',
-    'goqual.com', 'alibabachengdun.com', 'saf.aliyuncs.com'
+    'goqual.com', 'alibabachengdun.com', 'saf.aliyuncs.com', 'adapty.io'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
