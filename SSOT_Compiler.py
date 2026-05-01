@@ -77,10 +77,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.88"
+VERSION = "45.89"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] Uber 幫助中心頁面追蹤端點封鎖：
+  - help.uber.com → CRITICAL_PATH_MAP DROP:/_track（/_track?nodeId=&jobId= 為幫助中心使用者流程追蹤，UUID 參數識別文章閱讀路徑；csp.uber.com 判定為 CSP 違規回報端點，屬安全基礎設施，不列入封鎖）
 - [Privacy] Uber 應用內行為追蹤端點封鎖：
   - tracking.ibt.uber.com → BLOCK_DOMAINS（ibt = In-app Behavioral Telemetry；與已封鎖的 metrics.uber.com / event-tracker.uber.com 同屬 Uber 遙測基礎設施）
 - [Privacy] Ghostery 匿名數據貢獻端點封鎖：
@@ -587,6 +589,7 @@ RULES_DB = {
         'youtubei.googleapis.com': ['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions'],
         'googlevideo.com': ['/ptracking', '/videoplayback?ptracking='],
         'api.uber.com': ['/ramen/v1/events', '/v3/mobile-event', '/advertising/v1/', '/eats/advertising/', '/rt/users/v1/device-info'],
+        'help.uber.com': ['DROP:/_track'],
         'api.ubereats.com': ['/v1/eats/advertising', '/ramen/v1/events'],
         'cn-geo1.uber.com': ['/ramen/v1/events', '/v3/mobile-event', '/monitor/v2/logs'],
         'tw.mapi.shp.yahoo.com': ['/w/analytics', '/v1/instrumentation', '/ws/search/tracking', '/dw/tracker'],
@@ -3065,6 +3068,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Mistral Chat SendEventToDatalake Drop", "https://chat.mistral.ai/api/trpc/event.sendEventToDatalake?batch=1", RES_DROP_204, "V45.78 Mistral AI 聊天介面 tRPC event.sendEventToDatalake 數據湖事件批次上報 DROP；路徑名稱完全自我揭露；DROP:/api/trpc/event. 前綴覆蓋所有 event.* 遙測程序"))
     # --- V45.63 Claude.ai 事件記錄遙測 ---
     cases.append(TestCase("Privacy: Claude.ai Event Logging Drop", "https://claude.ai/api/event_logging/v2/batch?", RES_DROP_204, "V45.63 Claude.ai 事件記錄批次遙測上傳 DROP；CRITICAL_PATH_MAP 第一步執行早於 SOFT_WHITELIST；與 statsig.anthropic.com 同屬 Anthropic 遙測基礎設施"))
+    # --- V45.89 help.uber.com /_track 頁面追蹤 ---
+    cases.append(TestCase("Privacy: Uber Help Center Track Drop", "https://help.uber.com/_track?nodeId=44c3136d-1dd4-431a-b44a-ceabf5e1e1f3&jobId=d45d86e4-a89f-4ab7-9934-f73969b116d9", RES_DROP_204, "V45.89 Uber 幫助中心頁面追蹤 DROP；/_track + nodeId/jobId UUID = 使用者文章閱讀路徑追蹤"))
     # --- V45.88 Uber IBT 追蹤端點 ---
     cases.append(TestCase("Privacy: Uber IBT Tracking Block", "https://tracking.ibt.uber.com/v1/events", RES_BLOCK_403, "V45.88 Uber In-app Behavioral Telemetry 追蹤封鎖；與 metrics.uber.com / event-tracker.uber.com 同系列"))
     # --- V45.87 Ghostery 匿名數據貢獻端點 ---

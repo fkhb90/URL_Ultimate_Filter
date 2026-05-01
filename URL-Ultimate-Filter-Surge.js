@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.88
+ * @version 45.89
  * @date    2026-04-27
- * @rules   1507 total (307 domains, 417 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1508 total (307 domains, 418 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.88';
-const SCRIPT_BUILD = 'V45.88 (2026-04-27) | 1507 rules | 3084 tests';
+const SCRIPT_VERSION = '45.89';
+const SCRIPT_BUILD = 'V45.89 (2026-04-27) | 1508 rules | 3087 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -285,6 +285,9 @@ const RULES = {
     ['api.uber.com', new Set([
         '/ramen/v1/events', '/v3/mobile-event', '/advertising/v1/', '/eats/advertising/',
         '/rt/users/v1/device-info'
+      ])],
+    ['help.uber.com', new Set([
+        'DROP:/_track'
       ])],
     ['api.ubereats.com', new Set([
         '/v1/eats/advertising', '/ramen/v1/events'
