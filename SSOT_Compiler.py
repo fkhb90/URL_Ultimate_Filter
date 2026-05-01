@@ -77,10 +77,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.87"
+VERSION = "45.88"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] Uber 應用內行為追蹤端點封鎖：
+  - tracking.ibt.uber.com → BLOCK_DOMAINS（ibt = In-app Behavioral Telemetry；與已封鎖的 metrics.uber.com / event-tracker.uber.com 同屬 Uber 遙測基礎設施）
 - [Privacy] Ghostery 匿名數據貢獻端點封鎖：
   - anonymous-communication.ghostery.net → BLOCK_DOMAINS（Ghostery Human Web / Contributor 匿名瀏覽數據回報系統；即使標榜匿名，本質為使用者活動遙測上報；Ghostery 核心封鎖功能不依賴此端點）
 - [Privacy] ByteDance Volcano APM 與 Volces 數據聚合閘道封鎖：
@@ -434,7 +436,7 @@ RULES_DB = {
         'sspap.pchome.tw', 'rtb.pchome.tw', 'log.pchome.com.tw', 'ad.pchome.com.tw',
         'vm5apis.com', 'vlitag.com', 'intentarget.com', 'innity.net', 'ad-specs.guoshippartners.com',
         'cdn.ad.plus', 'cdn.doublemax.net', 'udmserve.net', 'signal-snacks.gliastudios.com', 'adc.tamedia.com.tw',
-        'log.zoom.us', 'metrics.uber.com', 'event-tracker.uber.com', 'cn-geo1.uber.com',
+        'log.zoom.us', 'metrics.uber.com', 'event-tracker.uber.com', 'tracking.ibt.uber.com', 'cn-geo1.uber.com',
         'udp.yahoo.com', 'analytics.yahoo.com', 'effirst.com', 'px.effirst.com', 'simonsignal.com', 
         'analytics.etmall.com.tw',
         'bam.nr-data.net', 'bam-cell.nr-data.net', 'lrkt-in.com',
@@ -3063,6 +3065,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Mistral Chat SendEventToDatalake Drop", "https://chat.mistral.ai/api/trpc/event.sendEventToDatalake?batch=1", RES_DROP_204, "V45.78 Mistral AI 聊天介面 tRPC event.sendEventToDatalake 數據湖事件批次上報 DROP；路徑名稱完全自我揭露；DROP:/api/trpc/event. 前綴覆蓋所有 event.* 遙測程序"))
     # --- V45.63 Claude.ai 事件記錄遙測 ---
     cases.append(TestCase("Privacy: Claude.ai Event Logging Drop", "https://claude.ai/api/event_logging/v2/batch?", RES_DROP_204, "V45.63 Claude.ai 事件記錄批次遙測上傳 DROP；CRITICAL_PATH_MAP 第一步執行早於 SOFT_WHITELIST；與 statsig.anthropic.com 同屬 Anthropic 遙測基礎設施"))
+    # --- V45.88 Uber IBT 追蹤端點 ---
+    cases.append(TestCase("Privacy: Uber IBT Tracking Block", "https://tracking.ibt.uber.com/v1/events", RES_BLOCK_403, "V45.88 Uber In-app Behavioral Telemetry 追蹤封鎖；與 metrics.uber.com / event-tracker.uber.com 同系列"))
     # --- V45.87 Ghostery 匿名數據貢獻端點 ---
     cases.append(TestCase("Privacy: Ghostery Anonymous Communication Block", "https://anonymous-communication.ghostery.net/hw", RES_BLOCK_403, "V45.87 Ghostery Human Web 匿名瀏覽數據回報端點封鎖；核心封鎖功能不依賴此節點"))
     # --- V45.86 ByteDance Volcano APM + Volces gator ---
