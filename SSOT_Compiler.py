@@ -77,10 +77,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.83"
+VERSION = "45.84"
 RELEASE_DATE = "2026-04-27"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] Howxm 用戶調研 SDK 封鎖：
+  - howxm.com → BLOCK_DOMAINS_WILDCARDS（好询 = 中國 SaaS 用戶調研/NPS/問卷 SDK 平台；static.howxm.com 提供 sdk-body-*.js 主 SDK bundle；整域為追蹤基礎設施）
 - [BugFix] chat2-api.qianwen.com session/delete/batch 誤封修正（策略調整）：
   - 根因：rawPath 包含完整 query string，pathLower = /api/v1/session/delete/batch?biz_id=...，命中 DROP 關鍵字 /batch?（設計用於遙測批次上傳，此處誤殺功能性刪除 API）
   - 修正 V45.82（HARD_WHITELIST WILDCARDS）已回退，改用 PATH_EXEMPTIONS 精準放行
@@ -493,7 +495,7 @@ RULES_DB = {
         'log.aliyuncs.com', 'sls.aliyuncs.com',
         'jpush.cn', 'jpush.io', 'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com',
         'veta.naver.com', 'goqual.com', 'alibabachengdun.com',
-        'saf.aliyuncs.com', 'adapty.io'
+        'saf.aliyuncs.com', 'adapty.io', 'howxm.com'
     ],
     "BLOCK_DOMAINS_REGEX": [
         r'^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$',
@@ -3036,6 +3038,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("AdBlock: Amap m5 Promote Refresh Card Drop", "https://m5.amap.com/ws/promote/refresh/card?ent=2&in=30iVtwQGAC&csid=92C6B4C7-D486-4F8C-99C0-E9BF09655631", RES_DROP_204, "V45.76 高德地圖 m5 promote 推廣命名空間卡片重整 DROP；in= 加密包 + csid= 設備指紋，推廣卡片重整夾帶行為遙測上傳"))
     # --- V45.77 m5 render/weatherservice 天氣歷史遙測 ---
     cases.append(TestCase("Privacy: Amap m5 Weather History Drop", "https://m5.amap.com/ws/render/weatherservice/historyweather?ent=2&in=Pf7sHyzphSd5&is_bin=1&csid=826A988E-5FCE-4300-B710-81E22892D8F0", RES_DROP_204, "V45.77 高德地圖 m5 天氣服務歷史天氣遙測 DROP；in= 加密包 + is_bin=1 + csid=，與 render.amap.com TMC 相同二進位上傳特徵"))
+    # --- V45.84 Howxm 用戶調研 SDK ---
+    cases.append(TestCase("Privacy: Howxm SDK Body Block", "https://static.howxm.com/sdk-body-813afd9d.js", RES_BLOCK_403, "V45.84 好询 Howxm 用戶調研/NPS SDK bundle 封鎖；howxm.com wildcard 覆蓋整域"))
     # --- V45.83 chat2-api.qianwen.com PATH_EXEMPTIONS 精準放行 ---
     cases.append(TestCase("BugFix: Qianwen Chat Session Delete Batch Pass", "https://chat2-api.qianwen.com/api/v1/session/delete/batch?biz_id=ai_qwen&chat_client=h5&device=pc", RES_ALLOW, "V45.83 通義千問 session/delete/batch 誤封修正；PATH_EXEMPTIONS 步驟 6 域名路徑豁免早於 DROP /batch? 關鍵字掃描，精準放行此路徑"))
     # --- V45.81 Adapty 訂閱變現分析 SDK 封鎖 ---
