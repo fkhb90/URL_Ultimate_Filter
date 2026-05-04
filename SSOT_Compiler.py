@@ -3,57 +3,19 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.72 (2026-04-27)
+當前版本：V45.90 (2026-05-04)
 最新架構更新：
-- [Privacy] 高德地圖 m5.amap.com frogserver 規則升級：DROP:/ws/shield/frogserver/aocs/updatable/ 升級為 DROP:/ws/shield/frogserver/，前綴覆蓋所有 frogserver 子路徑（含新增 rd/displist remote dispatch list + 既有 aocs/updatable）。
-- [Test Suite] 新增 1 項 V45.72 測試案例。
+- [AdBlock] Klook 廣告端點封鎖：appapi.klook.com → CRITICAL_PATH_MAP DROP:/v1/adsrv/（app_pendant_homepage / app_pop_homepage 廣告版位請求）+ DROP:/v1/usrcsrv/splash/ads（開屏廣告拉取）；liveactivity token 判定功能性（iOS Live Activity push token），不封鎖。
+- [Privacy] Uber 多端遙測封鎖：help.uber.com → DROP:/_track（幫助中心頁面使用者流程追蹤）；tracking.ibt.uber.com → BLOCK_DOMAINS（In-app Behavioral Telemetry）。
+- [Privacy] 縱深封鎖：Ghostery 匿名遙測、ByteDance Volcano APM/Volces 閘道、Anthropic /api/event_logging/、Howxm NPS SDK、Adapty 訂閱 SDK、阿里雲 SAF 裝置稽核（詳見 CHANGELOG.md）。
+- [BugFix] legy.line-apps.com SOFT→HARD WL 升級（相簿 API 96110 數字 ID 子字串誤殺）；chat2-api.qianwen.com PATH_EXEMPTIONS 精準放行 /session/delete/batch。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
-- V45.72 (2026-04-27): 高德 m5 shield/frogserver/ 前綴升級，涵蓋 rd/displist + aocs/updatable 所有子路徑。
-- V45.71 (2026-04-27): 高德 center.amap.com share/mainpage/lbs/info 遙測 DROP。
-- V45.70 (2026-04-27): 阿里巴巴城盾 alibabachengdun.com 裝置指紋 SDK 封鎖。
-- V45.69 (2026-04-27): Meta AI /monitoring + /api/analytics 遙測分析 DROP。
-- V45.68 (2026-04-27): dypnsapi-dualstack.aliyuncs.com 封鎖 + acs.m.taobao.com DROP。
-- V45.67 (2026-04-27): Naver GFP 廣告 SDK 封鎖（tveta/glad + melona/gfp-nac-module）+ Naver Maps nvbpc/wmts/adm 廣告圖磚 DROP。
-- V45.64 (2026-04-27): 高德 mps.amap.com lyrdata 渲染遙測 DROP + m5 ipx dot_report DROP。
-- V45.63 (2026-04-27): Claude.ai /api/event_logging/ 遙測批次上傳 DROP。
-- V45.62 (2026-04-27): m5-zb BOSS 系統遙測 DROP:/ws/boss/ + render.amap.com TMC 交通資料上傳 DROP。
-- V45.61 (2026-04-27): m5-zb 車機效能規則遙測 DROP + BMD 廣告備援 CDN render-prod-backup-tile 封鎖。
-- V45.60 (2026-04-27): 高德地圖 BMD 廣告覆蓋圖磚 render-prod-tile.amap.com /ws/render/bmd/ DROP。
-- V45.59 (2026-04-27): Naver NELO 外部日誌收集器 kr-col-ext.nelo.navercorp.com DROP。
-- V45.58 (2026-04-27): 高德 optimus-ads.amap.com 廣告系統 DROP + AutoNavi store.is.autonavi.com 門店追蹤 DROP。
-- V45.57 (2026-04-27): 高德 adashx.ut.amap.com UT 廣告分析 DROP + qchannel01.cn 渠道追蹤封鎖。
-- V45.56 (2026-04-27): Google growth-pa.googleapis.com 成長分析端點封鎖。
-- V45.55 (2026-04-27): stat.tiara.daum.net 補漏 + zztfly.com 中國行動 SDK 封鎖。
-- V45.54 (2026-04-27): 高德 AOS 語音 IP 查詢端點 m5.amap.com /ws/aos/voice/ip_info/ DROP。
-- V45.53 (2026-04-27): 高德 gbfs batchCalcByFeatureCode DROP + DeepSeek ip_to_country_code DROP。
-- V45.52 (2026-04-27): BugFix — ByteDance Rangers SDK CDN 豁免 + snssdk.com wildcard 封鎖，讓 App 正常啟動同時阻止資料回傳。
-- V45.51 (2026-04-27): BugFix — member.tw.coupang.com OAuth2 誤殺修正，加入 OAUTH_SAFE_HARBOR_DOMAINS 豁免 audience/uuid PATH_BLOCK 關鍵字誤判。
-- V45.50 (2026-04-27): 多平台補強 — Amap AMC /ws/amc/ DROP、Coupang ad-info 403、APlus CDN /alilog/ 403、PostHog prodregistryv2 DROP、ChatGPT /ces/v1/ DROP、Naver Papago promotions 403。
-- V45.49 (2026-04-24): 高德地圖搜尋廣告 POI 封鎖 — m5.amap.com /ws/shield/search_poi/tips_adv 403。
-- V45.48 (2026-04-24): Airbridge MMP 全面封鎖 — airbridge.io wildcards + api/core DROP + abr.ge + deeplink.page。
-- V45.47 (2026-04-24): WOWPASS log.wowpass.io 全域 DROP — /api/v1/log 尾無 s 漏網，/v1/log 通用規則有誤殺風險，以域名層精準覆蓋。
-- V45.46 (2026-04-24): 高德地圖遙測端點全面補強 — 新增 info.amap.com /ws/shield/galaxy/data、passport.amap.com /ws/auth/session-report、m5.amap.com /ws/shield/frogserver/aocs/updatable/；補齊 adiu/logs/dualstack-logs/wb/amdc/cgicol/grid/tm 與 nogw alimama 備援；加入 m5 updatable `v\\d+/log` 邊界防禦與對應測試。
-- V45.44 (2026-04-23): 修正 V45.43 測試說明錯誤 — /ublock-badware/ 根因為 PATH_BLOCK 'adware' 子字串命中，非「已放行」；更新兩項 Ghostery 測試案例說明精確化。
-- V45.43 (2026-04-23): Ghostery CDN PATH_EXEMPTIONS 豁免 — /trackerdbMv3/ 誤殺修正；新增 2 項 Ghostery filter list 測試案例。
-- V45.42 (2026-04-22): DROP 移除粗粒度 'collect'/'collect?' + citiesocial.com /collection/ PATH_EXEMPTIONS 雙重保險；新增 2 項 citiesocial API 精準度測試案例。
-- V45.41 (2026-04-20): Naver Maps 廣告圖片 CDN 封鎖 (searchad-phinf.pstatic.net) + NTM 標籤管理器 DROP；Apollo State 逆向分析完成。
-- V45.40 (2026-04-20): Naver 地圖廣告腳本 ad.js 封鎖 + BizCatcher 互動遙測 DROP。
-- V45.39 (2026-04-20): Naver 追蹤基礎設施全面封堵 — wcs/lcs/analytics/cologger/inspector-collector/cr.shopping。
-- V45.38 (2026-04-20): Naver ader 廣告伺服器精確封鎖 + ncpt 用戶端追蹤 204 DROP。
-- V45.37 (2026-04-20): Naver GFP 廣告封鎖 + nlog 遙測 204 DROP。
-- V45.36 (2026-04-16): 引擎優先級倒置修復 — 硬白名單/絕對放行/OAuth 提升至 block 判斷之前。
-- V45.35 (2026-04-13): 移除 Surge REJECT-DROP 列表自動產出 — 精簡建置輸出。
-- V45.34 (2026-04-09): 回退 V45.33 — Grok 登入根因為 MITM，需 skip-mitm grok.com。
-- V45.31 (2026-04-09): 新增 Surge REJECT-DROP 規則列表自動生成器 — DNS 層縱深防禦。
-- V45.30 (2026-04-09): 微信公眾號遙測精準路徑攔截。
-- V45.29 (2026-04-09): ChatGLM BDMS 追蹤像素靜默拋棄。
-- V45.28 (2026-04-09): 中國推送 SDK 靜默拋棄升級 — 極光推送/個推 MAP DROP 雙軌防護。
-- V45.27 (2026-04-09): 阿里雲 SLS 遙測盲區封堵 + Google Play Store 遙測路徑攔截。
-- V45.26 (2026-04-08): 台灣地區深度擴充 — LINE Tag / Treasure Data / Pixnet / 台灣廣告聯播網替代域名。
-- V45.25 (2026-04-07): 主流分析平台 CDN 逃逸域名封堵 (Amplitude/Mixpanel/Heap/RudderStack/Segment)。
-- V45.24 (2026-04-07): 台灣特有第一方代理遙測偽裝封堵 (Dcard/Insider/GrowingIO)。
-- V45.23 (2026-04-07): 跨平台第一方代理遙測封堵 (PostHog/Simple Analytics/Fathom/Pirsch)。
+- V45.90 (2026-05-04): Klook adsrv/splash 廣告 DROP；Uber /_track + IBT 封鎖；Ghostery/ByteDance/Anthropic/Adapty/SAF 縱深封鎖；legy HARD WL + chat2-api BugFix。
+- V45.89 (2026-05-01): Uber help.uber.com /_track 幫助中心頁面追蹤 DROP。
+- V45.88 (2026-05-01): tracking.ibt.uber.com 應用內行為遙測 (IBT) 封鎖。
+- V45.87 (2026-05-01): Ghostery anonymous-communication.ghostery.net 匿名數據貢獻遙測封鎖。
+- V45.86 (2026-05-01): ByteDance Volcano APM (apm.volccdn.com) + Volces 數據閘道 (gator.volces.com) 封鎖。
 """
 
 import hashlib
