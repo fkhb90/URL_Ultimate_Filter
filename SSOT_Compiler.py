@@ -571,7 +571,7 @@ RULES_DB = {
         'www.google.com': ['/log', '/pagead/1p-user-list/'],
         'play.google.com': ['/log'],
         'js.stripe.com': ['/fingerprinted/'],
-        'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr', '/codex/cloud/settings/analytics', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'],
+        'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr', '/codex/cloud/settings/analytics', '/codex/cloud/sett', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'],
         'tw.fd-api.com': ['DROP:/api/v5/action-log'],
         'chatbot.shopee.tw': ['/report/v1/log'],
         'data-rep.livetech.shopee.tw': ['/dataapi/dataweb/event/'],
