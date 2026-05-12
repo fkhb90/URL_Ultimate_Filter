@@ -23,7 +23,7 @@
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
 const SCRIPT_VERSION = '45.90';
-const SCRIPT_BUILD = 'V45.90 (2026-04-27) | 1510 rules | 3094 tests';
+const SCRIPT_BUILD = 'V45.90 (2026-04-27) | 1510 rules | 3096 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1023,6 +1023,9 @@ const RULES = {
       ])],
     ['chat2-api.qianwen.com', new Set([
         '/api/v1/session/delete/batch'
+      ])],
+    ['traffic-dist.map.naver.com', new Set([
+        '/v3/events/'
       ])]
   ])
   }

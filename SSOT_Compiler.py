@@ -819,7 +819,8 @@ RULES_DB = {
         "citiesocial.com": ["/collection/"],
         "ghostery.com": ["/adblocker/"],
         "volccdn.com": ["/data-static/log-sdk/"],
-        "chat2-api.qianwen.com": ["/api/v1/session/delete/batch"]
+        "chat2-api.qianwen.com": ["/api/v1/session/delete/batch"],
+        "traffic-dist.map.naver.com": ["/v3/events/"]
     }
 }
 
@@ -3024,6 +3025,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Howxm SDK Body Block", "https://static.howxm.com/sdk-body-813afd9d.js", RES_BLOCK_403, "V45.84 好询 Howxm 用戶調研/NPS SDK bundle 封鎖；howxm.com wildcard 覆蓋整域"))
     # --- V45.83 chat2-api.qianwen.com PATH_EXEMPTIONS 精準放行 ---
     cases.append(TestCase("BugFix: Qianwen Chat Session Delete Batch Pass", "https://chat2-api.qianwen.com/api/v1/session/delete/batch?biz_id=ai_qwen&chat_client=h5&device=pc", RES_ALLOW, "V45.83 通義千問 session/delete/batch 誤封修正；PATH_EXEMPTIONS 步驟 6 域名路徑豁免早於 DROP /batch? 關鍵字掃描，精準放行此路徑"))
+    # --- V45.91 Naver traffic-dist events geojson PATH_EXEMPTIONS 精準放行 ---
+    cases.append(TestCase("BugFix: Naver Traffic Events GeoJSON Pass", "https://traffic-dist.map.naver.com/v3/events/5796007.geojson?lang=zh-CN", RES_ALLOW, "V45.91 Naver 即時交通事件 GeoJSON 誤封修正；traffic-dist.map.naver.com 以 PATH_EXEMPTIONS /v3/events/ 精準放行，不擴大網域白名單範圍"))
     # --- V45.81 Adapty 訂閱變現分析 SDK 封鎖 ---
     cases.append(TestCase("Privacy: Adapty SDK Net-Config Block", "https://fallback.adapty.io/api/v1/sdk/company/public_live_2pe9Z1ae/app/net-config.json", RES_BLOCK_403, "V45.81 Adapty 訂閱變現分析 SDK 初始化配置封鎖；adapty.io wildcard；Paywall A/B 測試/購買漏斗追蹤/設備識別，與 adjust.com/appsflyer.com 同類"))
     # --- V45.80 阿里雲 SAF 裝置安全稽核封鎖 ---
