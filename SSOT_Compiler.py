@@ -3,8 +3,9 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.93 (2026-05-12)
+當前版本：V45.94 (2026-05-12)
 最新架構更新：
+- [Privacy] Kakao/Daum/ByteDance/AMDC 追蹤端點封鎖：tr.ds.kakao.com、t1.daumcdn.net /tessera/s.gif、lf3-data.volccdn.com、139.95.0.151 /amdc/mobileDispatch；同步修正 chatgpt.com /codex/cloud/sett 放行規則優先序。
 - [BugFix] ChatGPT Codex Cloud 入口放行：chatgpt.com 新增 PATH_EXEMPTIONS `/codex/cloud/sett`，精準放行設定頁路徑（不影響既有 CES 遙測 DROP 規則）。
 - [AdBlock] Klook 廣告端點封鎖：appapi.klook.com → CRITICAL_PATH_MAP DROP:/v1/adsrv/（app_pendant_homepage / app_pop_homepage 廣告版位請求）+ DROP:/v1/usrcsrv/splash/ads（開屏廣告拉取）；liveactivity token 判定功能性（iOS Live Activity push token），不封鎖。
 - [Privacy] Uber 多端遙測封鎖：help.uber.com → DROP:/_track（幫助中心頁面使用者流程追蹤）；tracking.ibt.uber.com → BLOCK_DOMAINS（In-app Behavioral Telemetry）。
@@ -12,6 +13,7 @@ URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 - [BugFix] legy.line-apps.com SOFT→HARD WL 升級（相簿 API 96110 數字 ID 子字串誤殺）；chat2-api.qianwen.com PATH_EXEMPTIONS 精準放行 /session/delete/batch。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.94 (2026-05-12): 封鎖 Kakao SSP bimp、Daum tessera pixel、lf3-data.volccdn.com Rangers SDK CDN、139.95.0.151 AMDC mobileDispatch；移除 chatgpt.com /codex/cloud/sett 的衝突 MAP 規則，維持 PATH_EXEMPTIONS 放行。
 - V45.93 (2026-05-12): chatgpt.com 新增 PATH_EXEMPTIONS `/codex/cloud/sett`，放行 Codex Cloud 設定入口；維持 `/ces/v1/{m,t}` 遙測 DROP。
 - V45.92 (2026-05-12): 維護版，僅同步版本/變更紀錄；持續採用 chat2-api.qianwen.com → PATH_EXEMPTIONS ["/api/v1/session/delete/batch"] 精準放行策略（不新增 qianwen.com wildcard 白名單）。
 - V45.91 (2026-05-12): Naver traffic-dist.map.naver.com 新增 PATH_EXEMPTIONS `/v3/events/`，精準放行交通事件 GeoJSON（不擴大 wildcard 白名單）。
@@ -40,10 +42,17 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.93"
+VERSION = "45.94"
 RELEASE_DATE = "2026-05-12"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] Kakao / Daum / ByteDance / AMDC 追蹤端點封鎖：
+  - tr.ds.kakao.com → BLOCK_DOMAINS（Kakao SSP 廣告曝光/競價 bimp 追蹤端點）
+  - t1.daumcdn.net → CRITICAL_PATH_MAP /tessera/s.gif（Daum/Kakao tessera 追蹤像素；避免整域封鎖 CDN）
+  - lf3-data.volccdn.com → BLOCK_DOMAINS（ByteDance Rangers collect SDK JS 來源；高優先於 volccdn.com PATH_EXEMPTIONS 的精準子域封鎖）
+  - 139.95.0.151 → CRITICAL_PATH_MAP DROP:/amdc/mobileDispatch（IP 直連 AMDC 行動端 dispatch / HTTPDNS 前置調度端點）
+- [BugFix] ChatGPT Codex Cloud 設定入口放行優先序修正：
+  - chatgpt.com → 移除 CRITICAL_PATH_MAP `/codex/cloud/sett`，保留 PATH_EXEMPTIONS `/codex/cloud/sett`；避免 MAP 規則早於 PATH_EXEMPTIONS 造成設定入口仍被 403。
 - [AdBlock] Klook 應用廣告端點封鎖：
   - appapi.klook.com → CRITICAL_PATH_MAP DROP:/v1/adsrv/（adsrv = ad service；app_pendant_homepage / app_pop_homepage 廣告版位請求，含 global_id 用戶歸因參數）
   - appapi.klook.com → 追加 DROP:/v1/usrcsrv/splash/ads（開屏廣告拉取端點）
@@ -438,6 +447,7 @@ RULES_DB = {
         'monitor.uu.qq.com', 'pingma.qq.com', 'sdk.e.qq.com', 'wup.imtt.qq.com', 'appcloud.zhihu.com',
         'appcloud2.in.zhihu.com', 'crash2.zhihu.com', 'mqtt.zhihu.com', 'sugar.zhihu.com', 'agn.aty.sohu.com',
         'apm.gotokeep.com', 'apm.volccdn.com', 'gator.volces.com',
+        'tr.ds.kakao.com', 'lf3-data.volccdn.com',
         'anonymous-communication.ghostery.net',
         'cn-huabei-1-lg.xf-yun.com', 'log.b612kaji.com', 'pc-mon.snssdk.com',
         'sensorsdata.cn', 'stat.m.jd.com', 'trackapp.guahao.cn', 'traffic.mogujie.com', 'wmlog.meituan.com',
@@ -571,7 +581,7 @@ RULES_DB = {
         'www.google.com': ['/log', '/pagead/1p-user-list/'],
         'play.google.com': ['/log'],
         'js.stripe.com': ['/fingerprinted/'],
-        'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr', '/codex/cloud/settings/analytics', '/codex/cloud/sett', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'],
+        'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr', '/codex/cloud/settings/analytics', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'],
         'tw.fd-api.com': ['DROP:/api/v5/action-log'],
         'chatbot.shopee.tw': ['/report/v1/log'],
         'data-rep.livetech.shopee.tw': ['/dataapi/dataweb/event/'],
@@ -716,6 +726,8 @@ RULES_DB = {
         'prodregistryv2.org': ['DROP:/v1/rgstr'],
         'apis.naver.com': ['/papago/papago_app/promotions'],
         'chat.deepseek.com': ['DROP:/api/v0/ip_to_country_code'],
+        't1.daumcdn.net': ['/tessera/s.gif'],
+        '139.95.0.151': ['DROP:/amdc/mobiledispatch'],
     },
     "HIGH_CONFIDENCE": [
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
@@ -2957,6 +2969,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("AdBlock: Amap AOS Nogw Alimama Block", "https://amap-aos-info-nogw.amap.com/ws/aos/alimama/splash_screen?ent=2", RES_BLOCK_403, "封鎖阿里媽媽 nogw 備援開屏廣告路徑"))
     cases.append(TestCase("Privacy: Amap WB Channel Attribution Drop", "https://wb.amap.com/channel.php?source=app&deep_link=1", RES_DROP_204, "封鎖安裝歸因與導流追蹤入口 /channel.php"))
     cases.append(TestCase("Privacy: AMDC Mobile Dispatch Drop", "https://amdc.m.taobao.com/amdc/mobileDispatch", RES_DROP_204, "封鎖 AMDC HTTPDNS 前置調度與網路特徵回傳通道"))
+    cases.append(TestCase("Privacy: AMDC Direct IP Mobile Dispatch Drop", "http://139.95.0.151/amdc/mobileDispatch?appkey=34400722&v=6.5&appVersion=6.9.1&cv=1", RES_DROP_204, "V45.94 IP 直連 AMDC mobileDispatch 204 DROP；避免以明文 IP 繞過 amdc.m.taobao.com 域名規則"))
 
     # --- V45.47 WOWPASS 韓國旅遊預付卡 App 遙測封鎖 ---
     cases.append(TestCase("Privacy: WOWPASS Log Endpoint Drop", "https://log.wowpass.io/api/v1/log", RES_DROP_204, "V45.47 WOWPASS App 私有遙測端點 DROP；/api/v1/log 尾無 s 漏網 CRITICAL_PATH_GENERIC，/v1/log 通用規則有誤殺 /v1/login 風險，改以 log.wowpass.io 域名層全域 DROP"))
@@ -2981,8 +2994,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: ChatGPT Codex Cloud Settings Entry Pass", "https://chatgpt.com/codex/cloud/sett", RES_ALLOW, "V45.93 ChatGPT Codex Cloud 設定入口 PATH_EXEMPTIONS 精準放行；不影響 CES 遙測端點封鎖"))
     cases.append(TestCase("AdBlock: Naver Papago Promotions Block", "https://apis.naver.com/papago/papago_app/promotions?appVer=1.11.9&locale=zh-TW&os=ios", RES_BLOCK_403, "V45.50 Naver Papago 翻譯 App 推廣/廣告內容 API 403 封鎖"))
     cases.append(TestCase("Safe: Coupang OAuth2 Authorize (full)", "https://member.tw.coupang.com/stepup/authorize?redirect_uri=coupang%3A%2Foauth2redirect&scope=offline%20openid%20core&audience=https%3A%2F%2Fwww.tw.coupang.com&log_info=%7B%22uuid%22%3A%2233B2CBE1%22%7D&client_id=441c99ae-26f9-4e4e-903f-dc5886fe0a9a&code_challenge=JeR-MPNo9Q&state=abc", RES_ALLOW, "V45.51 BugFix: audience/uuid 等 PATH_BLOCK 關鍵字出現在 OAuth 查詢參數中誤殺；member.tw.coupang.com 加入 OAUTH_SAFE_HARBOR_DOMAINS 完全豁免"))
-    # --- V45.52 ByteDance Rangers SDK 精準豁免 ---
-    cases.append(TestCase("Safe: ByteDance Rangers SDK CDN Allow", "https://lf3-data.volccdn.com/obj/data-static/log-sdk/collect/5.0/collect-rangers-v5.1.12.js", RES_ALLOW, "V45.52 BugFix: volccdn.com /data-static/log-sdk/ PATH_EXEMPTIONS 豁免，Rangers SDK JS 可正常下載；App 啟動不受影響"))
+    # --- V45.52 ByteDance Rangers SDK 精準豁免 / V45.94 指定子域封鎖 ---
+    cases.append(TestCase("Privacy: ByteDance Rangers SDK CDN Block", "https://lf3-data.volccdn.com/obj/data-static/log-sdk/collect/5.0/collect-rangers-v5.1.12.js", RES_BLOCK_403, "V45.94 lf3-data.volccdn.com 指定子域封鎖；覆蓋 volccdn.com /data-static/log-sdk/ PATH_EXEMPTIONS"))
     cases.append(TestCase("Privacy: snssdk Rangers Data Block", "https://mon.snssdk.com/monitor/collect?app_id=123", RES_BLOCK_403, "V45.52 snssdk.com wildcard 封鎖 Rangers SDK mon. 資料回傳主通道（SDK 載入後無法上傳行為資料）"))
     cases.append(TestCase("Privacy: snssdk Log Upload Block", "https://log.snssdk.com/v2/api/ranger/log?aid=123", RES_BLOCK_403, "V45.52 snssdk.com wildcard 封鎖 Rangers SDK log. 日誌上傳端點"))
     # --- V45.53 高德 gbfs 遙測 + DeepSeek IP 地理查詢 ---
@@ -2992,6 +3005,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Amap AOS Voice IP Info Drop", "https://m5.amap.com//ws/aos/voice/ip_info/?ent=2&in=634Y3JrLy0t6W2vK&csid=78220BCE-D0FF-4108-86B4-F502274CD048", RES_DROP_204, "V45.54 高德 AOS 語音 IP 資訊端點 204 DROP；雙斜線 //ws/ 為請求 bug，substring match 仍命中 /ws/aos/voice/ip_info/"))
     # --- V45.55 Tiara stat 補漏 + zztfly.com ---
     cases.append(TestCase("Privacy: Kakao Tiara Stat Block", "https://stat.tiara.daum.net/stat?A=D&brs=SAFARI&os=IOS", RES_BLOCK_403, "V45.55 Kakao Tiara 分析 SDK stat 統計端點封鎖；track. 已封鎖，stat. 補漏"))
+    cases.append(TestCase("AdBlock: Kakao SSP Bimp Block", "https://tr.ds.kakao.com/ssp/bimp?enc=test&signature=test", RES_BLOCK_403, "V45.94 Kakao SSP bimp 廣告曝光/競價追蹤端點封鎖"))
+    cases.append(TestCase("Privacy: Daum Tessera Pixel Block", "https://t1.daumcdn.net/tessera/s.gif", RES_BLOCK_403, "V45.94 Daum/Kakao tessera 追蹤像素精準路徑封鎖，不整域封鎖 daumcdn CDN"))
     cases.append(TestCase("Privacy: zztfly Device Client Block", "https://devc.zztfly.com/api/v1/device/register", RES_BLOCK_403, "V45.55 zztfly.com 中國行動 SDK 設備識別端點封鎖"))
     cases.append(TestCase("Privacy: zztfly Config Client Block", "https://cfgc.zztfly.com/config/fetch?appid=123", RES_BLOCK_403, "V45.55 zztfly.com SDK 設定拉取端點封鎖"))
     # --- V45.56 Google growth-pa 成長分析端點 ---
