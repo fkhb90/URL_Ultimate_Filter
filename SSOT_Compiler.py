@@ -3,19 +3,20 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.91 (2026-05-12)
+當前版本：V45.93 (2026-05-12)
 最新架構更新：
+- [BugFix] ChatGPT Codex Cloud 入口放行：chatgpt.com 新增 PATH_EXEMPTIONS `/codex/cloud/sett`，精準放行設定頁路徑（不影響既有 CES 遙測 DROP 規則）。
 - [AdBlock] Klook 廣告端點封鎖：appapi.klook.com → CRITICAL_PATH_MAP DROP:/v1/adsrv/（app_pendant_homepage / app_pop_homepage 廣告版位請求）+ DROP:/v1/usrcsrv/splash/ads（開屏廣告拉取）；liveactivity token 判定功能性（iOS Live Activity push token），不封鎖。
 - [Privacy] Uber 多端遙測封鎖：help.uber.com → DROP:/_track（幫助中心頁面使用者流程追蹤）；tracking.ibt.uber.com → BLOCK_DOMAINS（In-app Behavioral Telemetry）。
 - [Privacy] 縱深封鎖：Ghostery 匿名遙測、ByteDance Volcano APM/Volces 閘道、Anthropic /api/event_logging/、Howxm NPS SDK、Adapty 訂閱 SDK、阿里雲 SAF 裝置稽核（詳見 CHANGELOG.md）。
 - [BugFix] legy.line-apps.com SOFT→HARD WL 升級（相簿 API 96110 數字 ID 子字串誤殺）；chat2-api.qianwen.com PATH_EXEMPTIONS 精準放行 /session/delete/batch。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.93 (2026-05-12): chatgpt.com 新增 PATH_EXEMPTIONS `/codex/cloud/sett`，放行 Codex Cloud 設定入口；維持 `/ces/v1/{m,t}` 遙測 DROP。
+- V45.92 (2026-05-12): 維護版，僅同步版本/變更紀錄；持續採用 chat2-api.qianwen.com → PATH_EXEMPTIONS ["/api/v1/session/delete/batch"] 精準放行策略（不新增 qianwen.com wildcard 白名單）。
 - V45.91 (2026-05-12): Naver traffic-dist.map.naver.com 新增 PATH_EXEMPTIONS `/v3/events/`，精準放行交通事件 GeoJSON（不擴大 wildcard 白名單）。
 - V45.90 (2026-05-04): Klook adsrv/splash 廣告 DROP；Uber /_track + IBT 封鎖；Ghostery/ByteDance/Anthropic/Adapty/SAF 縱深封鎖；legy HARD WL + chat2-api BugFix。
 - V45.89 (2026-05-01): Uber help.uber.com /_track 幫助中心頁面追蹤 DROP。
-- V45.88 (2026-05-01): tracking.ibt.uber.com 應用內行為遙測 (IBT) 封鎖。
-- V45.87 (2026-05-01): Ghostery anonymous-communication.ghostery.net 匿名數據貢獻遙測封鎖。
 """
 
 import hashlib
@@ -39,7 +40,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.91"
+VERSION = "45.93"
 RELEASE_DATE = "2026-05-12"
 
 CURRENT_RELEASE_NOTES = """
@@ -570,7 +571,7 @@ RULES_DB = {
         'www.google.com': ['/log', '/pagead/1p-user-list/'],
         'play.google.com': ['/log'],
         'js.stripe.com': ['/fingerprinted/'],
-        'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr', '/codex/cloud/settings/analytics', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'],
+        'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr', '/codex/cloud/settings/analytics', '/codex/cloud/sett', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'],
         'tw.fd-api.com': ['DROP:/api/v5/action-log'],
         'chatbot.shopee.tw': ['/report/v1/log'],
         'data-rep.livetech.shopee.tw': ['/dataapi/dataweb/event/'],
@@ -2976,6 +2977,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: PostHog Registry Drop", "https://prodregistryv2.org/v1/rgstr?k=client-jGsou7hG3B4NmNew53QhE2fmdMo5Z2nIXNYMIPJl1FI&st=javascript-client-react&sv=3.25.3", RES_DROP_204, "V45.50 PostHog 分析 SDK 登記端點 /v1/rgstr 204 DROP（javascript-client-react SDK 事件上報）"))
     cases.append(TestCase("Privacy: ChatGPT CES v1 m Drop", "https://chatgpt.com/ces/v1/m", RES_DROP_204, "V45.50 ChatGPT Client Event Service /ces/v1/m 遙測端點 204 DROP"))
     cases.append(TestCase("Privacy: ChatGPT CES v1 t Drop", "https://chatgpt.com/ces/v1/t", RES_DROP_204, "V45.50 ChatGPT Client Event Service /ces/v1/t 追蹤端點 204 DROP"))
+    cases.append(TestCase("BugFix: ChatGPT Codex Cloud Settings Entry Pass", "https://chatgpt.com/codex/cloud/sett", RES_ALLOW, "V45.93 ChatGPT Codex Cloud 設定入口 PATH_EXEMPTIONS 精準放行；不影響 CES 遙測端點封鎖"))
     cases.append(TestCase("AdBlock: Naver Papago Promotions Block", "https://apis.naver.com/papago/papago_app/promotions?appVer=1.11.9&locale=zh-TW&os=ios", RES_BLOCK_403, "V45.50 Naver Papago 翻譯 App 推廣/廣告內容 API 403 封鎖"))
     cases.append(TestCase("Safe: Coupang OAuth2 Authorize (full)", "https://member.tw.coupang.com/stepup/authorize?redirect_uri=coupang%3A%2Foauth2redirect&scope=offline%20openid%20core&audience=https%3A%2F%2Fwww.tw.coupang.com&log_info=%7B%22uuid%22%3A%2233B2CBE1%22%7D&client_id=441c99ae-26f9-4e4e-903f-dc5886fe0a9a&code_challenge=JeR-MPNo9Q&state=abc", RES_ALLOW, "V45.51 BugFix: audience/uuid 等 PATH_BLOCK 關鍵字出現在 OAuth 查詢參數中誤殺；member.tw.coupang.com 加入 OAUTH_SAFE_HARBOR_DOMAINS 完全豁免"))
     # --- V45.52 ByteDance Rangers SDK 精準豁免 ---
