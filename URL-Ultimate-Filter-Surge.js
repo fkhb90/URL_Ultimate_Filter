@@ -332,7 +332,7 @@ const RULES = {
         '/fingerprinted/'
       ])],
     ['chatgpt.com', new Set([
-        '/ces/statsc/flush', '/v1/rgstr', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'
+        '/ces/statsc/flush', '/v1/rgstr', '/codex/cloud/settings/analytics', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'
       ])],
     ['tw.fd-api.com', new Set([
         'DROP:/api/v5/action-log'
