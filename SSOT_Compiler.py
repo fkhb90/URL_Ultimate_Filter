@@ -16,7 +16,6 @@ URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 - V45.89 (2026-05-01): Uber help.uber.com /_track 幫助中心頁面追蹤 DROP。
 - V45.88 (2026-05-01): tracking.ibt.uber.com 應用內行為遙測 (IBT) 封鎖。
 - V45.87 (2026-05-01): Ghostery anonymous-communication.ghostery.net 匿名數據貢獻遙測封鎖。
-- V45.86 (2026-05-01): ByteDance Volcano APM (apm.volccdn.com) + Volces 數據閘道 (gator.volces.com) 封鎖。
 """
 
 import hashlib
