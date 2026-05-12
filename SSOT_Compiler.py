@@ -3,7 +3,7 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.90 (2026-05-04)
+當前版本：V45.91 (2026-05-12)
 最新架構更新：
 - [AdBlock] Klook 廣告端點封鎖：appapi.klook.com → CRITICAL_PATH_MAP DROP:/v1/adsrv/（app_pendant_homepage / app_pop_homepage 廣告版位請求）+ DROP:/v1/usrcsrv/splash/ads（開屏廣告拉取）；liveactivity token 判定功能性（iOS Live Activity push token），不封鎖。
 - [Privacy] Uber 多端遙測封鎖：help.uber.com → DROP:/_track（幫助中心頁面使用者流程追蹤）；tracking.ibt.uber.com → BLOCK_DOMAINS（In-app Behavioral Telemetry）。
@@ -11,6 +11,7 @@ URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 - [BugFix] legy.line-apps.com SOFT→HARD WL 升級（相簿 API 96110 數字 ID 子字串誤殺）；chat2-api.qianwen.com PATH_EXEMPTIONS 精準放行 /session/delete/batch。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.91 (2026-05-12): Naver traffic-dist.map.naver.com 新增 PATH_EXEMPTIONS `/v3/events/`，精準放行交通事件 GeoJSON（不擴大 wildcard 白名單）。
 - V45.90 (2026-05-04): Klook adsrv/splash 廣告 DROP；Uber /_track + IBT 封鎖；Ghostery/ByteDance/Anthropic/Adapty/SAF 縱深封鎖；legy HARD WL + chat2-api BugFix。
 - V45.89 (2026-05-01): Uber help.uber.com /_track 幫助中心頁面追蹤 DROP。
 - V45.88 (2026-05-01): tracking.ibt.uber.com 應用內行為遙測 (IBT) 封鎖。
@@ -39,8 +40,8 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.90"
-RELEASE_DATE = "2026-04-27"
+VERSION = "45.91"
+RELEASE_DATE = "2026-05-12"
 
 CURRENT_RELEASE_NOTES = """
 - [AdBlock] Klook 應用廣告端點封鎖：
