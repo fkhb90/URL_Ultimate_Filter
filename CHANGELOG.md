@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V45.95 - 2026-05-12
+- [Privacy] qchannel03.cn 中國渠道歸因追蹤封鎖：
+  - i.qchannel03.cn → BLOCK_DOMAINS_WILDCARDS（/combine?akey=gdios-16.16.6&u= 加密用戶 ID；akey=gdios 為 iOS 平台標識，渠道歸因遙測與 qchannel01.cn 同系列；wildcard 覆蓋所有子域名）
+
 ## V45.94 - 2026-05-12
 - [Privacy] Kakao / Daum / ByteDance / AMDC 追蹤端點封鎖：
   - tr.ds.kakao.com → BLOCK_DOMAINS（Kakao SSP 廣告曝光/競價 bimp 追蹤端點）

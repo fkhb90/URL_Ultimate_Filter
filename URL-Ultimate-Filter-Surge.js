@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.94
+ * @version 45.95
  * @date    2026-05-12
- * @rules   1515 total (309 domains, 423 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1516 total (310 domains, 423 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.94';
-const SCRIPT_BUILD = 'V45.94 (2026-05-12) | 1515 rules | 3109 tests';
+const SCRIPT_VERSION = '45.95';
+const SCRIPT_BUILD = 'V45.95 (2026-05-12) | 1516 rules | 3112 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -216,12 +216,12 @@ const RULES = {
     'app-measurement.com', 'adjust.com', 'adjust.net', 'appsflyer.com', 'onelink.me', 'branch.io',
     'app.link', 'kochava.com', 'scorecardresearch.com', 'rayjump.com', 'airbridge.io', 'abr.ge',
     'deeplink.page', 'mintegral.net', 'tiktokv.com', 'byteoversea.com', 'snssdk.com', 'criteo.com',
-    'criteo.net', 'zztfly.com', 'qchannel01.cn', 'adservices.google.com', 'ad2n.com', 'vpon.com',
-    'tenmax.io', 'clickforce.com.tw', 'onead.com.tw', 'bridgewell.com', 'tagtoo.co', 'scupio.com',
-    'adbottw.net', 'useinsider.com', 'insiderone.com', 'treasuredata.com', 'treasure-data.com', 'tagtoo.com.tw',
-    'scupio.net', 'clickforce.net', 'log.aliyuncs.com', 'sls.aliyuncs.com', 'jpush.cn', 'jpush.io',
-    'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com', 'veta.naver.com',
-    'goqual.com', 'alibabachengdun.com', 'saf.aliyuncs.com', 'adapty.io', 'howxm.com'
+    'criteo.net', 'zztfly.com', 'qchannel01.cn', 'qchannel03.cn', 'adservices.google.com', 'ad2n.com',
+    'vpon.com', 'tenmax.io', 'clickforce.com.tw', 'onead.com.tw', 'bridgewell.com', 'tagtoo.co',
+    'scupio.com', 'adbottw.net', 'useinsider.com', 'insiderone.com', 'treasuredata.com', 'treasure-data.com',
+    'tagtoo.com.tw', 'scupio.net', 'clickforce.net', 'log.aliyuncs.com', 'sls.aliyuncs.com', 'jpush.cn',
+    'jpush.io', 'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com',
+    'veta.naver.com', 'goqual.com', 'alibabachengdun.com', 'saf.aliyuncs.com', 'adapty.io', 'howxm.com'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
