@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 45.96
- * @date    2026-05-12
+ * @version 45.97
+ * @date    2026-05-14
  * @rules   1516 total (310 domains, 423 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '45.96';
-const SCRIPT_BUILD = 'V45.96 (2026-05-12) | 1516 rules | 3113 tests';
+const SCRIPT_VERSION = '45.97';
+const SCRIPT_BUILD = 'V45.97 (2026-05-14) | 1516 rules | 3115 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -988,7 +988,7 @@ const RULES = {
         '/go/_events'
       ])],
     ['cmapi.tw.coupang.com', new Set([
-        '/vendor-items/'
+        '/vendor-items/', '/option-list'
       ])],
     ['coupangcdn.com', new Set([
         '/image/ccm/banner/', '/image/cmg/oms/banner/'

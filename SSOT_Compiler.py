@@ -3,17 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.96 (2026-05-12)
+當前版本：V45.97 (2026-05-14)
 最新架構更新：
-- [BugFix] store.is.autonavi.com /showpic/ 誤封修正：CRITICAL_PATH_MAP 從 DROP:/ 縮窄為 DROP:/api/，讓 /showpic/ 門店照片 CDN 自然通過，追蹤端點仍封鎖。
+- [BugFix] cmapi.tw.coupang.com /option-list 誤封修正：pageStatus 查詢參數含 gzip+base64 功能性 UI 資料，其二進位恰好含字串 fbq（PATH_BLOCK 關鍵字），誤觸 pathScanner；新增 PATH_EXEMPTIONS /option-list 豁免。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.97 (2026-05-14): BugFix — cmapi.tw.coupang.com /option-list 誤封修正，pageStatus base64 偶然含 fbq，加入 PATH_EXEMPTIONS 放行。
 - V45.96 (2026-05-12): BugFix — store.is.autonavi.com /showpic/ 誤封修正，MAP 從 DROP:/ 縮窄至 DROP:/api/，圖片 CDN 自然通過。
 - V45.95 (2026-05-12): qchannel03.cn 渠道歸因追蹤封鎖；與已封鎖的 qchannel01.cn 同系列。
 - V45.94 (2026-05-12): 封鎖 Kakao SSP bimp、Daum tessera pixel、lf3-data.volccdn.com Rangers SDK CDN、139.95.0.151 AMDC mobileDispatch；移除 chatgpt.com /codex/cloud/sett 的衝突 MAP 規則。
 - V45.93 (2026-05-12): chatgpt.com 新增 PATH_EXEMPTIONS `/codex/cloud/sett`，放行 Codex Cloud 設定入口。
-- V45.92 (2026-05-12): 維護版，僅同步版本/變更紀錄。
-- V45.89 (2026-05-01): Uber help.uber.com /_track 幫助中心頁面追蹤 DROP。
 """
 
 import hashlib
@@ -37,12 +36,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.96"
-RELEASE_DATE = "2026-05-12"
+VERSION = "45.97"
+RELEASE_DATE = "2026-05-14"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] store.is.autonavi.com 門店照片 CDN 誤封修正：
-  - store.is.autonavi.com → CRITICAL_PATH_MAP 從 DROP:/ 縮窄為 DROP:/api/（追蹤端點集中在 /api/ 下；/showpic/<id>?type=pic&operate=resize&w= 為純 CDN 圖片服務，無追蹤參數；CRITICAL_PATH_MAP 先於 PATH_EXEMPTIONS 執行，故以縮窄前綴而非豁免修正）
+- [BugFix] cmapi.tw.coupang.com 商品選項 API 誤封修正：
+  - cmapi.tw.coupang.com/modular/v1/endpoints/.../option-list → PATH_EXEMPTIONS 新增 /option-list
+  - 根本原因：pageStatus 查詢參數為 gzip+base64 編碼的 UI 功能資料（handlebar/price/delivery toggles）；其 base64 二進位在位置 469 恰好產生字串 fbq（PATH_BLOCK Facebook Pixel 關鍵字），在 AC_SCAN_MAX_LENGTH=600 範圍內觸發 pathScanner 誤封 403
+  - cmapi.tw.coupang.com 屬 SOFT_WHITELIST（非 OAUTH_SAFE_HARBOR），pathScanner 執行順序先於返回；CRITICAL_PATH_MAP 既有廣告端點封鎖不受影響
 """
 
 # ==========================================
@@ -668,7 +669,7 @@ RULES_DB = {
         "storm.mg": ["/_nuxt/track"],
         "shopee.tw": ["/api/v4/search/search_items", "/api/v4/pdp/get"],
         "uber.com": ["/go/_events"],
-        "cmapi.tw.coupang.com": ["/vendor-items/"],
+        "cmapi.tw.coupang.com": ["/vendor-items/", "/option-list"],
         "coupangcdn.com": ["/image/ccm/banner/", "/image/cmg/oms/banner/"],
         "www.google.com": ["/url", "/search", "/s2/favicons"],
         "play.googleapis.com": ["/log/batch"],
@@ -3111,6 +3112,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Mutation: Coupang plp-ads", "https://cmapi.tw.coupang.com/plp-ads/v2/items", RES_BLOCK_403, "CRITICAL_PATH_MAP Step 4 精確封鎖 /plp-ads/"))
     cases.append(TestCase("Mutation: Coupang category-banner-ads", "https://cmapi.tw.coupang.com/category-banner-ads/v1", RES_BLOCK_403, "CRITICAL_PATH_MAP Step 4 精確封鎖 /category-banner-ads/"))
     cases.append(TestCase("Edge: Coupang vendor-items safe", "https://cmapi.tw.coupang.com/vendor-items/12345", RES_ALLOW, "Coupang 商品 API 不含 -ads/ 應放行"))
+    cases.append(TestCase("BugFix: Coupang option-list Pass", "https://cmapi.tw.coupang.com/modular/v1/endpoints/2338/sdp/v2/platform/products/270778482262019/option-list?itemId=270776489951234&pageStatus=H4sIAAAAAAAA_12OzQ6CMBCE32XPHDxzRA8eSZB4ru1amixd0gUbJby7_ASr3iYzX2ZmhLPyhvCmQqmCagXyESJD3ocBMxCE_K5IZmmjfLTe5ZRB7V1fBqfxwtYSppbBR5OwS-SVOnLbkVNeb-QCSsPxynGNtzeFCvuDhsnMYeWsr7uvdO89IbkHhuf_uvnxE18MS0XiBAl1j2bzpXKvGT5M0xuPz9MlGQEAAA&metaData=eyJzIjoiTk9STUFMXzMifQ", RES_ALLOW, "V45.97 修正：pageStatus base64 gzip 偶然含 fbq 字串誤封；PATH_EXEMPTIONS /option-list 放行商品選項 API"))
 
     cases.append(TestCase("Scoped: 104 v2 api device_id", "https://appapi.104.com.tw/v2/api/user?device_id=TEST", RES_ALLOW, "/v2/api/ 正向匹配 device_id 放行"))
     cases.append(TestCase("Scoped: 104 v2 api client_id", "https://appapi.104.com.tw/v2/api/user?client_id=TEST", RES_ALLOW, "/v2/api/ 白名單中無 client_id，但 client_id 不不在 PARAMS_GLOBAL 中，不觸發淨化"))
