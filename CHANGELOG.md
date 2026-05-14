@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V45.96 - 2026-05-14
+- [BugFix] store.is.autonavi.com 門店照片 CDN 誤封修正：
+  - store.is.autonavi.com → CRITICAL_PATH_MAP 從 DROP:/ 縮窄為 DROP:/api/（追蹤端點集中在 /api/ 下；/showpic/<id>?type=pic&operate=resize&w= 為純 CDN 圖片服務，無追蹤參數；CRITICAL_PATH_MAP 先於 PATH_EXEMPTIONS 執行，故以縮窄前綴而非豁免修正）
+
 ## V45.95 - 2026-05-12
 - [Privacy] qchannel03.cn 中國渠道歸因追蹤封鎖：
   - i.qchannel03.cn → BLOCK_DOMAINS_WILDCARDS（/combine?akey=gdios-16.16.6&u= 加密用戶 ID；akey=gdios 為 iOS 平台標識，渠道歸因遙測與 qchannel01.cn 同系列；wildcard 覆蓋所有子域名）
