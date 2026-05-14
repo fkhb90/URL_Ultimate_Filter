@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V45.97 - 2026-05-14
+- [BugFix] cmapi.tw.coupang.com 商品選項 API 誤封修正：
+  - cmapi.tw.coupang.com/modular/v1/endpoints/.../option-list → PATH_EXEMPTIONS 新增 /option-list
+  - 根本原因：pageStatus 查詢參數為 gzip+base64 編碼的 UI 功能資料（handlebar/price/delivery toggles）；其 base64 二進位在位置 469 恰好產生字串 fbq（PATH_BLOCK Facebook Pixel 關鍵字），在 AC_SCAN_MAX_LENGTH=600 範圍內觸發 pathScanner 誤封 403
+  - cmapi.tw.coupang.com 屬 SOFT_WHITELIST（非 OAUTH_SAFE_HARBOR），pathScanner 執行順序先於返回；CRITICAL_PATH_MAP 既有廣告端點封鎖不受影響
+
 ## V45.96 - 2026-05-14
 - [BugFix] store.is.autonavi.com 門店照片 CDN 誤封修正：
   - store.is.autonavi.com → CRITICAL_PATH_MAP 從 DROP:/ 縮窄為 DROP:/api/（追蹤端點集中在 /api/ 下；/showpic/<id>?type=pic&operate=resize&w= 為純 CDN 圖片服務，無追蹤參數；CRITICAL_PATH_MAP 先於 PATH_EXEMPTIONS 執行，故以縮窄前綴而非豁免修正）
