@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.95 (2026-05-12)
+當前版本：V45.96 (2026-05-12)
 最新架構更新：
-- [Privacy] qchannel03.cn 中國渠道歸因追蹤封鎖：BLOCK_DOMAINS_WILDCARDS 覆蓋 i.qchannel03.cn 等所有子域名（同 qchannel01.cn 系列）。
+- [BugFix] store.is.autonavi.com /showpic/ 誤封修正：CRITICAL_PATH_MAP 從 DROP:/ 縮窄為 DROP:/api/，讓 /showpic/ 門店照片 CDN 自然通過，追蹤端點仍封鎖。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.96 (2026-05-12): BugFix — store.is.autonavi.com /showpic/ 誤封修正，MAP 從 DROP:/ 縮窄至 DROP:/api/，圖片 CDN 自然通過。
 - V45.95 (2026-05-12): qchannel03.cn 渠道歸因追蹤封鎖；與已封鎖的 qchannel01.cn 同系列。
 - V45.94 (2026-05-12): 封鎖 Kakao SSP bimp、Daum tessera pixel、lf3-data.volccdn.com Rangers SDK CDN、139.95.0.151 AMDC mobileDispatch；移除 chatgpt.com /codex/cloud/sett 的衝突 MAP 規則。
 - V45.93 (2026-05-12): chatgpt.com 新增 PATH_EXEMPTIONS `/codex/cloud/sett`，放行 Codex Cloud 設定入口。
 - V45.92 (2026-05-12): 維護版，僅同步版本/變更紀錄。
-- V45.91 (2026-05-12): Naver traffic-dist.map.naver.com 新增 PATH_EXEMPTIONS `/v3/events/`，精準放行交通事件 GeoJSON。
 - V45.89 (2026-05-01): Uber help.uber.com /_track 幫助中心頁面追蹤 DROP。
 """
 
@@ -37,12 +37,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.95"
+VERSION = "45.96"
 RELEASE_DATE = "2026-05-12"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] qchannel03.cn 中國渠道歸因追蹤封鎖：
-  - i.qchannel03.cn → BLOCK_DOMAINS_WILDCARDS（/combine?akey=gdios-16.16.6&u= 加密用戶 ID；akey=gdios 為 iOS 平台標識，渠道歸因遙測與 qchannel01.cn 同系列；wildcard 覆蓋所有子域名）
+- [BugFix] store.is.autonavi.com 門店照片 CDN 誤封修正：
+  - store.is.autonavi.com → CRITICAL_PATH_MAP 從 DROP:/ 縮窄為 DROP:/api/（追蹤端點集中在 /api/ 下；/showpic/<id>?type=pic&operate=resize&w= 為純 CDN 圖片服務，無追蹤參數；CRITICAL_PATH_MAP 先於 PATH_EXEMPTIONS 執行，故以縮窄前綴而非豁免修正）
 """
 
 # ==========================================
@@ -559,7 +559,7 @@ RULES_DB = {
         'tm.amap.com': ['DROP:/'],
         'adashx.ut.amap.com': ['DROP:/'],
         'optimus-ads.amap.com': ['DROP:/'],
-        'store.is.autonavi.com': ['DROP:/'],
+        'store.is.autonavi.com': ['DROP:/api/'],
         'render-prod-tile.amap.com': ['DROP:/ws/render/bmd/'],
         'render-prod-backup-tile.amap.com': ['DROP:/ws/render/bmd/'],
         'render.amap.com': ['DROP:/ws/render/tmc/'],
@@ -2864,7 +2864,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Amap CGI Collector Drop", "https://cgicol.amap.com/collect?module=legacy", RES_DROP_204, "封鎖舊世代 CGI 行為採集通道"))
     # --- V45.58 Amap optimus-ads + AutoNavi store.is ---
     cases.append(TestCase("Privacy: Amap Optimus Ads Drop", "https://optimus-ads.amap.com/api/ads/recommend", RES_DROP_204, "V45.58 高德地圖廣告最佳化系統 DROP；optimus = 最佳化，ads 明示廣告用途，CRITICAL_PATH_MAP 全域 DROP"))
-    cases.append(TestCase("Privacy: AutoNavi Store IS Drop", "https://store.is.autonavi.com/api/store/track?sid=abc", RES_DROP_204, "V45.58 AutoNavi 母品牌門店資訊追蹤端點 DROP；store.is = 門店資訊服務，位置/行為遙測"))
+    cases.append(TestCase("Privacy: AutoNavi Store IS Drop", "https://store.is.autonavi.com/api/store/track?sid=abc", RES_DROP_204, "V45.58 AutoNavi 門店追蹤 API DROP；V45.96 MAP 縮窄為 DROP:/api/，精準封鎖追蹤端點"))
+    # --- V45.96 store.is.autonavi.com /showpic/ BugFix ---
+    cases.append(TestCase("BugFix: AutoNavi Store Showpic Pass", "https://store.is.autonavi.com/showpic/5649bb5f17601c540000001027178322?type=pic&operate=resize&w=470", RES_ALLOW, "V45.96 門店照片 CDN 誤封修正；MAP 從 DROP:/ 縮窄為 DROP:/api/，/showpic/ 不再命中，type=pic&operate=resize 純 CDN 圖片服務自然通過"))
     # --- V45.59 Naver NELO 外部日誌收集器 ---
     cases.append(TestCase("Privacy: Naver NELO External Collector Drop", "https://kr-col-ext.nelo.navercorp.com/v2/log", RES_DROP_204, "V45.59 Naver 企業日誌平台 NELO 外部採集節點 DROP；kr=韓國區、col=collector、ext=external；與 inspector-collector.m.naver.com 同系列"))
     cases.append(TestCase("Privacy: Amap Grid Heatmap Drop", "https://grid.amap.com/grid/heatmap/upload?tile=13", RES_DROP_204, "封鎖網格化地理熱區與行為分析上報"))
