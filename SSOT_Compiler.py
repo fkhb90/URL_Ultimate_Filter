@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.97 (2026-05-14)
+當前版本：V45.98 (2026-05-15)
 最新架構更新：
-- [BugFix] cmapi.tw.coupang.com /option-list 誤封修正：pageStatus 查詢參數含 gzip+base64 功能性 UI 資料，其二進位恰好含字串 fbq（PATH_BLOCK 關鍵字），誤觸 pathScanner；新增 PATH_EXEMPTIONS /option-list 豁免。
+- [Strategy] 依最小作用範圍原則，新增 4 個精準主機至 CRITICAL_PATH_MAP 並採 DROP:/：mum.alibabachengdun.com、applog-perf.lc.quark.cn、puds.ucweb.com、adashx4yt.m.taobao.com。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V45.98 (2026-05-15): Strategy — 以 CRITICAL_PATH_MAP 精準主機 DROP:/ 新增 mum.alibabachengdun.com、applog-perf.lc.quark.cn、puds.ucweb.com、adashx4yt.m.taobao.com（最小作用範圍）。
 - V45.97 (2026-05-14): BugFix — cmapi.tw.coupang.com /option-list 誤封修正，pageStatus base64 偶然含 fbq，加入 PATH_EXEMPTIONS 放行。
 - V45.96 (2026-05-12): BugFix — store.is.autonavi.com /showpic/ 誤封修正，MAP 從 DROP:/ 縮窄至 DROP:/api/，圖片 CDN 自然通過。
 - V45.95 (2026-05-12): qchannel03.cn 渠道歸因追蹤封鎖；與已封鎖的 qchannel01.cn 同系列。
 - V45.94 (2026-05-12): 封鎖 Kakao SSP bimp、Daum tessera pixel、lf3-data.volccdn.com Rangers SDK CDN、139.95.0.151 AMDC mobileDispatch；移除 chatgpt.com /codex/cloud/sett 的衝突 MAP 規則。
-- V45.93 (2026-05-12): chatgpt.com 新增 PATH_EXEMPTIONS `/codex/cloud/sett`，放行 Codex Cloud 設定入口。
 """
 
 import hashlib
@@ -36,14 +36,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.97"
-RELEASE_DATE = "2026-05-14"
+VERSION = "45.98"
+RELEASE_DATE = "2026-05-15"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] cmapi.tw.coupang.com 商品選項 API 誤封修正：
-  - cmapi.tw.coupang.com/modular/v1/endpoints/.../option-list → PATH_EXEMPTIONS 新增 /option-list
-  - 根本原因：pageStatus 查詢參數為 gzip+base64 編碼的 UI 功能資料（handlebar/price/delivery toggles）；其 base64 二進位在位置 469 恰好產生字串 fbq（PATH_BLOCK Facebook Pixel 關鍵字），在 AC_SCAN_MAX_LENGTH=600 範圍內觸發 pathScanner 誤封 403
-  - cmapi.tw.coupang.com 屬 SOFT_WHITELIST（非 OAUTH_SAFE_HARBOR），pathScanner 執行順序先於返回；CRITICAL_PATH_MAP 既有廣告端點封鎖不受影響
+- [Strategy] 以最小作用範圍進行主機級精準封鎖：
+  - CRITICAL_PATH_MAP 新增 `DROP:/`：mum.alibabachengdun.com、applog-perf.lc.quark.cn、puds.ucweb.com、adashx4yt.m.taobao.com
+  - 不擴大至整域 BLOCK/PRIORITY_BLOCK，避免非目標功能流量受影響
 """
 
 # ==========================================
@@ -553,6 +552,10 @@ RULES_DB = {
         'amap-aos-info-nogw.amap.com': ['/ws/aos/alimama/', '/ws/aos/alimama/splash_screen'],
         'wb.amap.com': ['DROP:/channel.php'],
         'mps.amap.com': ['DROP:/ws/mps/lyrdata/'],
+        'mum.alibabachengdun.com': ['DROP:/'],
+        'applog-perf.lc.quark.cn': ['DROP:/'],
+        'puds.ucweb.com': ['DROP:/'],
+        'adashx4yt.m.taobao.com': ['DROP:/'],
         'amdc.m.taobao.com': ['DROP:/'],
         'acs.m.taobao.com': ['DROP:/'],
         'cgicol.amap.com': ['DROP:/'],
@@ -2945,6 +2948,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V45.70 alibabachengdun.com 城盾 SDK ---
     cases.append(TestCase("Privacy: Alibaba Chengdun UMDC Block", "https://umdc.alibabachengdun.com/sg/data.json?evt=9002&pn=com.autonavi.amap&pv=16.13.8&pt=1&os=1", RES_BLOCK_403, "V45.70 阿里巴巴城盾 UMDC 用戶行動設備採集節點封鎖；pn=com.autonavi.amap 確認來源，BLOCK_DOMAINS_WILDCARDS 覆蓋所有子域"))
     cases.append(TestCase("Privacy: Alibaba Chengdun MUM RepTg Block", "https://mum.alibabachengdun.com/repTg.json?pn=com.autonavi.amap&pv=16.13.8&pt=1&os=1", RES_BLOCK_403, "V45.70 阿里巴巴城盾 MUM repTg 上報節點封鎖；repTg = report Tag 設備指紋上報"))
+    cases.append(TestCase("Privacy: Quark Applog Perf Drop", "https://applog-perf.lc.quark.cn/collect?evt=launch", RES_DROP_204, "V45.98 quark applog-perf 遙測主機以 CRITICAL_PATH_MAP DROP:/ 精準拋棄"))
+    cases.append(TestCase("Privacy: UCWeb PUDS Drop", "https://puds.ucweb.com/collect?v=1", RES_DROP_204, "V45.98 ucweb puds 遙測主機以 CRITICAL_PATH_MAP DROP:/ 精準拋棄"))
+    cases.append(TestCase("Privacy: Taobao Adashx4yt Drop", "https://adashx4yt.m.taobao.com/gw/mtop.et.log/1.0/", RES_DROP_204, "V45.98 taobao adashx4yt 遙測主機以 CRITICAL_PATH_MAP DROP:/ 精準拋棄"))
     # --- V45.71 center.amap.com share/mainpage/lbs/info ---
     cases.append(TestCase("Privacy: Amap Center Share LBS Info Drop", "https://center.amap.com/ws/share/mainpage/lbs/info?ent=2&csid=48D0E906-DC1B-44D9-8157-4BFA4B158C24", RES_DROP_204, "V45.71 高德地圖 center.amap.com 位置分享 LBS 遙測 DROP；in= 加密包 + csid=，share/mainpage 分享主頁遙測"))
     # --- V45.73 center.amap.com user/task/ + m5 faas get-tasks functional ---
