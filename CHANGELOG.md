@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V45.99 - 2026-05-15
+- [BugFix] V45.98 mum.alibabachengdun.com CRITICAL_PATH_MAP 衝突修正：
+  - 問題：V45.98 將 mum.alibabachengdun.com 加入 CRITICAL_PATH_MAP DROP:/，但 alibabachengdun.com 已在 BLOCK_DOMAINS_WILDCARDS（wildcard 403）；CRITICAL_PATH_MAP Step 5 先於 isBlockedDomain Step 7 執行，導致原本 403 被覆蓋為 204，既有測試 1 FAILED
+  - 修正：移除 mum.alibabachengdun.com 的 MAP 條目，由 alibabachengdun.com wildcard 繼續提供 403 封鎖；applog-perf.lc.quark.cn、puds.ucweb.com、adashx4yt.m.taobao.com 無衝突，保留不動
+
 ## V45.97 - 2026-05-14
 - [BugFix] cmapi.tw.coupang.com 商品選項 API 誤封修正：
   - cmapi.tw.coupang.com/modular/v1/endpoints/.../option-list → PATH_EXEMPTIONS 新增 /option-list
