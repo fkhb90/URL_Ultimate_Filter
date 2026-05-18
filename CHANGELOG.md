@@ -1,5 +1,12 @@
 # URL Ultimate Filter - Changelog
 
+## V46.00 - 2026-05-18
+- [BugFix] www.youtube.com 影片說明欄外部連結誤封修正：
+  - www.youtube.com/redirect → PATH_EXEMPTIONS 新增 /redirect
+  - 根本原因：redir_token 查詢參數為 YouTube 外部連結點擊追蹤 token（base64），其 base64 字串在位置 79 偶然產生 fbq（PATH_BLOCK Facebook Pixel 關鍵字），在 AC_SCAN_MAX_LENGTH=600 範圍內觸發 pathScanner 誤封 403；與 V45.97 cmapi.tw.coupang.com pageStatus 相同模式
+  - /redirect 為 YouTube 影片說明欄外部連結跳轉機制（用戶點擊 → /redirect?q=<目標URL> → 目標站），封鎖導致所有外部連結失效
+  - www.youtube.com 屬 SOFT_WHITELIST（非 OAUTH_SAFE_HARBOR），pathScanner 不自動跳過；CRITICAL_PATH_MAP 既有 YouTube 遙測封鎖（/ptracking、/api/stats/atr 等）不受影響
+
 ## V45.99 - 2026-05-15
 - [BugFix] V45.98 mum.alibabachengdun.com CRITICAL_PATH_MAP 衝突修正：
   - 問題：V45.98 將 mum.alibabachengdun.com 加入 CRITICAL_PATH_MAP DROP:/，但 alibabachengdun.com 已在 BLOCK_DOMAINS_WILDCARDS（wildcard 403）；CRITICAL_PATH_MAP Step 5 先於 isBlockedDomain Step 7 執行，導致原本 403 被覆蓋為 204，既有測試 1 FAILED
