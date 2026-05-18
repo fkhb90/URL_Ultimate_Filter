@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.00
+// @name         URL Ultimate Filter V46.01
 // @namespace    http://tampermonkey.net/
-// @version      46.00
+// @version      46.01
 // @date         2026-05-18
-// @description  SSOT 前端防護盾牌 V46.00 (2026-05-18) | 1519 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1519 total (310 domains · 426 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V46.01 (2026-05-18) | 1520 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1520 total (310 domains · 427 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.00
+ * @version 46.01
  * @date    2026-05-18
- * @rules   1519 total (310 domains, 426 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1520 total (310 domains, 427 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.00';
-const SCRIPT_BUILD = 'V46.00 (2026-05-18) | 1519 rules | 3126 tests';
+const SCRIPT_VERSION = '46.01';
+const SCRIPT_BUILD = 'V46.01 (2026-05-18) | 1520 rules | 3129 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -730,6 +730,9 @@ const RULES = {
       ])],
     ['mps.amap.com', new Set([
         'DROP:/ws/mps/lyrdata/'
+      ])],
+    ['api.bilibili.com', new Set([
+        'DROP:/x/frontend/finger/'
       ])],
     ['applog-perf.lc.quark.cn', new Set([
         'DROP:/'
