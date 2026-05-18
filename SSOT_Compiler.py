@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V45.99 (2026-05-15)
+當前版本：V46.00 (2026-05-18)
 最新架構更新：
-- [BugFix] V45.98 mum.alibabachengdun.com 衝突修正：CRITICAL_PATH_MAP DROP:/ 與既有 BLOCK_DOMAINS_WILDCARDS alibabachengdun.com 重複，MAP Step5 先於 isBlockedDomain Step7 執行導致 403→204 行為衝突（1 test FAILED）；移出 MAP，保留 wildcard 403。
+- [BugFix] www.youtube.com /redirect 誤封修正：redir_token base64 位置 79 偶然含 fbq（PATH_BLOCK 關鍵字），封鎖影片說明欄外部連結跳轉；PATH_EXEMPTIONS 新增 /redirect 放行。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
-- V45.99 (2026-05-15): BugFix — V45.98 mum.alibabachengdun.com 重複封鎖衝突修正，移出 CRITICAL_PATH_MAP，由既有 alibabachengdun.com wildcard 403 保留覆蓋。
-- V45.98 (2026-05-15): Strategy — 以 CRITICAL_PATH_MAP DROP:/ 新增 applog-perf.lc.quark.cn、puds.ucweb.com、adashx4yt.m.taobao.com。
-- V45.97 (2026-05-14): BugFix — cmapi.tw.coupang.com /option-list 誤封修正，pageStatus base64 偶然含 fbq，加入 PATH_EXEMPTIONS 放行。
-- V45.96 (2026-05-12): BugFix — store.is.autonavi.com /showpic/ 誤封修正，MAP 從 DROP:/ 縮窄至 DROP:/api/，圖片 CDN 自然通過。
-- V45.95 (2026-05-12): qchannel03.cn 渠道歸因追蹤封鎖；與已封鎖的 qchannel01.cn 同系列。
+- V46.00 (2026-05-18): BugFix — www.youtube.com /redirect 誤封修正，redir_token base64 偶然含 fbq，PATH_EXEMPTIONS 新增 /redirect 放行影片說明欄外部連結。
+- V45.99 (2026-05-15): BugFix — mum.alibabachengdun.com CRITICAL_PATH_MAP 衝突修正，移出 MAP 還原 wildcard 403。
+- V45.98 (2026-05-15): Strategy — CRITICAL_PATH_MAP DROP:/ 新增 applog-perf.lc.quark.cn、puds.ucweb.com、adashx4yt.m.taobao.com。
+- V45.97 (2026-05-14): BugFix — cmapi.tw.coupang.com /option-list 誤封修正，pageStatus base64 偶然含 fbq，PATH_EXEMPTIONS 放行。
+- V45.96 (2026-05-12): BugFix — store.is.autonavi.com /showpic/ 誤封修正，MAP 從 DROP:/ 縮窄至 DROP:/api/。
 """
 
 import hashlib
@@ -36,13 +36,15 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "45.99"
-RELEASE_DATE = "2026-05-15"
+VERSION = "46.00"
+RELEASE_DATE = "2026-05-18"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] V45.98 mum.alibabachengdun.com CRITICAL_PATH_MAP 衝突修正：
-  - 問題：V45.98 將 mum.alibabachengdun.com 加入 CRITICAL_PATH_MAP DROP:/，但 alibabachengdun.com 已在 BLOCK_DOMAINS_WILDCARDS（wildcard 403）；CRITICAL_PATH_MAP Step 5 先於 isBlockedDomain Step 7 執行，導致原本 403 被覆蓋為 204，既有測試 1 FAILED
-  - 修正：移除 mum.alibabachengdun.com 的 MAP 條目，由 alibabachengdun.com wildcard 繼續提供 403 封鎖；applog-perf.lc.quark.cn、puds.ucweb.com、adashx4yt.m.taobao.com 無衝突，保留不動
+- [BugFix] www.youtube.com 影片說明欄外部連結誤封修正：
+  - www.youtube.com/redirect → PATH_EXEMPTIONS 新增 /redirect
+  - 根本原因：redir_token 查詢參數為 YouTube 外部連結點擊追蹤 token（base64），其 base64 字串在位置 79 偶然產生 fbq（PATH_BLOCK Facebook Pixel 關鍵字），在 AC_SCAN_MAX_LENGTH=600 範圍內觸發 pathScanner 誤封 403；與 V45.97 cmapi.tw.coupang.com pageStatus 相同模式
+  - /redirect 為 YouTube 影片說明欄外部連結跳轉機制（用戶點擊 → /redirect?q=<目標URL> → 目標站），封鎖導致所有外部連結失效
+  - www.youtube.com 屬 SOFT_WHITELIST（非 OAUTH_SAFE_HARBOR），pathScanner 不自動跳過；CRITICAL_PATH_MAP 既有 YouTube 遙測封鎖（/ptracking、/api/stats/atr 等）不受影響
 """
 
 # ==========================================
@@ -682,7 +684,8 @@ RULES_DB = {
         "volccdn.com": ["/data-static/log-sdk/"],
         "chat2-api.qianwen.com": ["/api/v1/session/delete/batch"],
         "traffic-dist.map.naver.com": ["/v3/events/"],
-        "chatgpt.com": ["/codex/cloud/sett"]
+        "chatgpt.com": ["/codex/cloud/sett"],
+        "www.youtube.com": ["/redirect"]
     }
 }
 
@@ -3078,6 +3081,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Conflict: Hard WL + Keyword", "https://sendgrid.net/path/analytics/deep", RES_ALLOW, "HARD_WHITELIST 豁免 HIGH_CONFIDENCE 關鍵字掃描"))
     cases.append(TestCase("Conflict: Soft WL + Static", "https://cdn.shopify.com/files/campaign/image.jpg", RES_ALLOW, "SOFT_WHITELIST + 靜態副檔名雙重豁免"))
     cases.append(TestCase("Conflict: Critical Map vs Path Exempt", "https://www.youtube.com/ptracking", RES_BLOCK_403, "CRITICAL_PATH_MAP 在 PATH_EXEMPTIONS 之前執行"))
+    cases.append(TestCase("BugFix: YouTube redirect Pass", "https://www.youtube.com/redirect?event=video_description&redir_token=QUFFLUhqa2tkUERZUVJ3RmtWeGVHUEI0bFBQX1BSbjlpQXxBQ3Jtc0trQldwOVVkUEdjNFYzY3hfMUw3OU9jQlhoN0txMS0zV0lJWE9Bb0xIV2RiZmlZVWN0dEFSNWJSYTlEZjVfQXBvMGQwRXhwNUZjQTAyT1ZTMVB6Wk9ENXExcjBDUVdQNERKZVRtSE90XzFNbHA2NkZ3OA&q=https%3A%2F%2Fmy.feishu.cn%2Fwiki%2FOCY5wzbGhiLDr8kMulkcLLuSnQd&v=vmjbsobC3NI&html_redirect=1", RES_ALLOW, "V46.00 修正：redir_token base64 位置 79 含 fbq 誤封；PATH_EXEMPTIONS /redirect 放行影片說明欄外部連結跳轉"))
     cases.append(TestCase("Conflict: PRIORITY_DROP vs Static", "https://example.com/otel/v1/logs", RES_DROP_204, "PRIORITY_DROP 路徑匹配優先於靜態豁免"))
     cases.append(TestCase("Conflict: Param Exempt + Block Domain", "https://api.stripe.com/v1/charges?utm_source=test&device_id=abc", RES_ALLOW, "api.stripe.com 在參數淨化豁免域名中，且為 ABSOLUTE_BYPASS"))
 
