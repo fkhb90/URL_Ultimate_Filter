@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.01 - 2026-05-18
+- [Privacy] api.bilibili.com SPI 設備指紋採集封鎖：
+  - api.bilibili.com → CRITICAL_PATH_MAP 新增 DROP:/x/frontend/finger/
+  - /x/frontend/finger/spi：finger = fingerprint 縮寫，spi = Super Privacy Interface，Bilibili 自研跨頁面用戶追蹤指紋系統（Canvas、WebGL、字型、硬體資訊採集）
+  - PATH_BLOCK 已有 fingerprint / fingerprinting 關鍵字，但路徑採縮寫 /finger/ 形式漏網；api.bilibili.com 為通用 API 主機，不整域封鎖，以 CRITICAL_PATH_MAP 精準補封指紋路徑
+
 ## V46.00 - 2026-05-18
 - [BugFix] www.youtube.com 影片說明欄外部連結誤封修正：
   - www.youtube.com/redirect → PATH_EXEMPTIONS 新增 /redirect

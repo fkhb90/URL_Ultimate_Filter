@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.00 (2026-05-18)
+當前版本：V46.01 (2026-05-18)
 最新架構更新：
-- [BugFix] www.youtube.com /redirect 誤封修正：redir_token base64 位置 79 偶然含 fbq（PATH_BLOCK 關鍵字），封鎖影片說明欄外部連結跳轉；PATH_EXEMPTIONS 新增 /redirect 放行。
+- [Privacy] api.bilibili.com /x/frontend/finger/ 設備指紋採集封鎖：CRITICAL_PATH_MAP DROP:/x/frontend/finger/，finger/spi 為 Bilibili SPI（Super Privacy Interface）指紋系統，PATH_BLOCK fingerprint 關鍵字因路徑使用縮寫形式 /finger/ 而漏網，精準補封。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.01 (2026-05-18): Privacy — api.bilibili.com /x/frontend/finger/ SPI 設備指紋採集 CRITICAL_PATH_MAP DROP 封鎖。
 - V46.00 (2026-05-18): BugFix — www.youtube.com /redirect 誤封修正，redir_token base64 偶然含 fbq，PATH_EXEMPTIONS 新增 /redirect 放行影片說明欄外部連結。
 - V45.99 (2026-05-15): BugFix — mum.alibabachengdun.com CRITICAL_PATH_MAP 衝突修正，移出 MAP 還原 wildcard 403。
 - V45.98 (2026-05-15): Strategy — CRITICAL_PATH_MAP DROP:/ 新增 applog-perf.lc.quark.cn、puds.ucweb.com、adashx4yt.m.taobao.com。
 - V45.97 (2026-05-14): BugFix — cmapi.tw.coupang.com /option-list 誤封修正，pageStatus base64 偶然含 fbq，PATH_EXEMPTIONS 放行。
-- V45.96 (2026-05-12): BugFix — store.is.autonavi.com /showpic/ 誤封修正，MAP 從 DROP:/ 縮窄至 DROP:/api/。
 """
 
 import hashlib
@@ -36,16 +36,16 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.00"
+VERSION = "46.01"
 RELEASE_DATE = "2026-05-18"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] www.youtube.com 影片說明欄外部連結誤封修正：
-  - www.youtube.com/redirect → PATH_EXEMPTIONS 新增 /redirect
-  - 根本原因：redir_token 查詢參數為 YouTube 外部連結點擊追蹤 token（base64），其 base64 字串在位置 79 偶然產生 fbq（PATH_BLOCK Facebook Pixel 關鍵字），在 AC_SCAN_MAX_LENGTH=600 範圍內觸發 pathScanner 誤封 403；與 V45.97 cmapi.tw.coupang.com pageStatus 相同模式
-  - /redirect 為 YouTube 影片說明欄外部連結跳轉機制（用戶點擊 → /redirect?q=<目標URL> → 目標站），封鎖導致所有外部連結失效
-  - www.youtube.com 屬 SOFT_WHITELIST（非 OAUTH_SAFE_HARBOR），pathScanner 不自動跳過；CRITICAL_PATH_MAP 既有 YouTube 遙測封鎖（/ptracking、/api/stats/atr 等）不受影響
+- [Privacy] api.bilibili.com SPI 設備指紋採集封鎖：
+  - api.bilibili.com → CRITICAL_PATH_MAP 新增 DROP:/x/frontend/finger/
+  - /x/frontend/finger/spi：finger = fingerprint 縮寫，spi = Super Privacy Interface，Bilibili 自研跨頁面用戶追蹤指紋系統（Canvas、WebGL、字型、硬體資訊採集）
+  - PATH_BLOCK 已有 fingerprint / fingerprinting 關鍵字，但路徑採縮寫 /finger/ 形式漏網；api.bilibili.com 為通用 API 主機，不整域封鎖，以 CRITICAL_PATH_MAP 精準補封指紋路徑
 """
+
 
 # ==========================================
 #  1. SINGLE SOURCE OF TRUTH (RULES DATABASE)
@@ -554,6 +554,7 @@ RULES_DB = {
         'amap-aos-info-nogw.amap.com': ['/ws/aos/alimama/', '/ws/aos/alimama/splash_screen'],
         'wb.amap.com': ['DROP:/channel.php'],
         'mps.amap.com': ['DROP:/ws/mps/lyrdata/'],
+        'api.bilibili.com': ['DROP:/x/frontend/finger/'],
         'applog-perf.lc.quark.cn': ['DROP:/'],
         'puds.ucweb.com': ['DROP:/'],
         'adashx4yt.m.taobao.com': ['DROP:/'],
@@ -2950,7 +2951,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V45.70 alibabachengdun.com 城盾 SDK ---
     cases.append(TestCase("Privacy: Alibaba Chengdun UMDC Block", "https://umdc.alibabachengdun.com/sg/data.json?evt=9002&pn=com.autonavi.amap&pv=16.13.8&pt=1&os=1", RES_BLOCK_403, "V45.70 阿里巴巴城盾 UMDC 用戶行動設備採集節點封鎖；pn=com.autonavi.amap 確認來源，BLOCK_DOMAINS_WILDCARDS 覆蓋所有子域"))
     cases.append(TestCase("Privacy: Alibaba Chengdun MUM RepTg Block", "https://mum.alibabachengdun.com/repTg.json?pn=com.autonavi.amap&pv=16.13.8&pt=1&os=1", RES_BLOCK_403, "V45.70 阿里巴巴城盾 MUM repTg 上報節點封鎖；repTg = report Tag 設備指紋上報"))
-    cases.append(TestCase("Privacy: Quark Applog Perf Drop", "https://applog-perf.lc.quark.cn/collect?evt=launch", RES_DROP_204, "V45.98 quark applog-perf 遙測主機以 CRITICAL_PATH_MAP DROP:/ 精準拋棄"))
+    cases.append(TestCase("Privacy: Bilibili SPI Finger Drop", "https://api.bilibili.com/x/frontend/finger/spi", RES_DROP_204, "V46.01 Bilibili SPI 設備指紋採集端點靜默拋棄；finger/spi = Super Privacy Interface，PATH_BLOCK fingerprint 因縮寫形式漏網，CRITICAL_PATH_MAP DROP:/x/frontend/finger/ 精準補封"))
+    cases.append(TestCase("Quark Applog Perf Drop", "https://applog-perf.lc.quark.cn/collect?evt=launch", RES_DROP_204, "V45.98 quark applog-perf 遙測主機以 CRITICAL_PATH_MAP DROP:/ 精準拋棄"))
     cases.append(TestCase("Privacy: UCWeb PUDS Drop", "https://puds.ucweb.com/collect?v=1", RES_DROP_204, "V45.98 ucweb puds 遙測主機以 CRITICAL_PATH_MAP DROP:/ 精準拋棄"))
     cases.append(TestCase("Privacy: Taobao Adashx4yt Drop", "https://adashx4yt.m.taobao.com/gw/mtop.et.log/1.0/", RES_DROP_204, "V45.98 taobao adashx4yt 遙測主機以 CRITICAL_PATH_MAP DROP:/ 精準拋棄"))
     # --- V45.71 center.amap.com share/mainpage/lbs/info ---
