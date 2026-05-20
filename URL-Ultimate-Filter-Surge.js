@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.01
+ * @version 46.02
  * @date    2026-05-18
- * @rules   1520 total (310 domains, 427 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1521 total (310 domains, 428 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.01';
-const SCRIPT_BUILD = 'V46.01 (2026-05-18) | 1520 rules | 3129 tests';
+const SCRIPT_VERSION = '46.02';
+const SCRIPT_BUILD = 'V46.02 (2026-05-18) | 1521 rules | 3132 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -718,6 +718,9 @@ const RULES = {
       ])],
     ['api.bilibili.com', new Set([
         'DROP:/x/frontend/finger/'
+      ])],
+    ['resend.com', new Set([
+        'dead-clicks-autocapture'
       ])],
     ['applog-perf.lc.quark.cn', new Set([
         'DROP:/'
