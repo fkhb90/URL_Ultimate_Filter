@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.02 - 2026-05-20
+- [Privacy] resend.com 郵件收件人點擊行為追蹤腳本封鎖：
+  - resend.com → CRITICAL_PATH_MAP 新增 dead-clicks-autocapture
+  - /relay-<id>/static/dead-clicks-autocapture.js：resend.com 郵件中繼追蹤腳本，自動捕捉郵件收件人無效點擊行為（dead clicks），回傳行為數據至 resend 後台
+  - 雙重旁路分析：.js 副檔名觸發 isStaticFile=true，/static/ 路徑段觸發 isExplicitlyAllowed=true，兩者合計使 pathScanner 完全 SKIP；CRITICAL_PATH_MAP Step 5 先於旁路機制執行，為唯一有效封鎖點
+
 ## V46.01 - 2026-05-18
 - [Privacy] api.bilibili.com SPI 設備指紋採集封鎖：
   - api.bilibili.com → CRITICAL_PATH_MAP 新增 DROP:/x/frontend/finger/
