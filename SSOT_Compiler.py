@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.03 (2026-05-25)
+當前版本：V46.04 (2026-05-25)
 最新架構更新：
-- [BugFix] apis.mail.aol.com 誤封修正：DROP keyword /batch? 誤殺 AOL Mail 收件匣 API（/ws/v3/batch?name=GetMessages），加入 HARD_WHITELIST.EXACT Step 5 直接放行。
+- [Privacy] mail.aol.com 行動端日誌端點封鎖：CRITICAL_PATH_MAP 新增 DROP:/m/log，修正 DROP keyword /log/ 因缺少結尾斜線而穿透的誤放行。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.04 (2026-05-25): Privacy — mail.aol.com /m/log 行動端日誌端點誤放行修正，CRITICAL_PATH_MAP DROP:/m/log 攔截。
 - V46.03 (2026-05-25): BugFix — apis.mail.aol.com DROP /batch? 誤封修正，HARD_WHITELIST.EXACT 放行 AOL Mail 收件匣 API。
 - V46.02 (2026-05-18): Privacy — resend.com dead-clicks-autocapture.js 郵件點擊行為追蹤腳本封鎖，CRITICAL_PATH_MAP 繞過 /static/ + .js 雙重旁路。
 - V46.01 (2026-05-18): Privacy — api.bilibili.com /x/frontend/finger/ SPI 設備指紋採集封鎖。
 - V46.00 (2026-05-18): BugFix — www.youtube.com /redirect 誤封修正，redir_token base64 偶然含 fbq，PATH_EXEMPTIONS 新增 /redirect。
-- V45.99 (2026-05-15): BugFix — mum.alibabachengdun.com CRITICAL_PATH_MAP 衝突修正，移出 MAP 還原 wildcard 403。
 """
 
 import hashlib
@@ -36,7 +36,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.03"
+VERSION = "46.04"
 RELEASE_DATE = "2026-05-25"
 
 CURRENT_RELEASE_NOTES = """
@@ -581,6 +581,7 @@ RULES_DB = {
         'chat.deepseek.com': ['DROP:/api/v0/ip_to_country_code'],
         't1.daumcdn.net': ['/tessera/s.gif'],
         '139.95.0.151': ['DROP:/amdc/mobiledispatch'],
+        'mail.aol.com': ['DROP:/m/log'],
     },
     "HIGH_CONFIDENCE": [
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
@@ -2907,6 +2908,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Adapty SDK Net-Config Block", "https://fallback.adapty.io/api/v1/sdk/company/public_live_2pe9Z1ae/app/net-config.json", RES_BLOCK_403, "V45.81 Adapty 訂閱變現分析 SDK 初始化配置封鎖；adapty.io wildcard；Paywall A/B 測試/購買漏斗追蹤/設備識別，與 adjust.com/appsflyer.com 同類"))
     # --- V45.80 阿里雲 SAF 裝置安全稽核封鎖 ---
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
+    # --- V46.04 mail.aol.com /m/log 行動端日誌端點誤放行修正 ---
+    cases.append(TestCase("Privacy: AOL Mail Mobile Log Drop", "https://mail.aol.com/m/log?appid=aolappiosmobile&count=18&logmode=2", RES_DROP_204, "V46.04 mail.aol.com /m/log 行動端日誌端點誤放行修正；DROP keyword /log/ 因缺少結尾斜線穿透；CRITICAL_PATH_MAP DROP:/m/log 修正"))
     # --- V46.03 apis.mail.aol.com 誤封修正 (DROP /batch? 誤殺收件匣 API) ---
     cases.append(TestCase("BugFix: AOL Mail Inbox Batch API Pass", "https://apis.mail.aol.com/ws/v3/batch?appid=aolappiosmobile&ymreqid=78b0f7e4-185c-f0d8-2d6f-68001b010a00&retryCount=0&appVer=7.82.0_18492&name=GetMessages&mobileBatch=GtMssgGtTOMCrds_1&mobileSrc=main", RES_ALLOW, "V46.03 AOL Mail 收件匣 API 誤封修正；DROP keyword /batch? 誤殺 /ws/v3/batch?name=GetMessages；apis.mail.aol.com 升至 HARD_WHITELIST Step 5 直接放行"))
     # --- V45.79 legy.line-apps.com 誤封修正 (96110 子字串誤殺) ---
