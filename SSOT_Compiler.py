@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.02 (2026-05-18)
+當前版本：V46.03 (2026-05-25)
 最新架構更新：
-- [Privacy] resend.com 郵件行為追蹤腳本封鎖：CRITICAL_PATH_MAP 新增 dead-clicks-autocapture，繞過 isStaticFile（.js）與 isExplicitlyAllowed（/static/）雙重旁路，在 Step 5 精準攔截。
+- [BugFix] apis.mail.aol.com 誤封修正：DROP keyword /batch? 誤殺 AOL Mail 收件匣 API（/ws/v3/batch?name=GetMessages），加入 HARD_WHITELIST.EXACT Step 5 直接放行。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.03 (2026-05-25): BugFix — apis.mail.aol.com DROP /batch? 誤封修正，HARD_WHITELIST.EXACT 放行 AOL Mail 收件匣 API。
 - V46.02 (2026-05-18): Privacy — resend.com dead-clicks-autocapture.js 郵件點擊行為追蹤腳本封鎖，CRITICAL_PATH_MAP 繞過 /static/ + .js 雙重旁路。
 - V46.01 (2026-05-18): Privacy — api.bilibili.com /x/frontend/finger/ SPI 設備指紋採集封鎖。
 - V46.00 (2026-05-18): BugFix — www.youtube.com /redirect 誤封修正，redir_token base64 偶然含 fbq，PATH_EXEMPTIONS 新增 /redirect。
 - V45.99 (2026-05-15): BugFix — mum.alibabachengdun.com CRITICAL_PATH_MAP 衝突修正，移出 MAP 還原 wildcard 403。
-- V45.98 (2026-05-15): Strategy — CRITICAL_PATH_MAP DROP:/ 新增 applog-perf.lc.quark.cn、puds.ucweb.com、adashx4yt.m.taobao.com。
 """
 
 import hashlib
@@ -36,8 +36,8 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.02"
-RELEASE_DATE = "2026-05-18"
+VERSION = "46.03"
+RELEASE_DATE = "2026-05-25"
 
 CURRENT_RELEASE_NOTES = """
 - [Privacy] resend.com 郵件收件人點擊行為追蹤腳本封鎖：
@@ -209,7 +209,8 @@ RULES_DB = {
             'api.discord.com', 'api.twitch.tv', 'api.line.me', 'today.line.me',
             'pro.104.com.tw', 'appapi.104.com.tw', 'datadog.pool.ntp.org', 'ewp.uber.com', 'copilot.microsoft.com',
             'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net',
-            'legy.line-apps.com'
+            'legy.line-apps.com',
+            'apis.mail.aol.com'
         ],
         "WILDCARDS": [
             'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com',
@@ -2906,6 +2907,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Adapty SDK Net-Config Block", "https://fallback.adapty.io/api/v1/sdk/company/public_live_2pe9Z1ae/app/net-config.json", RES_BLOCK_403, "V45.81 Adapty 訂閱變現分析 SDK 初始化配置封鎖；adapty.io wildcard；Paywall A/B 測試/購買漏斗追蹤/設備識別，與 adjust.com/appsflyer.com 同類"))
     # --- V45.80 阿里雲 SAF 裝置安全稽核封鎖 ---
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
+    # --- V46.03 apis.mail.aol.com 誤封修正 (DROP /batch? 誤殺收件匣 API) ---
+    cases.append(TestCase("BugFix: AOL Mail Inbox Batch API Pass", "https://apis.mail.aol.com/ws/v3/batch?appid=aolappiosmobile&ymreqid=78b0f7e4-185c-f0d8-2d6f-68001b010a00&retryCount=0&appVer=7.82.0_18492&name=GetMessages&mobileBatch=GtMssgGtTOMCrds_1&mobileSrc=main", RES_ALLOW, "V46.03 AOL Mail 收件匣 API 誤封修正；DROP keyword /batch? 誤殺 /ws/v3/batch?name=GetMessages；apis.mail.aol.com 升至 HARD_WHITELIST Step 5 直接放行"))
     # --- V45.79 legy.line-apps.com 誤封修正 (96110 子字串誤殺) ---
     cases.append(TestCase("BugFix: LINE Album Photo API Pass", "https://legy.line-apps.com/ext/album/api/v6/albums/5273466119896961102/photos?orderBy=createTimeDesc&filterType=all&include=album", RES_ALLOW, "V45.79 LINE 相簿照片 API 誤封修正；相簿 ID 5273466119896961102 含子字串 96110 觸發 PATH_BLOCK 誤殺；legy.line-apps.com 升至 HARD_WHITELIST 完全豁免路徑掃描"))
     cases.append(TestCase("BugFix: LINE Album Support Promotion Pass", "https://legy.line-apps.com/ext/album/support/v1/promotion?language=zh-Hant_TW&os=iOS&isPremium=false", RES_ALLOW, "V45.79 LINE 相簿支援推廣頁確認通過；promotion 路徑無關鍵字命中，原本即放行；Hard-WL 升級後同樣通過"))
