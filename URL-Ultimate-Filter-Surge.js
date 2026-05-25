@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.02
- * @date    2026-05-18
- * @rules   1521 total (310 domains, 428 critical paths, 403 path keywords, 109 param rules)
+ * @version 46.03
+ * @date    2026-05-25
+ * @rules   1522 total (310 domains, 428 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.02';
-const SCRIPT_BUILD = 'V46.02 (2026-05-18) | 1521 rules | 3132 tests';
+const SCRIPT_VERSION = '46.03';
+const SCRIPT_BUILD = 'V46.03 (2026-05-25) | 1522 rules | 3133 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -124,7 +124,7 @@ const RULES = {
     'code.createjs.com', 'raw.githubusercontent.com', 'userscripts.adtidy.org', 'api.github.com', 'api.vercel.com', 'gateway.facebook.com',
     'graph.instagram.com', 'graph.threads.net', 'i.instagram.com', 'api.discord.com', 'api.twitch.tv', 'api.line.me',
     'today.line.me', 'pro.104.com.tw', 'appapi.104.com.tw', 'datadog.pool.ntp.org', 'ewp.uber.com', 'copilot.microsoft.com',
-    'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net', 'legy.line-apps.com'
+    'firebasedynamiclinks.googleapis.com', 'obs-tw.line-apps.com', 'obs.line-scdn.net', 'legy.line-apps.com', 'apis.mail.aol.com'
   ]),
     WILDCARDS: new Set([
     'sendgrid.net', 'agirls.aotter.net', 'query1.finance.yahoo.com', 'query2.finance.yahoo.com', 'mitake.com.tw', 'money-link.com.tw',
