@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.04
+ * @version 46.05
  * @date    2026-05-25
  * @rules   1523 total (310 domains, 429 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.04';
-const SCRIPT_BUILD = 'V46.04 (2026-05-25) | 1523 rules | 3136 tests';
+const SCRIPT_VERSION = '46.05';
+const SCRIPT_BUILD = 'V46.05 (2026-05-25) | 1523 rules | 3135 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -795,7 +795,7 @@ const RULES = {
         'DROP:/amdc/mobiledispatch'
       ])],
     ['mail.aol.com', new Set([
-        'DROP:/m/log'
+        'DROP_RE:^/m/log(\\?|$)'
       ])]
   ])
   },
