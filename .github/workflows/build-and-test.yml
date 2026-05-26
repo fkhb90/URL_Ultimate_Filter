@@ -44,11 +44,10 @@ jobs:
           git config --local user.name "github-actions[bot]"
 
           # 將所有編譯器產出物加入暫存區
-          # public/index.html 在 .gitignore 中，需 -f 強制加入（CI 專屬）
+          # public/index.html 由 upload-pages-artifact 直接上傳部署，不需 commit 進 git
           git add URL-Ultimate-Filter-Surge.js \
                   URL-Ultimate-Filter-Tampermonkey.user.js \
                   CHANGELOG.md
-          git add -f public/index.html
 
           # 建立本地的自動編譯 Commit，加上 [skip ci] 防止觸發無限流水線迴圈
           git commit -m "Auto-build: Update JS filters and CHANGELOG [skip ci]" || echo "No changes to commit"
