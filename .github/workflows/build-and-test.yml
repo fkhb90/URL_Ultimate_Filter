@@ -48,6 +48,8 @@ jobs:
           git add URL-Ultimate-Filter-Surge.js \
                   URL-Ultimate-Filter-Tampermonkey.user.js \
                   CHANGELOG.md
+          # 若 public/index.html 仍被 git 追蹤（歷史遺留），一次性移除；之後為 no-op
+          git rm --cached public/index.html 2>/dev/null || true
 
           # 建立本地的自動編譯 Commit，加上 [skip ci] 防止觸發無限流水線迴圈
           git commit -m "Auto-build: Update JS filters and CHANGELOG [skip ci]" || echo "No changes to commit"
