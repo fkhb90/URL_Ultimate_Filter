@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.06
+// @name         URL Ultimate Filter V46.07
 // @namespace    http://tampermonkey.net/
-// @version      46.06
-// @date         2026-05-25
-// @description  SSOT 前端防護盾牌 V46.06 (2026-05-25) | 1523 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @version      46.07
+// @date         2026-05-26
+// @description  SSOT 前端防護盾牌 V46.07 (2026-05-26) | 1523 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
 // @rules        1523 total (310 domains · 429 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.06
- * @date    2026-05-25
+ * @version 46.07
+ * @date    2026-05-26
  * @rules   1523 total (310 domains, 429 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.06';
-const SCRIPT_BUILD = 'V46.06 (2026-05-25) | 1523 rules | 3137 tests';
+const SCRIPT_VERSION = '46.07';
+const SCRIPT_BUILD = 'V46.07 (2026-05-26) | 1523 rules | 3137 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1060,7 +1060,7 @@ const RULES = {
         '/redirect'
       ])],
     ['api.production.hushed.com', new Set([
-        '/v1/maelstrom/'
+        '/v1/maelstrom/events'
       ])]
   ])
   }
