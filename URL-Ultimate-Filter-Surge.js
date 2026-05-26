@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.06
- * @date    2026-05-25
+ * @version 46.07
+ * @date    2026-05-26
  * @rules   1523 total (310 domains, 429 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.06';
-const SCRIPT_BUILD = 'V46.06 (2026-05-25) | 1523 rules | 3137 tests';
+const SCRIPT_VERSION = '46.07';
+const SCRIPT_BUILD = 'V46.07 (2026-05-26) | 1523 rules | 3137 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1045,7 +1045,7 @@ const RULES = {
         '/redirect'
       ])],
     ['api.production.hushed.com', new Set([
-        '/v1/maelstrom/'
+        '/v1/maelstrom/events'
       ])]
   ])
   }
