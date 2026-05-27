@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.07 (2026-05-26)
+當前版本：V46.08 (2026-05-27)
 最新架構更新：
-- [BugFix] PATH_EXEMPTIONS Hushed 豁免範圍縮窄：/v1/maelstrom/ 前綴改為精確端點 /v1/maelstrom/events，避免未來未知子路徑（如 /collect、/track）被意外放行。
+- [Privacy] cmnews.com.tw 使用者行為日誌端點封鎖：/api/userBehaviorLog/Log 以 camelCase 命名繞過 user-behavior（有連字號）及 /log/（需尾部斜線）兩道現有規則；DROP 新增 userbehaviorlog 通用關鍵字精準覆蓋。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.08 (2026-05-27): Privacy — cmnews.com.tw /api/userBehaviorLog/Log 誤放行修正，DROP 新增 userbehaviorlog 通用關鍵字。
 - V46.07 (2026-05-26): BugFix — PATH_EXEMPTIONS api.production.hushed.com 豁免路徑縮窄為 /v1/maelstrom/events，消除前綴過寬風險。
 - V46.06 (2026-05-25): BugFix — api.production.hushed.com /v1/maelstrom/events 誤封修正，PATH_EXEMPTIONS 放行 Hushed VoIP 即時事件流。
 - V46.05 (2026-05-25): Privacy — mail.aol.com DROP:/m/log 改用 DROP_RE 錨定邊界，防止 /m/login 等子字串誤殺及子域名繼承問題。
 - V46.04 (2026-05-25): Privacy — mail.aol.com /m/log 行動端日誌端點誤放行修正，CRITICAL_PATH_MAP DROP:/m/log 攔截。
-- V46.03 (2026-05-25): BugFix — apis.mail.aol.com DROP /batch? 誤封修正，HARD_WHITELIST.EXACT 放行 AOL Mail 收件匣 API。
 """
 
 import hashlib
@@ -36,8 +36,8 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.07"
-RELEASE_DATE = "2026-05-26"
+VERSION = "46.08"
+RELEASE_DATE = "2026-05-27"
 
 CURRENT_RELEASE_NOTES = """
 - [Privacy] resend.com 郵件收件人點擊行為追蹤腳本封鎖：
@@ -650,7 +650,7 @@ RULES_DB = {
         'error-report', 'heartbeat', 'ingest', 'intake', 'live-log', 'log-event', 'logevents',
         'loggly', 'log-hl', 'realtime-log', '/rum/', 'server-event', 'uploadmobiledata',
         'web-beacon', 'web-vitals', 'crash-report', 'diagnostic.log', 'profiler', 'stacktrace', 'trace.json',
-        '/error_204', 'a=logerror', '/client/events'
+        '/error_204', 'a=logerror', '/client/events', 'userbehaviorlog'
     ],
     "PARAMS_GLOBAL": [
         'dev_id', 'device_id', 'gclid', 'fbclid', 'ttclid', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_term',
@@ -2909,6 +2909,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Adapty SDK Net-Config Block", "https://fallback.adapty.io/api/v1/sdk/company/public_live_2pe9Z1ae/app/net-config.json", RES_BLOCK_403, "V45.81 Adapty 訂閱變現分析 SDK 初始化配置封鎖；adapty.io wildcard；Paywall A/B 測試/購買漏斗追蹤/設備識別，與 adjust.com/appsflyer.com 同類"))
     # --- V45.80 阿里雲 SAF 裝置安全稽核封鎖 ---
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
+    # --- V46.08 cmnews.com.tw userBehaviorLog 誤放行修正 ---
+    cases.append(TestCase("Privacy: cmnews User Behavior Log Drop", "https://cmnews.com.tw/api/userBehaviorLog/Log", RES_DROP_204, "V46.08 中廣新聞網使用者行為日誌端點；camelCase userbehaviorlog 繞過 user-behavior（有連字號）及 /log/（需尾部斜線）；DROP 新增 userbehaviorlog 精準覆蓋"))
     # --- V46.07 PATH_EXEMPTIONS Hushed 豁免路徑縮窄 ---
     cases.append(TestCase("BugFix: Hushed VoIP Event Stream Pass", "https://api.production.hushed.com/v1/maelstrom/events", RES_ALLOW, "V46.07 Hushed VoIP 即時事件流；PATH_EXEMPTIONS 精確豁免 /v1/maelstrom/events，消除 /v1/maelstrom/ 前綴過寬風險"))
     # --- V46.05 mail.aol.com /m/log DROP_RE 邊界精準錨定 ---
