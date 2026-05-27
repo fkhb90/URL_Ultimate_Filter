@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.07
- * @date    2026-05-26
- * @rules   1523 total (310 domains, 429 critical paths, 403 path keywords, 109 param rules)
+ * @version 46.08
+ * @date    2026-05-27
+ * @rules   1524 total (310 domains, 429 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.07';
-const SCRIPT_BUILD = 'V46.07 (2026-05-26) | 1523 rules | 3137 tests';
+const SCRIPT_VERSION = '46.08';
+const SCRIPT_BUILD = 'V46.08 (2026-05-27) | 1524 rules | 3139 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -885,7 +885,7 @@ const RULES = {
     'live-log', 'log-event', 'logevents', 'loggly', 'log-hl', 'realtime-log',
     '/rum/', 'server-event', 'uploadmobiledata', 'web-beacon', 'web-vitals', 'crash-report',
     'diagnostic.log', 'profiler', 'stacktrace', 'trace.json', '/error_204', 'a=logerror',
-    '/client/events'
+    '/client/events', 'userbehaviorlog'
   ])
   },
 
