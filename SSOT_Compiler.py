@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.08 (2026-05-27)
+當前版本：V46.09 (2026-05-28)
 最新架構更新：
-- [Privacy] cmnews.com.tw 使用者行為日誌端點封鎖：/api/userBehaviorLog/Log 以 camelCase 命名繞過 user-behavior（有連字號）及 /log/（需尾部斜線）兩道現有規則；DROP 新增 userbehaviorlog 通用關鍵字精準覆蓋。
+- [BugFix] x.com HomeTimeline GraphQL API 誤封修正：pathLower 包含完整 URL-decoded query string，features 參數中 responsive_web_grok_analysis_button_from_backend 含 analysis 子字串命中 PATH_BLOCK；PATH_EXEMPTIONS 新增 x.com → /i/api/graphql/ 提前放行，SOFT_WHITELIST 補上 x.com 與 twitter.com 對齊。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.09 (2026-05-28): BugFix — x.com HomeTimeline GraphQL API 誤封修正，PATH_EXEMPTIONS 新增 /i/api/graphql/ 豁免，SOFT_WHITELIST 補上 x.com。
 - V46.08 (2026-05-27): Privacy — cmnews.com.tw /api/userBehaviorLog/Log 誤放行修正，DROP 新增 userbehaviorlog 通用關鍵字。
 - V46.07 (2026-05-26): BugFix — PATH_EXEMPTIONS api.production.hushed.com 豁免路徑縮窄為 /v1/maelstrom/events，消除前綴過寬風險。
 - V46.06 (2026-05-25): BugFix — api.production.hushed.com /v1/maelstrom/events 誤封修正，PATH_EXEMPTIONS 放行 Hushed VoIP 即時事件流。
 - V46.05 (2026-05-25): Privacy — mail.aol.com DROP:/m/log 改用 DROP_RE 錨定邊界，防止 /m/login 等子字串誤殺及子域名繼承問題。
-- V46.04 (2026-05-25): Privacy — mail.aol.com /m/log 行動端日誌端點誤放行修正，CRITICAL_PATH_MAP DROP:/m/log 攔截。
 """
 
 import hashlib
@@ -36,8 +36,8 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.08"
-RELEASE_DATE = "2026-05-27"
+VERSION = "46.09"
+RELEASE_DATE = "2026-05-28"
 
 CURRENT_RELEASE_NOTES = """
 - [Privacy] resend.com 郵件收件人點擊行為追蹤腳本封鎖：
@@ -237,7 +237,7 @@ RULES_DB = {
         ],
         "WILDCARDS": [
             'chatgpt.com', 'shopee.com', 'shopeemobile.com', 'shopee.io',
-            'youtube.com', 'facebook.com', 'instagram.com', 'twitter.com', 'tiktok.com', 'spotify.com',
+            'youtube.com', 'facebook.com', 'instagram.com', 'twitter.com', 'x.com', 'tiktok.com', 'spotify.com',
             'netflix.com', 'disney.com', 'linkedin.com', 'discord.com', 'googleapis.com', 'book.com.tw',
             'citiesocial.com', 'coupang.com', 'iherb.biz', 'iherb.com', 'm.youtube.com', 'momo.dm',
             'momoshop.com.tw', 'pxmart.com.tw', 'pxpayplus.com', 'shopback.com.tw', 'akamaihd.net',
@@ -690,7 +690,8 @@ RULES_DB = {
         "traffic-dist.map.naver.com": ["/v3/events/"],
         "chatgpt.com": ["/codex/cloud/sett"],
         "www.youtube.com": ["/redirect"],
-        "api.production.hushed.com": ["/v1/maelstrom/events"]
+        "api.production.hushed.com": ["/v1/maelstrom/events"],
+        "x.com": ["/i/api/graphql/"]
     }
 }
 
@@ -2909,6 +2910,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Adapty SDK Net-Config Block", "https://fallback.adapty.io/api/v1/sdk/company/public_live_2pe9Z1ae/app/net-config.json", RES_BLOCK_403, "V45.81 Adapty 訂閱變現分析 SDK 初始化配置封鎖；adapty.io wildcard；Paywall A/B 測試/購買漏斗追蹤/設備識別，與 adjust.com/appsflyer.com 同類"))
     # --- V45.80 阿里雲 SAF 裝置安全稽核封鎖 ---
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
+    # --- V46.09 x.com HomeTimeline GraphQL API 誤封修正 ---
+    cases.append(TestCase("BugFix: X HomeTimeline GraphQL Pass", "https://x.com/i/api/graphql/-M5P8LkjBRfeMF2MRJfbqA/HomeTimeline?variables=%7B%22count%22%3A20%2C%22includePromotedContent%22%3Atrue%7D&features=%7B%22responsive_web_grok_analysis_button_from_backend%22%3Atrue%7D", RES_ALLOW, "V46.09 x.com HomeTimeline GraphQL API 誤封修正；features 解碼後含 analysis 命中 PATH_BLOCK；PATH_EXEMPTIONS /i/api/graphql/ 提前放行"))
     # --- V46.08 cmnews.com.tw userBehaviorLog 誤放行修正 ---
     cases.append(TestCase("Privacy: cmnews User Behavior Log Drop", "https://cmnews.com.tw/api/userBehaviorLog/Log", RES_DROP_204, "V46.08 中廣新聞網使用者行為日誌端點；camelCase userbehaviorlog 繞過 user-behavior（有連字號）及 /log/（需尾部斜線）；DROP 新增 userbehaviorlog 精準覆蓋"))
     # --- V46.07 PATH_EXEMPTIONS Hushed 豁免路徑縮窄 ---
