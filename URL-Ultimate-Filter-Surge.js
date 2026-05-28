@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.08
- * @date    2026-05-27
- * @rules   1524 total (310 domains, 429 critical paths, 403 path keywords, 109 param rules)
+ * @version 46.09
+ * @date    2026-05-28
+ * @rules   1525 total (310 domains, 429 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.08';
-const SCRIPT_BUILD = 'V46.08 (2026-05-27) | 1524 rules | 3139 tests';
+const SCRIPT_VERSION = '46.09';
+const SCRIPT_BUILD = 'V46.09 (2026-05-28) | 1525 rules | 3141 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -148,22 +148,22 @@ const RULES = {
   ]),
     WILDCARDS: new Set([
     'chatgpt.com', 'shopee.com', 'shopeemobile.com', 'shopee.io', 'youtube.com', 'facebook.com',
-    'instagram.com', 'twitter.com', 'tiktok.com', 'spotify.com', 'netflix.com', 'disney.com',
-    'linkedin.com', 'discord.com', 'googleapis.com', 'book.com.tw', 'citiesocial.com', 'coupang.com',
-    'iherb.biz', 'iherb.com', 'm.youtube.com', 'momo.dm', 'momoshop.com.tw', 'pxmart.com.tw',
-    'pxpayplus.com', 'shopback.com.tw', 'akamaihd.net', 'amazonaws.com', 'cloudflare.com', 'cloudfront.net',
-    'fastly.net', 'fbcdn.net', 'gstatic.com', 'jsdelivr.net', 'cdnjs.cloudflare.com', 'twimg.com',
-    'unpkg.com', 'ytimg.com', 'new-reporter.com', 'wp.com', 'flipboard.com', 'inoreader.com',
-    'itofoo.com', 'newsblur.com', 'theoldreader.com', 'azurewebsites.net', 'cloudfunctions.net', 'digitaloceanspaces.com',
-    'github.io', 'gitlab.io', 'netlify.app', 'oraclecloud.com', 'pages.dev', 'vercel.app',
-    'windows.net', 'threads.net', 'threads.com', 'slack.com', 'feedly.com', 'ak.sv',
-    'bayimg.com', 'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com', 'cubeupload.com',
-    'dlupload.com', 'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co', 'imagebam.com',
-    'imageban.ru', 'imageshack.com', 'imagetwist.com', 'imagevenue.com', 'imgbb.com', 'imgbox.com',
-    'imgflip.com', 'imx.to', 'indishare.org', 'infidrive.net', 'k2s.cc', 'katfile.com',
-    'mirrored.to', 'multiup.io', 'nmac.to', 'noelshack.com', 'pic-upload.de', 'pixhost.to',
-    'postimg.cc', 'prnt.sc', 'sfile.mobi', 'thefileslocker.net', 'turboimagehost.com', 'uploadhaven.com',
-    'uploadrar.com', 'usersdrive.com', '__sbcdn'
+    'instagram.com', 'twitter.com', 'x.com', 'tiktok.com', 'spotify.com', 'netflix.com',
+    'disney.com', 'linkedin.com', 'discord.com', 'googleapis.com', 'book.com.tw', 'citiesocial.com',
+    'coupang.com', 'iherb.biz', 'iherb.com', 'm.youtube.com', 'momo.dm', 'momoshop.com.tw',
+    'pxmart.com.tw', 'pxpayplus.com', 'shopback.com.tw', 'akamaihd.net', 'amazonaws.com', 'cloudflare.com',
+    'cloudfront.net', 'fastly.net', 'fbcdn.net', 'gstatic.com', 'jsdelivr.net', 'cdnjs.cloudflare.com',
+    'twimg.com', 'unpkg.com', 'ytimg.com', 'new-reporter.com', 'wp.com', 'flipboard.com',
+    'inoreader.com', 'itofoo.com', 'newsblur.com', 'theoldreader.com', 'azurewebsites.net', 'cloudfunctions.net',
+    'digitaloceanspaces.com', 'github.io', 'gitlab.io', 'netlify.app', 'oraclecloud.com', 'pages.dev',
+    'vercel.app', 'windows.net', 'threads.net', 'threads.com', 'slack.com', 'feedly.com',
+    'ak.sv', 'bayimg.com', 'beeimg.com', 'binbox.io', 'casimages.com', 'cocoleech.com',
+    'cubeupload.com', 'dlupload.com', 'fastpic.org', 'fotosik.pl', 'gofile.download', 'ibb.co',
+    'imagebam.com', 'imageban.ru', 'imageshack.com', 'imagetwist.com', 'imagevenue.com', 'imgbb.com',
+    'imgbox.com', 'imgflip.com', 'imx.to', 'indishare.org', 'infidrive.net', 'k2s.cc',
+    'katfile.com', 'mirrored.to', 'multiup.io', 'nmac.to', 'noelshack.com', 'pic-upload.de',
+    'pixhost.to', 'postimg.cc', 'prnt.sc', 'sfile.mobi', 'thefileslocker.net', 'turboimagehost.com',
+    'uploadhaven.com', 'uploadrar.com', 'usersdrive.com', '__sbcdn'
   ])
   },
 
@@ -1046,6 +1046,9 @@ const RULES = {
       ])],
     ['api.production.hushed.com', new Set([
         '/v1/maelstrom/events'
+      ])],
+    ['x.com', new Set([
+        '/i/api/graphql/'
       ])]
   ])
   }
