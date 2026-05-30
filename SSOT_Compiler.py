@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.09 (2026-05-28)
+當前版本：V46.10 (2026-05-30)
 最新架構更新：
-- [BugFix] x.com HomeTimeline GraphQL API 誤封修正：pathLower 包含完整 URL-decoded query string，features 參數中 responsive_web_grok_analysis_button_from_backend 含 analysis 子字串命中 PATH_BLOCK；PATH_EXEMPTIONS 新增 x.com → /i/api/graphql/ 提前放行，SOFT_WHITELIST 補上 x.com 與 twitter.com 對齊。
+- [Privacy] adhacker.online 廣告追蹤基礎設施封鎖：BLOCK_DOMAINS_WILDCARDS 新增 adhacker.online，覆蓋所有子域（含 au.adhacker.online）。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.10 (2026-05-30): Privacy — BLOCK_DOMAINS_WILDCARDS 新增 adhacker.online，封鎖 au.adhacker.online 等所有子域追蹤請求。
 - V46.09 (2026-05-28): BugFix — x.com HomeTimeline GraphQL API 誤封修正，PATH_EXEMPTIONS 新增 /i/api/graphql/ 豁免，SOFT_WHITELIST 補上 x.com。
 - V46.08 (2026-05-27): Privacy — cmnews.com.tw /api/userBehaviorLog/Log 誤放行修正，DROP 新增 userbehaviorlog 通用關鍵字。
 - V46.07 (2026-05-26): BugFix — PATH_EXEMPTIONS api.production.hushed.com 豁免路徑縮窄為 /v1/maelstrom/events，消除前綴過寬風險。
 - V46.06 (2026-05-25): BugFix — api.production.hushed.com /v1/maelstrom/events 誤封修正，PATH_EXEMPTIONS 放行 Hushed VoIP 即時事件流。
-- V46.05 (2026-05-25): Privacy — mail.aol.com DROP:/m/log 改用 DROP_RE 錨定邊界，防止 /m/login 等子字串誤殺及子域名繼承問題。
 """
 
 import hashlib
@@ -36,14 +36,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.09"
-RELEASE_DATE = "2026-05-28"
+VERSION = "46.10"
+RELEASE_DATE = "2026-05-30"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] resend.com 郵件收件人點擊行為追蹤腳本封鎖：
-  - resend.com → CRITICAL_PATH_MAP 新增 dead-clicks-autocapture
-  - /relay-<id>/static/dead-clicks-autocapture.js：resend.com 郵件中繼追蹤腳本，自動捕捉郵件收件人無效點擊行為（dead clicks），回傳行為數據至 resend 後台
-  - 雙重旁路分析：.js 副檔名觸發 isStaticFile=true，/static/ 路徑段觸發 isExplicitlyAllowed=true，兩者合計使 pathScanner 完全 SKIP；CRITICAL_PATH_MAP Step 5 先於旁路機制執行，為唯一有效封鎖點
+- [Privacy] adhacker.online 廣告追蹤基礎設施封鎖：
+  - BLOCK_DOMAINS_WILDCARDS 新增 adhacker.online
+  - 覆蓋所有子域（含 au.adhacker.online）
+  - 以域名層級優先阻擋，避免僅靠 PATH_BLOCK 關鍵字造成漏網
 """
 
 
@@ -333,7 +333,7 @@ RULES_DB = {
         'log.aliyuncs.com', 'sls.aliyuncs.com',
         'jpush.cn', 'jpush.io', 'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com',
         'veta.naver.com', 'goqual.com', 'alibabachengdun.com',
-        'saf.aliyuncs.com', 'adapty.io', 'howxm.com'
+        'saf.aliyuncs.com', 'adapty.io', 'howxm.com', 'adhacker.online'
     ],
     "BLOCK_DOMAINS_REGEX": [
         r'^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$',
@@ -2910,6 +2910,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Adapty SDK Net-Config Block", "https://fallback.adapty.io/api/v1/sdk/company/public_live_2pe9Z1ae/app/net-config.json", RES_BLOCK_403, "V45.81 Adapty 訂閱變現分析 SDK 初始化配置封鎖；adapty.io wildcard；Paywall A/B 測試/購買漏斗追蹤/設備識別，與 adjust.com/appsflyer.com 同類"))
     # --- V45.80 阿里雲 SAF 裝置安全稽核封鎖 ---
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
+    # --- V46.10 adhacker.online wildcard domain block ---
+    cases.append(TestCase("Privacy: AdHacker AU Subdomain Block", "https://au.adhacker.online/track?event=pageview", RES_BLOCK_403, "V46.10 adhacker.online 廣告追蹤基礎設施封鎖；BLOCK_DOMAINS_WILDCARDS 覆蓋 au. 子域"))
     # --- V46.09 x.com HomeTimeline GraphQL API 誤封修正 ---
     cases.append(TestCase("BugFix: X HomeTimeline GraphQL Pass", "https://x.com/i/api/graphql/-M5P8LkjBRfeMF2MRJfbqA/HomeTimeline?variables=%7B%22count%22%3A20%2C%22includePromotedContent%22%3Atrue%7D&features=%7B%22responsive_web_grok_analysis_button_from_backend%22%3Atrue%7D", RES_ALLOW, "V46.09 x.com HomeTimeline GraphQL API 誤封修正；features 解碼後含 analysis 命中 PATH_BLOCK；PATH_EXEMPTIONS /i/api/graphql/ 提前放行"))
     # --- V46.08 cmnews.com.tw userBehaviorLog 誤放行修正 ---
