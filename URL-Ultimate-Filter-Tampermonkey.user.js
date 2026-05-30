@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.10
+// @name         URL Ultimate Filter V46.11
 // @namespace    http://tampermonkey.net/
-// @version      46.10
+// @version      46.11
 // @date         2026-05-30
-// @description  SSOT 前端防護盾牌 V46.10 (2026-05-30) | 1526 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1526 total (311 domains · 429 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V46.11 (2026-05-30) | 1527 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1527 total (311 domains · 430 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.10
+ * @version 46.11
  * @date    2026-05-30
- * @rules   1526 total (311 domains, 429 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1527 total (311 domains, 430 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.10';
-const SCRIPT_BUILD = 'V46.10 (2026-05-30) | 1526 rules | 3144 tests';
+const SCRIPT_VERSION = '46.11';
+const SCRIPT_BUILD = 'V46.11 (2026-05-30) | 1527 rules | 3145 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -351,6 +351,9 @@ const RULES = {
     ['chatgpt.com', new Set([
         '/ces/statsc/flush', '/v1/rgstr', '/codex/cloud/settings/analytics', 'DROP:/ces/v1/m',
         'DROP:/ces/v1/t'
+      ])],
+    ['edith.xiaohongshu.com', new Set([
+        'DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)'
       ])],
     ['tw.fd-api.com', new Set([
         'DROP:/api/v5/action-log'
