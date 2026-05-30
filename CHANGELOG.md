@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.11 - 2026-05-30
+- [Privacy] 小紅書筆記指標回報端點封鎖：
+  - edith.xiaohongshu.com → CRITICAL_PATH_MAP 新增 DROP_RE 規則
+  - DROP_RE:^/api/sns/v\d+/note/metrics_report(?:[/?#]|$)（同時覆蓋 v1 / v2 / vN）
+  - 使用版本彈性錨定，避免站點升版後規則失效
+
 ## V46.10 - 2026-05-30
 - [Privacy] adhacker.online 廣告追蹤基礎設施封鎖：
   - BLOCK_DOMAINS_WILDCARDS 新增 adhacker.online
