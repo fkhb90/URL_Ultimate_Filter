@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.12 - 2026-05-30
+- [BugFix] G2A 交易 API 誤封修正：
+  - mobile-api.g2a.com → PATH_EXEMPTIONS 新增 /api/v1/transactions/
+  - 該路徑原先被 CRITICAL_PATH_GENERIC 的 `/api/v1/t` 前綴誤命中
+  - 以最小豁免面積放行交易查詢，不影響其他追蹤封鎖規則
+
 ## V46.11 - 2026-05-30
 - [Privacy] 小紅書筆記指標回報端點封鎖：
   - edith.xiaohongshu.com → CRITICAL_PATH_MAP 新增 DROP_RE 規則

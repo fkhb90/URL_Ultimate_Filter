@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.11
+ * @version 46.12
  * @date    2026-05-30
  * @rules   1527 total (311 domains, 430 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.11';
-const SCRIPT_BUILD = 'V46.11 (2026-05-30) | 1527 rules | 3145 tests';
+const SCRIPT_VERSION = '46.12';
+const SCRIPT_BUILD = 'V46.12 (2026-05-30) | 1527 rules | 3147 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1041,6 +1041,9 @@ const RULES = {
       ])],
     ['traffic-dist.map.naver.com', new Set([
         '/v3/events/'
+      ])],
+    ['mobile-api.g2a.com', new Set([
+        '/api/v1/transactions/'
       ])],
     ['chatgpt.com', new Set([
         '/codex/cloud/sett'
