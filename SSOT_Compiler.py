@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.10 (2026-05-30)
+當前版本：V46.11 (2026-05-30)
 最新架構更新：
-- [Privacy] adhacker.online 廣告追蹤基礎設施封鎖：BLOCK_DOMAINS_WILDCARDS 新增 adhacker.online，覆蓋所有子域（含 au.adhacker.online）。
+- [Privacy] 小紅書筆記指標回報端點封鎖：edith.xiaohongshu.com 改用 DROP_RE 版本彈性規則，覆蓋 /api/sns/v1|v2|vN/note/metrics_report。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.11 (2026-05-30): Privacy — edith.xiaohongshu.com 使用 DROP_RE 錨定 /api/sns/v\\d+/note/metrics_report，覆蓋未來版本號升級。
 - V46.10 (2026-05-30): Privacy — BLOCK_DOMAINS_WILDCARDS 新增 adhacker.online，封鎖 au.adhacker.online 等所有子域追蹤請求。
 - V46.09 (2026-05-28): BugFix — x.com HomeTimeline GraphQL API 誤封修正，PATH_EXEMPTIONS 新增 /i/api/graphql/ 豁免，SOFT_WHITELIST 補上 x.com。
 - V46.08 (2026-05-27): Privacy — cmnews.com.tw /api/userBehaviorLog/Log 誤放行修正，DROP 新增 userbehaviorlog 通用關鍵字。
 - V46.07 (2026-05-26): BugFix — PATH_EXEMPTIONS api.production.hushed.com 豁免路徑縮窄為 /v1/maelstrom/events，消除前綴過寬風險。
-- V46.06 (2026-05-25): BugFix — api.production.hushed.com /v1/maelstrom/events 誤封修正，PATH_EXEMPTIONS 放行 Hushed VoIP 即時事件流。
 """
 
 import hashlib
@@ -36,14 +36,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.10"
+VERSION = "46.11"
 RELEASE_DATE = "2026-05-30"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] adhacker.online 廣告追蹤基礎設施封鎖：
-  - BLOCK_DOMAINS_WILDCARDS 新增 adhacker.online
-  - 覆蓋所有子域（含 au.adhacker.online）
-  - 以域名層級優先阻擋，避免僅靠 PATH_BLOCK 關鍵字造成漏網
+- [Privacy] 小紅書筆記指標回報端點封鎖：
+  - edith.xiaohongshu.com → CRITICAL_PATH_MAP 新增 DROP_RE 規則
+  - DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)（同時覆蓋 v1 / v2 / vN）
+  - 使用版本彈性錨定，避免站點升版後規則失效
 """
 
 
@@ -430,6 +430,7 @@ RULES_DB = {
         'play.google.com': ['/log'],
         'js.stripe.com': ['/fingerprinted/'],
         'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr', '/codex/cloud/settings/analytics', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'],
+        'edith.xiaohongshu.com': ['DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)'],
         'tw.fd-api.com': ['DROP:/api/v5/action-log'],
         'chatbot.shopee.tw': ['/report/v1/log'],
         'data-rep.livetech.shopee.tw': ['/dataapi/dataweb/event/'],
@@ -2910,6 +2911,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Adapty SDK Net-Config Block", "https://fallback.adapty.io/api/v1/sdk/company/public_live_2pe9Z1ae/app/net-config.json", RES_BLOCK_403, "V45.81 Adapty 訂閱變現分析 SDK 初始化配置封鎖；adapty.io wildcard；Paywall A/B 測試/購買漏斗追蹤/設備識別，與 adjust.com/appsflyer.com 同類"))
     # --- V45.80 阿里雲 SAF 裝置安全稽核封鎖 ---
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
+    # --- V46.11 edith.xiaohongshu.com metrics_report DROP_RE version-flexible ---
+    cases.append(TestCase("Privacy: Xiaohongshu Note Metrics Report Drop V2", "https://edith.xiaohongshu.com/api/sns/v2/note/metrics_report", RES_DROP_204, "V46.11 使用 DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$) 覆蓋 vN 版本升級，命中 204 DROP"))
     # --- V46.10 adhacker.online wildcard domain block ---
     cases.append(TestCase("Privacy: AdHacker AU Subdomain Block", "https://au.adhacker.online/track?event=pageview", RES_BLOCK_403, "V46.10 adhacker.online 廣告追蹤基礎設施封鎖；BLOCK_DOMAINS_WILDCARDS 覆蓋 au. 子域"))
     # --- V46.09 x.com HomeTimeline GraphQL API 誤封修正 ---
