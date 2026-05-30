@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.11 (2026-05-30)
+當前版本：V46.12 (2026-05-30)
 最新架構更新：
-- [Privacy] 小紅書筆記指標回報端點封鎖：edith.xiaohongshu.com 改用 DROP_RE 版本彈性規則，覆蓋 /api/sns/v1|v2|vN/note/metrics_report。
+- [BugFix] G2A 交易 API 誤封修正：mobile-api.g2a.com 新增 PATH_EXEMPTIONS `/api/v1/transactions/`，避免命中 L1 `/api/v1/t` 前綴規則。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.12 (2026-05-30): BugFix — mobile-api.g2a.com 新增 PATH_EXEMPTIONS /api/v1/transactions/，修正 L1 `/api/v1/t` 前綴造成的交易 API 誤封。
 - V46.11 (2026-05-30): Privacy — edith.xiaohongshu.com 使用 DROP_RE 錨定 /api/sns/v\\d+/note/metrics_report，覆蓋未來版本號升級。
 - V46.10 (2026-05-30): Privacy — BLOCK_DOMAINS_WILDCARDS 新增 adhacker.online，封鎖 au.adhacker.online 等所有子域追蹤請求。
 - V46.09 (2026-05-28): BugFix — x.com HomeTimeline GraphQL API 誤封修正，PATH_EXEMPTIONS 新增 /i/api/graphql/ 豁免，SOFT_WHITELIST 補上 x.com。
 - V46.08 (2026-05-27): Privacy — cmnews.com.tw /api/userBehaviorLog/Log 誤放行修正，DROP 新增 userbehaviorlog 通用關鍵字。
-- V46.07 (2026-05-26): BugFix — PATH_EXEMPTIONS api.production.hushed.com 豁免路徑縮窄為 /v1/maelstrom/events，消除前綴過寬風險。
 """
 
 import hashlib
@@ -36,14 +36,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.11"
+VERSION = "46.12"
 RELEASE_DATE = "2026-05-30"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 小紅書筆記指標回報端點封鎖：
-  - edith.xiaohongshu.com → CRITICAL_PATH_MAP 新增 DROP_RE 規則
-  - DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)（同時覆蓋 v1 / v2 / vN）
-  - 使用版本彈性錨定，避免站點升版後規則失效
+- [BugFix] G2A 交易 API 誤封修正：
+  - mobile-api.g2a.com → PATH_EXEMPTIONS 新增 /api/v1/transactions/
+  - 該路徑原先被 CRITICAL_PATH_GENERIC 的 `/api/v1/t` 前綴誤命中
+  - 以最小豁免面積放行交易查詢，不影響其他追蹤封鎖規則
 """
 
 
@@ -689,6 +689,7 @@ RULES_DB = {
         "volccdn.com": ["/data-static/log-sdk/"],
         "chat2-api.qianwen.com": ["/api/v1/session/delete/batch"],
         "traffic-dist.map.naver.com": ["/v3/events/"],
+        "mobile-api.g2a.com": ["/api/v1/transactions/"],
         "chatgpt.com": ["/codex/cloud/sett"],
         "www.youtube.com": ["/redirect"],
         "api.production.hushed.com": ["/v1/maelstrom/events"],
@@ -2911,6 +2912,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Adapty SDK Net-Config Block", "https://fallback.adapty.io/api/v1/sdk/company/public_live_2pe9Z1ae/app/net-config.json", RES_BLOCK_403, "V45.81 Adapty 訂閱變現分析 SDK 初始化配置封鎖；adapty.io wildcard；Paywall A/B 測試/購買漏斗追蹤/設備識別，與 adjust.com/appsflyer.com 同類"))
     # --- V45.80 阿里雲 SAF 裝置安全稽核封鎖 ---
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
+    # --- V46.12 G2A transactions API PATH_EXEMPTIONS ---
+    cases.append(TestCase("BugFix: G2A Transactions API Pass", "https://mobile-api.g2a.com/api/v1/transactions/6a09142d-1e85-4fa6-9f35-2fa7f7425f65", RES_ALLOW, "V46.12 修正 L1 `/api/v1/t` 前綴誤封；PATH_EXEMPTIONS /api/v1/transactions/ 精準放行交易查詢"))
     # --- V46.11 edith.xiaohongshu.com metrics_report DROP_RE version-flexible ---
     cases.append(TestCase("Privacy: Xiaohongshu Note Metrics Report Drop V2", "https://edith.xiaohongshu.com/api/sns/v2/note/metrics_report", RES_DROP_204, "V46.11 使用 DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$) 覆蓋 vN 版本升級，命中 204 DROP"))
     # --- V46.10 adhacker.online wildcard domain block ---
