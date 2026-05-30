@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.12
+// @name         URL Ultimate Filter V46.13
 // @namespace    http://tampermonkey.net/
-// @version      46.12
+// @version      46.13
 // @date         2026-05-30
-// @description  SSOT 前端防護盾牌 V46.12 (2026-05-30) | 1527 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @description  SSOT 前端防護盾牌 V46.13 (2026-05-30) | 1527 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
 // @rules        1527 total (311 domains · 430 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.12
+ * @version 46.13
  * @date    2026-05-30
  * @rules   1527 total (311 domains, 430 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.12';
-const SCRIPT_BUILD = 'V46.12 (2026-05-30) | 1527 rules | 3147 tests';
+const SCRIPT_VERSION = '46.13';
+const SCRIPT_BUILD = 'V46.13 (2026-05-30) | 1527 rules | 3148 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1228,9 +1228,11 @@ const HELPERS = {
 
   isPathExemptedForDomain: (matchedExemptions, pathLower) => {
     if (!matchedExemptions) return false;
+    const queryIndex = pathLower.indexOf('?');
+    const pathOnly = queryIndex >= 0 ? pathLower.substring(0, queryIndex) : pathLower;
     for (let i = 0; i < matchedExemptions.length; i++) {
       for (const exemptedPath of matchedExemptions[i]) {
-        if (pathLower.includes(exemptedPath)) return true;
+        if (pathOnly.includes(exemptedPath)) return true;
       }
     }
     return false;

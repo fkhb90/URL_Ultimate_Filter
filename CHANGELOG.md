@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.13 - 2026-05-30
+- [BugFix] PATH_EXEMPTIONS 錨定修正：
+  - isPathExemptedForDomain 改為僅比對 pathname（去除 query/hash）
+  - 保留 includes 比對語意，避免既有中段路徑豁免回歸
+  - 保留既有 domain/path 設定，不擴大放行面積
+
 ## V46.12 - 2026-05-30
 - [BugFix] G2A 交易 API 誤封修正：
   - mobile-api.g2a.com → PATH_EXEMPTIONS 新增 /api/v1/transactions/
