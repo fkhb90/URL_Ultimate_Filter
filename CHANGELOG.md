@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.10 - 2026-05-30
+- [Privacy] adhacker.online 廣告追蹤基礎設施封鎖：
+  - BLOCK_DOMAINS_WILDCARDS 新增 adhacker.online
+  - 覆蓋所有子域（含 au.adhacker.online）
+  - 以域名層級優先阻擋，避免僅靠 PATH_BLOCK 關鍵字造成漏網
+
 ## V46.09 - 2026-05-28
 - [Privacy] resend.com 郵件收件人點擊行為追蹤腳本封鎖：
   - resend.com → CRITICAL_PATH_MAP 新增 dead-clicks-autocapture

@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.09
+// @name         URL Ultimate Filter V46.10
 // @namespace    http://tampermonkey.net/
-// @version      46.09
-// @date         2026-05-28
-// @description  SSOT 前端防護盾牌 V46.09 (2026-05-28) | 1525 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1525 total (310 domains · 429 critical · 109 param)
+// @version      46.10
+// @date         2026-05-30
+// @description  SSOT 前端防護盾牌 V46.10 (2026-05-30) | 1526 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1526 total (311 domains · 429 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.09
- * @date    2026-05-28
- * @rules   1525 total (310 domains, 429 critical paths, 403 path keywords, 109 param rules)
+ * @version 46.10
+ * @date    2026-05-30
+ * @rules   1526 total (311 domains, 429 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.09';
-const SCRIPT_BUILD = 'V46.09 (2026-05-28) | 1525 rules | 3141 tests';
+const SCRIPT_VERSION = '46.10';
+const SCRIPT_BUILD = 'V46.10 (2026-05-30) | 1526 rules | 3144 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -236,7 +236,8 @@ const RULES = {
     'scupio.com', 'adbottw.net', 'useinsider.com', 'insiderone.com', 'treasuredata.com', 'treasure-data.com',
     'tagtoo.com.tw', 'scupio.net', 'clickforce.net', 'log.aliyuncs.com', 'sls.aliyuncs.com', 'jpush.cn',
     'jpush.io', 'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com',
-    'veta.naver.com', 'goqual.com', 'alibabachengdun.com', 'saf.aliyuncs.com', 'adapty.io', 'howxm.com'
+    'veta.naver.com', 'goqual.com', 'alibabachengdun.com', 'saf.aliyuncs.com', 'adapty.io', 'howxm.com',
+    'adhacker.online'
   ]),
 
   BLOCK_DOMAINS_REGEX: [
