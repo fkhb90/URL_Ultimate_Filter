@@ -207,13 +207,32 @@ This repository receives ongoing updates as new tracking parameters and URL patt
 
 ---
 
+## Contributing
+
+Contributions are welcome.
+
+Please open an issue before submitting major changes.
+
+---
+
+## Project Status
+
+Actively maintained.
+
+---
+
 ## License
 
 This project is licensed under the MIT License.
 
-See the LICENSE file for details.
+See the [LICENSE](LICENSE) file for details.
 
 ---
+
+## Maintainer
+
+GitHub: https://github.com/fkhb90
+
 
 ## Acknowledgments
 
