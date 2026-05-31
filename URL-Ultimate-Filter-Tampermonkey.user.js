@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.13
+// @name         URL Ultimate Filter V46.14
 // @namespace    http://tampermonkey.net/
-// @version      46.13
-// @date         2026-05-30
-// @description  SSOT 前端防護盾牌 V46.13 (2026-05-30) | 1527 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @version      46.14
+// @date         2026-05-31
+// @description  SSOT 前端防護盾牌 V46.14 (2026-05-31) | 1527 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
 // @rules        1527 total (311 domains · 430 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.13
- * @date    2026-05-30
+ * @version 46.14
+ * @date    2026-05-31
  * @rules   1527 total (311 domains, 430 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.13';
-const SCRIPT_BUILD = 'V46.13 (2026-05-30) | 1527 rules | 3148 tests';
+const SCRIPT_VERSION = '46.14';
+const SCRIPT_BUILD = 'V46.14 (2026-05-31) | 1527 rules | 3150 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1025,7 +1025,7 @@ const RULES = {
         '/go/_events'
       ])],
     ['cmapi.tw.coupang.com', new Set([
-        '/vendor-items/', '/option-list'
+        '/vendor-items/', '/option-list', '/add-to-cart'
       ])],
     ['coupangcdn.com', new Set([
         '/image/ccm/banner/', '/image/cmg/oms/banner/'

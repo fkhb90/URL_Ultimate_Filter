@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.14 - 2026-05-31
+- [BugFix] Coupang add-to-cart 誤封修正：
+  - cmapi.tw.coupang.com → PATH_EXEMPTIONS 新增 /add-to-cart
+  - 交易路徑被關鍵字掃描誤判時，優先走路徑豁免放行
+  - 以最小豁免面積保留下單流程，不影響既有廣告封鎖規則
+
 ## V46.13 - 2026-05-30
 - [BugFix] PATH_EXEMPTIONS 錨定修正：
   - isPathExemptedForDomain 改為僅比對 pathname（去除 query/hash）
