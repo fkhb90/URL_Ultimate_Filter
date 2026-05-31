@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.13 (2026-05-30)
+當前版本：V46.14 (2026-05-31)
 最新架構更新：
-- [BugFix] PATH_EXEMPTIONS 錨定修正：豁免判斷改為僅比對 pathname 且使用 startsWith，避免 query 夾帶字串繞過 L1 規則。
+- [BugFix] Coupang add-to-cart 誤封修正：cmapi.tw.coupang.com 新增 PATH_EXEMPTIONS `/add-to-cart`，避免訂單流程 API 命中關鍵字掃描。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
-- V46.13 (2026-05-30): BugFix — PATH_EXEMPTIONS 改為比對 pathname.startsWith，修正 query 夾帶豁免字串可繞過的風險。
+- V46.14 (2026-05-31): BugFix — cmapi.tw.coupang.com 新增 PATH_EXEMPTIONS /add-to-cart，修正商品加購 API 誤封。
+- V46.13 (2026-05-30): BugFix — PATH_EXEMPTIONS 改為僅比對 pathname（不含 query/hash），修正 query 夾帶豁免字串可繞過的風險。
 - V46.12 (2026-05-30): BugFix — mobile-api.g2a.com 新增 PATH_EXEMPTIONS /api/v1/transactions/，修正 L1 `/api/v1/t` 前綴造成的交易 API 誤封。
 - V46.11 (2026-05-30): Privacy — edith.xiaohongshu.com 使用 DROP_RE 錨定 /api/sns/v\\d+/note/metrics_report，覆蓋未來版本號升級。
 - V46.10 (2026-05-30): Privacy — BLOCK_DOMAINS_WILDCARDS 新增 adhacker.online，封鎖 au.adhacker.online 等所有子域追蹤請求。
-- V46.09 (2026-05-28): BugFix — x.com HomeTimeline GraphQL API 誤封修正，PATH_EXEMPTIONS 新增 /i/api/graphql/ 豁免，SOFT_WHITELIST 補上 x.com。
 """
 
 import hashlib
@@ -36,14 +36,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.13"
-RELEASE_DATE = "2026-05-30"
+VERSION = "46.14"
+RELEASE_DATE = "2026-05-31"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] PATH_EXEMPTIONS 錨定修正：
-  - isPathExemptedForDomain 改為僅比對 pathname（去除 query/hash）
-  - 保留 includes 比對語意，避免既有中段路徑豁免回歸
-  - 保留既有 domain/path 設定，不擴大放行面積
+- [BugFix] Coupang add-to-cart 誤封修正：
+  - cmapi.tw.coupang.com → PATH_EXEMPTIONS 新增 /add-to-cart
+  - 交易路徑被關鍵字掃描誤判時，優先走路徑豁免放行
+  - 以最小豁免面積保留下單流程，不影響既有廣告封鎖規則
 """
 
 
@@ -678,7 +678,7 @@ RULES_DB = {
         "storm.mg": ["/_nuxt/track"],
         "shopee.tw": ["/api/v4/search/search_items", "/api/v4/pdp/get"],
         "uber.com": ["/go/_events"],
-        "cmapi.tw.coupang.com": ["/vendor-items/", "/option-list"],
+        "cmapi.tw.coupang.com": ["/vendor-items/", "/option-list", "/add-to-cart"],
         "coupangcdn.com": ["/image/ccm/banner/", "/image/cmg/oms/banner/"],
         "www.google.com": ["/url", "/search", "/s2/favicons"],
         "play.googleapis.com": ["/log/batch"],
@@ -2914,6 +2914,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Adapty SDK Net-Config Block", "https://fallback.adapty.io/api/v1/sdk/company/public_live_2pe9Z1ae/app/net-config.json", RES_BLOCK_403, "V45.81 Adapty 訂閱變現分析 SDK 初始化配置封鎖；adapty.io wildcard；Paywall A/B 測試/購買漏斗追蹤/設備識別，與 adjust.com/appsflyer.com 同類"))
     # --- V45.80 阿里雲 SAF 裝置安全稽核封鎖 ---
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
+    # --- V46.14 Coupang add-to-cart PATH_EXEMPTIONS ---
+    cases.append(TestCase("BugFix: Coupang AddToCart API Pass", "https://cmapi.tw.coupang.com/modular/v1/endpoints/2356/sdp/v2/widget/products/263103262441478/add-to-cart?sdp-st=H4sIAAAAAAAA_12RXU_CMBSG_0uvuUBBF3YHAmpi2HTgLs1hPYzG0ta2Y0HCf7f7YJ1crel5-r7Pyc7kme1sqkEpJvIEOWY2Bg0HQ8LzZUBmaC3qT-AFRsoyKWKWfaOukYbYCGZjzTJcyzzn2D0mhSgpCXfADTqseb2GbR-Rlh8ZCe-DYDIajoPJePQQBI9VbSFoHzS1GNLm3iTsF0k4dODiiMJOs9qsdSIIloTkY_EWTefEMUupS9B0rYHiq8eumUvLan_v-gJVyxa0FyhlOx64d90xL013zowPSGU5FXQl3TdpW3ytUY4kq2j1lUZp5bcuZS3wJA-KMxAZengvSxdSjxurGeiuci85rSpYLjbqduyC58jZEfXp9s_Qf_eefy9AWGZPnvwh4V0vKKb0ulq7WGLBFqa3HFX0Zr1a3kcqprIq9fIH60FytXsCAAA&metaData=eyJzIjoiTk9STUFMXzMiLCJrIjoibWpqb3UxZHZiMHhpcjNxZ2dhIiwiZCI6W3sidCI6Wzc2MzcsNzY1Ml19XSwibyI6NiwibCI6eyJwIjoyNjMxMDMyNjI0NDE0NzgsImkiOjI3NzkzMTQzOTkxNTAxMywidiI6Mjc3OTMwNDc5NDM1Nzc2fSwiZSI6eyJzIjoiZTcyOWYwOThiMWRlNDhiNDlkOTk1MTcxMDhjNzhhZDkyNTNlYzQyZiIsInN0IjoiTXlDb3VwYW5nX215X29yZGVyc19saXN0X3Byb2R1Y3RfaW1hZ2UiLCJhdHIiOnRydWUsImUiOmZhbHNlLCJyIjowLCJwdiI6IkIyRDREQ0E4LTYxODctNDMwQy04OURGLTRFRjU2ODRCOURENiIsIm5jIjp0cnVlLCJmcyI6ZmFsc2UsInNmYiI6ZmFsc2UsInNxYiI6ZmFsc2UsInNic25iIjpmYWxzZSwic3BwaSI6ZmFsc2UsImlsIjoiQiIsIm5sYyI6ZmFsc2V9LCJmIjp0cnVlfQ", RES_ALLOW, "V46.14 cmapi.tw.coupang.com /add-to-cart 放行；避免下單流程 API 被關鍵字掃描誤封"))
     # --- V46.13 PATH_EXEMPTIONS anchor hardening ---
     cases.append(TestCase("BugFix: G2A Query Injection Should Still Block", "https://mobile-api.g2a.com/api/v1/track?next=/api/v1/transactions/6a09142d-1e85-4fa6-9f35-2fa7f7425f65", RES_BLOCK_403, "V46.13 PATH_EXEMPTIONS 僅比對 pathname（不含 query），query 夾帶豁免字串不可繞過 L1"))
     # --- V46.12 G2A transactions API PATH_EXEMPTIONS ---
