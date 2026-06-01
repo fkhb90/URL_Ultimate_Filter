@@ -2,9 +2,10 @@
 
 Advanced URL filtering, tracking parameter removal, and privacy protection rules for content blockers, DNS filtering solutions, and network filtering platforms.
 
-![License](https://img.shields.io/github/license/fkhb90/URL_Ultimate_Filter)
-![Last Commit](https://img.shields.io/github/last-commit/fkhb90/URL_Ultimate_Filter)
-![Repo Size](https://img.shields.io/github/repo-size/fkhb90/URL_Ultimate_Filter)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Last Commit](https://img.shields.io/github/last-commit/fkhb90/URL_Ultimate_Filter)](https://github.com/fkhb90/URL_Ultimate_Filter/commits/main)
+[![Issues](https://img.shields.io/github/issues/fkhb90/URL_Ultimate_Filter)](https://github.com/fkhb90/URL_Ultimate_Filter/issues)
+[![Stars](https://img.shields.io/github/stars/fkhb90/URL_Ultimate_Filter?style=social)](https://github.com/fkhb90/URL_Ultimate_Filter/stargazers)
 
 ## Overview
 
@@ -215,20 +216,6 @@ This repository receives ongoing updates as new tracking parameters and URL patt
 
 ---
 
-## Contributing
-
-Contributions are welcome.
-
-Please open an issue before submitting major changes.
-
----
-
-## Project Status
-
-Actively maintained.
-
----
-
 ## License
 
 This project is licensed under the MIT License.
@@ -249,12 +236,6 @@ Inspired by the privacy and filtering communities, including:
 - https://github.com/gorhill/uBlock
 - https://github.com/AdguardTeam/AdGuardFilters
 - https://github.com/easylist/easylist
-
----
-
-## Maintainer
-
-GitHub: https://github.com/fkhb90
 
 ---
 
