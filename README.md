@@ -138,13 +138,45 @@ These rules are developed and maintained with the help of a companion command-li
 
 ## Installation
 
-Clone the repository:
+### Tampermonkey (recommended for browsers)
+
+1. Install the [Tampermonkey](https://www.tampermonkey.net/) extension.
+2. Click the direct install link below — Tampermonkey will prompt you to confirm.
+
+**[Install URL Ultimate Filter (Tampermonkey)](https://raw.githubusercontent.com/fkhb90/URL_Ultimate_Filter/main/URL-Ultimate-Filter-Tampermonkey.user.js)**
+
+### uBlock Origin / AdGuard
+
+Add the raw filter-list URL as a custom filter source:
+
+```
+https://raw.githubusercontent.com/fkhb90/URL_Ultimate_Filter/main/URL-Ultimate-Filter-Surge.js
+```
+
+In uBlock Origin: Dashboard → Filter lists → Import → paste the URL above.
+In AdGuard: Settings → Filters → Custom → Add custom filter → paste the URL above.
+
+### Surge (iOS / macOS)
+
+Add to your Surge configuration:
+
+```
+[URL Rewrite]
+# URL Ultimate Filter — import the rule set
+https://raw.githubusercontent.com/fkhb90/URL_Ultimate_Filter/main/URL-Ultimate-Filter-Surge.js
+```
+
+### Manual / self-hosted
 
 ```bash
 git clone https://github.com/fkhb90/URL_Ultimate_Filter.git
 ```
 
-Or download the latest release.
+To regenerate the output files from the source rules:
+
+```bash
+python SSOT_Compiler.py
+```
 
 ---
 
