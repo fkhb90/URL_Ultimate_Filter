@@ -127,6 +127,14 @@ Compatibility may vary depending on platform capabilities.
 
 ---
 
+## Tooling
+
+These rules are developed and maintained with the help of a companion command-line tool:
+
+- **[url-filter-analyzer](https://github.com/fkhb90/url-filter-analyzer)** — lint, test, diff, and analyze ad-block / URL filter lists. It catches duplicate or unmatchable rules and shows exactly which rule blocks (or allows) a given URL, so changes to this project can be verified before publishing.
+
+---
+
 ## Installation
 
 Clone the repository:
