@@ -7,6 +7,8 @@ Advanced URL filtering, tracking parameter removal, and privacy protection rules
 [![Issues](https://img.shields.io/github/issues/fkhb90/URL_Ultimate_Filter)](https://github.com/fkhb90/URL_Ultimate_Filter/issues)
 [![Stars](https://img.shields.io/github/stars/fkhb90/URL_Ultimate_Filter?style=social)](https://github.com/fkhb90/URL_Ultimate_Filter/stargazers)
 
+![Regression Report — 3150 cases, 100% pass rate](docs/regression-report.png)
+
 ## Overview
 
 URL Ultimate Filter is an open-source filtering project focused on:
