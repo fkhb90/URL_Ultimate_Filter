@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.14 (2026-05-31)
+當前版本：V46.15 (2026-06-03)
 最新架構更新：
-- [BugFix] Coupang add-to-cart 誤封修正：cmapi.tw.coupang.com 新增 PATH_EXEMPTIONS `/add-to-cart`，避免訂單流程 API 命中關鍵字掃描。
+- [BugFix] ChatGPT Codex Cloud analytics 設定端點誤封修正：移除 CRITICAL_PATH_MAP `/codex/cloud/settings/analytics` 封鎖，交由既有 PATH_EXEMPTIONS `/codex/cloud/sett` 放行。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.15 (2026-06-03): BugFix — chatgpt.com 移除 /codex/cloud/settings/analytics 關鍵路徑封鎖，修正 Codex Cloud analytics 設定頁誤封。
 - V46.14 (2026-05-31): BugFix — cmapi.tw.coupang.com 新增 PATH_EXEMPTIONS /add-to-cart，修正商品加購 API 誤封。
 - V46.13 (2026-05-30): BugFix — PATH_EXEMPTIONS 改為僅比對 pathname（不含 query/hash），修正 query 夾帶豁免字串可繞過的風險。
 - V46.12 (2026-05-30): BugFix — mobile-api.g2a.com 新增 PATH_EXEMPTIONS /api/v1/transactions/，修正 L1 `/api/v1/t` 前綴造成的交易 API 誤封。
 - V46.11 (2026-05-30): Privacy — edith.xiaohongshu.com 使用 DROP_RE 錨定 /api/sns/v\\d+/note/metrics_report，覆蓋未來版本號升級。
-- V46.10 (2026-05-30): Privacy — BLOCK_DOMAINS_WILDCARDS 新增 adhacker.online，封鎖 au.adhacker.online 等所有子域追蹤請求。
 """
 
 import hashlib
@@ -36,14 +36,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.14"
-RELEASE_DATE = "2026-05-31"
+VERSION = "46.15"
+RELEASE_DATE = "2026-06-03"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] Coupang add-to-cart 誤封修正：
-  - cmapi.tw.coupang.com → PATH_EXEMPTIONS 新增 /add-to-cart
-  - 交易路徑被關鍵字掃描誤判時，優先走路徑豁免放行
-  - 以最小豁免面積保留下單流程，不影響既有廣告封鎖規則
+- [BugFix] ChatGPT Codex Cloud analytics 設定端點誤封修正：
+  - chatgpt.com → CRITICAL_PATH_MAP 移除 /codex/cloud/settings/analytics
+  - 該路徑原先在 Step 2 早於 PATH_EXEMPTIONS 被 403 封鎖
+  - 交由既有 PATH_EXEMPTIONS /codex/cloud/sett 放行 Codex Cloud 設定頁相關請求，不影響 CES 遙測 DROP 規則
 """
 
 
@@ -429,7 +429,7 @@ RULES_DB = {
         'www.google.com': ['/log', '/pagead/1p-user-list/'],
         'play.google.com': ['/log'],
         'js.stripe.com': ['/fingerprinted/'],
-        'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr', '/codex/cloud/settings/analytics', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'],
+        'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'],
         'edith.xiaohongshu.com': ['DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)'],
         'tw.fd-api.com': ['DROP:/api/v5/action-log'],
         'chatbot.shopee.tw': ['/report/v1/log'],
@@ -2914,6 +2914,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Adapty SDK Net-Config Block", "https://fallback.adapty.io/api/v1/sdk/company/public_live_2pe9Z1ae/app/net-config.json", RES_BLOCK_403, "V45.81 Adapty 訂閱變現分析 SDK 初始化配置封鎖；adapty.io wildcard；Paywall A/B 測試/購買漏斗追蹤/設備識別，與 adjust.com/appsflyer.com 同類"))
     # --- V45.80 阿里雲 SAF 裝置安全稽核封鎖 ---
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
+    # --- V46.15 ChatGPT Codex Cloud analytics settings PATH_EXEMPTIONS ---
+    cases.append(TestCase("BugFix: ChatGPT Codex Cloud Analytics Settings Pass", "https://chatgpt.com/codex/cloud/settings/analytics", RES_ALLOW, "V46.15 移除 CRITICAL_PATH_MAP /codex/cloud/settings/analytics 封鎖；交由 PATH_EXEMPTIONS /codex/cloud/sett 放行 Codex Cloud 設定頁相關請求"))
     # --- V46.14 Coupang add-to-cart PATH_EXEMPTIONS ---
     cases.append(TestCase("BugFix: Coupang AddToCart API Pass", "https://cmapi.tw.coupang.com/modular/v1/endpoints/2356/sdp/v2/widget/products/263103262441478/add-to-cart?sdp-st=H4sIAAAAAAAA_12RXU_CMBSG_0uvuUBBF3YHAmpi2HTgLs1hPYzG0ta2Y0HCf7f7YJ1crel5-r7Pyc7kme1sqkEpJvIEOWY2Bg0HQ8LzZUBmaC3qT-AFRsoyKWKWfaOukYbYCGZjzTJcyzzn2D0mhSgpCXfADTqseb2GbR-Rlh8ZCe-DYDIajoPJePQQBI9VbSFoHzS1GNLm3iTsF0k4dODiiMJOs9qsdSIIloTkY_EWTefEMUupS9B0rYHiq8eumUvLan_v-gJVyxa0FyhlOx64d90xL013zowPSGU5FXQl3TdpW3ytUY4kq2j1lUZp5bcuZS3wJA-KMxAZengvSxdSjxurGeiuci85rSpYLjbqduyC58jZEfXp9s_Qf_eefy9AWGZPnvwh4V0vKKb0ulq7WGLBFqa3HFX0Zr1a3kcqprIq9fIH60FytXsCAAA&metaData=eyJzIjoiTk9STUFMXzMiLCJrIjoibWpqb3UxZHZiMHhpcjNxZ2dhIiwiZCI6W3sidCI6Wzc2MzcsNzY1Ml19XSwibyI6NiwibCI6eyJwIjoyNjMxMDMyNjI0NDE0NzgsImkiOjI3NzkzMTQzOTkxNTAxMywidiI6Mjc3OTMwNDc5NDM1Nzc2fSwiZSI6eyJzIjoiZTcyOWYwOThiMWRlNDhiNDlkOTk1MTcxMDhjNzhhZDkyNTNlYzQyZiIsInN0IjoiTXlDb3VwYW5nX215X29yZGVyc19saXN0X3Byb2R1Y3RfaW1hZ2UiLCJhdHIiOnRydWUsImUiOmZhbHNlLCJyIjowLCJwdiI6IkIyRDREQ0E4LTYxODctNDMwQy04OURGLTRFRjU2ODRCOURENiIsIm5jIjp0cnVlLCJmcyI6ZmFsc2UsInNmYiI6ZmFsc2UsInNxYiI6ZmFsc2UsInNic25iIjpmYWxzZSwic3BwaSI6ZmFsc2UsImlsIjoiQiIsIm5sYyI6ZmFsc2V9LCJmIjp0cnVlfQ", RES_ALLOW, "V46.14 cmapi.tw.coupang.com /add-to-cart 放行；避免下單流程 API 被關鍵字掃描誤封"))
     # --- V46.13 PATH_EXEMPTIONS anchor hardening ---

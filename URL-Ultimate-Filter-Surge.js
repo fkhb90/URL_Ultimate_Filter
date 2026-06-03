@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.14
- * @date    2026-05-31
- * @rules   1527 total (311 domains, 430 critical paths, 403 path keywords, 109 param rules)
+ * @version 46.15
+ * @date    2026-06-03
+ * @rules   1526 total (311 domains, 429 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.14';
-const SCRIPT_BUILD = 'V46.14 (2026-05-31) | 1527 rules | 3150 tests';
+const SCRIPT_VERSION = '46.15';
+const SCRIPT_BUILD = 'V46.15 (2026-06-03) | 1526 rules | 3149 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -334,8 +334,7 @@ const RULES = {
         '/fingerprinted/'
       ])],
     ['chatgpt.com', new Set([
-        '/ces/statsc/flush', '/v1/rgstr', '/codex/cloud/settings/analytics', 'DROP:/ces/v1/m',
-        'DROP:/ces/v1/t'
+        '/ces/statsc/flush', '/v1/rgstr', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'
       ])],
     ['edith.xiaohongshu.com', new Set([
         'DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)'
