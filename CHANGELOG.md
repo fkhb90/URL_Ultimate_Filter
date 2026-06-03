@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.15 - 2026-06-03
+- [BugFix] ChatGPT Codex Cloud analytics 設定端點誤封修正：
+  - chatgpt.com → CRITICAL_PATH_MAP 移除 /codex/cloud/settings/analytics
+  - 該路徑原先在 Step 2 早於 PATH_EXEMPTIONS 被 403 封鎖
+  - 交由既有 PATH_EXEMPTIONS /codex/cloud/sett 放行 Codex Cloud 設定頁相關請求，不影響 CES 遙測 DROP 規則
+
 ## V46.14 - 2026-05-31
 - [BugFix] Coupang add-to-cart 誤封修正：
   - cmapi.tw.coupang.com → PATH_EXEMPTIONS 新增 /add-to-cart
