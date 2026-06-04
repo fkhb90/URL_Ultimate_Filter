@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.17 - 2026-06-04
+- [Privacy] AWS CloudWatch RUM appmonitor 精準封鎖：
+  - dataplane.rum.us-east-1.amazonaws.com → CRITICAL_PATH_MAP 新增 /appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0
+  - 僅封鎖指定 appmonitor 監控端點，不擴大到其他 aws dataplane 或 amazonaws.com 資源
+  - 保留現有 SOFT_WHITELIST `amazonaws.com`，以精準路徑覆蓋此單一 RUM 監控目標
+
 ## V46.16 - 2026-06-04
 - [BugFix] Amazon Exports 圖片資產誤封修正：
   - m.media-amazon.com → PATH_EXEMPTIONS 新增 /images/g/01/amazonexports/events/

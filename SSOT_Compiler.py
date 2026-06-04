@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.16 (2026-06-04)
+當前版本：V46.17 (2026-06-04)
 最新架構更新：
-- [BugFix] Amazon Exports 圖片資產誤封修正：m.media-amazon.com 新增 PATH_EXEMPTIONS `/images/g/01/amazonexports/events/`，避免圖片路徑命中通用 `/events` 掃描。
+- [Privacy] AWS CloudWatch RUM appmonitor 精準封鎖：dataplane.rum.us-east-1.amazonaws.com 新增 `/appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0`，只封指定監控端點。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.17 (2026-06-04): Privacy — dataplane.rum.us-east-1.amazonaws.com 新增指定 appmonitor 路徑封鎖，精準攔截單一 AWS CloudWatch RUM 端點。
 - V46.16 (2026-06-04): BugFix — m.media-amazon.com 新增 /images/g/01/amazonexports/events/ 路徑豁免，修正 Amazon Exports 圖片資產被 `/events` 規則誤封。
 - V46.15 (2026-06-03): BugFix — chatgpt.com 移除 /codex/cloud/settings/analytics 關鍵路徑封鎖，修正 Codex Cloud analytics 設定頁誤封。
 - V46.14 (2026-05-31): BugFix — cmapi.tw.coupang.com 新增 PATH_EXEMPTIONS /add-to-cart，修正商品加購 API 誤封。
 - V46.13 (2026-05-30): BugFix — PATH_EXEMPTIONS 改為僅比對 pathname（不含 query/hash），修正 query 夾帶豁免字串可繞過的風險。
-- V46.12 (2026-05-30): BugFix — mobile-api.g2a.com 新增 PATH_EXEMPTIONS /api/v1/transactions/，修正 L1 `/api/v1/t` 前綴造成的交易 API 誤封。
 """
 
 import hashlib
@@ -36,14 +36,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.16"
+VERSION = "46.17"
 RELEASE_DATE = "2026-06-04"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] Amazon Exports 圖片資產誤封修正：
-  - m.media-amazon.com → PATH_EXEMPTIONS 新增 /images/g/01/amazonexports/events/
-  - 圖片路徑中的 /events/ 原先命中 CRITICAL_PATH_GENERIC，導致靜態資產在 Step 10 前置 403
-  - 以精準路徑豁免保留圖片載入，不放大到整個 media-amazon.com 網域
+- [Privacy] AWS CloudWatch RUM appmonitor 精準封鎖：
+  - dataplane.rum.us-east-1.amazonaws.com → CRITICAL_PATH_MAP 新增 /appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0
+  - 僅封鎖指定 appmonitor 監控端點，不擴大到其他 aws dataplane 或 amazonaws.com 資源
+  - 保留現有 SOFT_WHITELIST `amazonaws.com`，只用精準路徑覆蓋此單一 RUM 監控目標
 """
 
 
@@ -437,6 +437,7 @@ RULES_DB = {
         'shopee.tw': ['/dataapi/dataweb/event/', '/abtest/traffic/'],
         'api.tongyi.com': ['/qianwen/event/track'],
         'gw.alipayobjects.com': ['/config/loggw/'],
+        'dataplane.rum.us-east-1.amazonaws.com': ['/appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0'],
         'slack.com': ['/api/profiling.logging.enablement', '/api/telemetry', 'DROP:/clog/track/', 'DROP:/api/eventlog.history'],
         'slackb.com': ['DROP:/'],
         'discord.com': ['DROP:/api/v10/science', 'DROP:/api/v9/science'],
@@ -2915,6 +2916,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Adapty SDK Net-Config Block", "https://fallback.adapty.io/api/v1/sdk/company/public_live_2pe9Z1ae/app/net-config.json", RES_BLOCK_403, "V45.81 Adapty 訂閱變現分析 SDK 初始化配置封鎖；adapty.io wildcard；Paywall A/B 測試/購買漏斗追蹤/設備識別，與 adjust.com/appsflyer.com 同類"))
     # --- V45.80 阿里雲 SAF 裝置安全稽核封鎖 ---
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
+    # --- V46.17 AWS CloudWatch RUM appmonitor precise block ---
+    cases.append(TestCase("Privacy: AWS CloudWatch RUM Appmonitor Block", "https://dataplane.rum.us-east-1.amazonaws.com/appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0", RES_BLOCK_403, "V46.17 dataplane.rum.us-east-1.amazonaws.com 指定 appmonitor 路徑精準封鎖；只攔截單一 CloudWatch RUM 端點"))
     # --- V46.16 Amazon Exports image asset PATH_EXEMPTIONS ---
     cases.append(TestCase("BugFix: Amazon Exports Homepage Image Pass", "https://m.media-amazon.com/images/G/01/AmazonExports/Events/2025/Bazaar_WIP_ImageRepository/ProdUAT/Homepage/WK43/Waterfall_1_zh-TW._SY1024_TTW_.webp", RES_ALLOW, "V46.16 m.media-amazon.com Amazon Exports 圖片資產路徑含 /Events/ 誤命中 CRITICAL_PATH_GENERIC；PATH_EXEMPTIONS /images/g/01/amazonexports/events/ 精準放行"))
     # --- V46.15 ChatGPT Codex Cloud analytics settings PATH_EXEMPTIONS ---
