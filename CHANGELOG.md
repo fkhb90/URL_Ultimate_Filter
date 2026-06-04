@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.16 - 2026-06-04
+- [BugFix] Amazon Exports 圖片資產誤封修正：
+  - m.media-amazon.com → PATH_EXEMPTIONS 新增 /images/g/01/amazonexports/events/
+  - 圖片路徑中的 /events/ 原先命中 CRITICAL_PATH_GENERIC，導致靜態資產在 L1 掃描階段被 403 封鎖
+  - 以精準路徑豁免保留圖片載入，不放大到整個 media-amazon.com 網域
+
 ## V46.15 - 2026-06-03
 - [BugFix] ChatGPT Codex Cloud analytics 設定端點誤封修正：
   - chatgpt.com → CRITICAL_PATH_MAP 移除 /codex/cloud/settings/analytics
