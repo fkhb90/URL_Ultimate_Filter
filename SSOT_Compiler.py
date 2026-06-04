@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.15 (2026-06-03)
+當前版本：V46.16 (2026-06-04)
 最新架構更新：
-- [BugFix] ChatGPT Codex Cloud analytics 設定端點誤封修正：移除 CRITICAL_PATH_MAP `/codex/cloud/settings/analytics` 封鎖，交由既有 PATH_EXEMPTIONS `/codex/cloud/sett` 放行。
+- [BugFix] Amazon Exports 圖片資產誤封修正：m.media-amazon.com 新增 PATH_EXEMPTIONS `/images/g/01/amazonexports/events/`，避免圖片路徑命中通用 `/events` 掃描。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.16 (2026-06-04): BugFix — m.media-amazon.com 新增 /images/g/01/amazonexports/events/ 路徑豁免，修正 Amazon Exports 圖片資產被 `/events` 規則誤封。
 - V46.15 (2026-06-03): BugFix — chatgpt.com 移除 /codex/cloud/settings/analytics 關鍵路徑封鎖，修正 Codex Cloud analytics 設定頁誤封。
 - V46.14 (2026-05-31): BugFix — cmapi.tw.coupang.com 新增 PATH_EXEMPTIONS /add-to-cart，修正商品加購 API 誤封。
 - V46.13 (2026-05-30): BugFix — PATH_EXEMPTIONS 改為僅比對 pathname（不含 query/hash），修正 query 夾帶豁免字串可繞過的風險。
 - V46.12 (2026-05-30): BugFix — mobile-api.g2a.com 新增 PATH_EXEMPTIONS /api/v1/transactions/，修正 L1 `/api/v1/t` 前綴造成的交易 API 誤封。
-- V46.11 (2026-05-30): Privacy — edith.xiaohongshu.com 使用 DROP_RE 錨定 /api/sns/v\\d+/note/metrics_report，覆蓋未來版本號升級。
 """
 
 import hashlib
@@ -36,14 +36,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.15"
-RELEASE_DATE = "2026-06-03"
+VERSION = "46.16"
+RELEASE_DATE = "2026-06-04"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] ChatGPT Codex Cloud analytics 設定端點誤封修正：
-  - chatgpt.com → CRITICAL_PATH_MAP 移除 /codex/cloud/settings/analytics
-  - 該路徑原先在 Step 2 早於 PATH_EXEMPTIONS 被 403 封鎖
-  - 交由既有 PATH_EXEMPTIONS /codex/cloud/sett 放行 Codex Cloud 設定頁相關請求，不影響 CES 遙測 DROP 規則
+- [BugFix] Amazon Exports 圖片資產誤封修正：
+  - m.media-amazon.com → PATH_EXEMPTIONS 新增 /images/g/01/amazonexports/events/
+  - 圖片路徑中的 /events/ 原先命中 CRITICAL_PATH_GENERIC，導致靜態資產在 Step 10 前置 403
+  - 以精準路徑豁免保留圖片載入，不放大到整個 media-amazon.com 網域
 """
 
 
@@ -680,6 +680,7 @@ RULES_DB = {
         "uber.com": ["/go/_events"],
         "cmapi.tw.coupang.com": ["/vendor-items/", "/option-list", "/add-to-cart"],
         "coupangcdn.com": ["/image/ccm/banner/", "/image/cmg/oms/banner/"],
+        "m.media-amazon.com": ["/images/g/01/amazonexports/events/"],
         "www.google.com": ["/url", "/search", "/s2/favicons"],
         "play.googleapis.com": ["/log/batch"],
         "threads.com": ["/post/"],
@@ -2914,6 +2915,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Adapty SDK Net-Config Block", "https://fallback.adapty.io/api/v1/sdk/company/public_live_2pe9Z1ae/app/net-config.json", RES_BLOCK_403, "V45.81 Adapty 訂閱變現分析 SDK 初始化配置封鎖；adapty.io wildcard；Paywall A/B 測試/購買漏斗追蹤/設備識別，與 adjust.com/appsflyer.com 同類"))
     # --- V45.80 阿里雲 SAF 裝置安全稽核封鎖 ---
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
+    # --- V46.16 Amazon Exports image asset PATH_EXEMPTIONS ---
+    cases.append(TestCase("BugFix: Amazon Exports Homepage Image Pass", "https://m.media-amazon.com/images/G/01/AmazonExports/Events/2025/Bazaar_WIP_ImageRepository/ProdUAT/Homepage/WK43/Waterfall_1_zh-TW._SY1024_TTW_.webp", RES_ALLOW, "V46.16 m.media-amazon.com Amazon Exports 圖片資產路徑含 /Events/ 誤命中 CRITICAL_PATH_GENERIC；PATH_EXEMPTIONS /images/g/01/amazonexports/events/ 精準放行"))
     # --- V46.15 ChatGPT Codex Cloud analytics settings PATH_EXEMPTIONS ---
     cases.append(TestCase("BugFix: ChatGPT Codex Cloud Analytics Settings Pass", "https://chatgpt.com/codex/cloud/settings/analytics", RES_ALLOW, "V46.15 移除 CRITICAL_PATH_MAP /codex/cloud/settings/analytics 封鎖；交由 PATH_EXEMPTIONS /codex/cloud/sett 放行 Codex Cloud 設定頁相關請求"))
     # --- V46.14 Coupang add-to-cart PATH_EXEMPTIONS ---

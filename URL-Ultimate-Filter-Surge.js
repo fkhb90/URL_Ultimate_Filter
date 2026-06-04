@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.15
- * @date    2026-06-03
+ * @version 46.16
+ * @date    2026-06-04
  * @rules   1526 total (311 domains, 429 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.15';
-const SCRIPT_BUILD = 'V46.15 (2026-06-03) | 1526 rules | 3149 tests';
+const SCRIPT_VERSION = '46.16';
+const SCRIPT_BUILD = 'V46.16 (2026-06-04) | 1526 rules | 3151 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1013,6 +1013,9 @@ const RULES = {
       ])],
     ['coupangcdn.com', new Set([
         '/image/ccm/banner/', '/image/cmg/oms/banner/'
+      ])],
+    ['m.media-amazon.com', new Set([
+        '/images/g/01/amazonexports/events/'
       ])],
     ['www.google.com', new Set([
         '/url', '/search', '/s2/favicons'
