@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.18 - 2026-06-07
+- [Privacy] Google CSP report endpoint 精準靜默拋棄：
+  - csp.withgoogle.com → CRITICAL_PATH_MAP 新增 DROP:/csp/
+  - 僅靜默拋棄 CSP violation report 回報端點，避免 403 重試/噪音
+  - 不擴大封鎖 withgoogle.com，避免誤傷 Google 活動、文件與工具頁
+
 ## V46.17 - 2026-06-04
 - [Privacy] AWS CloudWatch RUM appmonitor 精準封鎖：
   - dataplane.rum.us-east-1.amazonaws.com → CRITICAL_PATH_MAP 新增 /appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0

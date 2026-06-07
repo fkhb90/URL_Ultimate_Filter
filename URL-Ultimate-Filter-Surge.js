@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.17
- * @date    2026-06-04
- * @rules   1527 total (311 domains, 430 critical paths, 403 path keywords, 109 param rules)
+ * @version 46.18
+ * @date    2026-06-07
+ * @rules   1528 total (311 domains, 431 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.17';
-const SCRIPT_BUILD = 'V46.17 (2026-06-04) | 1527 rules | 3154 tests';
+const SCRIPT_VERSION = '46.18';
+const SCRIPT_BUILD = 'V46.18 (2026-06-07) | 1528 rules | 3157 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -283,6 +283,9 @@ const RULES = {
       ])],
     ['googlevideo.com', new Set([
         '/ptracking', '/videoplayback?ptracking='
+      ])],
+    ['csp.withgoogle.com', new Set([
+        'DROP:/csp/'
       ])],
     ['api.uber.com', new Set([
         '/ramen/v1/events', '/v3/mobile-event', '/advertising/v1/', '/eats/advertising/',
