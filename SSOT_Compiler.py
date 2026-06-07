@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.17 (2026-06-04)
+當前版本：V46.18 (2026-06-07)
 最新架構更新：
-- [Privacy] AWS CloudWatch RUM appmonitor 精準封鎖：dataplane.rum.us-east-1.amazonaws.com 新增 `/appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0`，只封指定監控端點。
+- [Privacy] Google CSP report endpoint 精準靜默拋棄：csp.withgoogle.com 新增 `DROP:/csp/`，只攔截 CSP violation report 回報，不擴大封鎖 withgoogle.com。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.18 (2026-06-07): Privacy — csp.withgoogle.com 新增 `DROP:/csp/`，靜默拋棄 Google CSP violation report 遙測回報。
 - V46.17 (2026-06-04): Privacy — dataplane.rum.us-east-1.amazonaws.com 新增指定 appmonitor 路徑封鎖，精準攔截單一 AWS CloudWatch RUM 端點。
 - V46.16 (2026-06-04): BugFix — m.media-amazon.com 新增 /images/g/01/amazonexports/events/ 路徑豁免，修正 Amazon Exports 圖片資產被 `/events` 規則誤封。
 - V46.15 (2026-06-03): BugFix — chatgpt.com 移除 /codex/cloud/settings/analytics 關鍵路徑封鎖，修正 Codex Cloud analytics 設定頁誤封。
@@ -36,14 +37,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.17"
-RELEASE_DATE = "2026-06-04"
+VERSION = "46.18"
+RELEASE_DATE = "2026-06-07"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] AWS CloudWatch RUM appmonitor 精準封鎖：
-  - dataplane.rum.us-east-1.amazonaws.com → CRITICAL_PATH_MAP 新增 /appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0
-  - 僅封鎖指定 appmonitor 監控端點，不擴大到其他 aws dataplane 或 amazonaws.com 資源
-  - 保留現有 SOFT_WHITELIST `amazonaws.com`，只用精準路徑覆蓋此單一 RUM 監控目標
+- [Privacy] Google CSP report endpoint 精準靜默拋棄：
+  - csp.withgoogle.com → CRITICAL_PATH_MAP 新增 DROP:/csp/
+  - 僅靜默拋棄 CSP violation report 回報端點，避免 403 重試/噪音
+  - 不擴大封鎖 withgoogle.com，避免誤傷 Google 活動、文件與工具頁
 """
 
 
@@ -413,6 +414,7 @@ RULES_DB = {
         'm.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'youtubei.googleapis.com': ['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions'],
         'googlevideo.com': ['/ptracking', '/videoplayback?ptracking='],
+        'csp.withgoogle.com': ['DROP:/csp/'],
         'api.uber.com': ['/ramen/v1/events', '/v3/mobile-event', '/advertising/v1/', '/eats/advertising/', '/rt/users/v1/device-info'],
         'help.uber.com': ['DROP:/_track'],
         'appapi.klook.com': ['DROP:/v1/adsrv/', 'DROP:/v1/usrcsrv/splash/ads'],
@@ -2918,6 +2920,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
     # --- V46.17 AWS CloudWatch RUM appmonitor precise block ---
     cases.append(TestCase("Privacy: AWS CloudWatch RUM Appmonitor Block", "https://dataplane.rum.us-east-1.amazonaws.com/appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0", RES_BLOCK_403, "V46.17 dataplane.rum.us-east-1.amazonaws.com 指定 appmonitor 路徑精準封鎖；只攔截單一 CloudWatch RUM 端點"))
+    # --- V46.18 Google CSP report endpoint precise drop ---
+    cases.append(TestCase("Privacy: Google CSP Report Drop", "https://csp.withgoogle.com/csp/gae4g-csp-collector/app-version", RES_DROP_204, "V46.18 csp.withgoogle.com CSP violation report 回報端點 204 靜默拋棄；不擴大封鎖 withgoogle.com"))
     # --- V46.16 Amazon Exports image asset PATH_EXEMPTIONS ---
     cases.append(TestCase("BugFix: Amazon Exports Homepage Image Pass", "https://m.media-amazon.com/images/G/01/AmazonExports/Events/2025/Bazaar_WIP_ImageRepository/ProdUAT/Homepage/WK43/Waterfall_1_zh-TW._SY1024_TTW_.webp", RES_ALLOW, "V46.16 m.media-amazon.com Amazon Exports 圖片資產路徑含 /Events/ 誤命中 CRITICAL_PATH_GENERIC；PATH_EXEMPTIONS /images/g/01/amazonexports/events/ 精準放行"))
     # --- V46.15 ChatGPT Codex Cloud analytics settings PATH_EXEMPTIONS ---
