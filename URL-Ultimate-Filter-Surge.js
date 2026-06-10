@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.18
- * @date    2026-06-07
+ * @version 46.19
+ * @date    2026-06-10
  * @rules   1528 total (311 domains, 431 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.18';
-const SCRIPT_BUILD = 'V46.18 (2026-06-07) | 1528 rules | 3157 tests';
+const SCRIPT_VERSION = '46.19';
+const SCRIPT_BUILD = 'V46.19 (2026-06-10) | 1528 rules | 3159 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1063,7 +1063,7 @@ const RULES = {
         '/v1/maelstrom/events'
       ])],
     ['x.com', new Set([
-        '/i/api/graphql/'
+        '/i/api/graphql/', '/account/authenticate_web_view'
       ])]
   ])
   }

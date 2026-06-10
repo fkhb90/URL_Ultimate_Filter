@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.18 (2026-06-07)
+當前版本：V46.19 (2026-06-10)
 最新架構更新：
-- [Privacy] Google CSP report endpoint 精準靜默拋棄：csp.withgoogle.com 新增 `DROP:/csp/`，只攔截 CSP violation report 回報，不擴大封鎖 withgoogle.com。
+- [BugFix] x.com /account/authenticate_web_view 誤封修正：redirect_url 參數含 /analytics 命中 PATH_BLOCK，PATH_EXEMPTIONS 新增精準豁免，放行推文成效數據驗證端點。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.19 (2026-06-10): BugFix — x.com /account/authenticate_web_view 誤封修正，PATH_EXEMPTIONS 新增豁免，放行推文成效數據驗證端點。
 - V46.18 (2026-06-07): Privacy — csp.withgoogle.com 新增 `DROP:/csp/`，靜默拋棄 Google CSP violation report 遙測回報。
 - V46.17 (2026-06-04): Privacy — dataplane.rum.us-east-1.amazonaws.com 新增指定 appmonitor 路徑封鎖，精準攔截單一 AWS CloudWatch RUM 端點。
 - V46.16 (2026-06-04): BugFix — m.media-amazon.com 新增 /images/g/01/amazonexports/events/ 路徑豁免，修正 Amazon Exports 圖片資產被 `/events` 規則誤封。
 - V46.15 (2026-06-03): BugFix — chatgpt.com 移除 /codex/cloud/settings/analytics 關鍵路徑封鎖，修正 Codex Cloud analytics 設定頁誤封。
-- V46.14 (2026-05-31): BugFix — cmapi.tw.coupang.com 新增 PATH_EXEMPTIONS /add-to-cart，修正商品加購 API 誤封。
 - V46.13 (2026-05-30): BugFix — PATH_EXEMPTIONS 改為僅比對 pathname（不含 query/hash），修正 query 夾帶豁免字串可繞過的風險。
 """
 
@@ -37,8 +37,8 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.18"
-RELEASE_DATE = "2026-06-07"
+VERSION = "46.19"
+RELEASE_DATE = "2026-06-10"
 
 CURRENT_RELEASE_NOTES = """
 - [Privacy] Google CSP report endpoint 精準靜默拋棄：
@@ -697,7 +697,7 @@ RULES_DB = {
         "chatgpt.com": ["/codex/cloud/sett"],
         "www.youtube.com": ["/redirect"],
         "api.production.hushed.com": ["/v1/maelstrom/events"],
-        "x.com": ["/i/api/graphql/"]
+        "x.com": ["/i/api/graphql/", "/account/authenticate_web_view"]
     }
 }
 
@@ -2920,6 +2920,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
     # --- V46.17 AWS CloudWatch RUM appmonitor precise block ---
     cases.append(TestCase("Privacy: AWS CloudWatch RUM Appmonitor Block", "https://dataplane.rum.us-east-1.amazonaws.com/appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0", RES_BLOCK_403, "V46.17 dataplane.rum.us-east-1.amazonaws.com 指定 appmonitor 路徑精準封鎖；只攔截單一 CloudWatch RUM 端點"))
+    # --- V46.19 x.com /account/authenticate_web_view 誤封修正 ---
+    cases.append(TestCase("BugFix: X Tweet Analytics Auth Pass", "https://x.com/account/authenticate_web_view?redirect_url=https%3A%2F%2Fx.com%2Ffkhb90%2Fstatus%2F2064554007558001045%2Fanalytics", RES_ALLOW, "V46.19 x.com 推文成效數據驗證端點；redirect_url 含 /analytics 命中 PATH_BLOCK；PATH_EXEMPTIONS /account/authenticate_web_view 精準放行"))
     # --- V46.18 Google CSP report endpoint precise drop ---
     cases.append(TestCase("Privacy: Google CSP Report Drop", "https://csp.withgoogle.com/csp/gae4g-csp-collector/app-version", RES_DROP_204, "V46.18 csp.withgoogle.com CSP violation report 回報端點 204 靜默拋棄；不擴大封鎖 withgoogle.com"))
     # --- V46.16 Amazon Exports image asset PATH_EXEMPTIONS ---
