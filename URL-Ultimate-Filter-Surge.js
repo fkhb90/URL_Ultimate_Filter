@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.19
+ * @version 46.20
  * @date    2026-06-10
  * @rules   1528 total (311 domains, 431 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.19';
-const SCRIPT_BUILD = 'V46.19 (2026-06-10) | 1528 rules | 3159 tests';
+const SCRIPT_VERSION = '46.20';
+const SCRIPT_BUILD = 'V46.20 (2026-06-10) | 1528 rules | 3161 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1054,7 +1054,7 @@ const RULES = {
         '/api/v1/transactions/'
       ])],
     ['chatgpt.com', new Set([
-        '/codex/cloud/sett'
+        '/codex/cloud/sett', '/backend-api/o11y/v1/traces'
       ])],
     ['www.youtube.com', new Set([
         '/redirect'

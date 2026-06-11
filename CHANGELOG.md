@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.20 - 2026-06-11
+- [Privacy] Google CSP report endpoint 精準靜默拋棄：
+  - csp.withgoogle.com → CRITICAL_PATH_MAP 新增 DROP:/csp/
+  - 僅靜默拋棄 CSP violation report 回報端點，避免 403 重試/噪音
+  - 不擴大封鎖 withgoogle.com，避免誤傷 Google 活動、文件與工具頁
+
 ## V46.19 - 2026-06-10
 - [Privacy] Google CSP report endpoint 精準靜默拋棄：
   - csp.withgoogle.com → CRITICAL_PATH_MAP 新增 DROP:/csp/
