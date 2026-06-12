@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.21 - 2026-06-12
+- [Privacy] UMSNS 短連結記錄端點精準靜默拋棄：
+  - c.umsns.com → CRITICAL_PATH_MAP 新增 DROP:/slink_logs
+  - 僅靜默拋棄短連結行為記錄端點，避免 403 重試或擴大影響 deeplink 流程
+  - 保留 /deeplink/init 放行，避免誤傷深連結初始化功能
+
 ## V46.20 - 2026-06-11
 - [Privacy] Google CSP report endpoint 精準靜默拋棄：
   - csp.withgoogle.com → CRITICAL_PATH_MAP 新增 DROP:/csp/

@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.20
- * @date    2026-06-10
- * @rules   1528 total (311 domains, 431 critical paths, 403 path keywords, 109 param rules)
+ * @version 46.21
+ * @date    2026-06-12
+ * @rules   1529 total (311 domains, 432 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.20';
-const SCRIPT_BUILD = 'V46.20 (2026-06-10) | 1528 rules | 3161 tests';
+const SCRIPT_VERSION = '46.21';
+const SCRIPT_BUILD = 'V46.21 (2026-06-12) | 1529 rules | 3165 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -338,6 +338,9 @@ const RULES = {
       ])],
     ['chatgpt.com', new Set([
         '/ces/statsc/flush', '/v1/rgstr', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'
+      ])],
+    ['c.umsns.com', new Set([
+        'DROP:/slink_logs'
       ])],
     ['edith.xiaohongshu.com', new Set([
         'DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)'
