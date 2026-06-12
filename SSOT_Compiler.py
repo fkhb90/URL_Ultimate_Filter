@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.21 (2026-06-12)
+當前版本：V46.22 (2026-06-13)
 最新架構更新：
-- [Privacy] c.umsns.com 短連結記錄端點精準靜默拋棄：新增 `DROP:/slink_logs`，僅攔截短連結行為記錄，不影響 `deeplink/init` 功能初始化流程。
+- [Privacy] admsmaterial.businessweekly.com.tw 廣告素材子網域精準封鎖：加入 `BLOCK_DOMAINS`，只攔截該單一主機，不擴大到 `businessweekly.com.tw` 其他內容站資源。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.22 (2026-06-13): Privacy — admsmaterial.businessweekly.com.tw 加入 `BLOCK_DOMAINS` 精確封鎖，最小化攔截商周廣告素材子網域。
 - V46.21 (2026-06-12): Privacy — c.umsns.com 新增 `DROP:/slink_logs`，精準靜默拋棄短連結記錄端點，保留 `deeplink/init` 放行。
 - V46.20 (2026-06-10): BugFix — chatgpt.com /backend-api/o11y/v1/traces 誤封修正，PATH_EXEMPTIONS 新增豁免，修復 Codex 頁面無法開啟。
 - V46.19 (2026-06-10): BugFix — x.com /account/authenticate_web_view 誤封修正，PATH_EXEMPTIONS 新增豁免，放行推文成效數據驗證端點。
@@ -36,14 +37,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.21"
-RELEASE_DATE = "2026-06-12"
+VERSION = "46.22"
+RELEASE_DATE = "2026-06-13"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] UMSNS 短連結記錄端點精準靜默拋棄：
-  - c.umsns.com → CRITICAL_PATH_MAP 新增 DROP:/slink_logs
-  - 僅靜默拋棄短連結行為記錄端點，避免 403 重試或擴大影響 deeplink 流程
-  - 保留 /deeplink/init 放行，避免誤傷深連結初始化功能
+- [Privacy] 商周廣告素材子網域精準封鎖：
+  - admsmaterial.businessweekly.com.tw → BLOCK_DOMAINS 精確網域封鎖
+  - 目前可觀測到的完整請求僅到網域根目錄，無法再往下收斂為路徑規則，因此採單主機最小封鎖面
+  - 不擴大到 businessweekly.com.tw 主域或其他子域，避免誤傷正常文章與站內功能
 """
 
 
@@ -124,6 +125,7 @@ RULES_DB = {
         'inmobi.com', 'inner-active.mobi', 'launchdarkly.com', 'split.io',
         'iadsdk.apple.com', 'metrics.icloud.com',
         'ad.impactify.io', 'impactify.media',
+        'admsmaterial.businessweekly.com.tw',
         'adsv.omgrmn.tw', 'browser.sentry-cdn.com', 'caid.china-caa.org',
         'events.tiktok.com', 'ibytedtos.com',
         'log.tiktokv.com', 'log16-normal-c-useast1a.tiktokv.com',
@@ -2920,6 +2922,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
     # --- V46.17 AWS CloudWatch RUM appmonitor precise block ---
     cases.append(TestCase("Privacy: AWS CloudWatch RUM Appmonitor Block", "https://dataplane.rum.us-east-1.amazonaws.com/appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0", RES_BLOCK_403, "V46.17 dataplane.rum.us-east-1.amazonaws.com 指定 appmonitor 路徑精準封鎖；只攔截單一 CloudWatch RUM 端點"))
+    # --- V46.22 BusinessWeekly ad material subdomain block ---
+    cases.append(TestCase("Privacy: BusinessWeekly Ad Material Host Block", "https://admsmaterial.businessweekly.com.tw/", RES_BLOCK_403, "V46.22 admsmaterial.businessweekly.com.tw 廣告素材子網域精確封鎖；目前可觀測完整請求僅到主機根目錄，採 BLOCK_DOMAINS 最小封鎖面，不擴大到 businessweekly.com.tw 主域"))
     # --- V46.21 UMSNS short-link log precise drop ---
     cases.append(TestCase("Privacy: UMSNS Slink Logs Drop", "https://c.umsns.com/slink_logs", RES_DROP_204, "V46.21 c.umsns.com 短連結行為記錄端點 204 靜默拋棄；CRITICAL_PATH_MAP DROP:/slink_logs 精準攔截，不擴大到其他 deeplink 路徑"))
     cases.append(TestCase("Safe: UMSNS Deeplink Init Pass", "https://c.umsns.com/deeplink/init", RES_ALLOW, "V46.21 保留 c.umsns.com /deeplink/init 放行；未命中精準 DROP 規則，避免誤傷深連結初始化功能"))
