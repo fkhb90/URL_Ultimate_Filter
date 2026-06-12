@@ -3,17 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.20 (2026-06-10)
+當前版本：V46.21 (2026-06-12)
 最新架構更新：
-- [BugFix] chatgpt.com Codex 頁面無法開啟修正：/backend-api/o11y/v1/traces 被 PRIORITY_DROP /v1/traces 誤殺，前端未處理 204 導致頁面渲染中斷，PATH_EXEMPTIONS 新增精準豁免。
+- [Privacy] c.umsns.com 短連結記錄端點精準靜默拋棄：新增 `DROP:/slink_logs`，僅攔截短連結行為記錄，不影響 `deeplink/init` 功能初始化流程。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.21 (2026-06-12): Privacy — c.umsns.com 新增 `DROP:/slink_logs`，精準靜默拋棄短連結記錄端點，保留 `deeplink/init` 放行。
 - V46.20 (2026-06-10): BugFix — chatgpt.com /backend-api/o11y/v1/traces 誤封修正，PATH_EXEMPTIONS 新增豁免，修復 Codex 頁面無法開啟。
 - V46.19 (2026-06-10): BugFix — x.com /account/authenticate_web_view 誤封修正，PATH_EXEMPTIONS 新增豁免，放行推文成效數據驗證端點。
 - V46.18 (2026-06-07): Privacy — csp.withgoogle.com 新增 `DROP:/csp/`，靜默拋棄 Google CSP violation report 遙測回報。
 - V46.17 (2026-06-04): Privacy — dataplane.rum.us-east-1.amazonaws.com 新增指定 appmonitor 路徑封鎖，精準攔截單一 AWS CloudWatch RUM 端點。
-- V46.16 (2026-06-04): BugFix — m.media-amazon.com 新增 /images/g/01/amazonexports/events/ 路徑豁免，修正 Amazon Exports 圖片資產被 `/events` 規則誤封。
-- V46.13 (2026-05-30): BugFix — PATH_EXEMPTIONS 改為僅比對 pathname（不含 query/hash），修正 query 夾帶豁免字串可繞過的風險。
 """
 
 import hashlib
@@ -37,14 +36,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.20"
-RELEASE_DATE = "2026-06-10"
+VERSION = "46.21"
+RELEASE_DATE = "2026-06-12"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] Google CSP report endpoint 精準靜默拋棄：
-  - csp.withgoogle.com → CRITICAL_PATH_MAP 新增 DROP:/csp/
-  - 僅靜默拋棄 CSP violation report 回報端點，避免 403 重試/噪音
-  - 不擴大封鎖 withgoogle.com，避免誤傷 Google 活動、文件與工具頁
+- [Privacy] UMSNS 短連結記錄端點精準靜默拋棄：
+  - c.umsns.com → CRITICAL_PATH_MAP 新增 DROP:/slink_logs
+  - 僅靜默拋棄短連結行為記錄端點，避免 403 重試或擴大影響 deeplink 流程
+  - 保留 /deeplink/init 放行，避免誤傷深連結初始化功能
 """
 
 
@@ -432,6 +431,7 @@ RULES_DB = {
         'play.google.com': ['/log'],
         'js.stripe.com': ['/fingerprinted/'],
         'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'],
+        'c.umsns.com': ['DROP:/slink_logs'],
         'edith.xiaohongshu.com': ['DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)'],
         'tw.fd-api.com': ['DROP:/api/v5/action-log'],
         'chatbot.shopee.tw': ['/report/v1/log'],
@@ -2920,6 +2920,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
     # --- V46.17 AWS CloudWatch RUM appmonitor precise block ---
     cases.append(TestCase("Privacy: AWS CloudWatch RUM Appmonitor Block", "https://dataplane.rum.us-east-1.amazonaws.com/appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0", RES_BLOCK_403, "V46.17 dataplane.rum.us-east-1.amazonaws.com 指定 appmonitor 路徑精準封鎖；只攔截單一 CloudWatch RUM 端點"))
+    # --- V46.21 UMSNS short-link log precise drop ---
+    cases.append(TestCase("Privacy: UMSNS Slink Logs Drop", "https://c.umsns.com/slink_logs", RES_DROP_204, "V46.21 c.umsns.com 短連結行為記錄端點 204 靜默拋棄；CRITICAL_PATH_MAP DROP:/slink_logs 精準攔截，不擴大到其他 deeplink 路徑"))
+    cases.append(TestCase("Safe: UMSNS Deeplink Init Pass", "https://c.umsns.com/deeplink/init", RES_ALLOW, "V46.21 保留 c.umsns.com /deeplink/init 放行；未命中精準 DROP 規則，避免誤傷深連結初始化功能"))
     # --- V46.20 chatgpt.com /backend-api/o11y/v1/traces 誤封修正 ---
     cases.append(TestCase("BugFix: ChatGPT Codex o11y Traces Pass", "https://chatgpt.com/backend-api/o11y/v1/traces", RES_ALLOW, "V46.20 chatgpt.com Codex 頁面載入必要端點；PRIORITY_DROP /v1/traces 誤殺，前端未處理 204 導致頁面渲染中斷；PATH_EXEMPTIONS /backend-api/o11y/v1/traces 精準放行"))
     # --- V46.19 x.com /account/authenticate_web_view 誤封修正 ---
