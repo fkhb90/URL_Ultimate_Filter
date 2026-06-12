@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.22 (2026-06-13)
+當前版本：V46.23 (2026-06-13)
 最新架構更新：
-- [Privacy] admsmaterial.businessweekly.com.tw 廣告素材子網域精準封鎖：加入 `BLOCK_DOMAINS`，只攔截該單一主機，不擴大到 `businessweekly.com.tw` 其他內容站資源。
+- [BugFix] admsmaterial.businessweekly.com.tw 封鎖語意修正：從 `PRIORITY_BLOCK_DOMAINS` 移至 `BLOCK_DOMAINS`，避免子網域被 P0 萬用比對連帶封鎖，恢復單一主機精確攔截。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.23 (2026-06-13): BugFix — admsmaterial.businessweekly.com.tw 從 `PRIORITY_BLOCK_DOMAINS` 移至 `BLOCK_DOMAINS`，修正子網域誤判為 P0 的問題。
 - V46.22 (2026-06-13): Privacy — admsmaterial.businessweekly.com.tw 加入 `BLOCK_DOMAINS` 精確封鎖，最小化攔截商周廣告素材子網域。
 - V46.21 (2026-06-12): Privacy — c.umsns.com 新增 `DROP:/slink_logs`，精準靜默拋棄短連結記錄端點，保留 `deeplink/init` 放行。
 - V46.20 (2026-06-10): BugFix — chatgpt.com /backend-api/o11y/v1/traces 誤封修正，PATH_EXEMPTIONS 新增豁免，修復 Codex 頁面無法開啟。
@@ -37,14 +38,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.22"
+VERSION = "46.23"
 RELEASE_DATE = "2026-06-13"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 商周廣告素材子網域精準封鎖：
-  - admsmaterial.businessweekly.com.tw → BLOCK_DOMAINS 精確網域封鎖
-  - 目前可觀測到的完整請求僅到網域根目錄，無法再往下收斂為路徑規則，因此採單主機最小封鎖面
-  - 不擴大到 businessweekly.com.tw 主域或其他子域，避免誤傷正常文章與站內功能
+- [BugFix] 商周廣告素材子網域封鎖語意修正：
+  - admsmaterial.businessweekly.com.tw 從 PRIORITY_BLOCK_DOMAINS 移至 BLOCK_DOMAINS
+  - PRIORITY_BLOCK_DOMAINS 會以 P0 萬用比對提早封鎖子網域，與單主機精確封鎖目標不一致
+  - 修正後只封鎖 admsmaterial.businessweekly.com.tw，本機實測 cdn.admsmaterial.businessweekly.com.tw 恢復放行
 """
 
 
@@ -125,7 +126,6 @@ RULES_DB = {
         'inmobi.com', 'inner-active.mobi', 'launchdarkly.com', 'split.io',
         'iadsdk.apple.com', 'metrics.icloud.com',
         'ad.impactify.io', 'impactify.media',
-        'admsmaterial.businessweekly.com.tw',
         'adsv.omgrmn.tw', 'browser.sentry-cdn.com', 'caid.china-caa.org',
         'events.tiktok.com', 'ibytedtos.com',
         'log.tiktokv.com', 'log16-normal-c-useast1a.tiktokv.com',
@@ -268,6 +268,7 @@ RULES_DB = {
         'udp.yahoo.com', 'analytics.yahoo.com', 'effirst.com', 'px.effirst.com', 'simonsignal.com', 
         'analytics.etmall.com.tw',
         'bam.nr-data.net', 'bam-cell.nr-data.net', 'lrkt-in.com',
+        'admsmaterial.businessweekly.com.tw',
         'cdn.lr-ingest.com', 'r.lr-ingest.io', 'api-iam.intercom.io', 'openfpcdn.io', 'fingerprintjs.com',
         'fundingchoicesmessages.google.com', 'hotjar.com', 'segment.io', 'mixpanel.com', 'amplitude.com',
         'crazyegg.com', 'bugsnag.com', 'sentry.io', 'newrelic.com', 'logrocket.com', 'fpjs.io', 'adunblock1.static-cloudflare.workers.dev',
@@ -2922,8 +2923,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
     # --- V46.17 AWS CloudWatch RUM appmonitor precise block ---
     cases.append(TestCase("Privacy: AWS CloudWatch RUM Appmonitor Block", "https://dataplane.rum.us-east-1.amazonaws.com/appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0", RES_BLOCK_403, "V46.17 dataplane.rum.us-east-1.amazonaws.com 指定 appmonitor 路徑精準封鎖；只攔截單一 CloudWatch RUM 端點"))
-    # --- V46.22 BusinessWeekly ad material subdomain block ---
-    cases.append(TestCase("Privacy: BusinessWeekly Ad Material Host Block", "https://admsmaterial.businessweekly.com.tw/", RES_BLOCK_403, "V46.22 admsmaterial.businessweekly.com.tw 廣告素材子網域精確封鎖；目前可觀測完整請求僅到主機根目錄，採 BLOCK_DOMAINS 最小封鎖面，不擴大到 businessweekly.com.tw 主域"))
+    # --- V46.23 BusinessWeekly ad material host semantics fix ---
+    cases.append(TestCase("BugFix: BusinessWeekly Ad Material Host Exact Block", "https://admsmaterial.businessweekly.com.tw/", RES_BLOCK_403, "V46.23 admsmaterial.businessweekly.com.tw 維持單主機精確封鎖；從 PRIORITY_BLOCK_DOMAINS 移至 BLOCK_DOMAINS 後仍應 403"))
+    cases.append(TestCase("BugFix: BusinessWeekly Ad Material CDN Subdomain Pass", "https://cdn.admsmaterial.businessweekly.com.tw/", RES_ALLOW, "V46.23 修正 PRIORITY_BLOCK_DOMAINS 萬用比對副作用；cdn.admsmaterial.businessweekly.com.tw 不應被連帶視為 P0 封鎖"))
     # --- V46.21 UMSNS short-link log precise drop ---
     cases.append(TestCase("Privacy: UMSNS Slink Logs Drop", "https://c.umsns.com/slink_logs", RES_DROP_204, "V46.21 c.umsns.com 短連結行為記錄端點 204 靜默拋棄；CRITICAL_PATH_MAP DROP:/slink_logs 精準攔截，不擴大到其他 deeplink 路徑"))
     cases.append(TestCase("Safe: UMSNS Deeplink Init Pass", "https://c.umsns.com/deeplink/init", RES_ALLOW, "V46.21 保留 c.umsns.com /deeplink/init 放行；未命中精準 DROP 規則，避免誤傷深連結初始化功能"))
