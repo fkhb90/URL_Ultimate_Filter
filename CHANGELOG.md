@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.22 - 2026-06-13
+- [Privacy] 商周廣告素材子網域精準封鎖：
+  - admsmaterial.businessweekly.com.tw → BLOCK_DOMAINS 精確網域封鎖
+  - 目前可觀測到的完整請求僅到網域根目錄，無法再往下收斂為路徑規則，因此採單主機最小封鎖面
+  - 不擴大到 businessweekly.com.tw 主域或其他子域，避免誤傷正常文章與站內功能
+
 ## V46.21 - 2026-06-12
 - [Privacy] UMSNS 短連結記錄端點精準靜默拋棄：
   - c.umsns.com → CRITICAL_PATH_MAP 新增 DROP:/slink_logs
