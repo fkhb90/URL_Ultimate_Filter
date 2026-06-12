@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.23 - 2026-06-13
+- [BugFix] 商周廣告素材子網域封鎖語意修正：
+  - admsmaterial.businessweekly.com.tw 從 PRIORITY_BLOCK_DOMAINS 移至 BLOCK_DOMAINS
+  - PRIORITY_BLOCK_DOMAINS 會以 P0 萬用比對提早封鎖子網域，與單主機精確封鎖目標不一致
+  - 修正後只封鎖 admsmaterial.businessweekly.com.tw，`cdn.admsmaterial.businessweekly.com.tw` 恢復放行
+
 ## V46.22 - 2026-06-13
 - [Privacy] 商周廣告素材子網域精準封鎖：
   - admsmaterial.businessweekly.com.tw → BLOCK_DOMAINS 精確網域封鎖
