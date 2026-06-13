@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.25 - 2026-06-13
+- [Privacy] Perplexity 手機驗證狀態端點精準封鎖：
+  - www.perplexity.ai → CRITICAL_PATH_MAP 新增 /api/auth/phone-verification/status
+  - 僅封鎖手機驗證狀態查詢路徑，不擴大到其他 auth 或 API 路徑
+  - 保留 www.perplexity.ai/rest/sse/entry_creation_events 放行，避免誤傷正常 SSE 事件流
+
 ## V46.24 - 2026-06-13
 - [BugFix] Coupang 功能路徑誤封修正：
   - loyalty.tw.coupang.com → PATH_EXEMPTIONS 新增 /m/loyalty/withdraw-request/popup/benefit

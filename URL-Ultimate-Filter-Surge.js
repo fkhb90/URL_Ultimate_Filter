@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.24
+ * @version 46.25
  * @date    2026-06-13
- * @rules   1530 total (312 domains, 432 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1531 total (312 domains, 433 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.24';
-const SCRIPT_BUILD = 'V46.24 (2026-06-13) | 1530 rules | 3173 tests';
+const SCRIPT_VERSION = '46.25';
+const SCRIPT_BUILD = 'V46.25 (2026-06-13) | 1531 rules | 3177 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -280,6 +280,9 @@ const RULES = {
       ])],
     ['youtubei.googleapis.com', new Set([
         '/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions'
+      ])],
+    ['www.perplexity.ai', new Set([
+        '/api/auth/phone-verification/status'
       ])],
     ['googlevideo.com', new Set([
         '/ptracking', '/videoplayback?ptracking='
