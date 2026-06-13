@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.24 (2026-06-13)
+當前版本：V46.25 (2026-06-13)
 最新架構更新：
-- [BugFix] Coupang 功能路徑誤封修正：`/m/loyalty/withdraw-request/popup/benefit` 與 `/v3/events/types/pushonoff/` 加入 `PATH_EXEMPTIONS`，避免被 `/popup/` 與 `/events` 誤殺。
+- [Privacy] Perplexity 手機驗證狀態端點精準封鎖：`www.perplexity.ai` 新增 `/api/auth/phone-verification/status` 至 `CRITICAL_PATH_MAP`，不影響既有 `rest/sse` 事件流。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.25 (2026-06-13): Privacy — `www.perplexity.ai/api/auth/phone-verification/status` 加入 `CRITICAL_PATH_MAP` 精準封鎖，保留 `rest/sse/entry_creation_events` 放行。
 - V46.24 (2026-06-13): BugFix — Coupang loyalty withdraw benefit 與 pushonoff 功能路徑加入 `PATH_EXEMPTIONS`，修正 `/popup/`、`/events` 關鍵字誤封。
 - V46.23 (2026-06-13): BugFix — admsmaterial.businessweekly.com.tw 從 `PRIORITY_BLOCK_DOMAINS` 移至 `BLOCK_DOMAINS`，修正子網域誤判為 P0 的問題。
 - V46.22 (2026-06-13): Privacy — admsmaterial.businessweekly.com.tw 加入 `BLOCK_DOMAINS` 精確封鎖，最小化攔截商周廣告素材子網域。
@@ -39,14 +40,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.24"
+VERSION = "46.25"
 RELEASE_DATE = "2026-06-13"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] Coupang 功能路徑誤封修正：
-  - loyalty.tw.coupang.com → PATH_EXEMPTIONS 新增 /m/loyalty/withdraw-request/popup/benefit
-  - cmapi.tw.coupang.com → PATH_EXEMPTIONS 新增 /v3/events/types/pushonoff/
-  - 前者被 PATH_BLOCK /popup/ 誤傷，後者被 CRITICAL_PATH_GENERIC /events 誤傷；notification-front-web.tw.coupang.com 訊息數量查詢維持放行
+- [Privacy] Perplexity 手機驗證狀態端點精準封鎖：
+  - www.perplexity.ai → CRITICAL_PATH_MAP 新增 /api/auth/phone-verification/status
+  - 僅封鎖手機驗證狀態查詢路徑，不擴大到其他 auth 或 API 路徑
+  - 既有 www.perplexity.ai/rest/sse/entry_creation_events 維持放行，避免誤傷正常 SSE 事件流
 """
 
 
@@ -416,6 +417,7 @@ RULES_DB = {
         'www.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'm.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'youtubei.googleapis.com': ['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions'],
+        'www.perplexity.ai': ['/api/auth/phone-verification/status'],
         'googlevideo.com': ['/ptracking', '/videoplayback?ptracking='],
         'csp.withgoogle.com': ['DROP:/csp/'],
         'api.uber.com': ['/ramen/v1/events', '/v3/mobile-event', '/advertising/v1/', '/eats/advertising/', '/rt/users/v1/device-info'],
@@ -2925,6 +2927,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
     # --- V46.17 AWS CloudWatch RUM appmonitor precise block ---
     cases.append(TestCase("Privacy: AWS CloudWatch RUM Appmonitor Block", "https://dataplane.rum.us-east-1.amazonaws.com/appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0", RES_BLOCK_403, "V46.17 dataplane.rum.us-east-1.amazonaws.com 指定 appmonitor 路徑精準封鎖；只攔截單一 CloudWatch RUM 端點"))
+    # --- V46.25 Perplexity precise phone verification status block ---
+    cases.append(TestCase("Privacy: Perplexity Phone Verification Status Block", "https://www.perplexity.ai/api/auth/phone-verification/status", RES_BLOCK_403, "V46.25 www.perplexity.ai 手機驗證狀態查詢端點以 CRITICAL_PATH_MAP 精準封鎖；不擴大到其他 auth/API 路徑"))
+    cases.append(TestCase("Safe: Perplexity SSE Entry Creation Events Pass", "https://www.perplexity.ai/rest/sse/entry_creation_events", RES_ALLOW, "V46.25 保留 www.perplexity.ai SSE 事件流放行；確認精準 phone-verification/status 規則不誤傷 rest/sse 功能"))
     # --- V46.24 Coupang functional path false positive fixes ---
     cases.append(TestCase("BugFix: Coupang Loyalty Withdraw Benefit Pass", "https://loyalty.tw.coupang.com/m/loyalty/withdraw-request/popup/benefit", RES_ALLOW, "V46.24 loyalty.tw.coupang.com 功能性 popup 頁面被 PATH_BLOCK /popup/ 誤傷；以 PATH_EXEMPTIONS 精準放行退出優惠彈窗路徑"))
     cases.append(TestCase("BugFix: Coupang PushOnOff Events Pass", "https://cmapi.tw.coupang.com/v3/events/types/pushonoff/", RES_ALLOW, "V46.24 cmapi.tw.coupang.com 推播開關事件類型 API 被 CRITICAL_PATH_GENERIC /events 誤傷；PATH_EXEMPTIONS 精準放行"))
