@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.27 - 2026-06-13
+- [BugFix] Perplexity 手機驗證狀態封鎖回應碼修正：
+  - www.perplexity.ai → CRITICAL_PATH_MAP 改為 RE:^/api/auth/phone-verification/status(?:\?|$)
+  - 維持 regex 邊界，避免誤傷 /api/auth/phone-verification/status-check 與 query 夾帶目標字串的其他路徑
+  - 從 204 改為 403，因其屬功能狀態查詢 API，不應偽裝成成功
+
 ## V46.26 - 2026-06-13
 - [BugFix] Perplexity 手機驗證狀態封鎖邊界修正：
   - www.perplexity.ai → CRITICAL_PATH_MAP 改為 DROP_RE:^/api/auth/phone-verification/status(?:\?|$)

@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.26 (2026-06-13)
+當前版本：V46.27 (2026-06-13)
 最新架構更新：
-- [BugFix] Perplexity 手機驗證狀態封鎖邊界修正：改用 `DROP_RE:^/api/auth/phone-verification/status(?:\\?|$)`，避免 substring 規則誤傷 `status-check` 或 query 夾帶字串情境。
+- [BugFix] Perplexity 手機驗證狀態封鎖回應碼修正：維持邊界明確 regex，但從 `DROP_RE` 改為 `RE:` 回 `403`，避免把功能狀態查詢偽裝成成功。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.27 (2026-06-13): BugFix — Perplexity `phone-verification/status` 維持 regex 邊界，但由 `204 DROP` 改為 `403 BLOCK`，更符合功能狀態查詢 API 語意。
 - V46.26 (2026-06-13): BugFix — Perplexity `phone-verification/status` 改為邊界明確的 `DROP_RE`，修正 `status-check` 與 query substring 誤傷風險。
 - V46.25 (2026-06-13): Privacy — `www.perplexity.ai/api/auth/phone-verification/status` 加入 `CRITICAL_PATH_MAP` 精準封鎖，保留 `rest/sse/entry_creation_events` 放行。
 - V46.24 (2026-06-13): BugFix — Coupang loyalty withdraw benefit 與 pushonoff 功能路徑加入 `PATH_EXEMPTIONS`，修正 `/popup/`、`/events` 關鍵字誤封。
@@ -41,14 +42,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.26"
+VERSION = "46.27"
 RELEASE_DATE = "2026-06-13"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] Perplexity 手機驗證狀態封鎖邊界修正：
-  - www.perplexity.ai → CRITICAL_PATH_MAP 改為 DROP_RE:^/api/auth/phone-verification/status(?:\\?|$)
-  - 修正原本 substring 規則會誤傷 /api/auth/phone-verification/status-check 與 query 夾帶目標字串的情況
-  - 保留 www.perplexity.ai/rest/sse/entry_creation_events 與其他非目標 auth/API 路徑放行
+- [BugFix] Perplexity 手機驗證狀態封鎖回應碼修正：
+  - www.perplexity.ai → CRITICAL_PATH_MAP 改為 RE:^/api/auth/phone-verification/status(?:\\?|$)
+  - 維持 regex 邊界，避免誤傷 /status-check 與 query substring 情境
+  - 從 204 改為 403，因 `phone-verification/status` 屬功能狀態查詢 API，不應偽裝成成功
 """
 
 
@@ -418,7 +419,7 @@ RULES_DB = {
         'www.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'm.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'youtubei.googleapis.com': ['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions'],
-        'www.perplexity.ai': ['DROP_RE:^/api/auth/phone-verification/status(?:\\?|$)'],
+        'www.perplexity.ai': ['RE:^/api/auth/phone-verification/status(?:\\?|$)'],
         'googlevideo.com': ['/ptracking', '/videoplayback?ptracking='],
         'csp.withgoogle.com': ['DROP:/csp/'],
         'api.uber.com': ['/ramen/v1/events', '/v3/mobile-event', '/advertising/v1/', '/eats/advertising/', '/rt/users/v1/device-info'],
@@ -2928,12 +2929,12 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
     # --- V46.17 AWS CloudWatch RUM appmonitor precise block ---
     cases.append(TestCase("Privacy: AWS CloudWatch RUM Appmonitor Block", "https://dataplane.rum.us-east-1.amazonaws.com/appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0", RES_BLOCK_403, "V46.17 dataplane.rum.us-east-1.amazonaws.com 指定 appmonitor 路徑精準封鎖；只攔截單一 CloudWatch RUM 端點"))
-    # --- V46.26 Perplexity phone verification regex boundary fix ---
-    cases.append(TestCase("Privacy: Perplexity Phone Verification Status Block", "https://www.perplexity.ai/api/auth/phone-verification/status", RES_DROP_204, "V46.26 www.perplexity.ai 手機驗證狀態查詢端點改用 DROP_RE 邊界精準攔截；僅命中 endpoint 本身與 query 變體"))
-    cases.append(TestCase("Privacy: Perplexity Phone Verification Status With Query Drop", "https://www.perplexity.ai/api/auth/phone-verification/status?source=settings", RES_DROP_204, "V46.26 DROP_RE:^/api/auth/phone-verification/status(?:\\?|$) 應覆蓋 query 版本"))
-    cases.append(TestCase("Safe: Perplexity Phone Verification Status Check Pass", "https://www.perplexity.ai/api/auth/phone-verification/status-check", RES_ALLOW, "V46.26 修正 substring 誤傷；status-check 不應被 phone-verification/status 規則連帶封鎖"))
-    cases.append(TestCase("Safe: Perplexity Query Contains Target Path Pass", "https://www.perplexity.ai/api/redirect?next=/api/auth/phone-verification/status", RES_ALLOW, "V46.26 僅比對 path 起始邊界；query string 夾帶目標字串的其他路徑不應誤封"))
-    cases.append(TestCase("Safe: Perplexity SSE Entry Creation Events Pass", "https://www.perplexity.ai/rest/sse/entry_creation_events", RES_ALLOW, "V46.26 保留 www.perplexity.ai SSE 事件流放行；確認 regex 邊界規則不誤傷 rest/sse 功能"))
+    # --- V46.27 Perplexity phone verification regex block response fix ---
+    cases.append(TestCase("Privacy: Perplexity Phone Verification Status Block", "https://www.perplexity.ai/api/auth/phone-verification/status", RES_BLOCK_403, "V46.27 www.perplexity.ai 手機驗證狀態查詢端點維持 regex 邊界精準攔截，但改為 403 BLOCK；功能狀態查詢 API 不應偽裝成成功"))
+    cases.append(TestCase("Privacy: Perplexity Phone Verification Status With Query Block", "https://www.perplexity.ai/api/auth/phone-verification/status?source=settings", RES_BLOCK_403, "V46.27 RE:^/api/auth/phone-verification/status(?:\\?|$) 應覆蓋 query 版本且回 403"))
+    cases.append(TestCase("Safe: Perplexity Phone Verification Status Check Pass", "https://www.perplexity.ai/api/auth/phone-verification/status-check", RES_ALLOW, "V46.27 維持 regex 邊界修正；status-check 不應被 phone-verification/status 規則連帶封鎖"))
+    cases.append(TestCase("Safe: Perplexity Query Contains Target Path Pass", "https://www.perplexity.ai/api/redirect?next=/api/auth/phone-verification/status", RES_ALLOW, "V46.27 僅比對 path 起始邊界；query string 夾帶目標字串的其他路徑不應誤封"))
+    cases.append(TestCase("Safe: Perplexity SSE Entry Creation Events Pass", "https://www.perplexity.ai/rest/sse/entry_creation_events", RES_ALLOW, "V46.27 保留 www.perplexity.ai SSE 事件流放行；確認 regex 邊界規則不誤傷 rest/sse 功能"))
     # --- V46.24 Coupang functional path false positive fixes ---
     cases.append(TestCase("BugFix: Coupang Loyalty Withdraw Benefit Pass", "https://loyalty.tw.coupang.com/m/loyalty/withdraw-request/popup/benefit", RES_ALLOW, "V46.24 loyalty.tw.coupang.com 功能性 popup 頁面被 PATH_BLOCK /popup/ 誤傷；以 PATH_EXEMPTIONS 精準放行退出優惠彈窗路徑"))
     cases.append(TestCase("BugFix: Coupang PushOnOff Events Pass", "https://cmapi.tw.coupang.com/v3/events/types/pushonoff/", RES_ALLOW, "V46.24 cmapi.tw.coupang.com 推播開關事件類型 API 被 CRITICAL_PATH_GENERIC /events 誤傷；PATH_EXEMPTIONS 精準放行"))
