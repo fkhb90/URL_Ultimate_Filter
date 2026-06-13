@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.24 - 2026-06-13
+- [BugFix] Coupang 功能路徑誤封修正：
+  - loyalty.tw.coupang.com → PATH_EXEMPTIONS 新增 /m/loyalty/withdraw-request/popup/benefit
+  - cmapi.tw.coupang.com → PATH_EXEMPTIONS 新增 /v3/events/types/pushonoff/
+  - `/popup/` 與 `/events` 為高風險廣告/追蹤關鍵字，但此兩條為功能路徑；notification-front-web.tw.coupang.com 訊息數量查詢維持放行
+
 ## V46.23 - 2026-06-13
 - [BugFix] 商周廣告素材子網域封鎖語意修正：
   - admsmaterial.businessweekly.com.tw 從 PRIORITY_BLOCK_DOMAINS 移至 BLOCK_DOMAINS
