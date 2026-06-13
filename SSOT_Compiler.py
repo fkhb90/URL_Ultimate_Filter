@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.23 (2026-06-13)
+當前版本：V46.24 (2026-06-13)
 最新架構更新：
-- [BugFix] admsmaterial.businessweekly.com.tw 封鎖語意修正：從 `PRIORITY_BLOCK_DOMAINS` 移至 `BLOCK_DOMAINS`，避免子網域被 P0 萬用比對連帶封鎖，恢復單一主機精確攔截。
+- [BugFix] Coupang 功能路徑誤封修正：`/m/loyalty/withdraw-request/popup/benefit` 與 `/v3/events/types/pushonoff/` 加入 `PATH_EXEMPTIONS`，避免被 `/popup/` 與 `/events` 誤殺。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.24 (2026-06-13): BugFix — Coupang loyalty withdraw benefit 與 pushonoff 功能路徑加入 `PATH_EXEMPTIONS`，修正 `/popup/`、`/events` 關鍵字誤封。
 - V46.23 (2026-06-13): BugFix — admsmaterial.businessweekly.com.tw 從 `PRIORITY_BLOCK_DOMAINS` 移至 `BLOCK_DOMAINS`，修正子網域誤判為 P0 的問題。
 - V46.22 (2026-06-13): Privacy — admsmaterial.businessweekly.com.tw 加入 `BLOCK_DOMAINS` 精確封鎖，最小化攔截商周廣告素材子網域。
 - V46.21 (2026-06-12): Privacy — c.umsns.com 新增 `DROP:/slink_logs`，精準靜默拋棄短連結記錄端點，保留 `deeplink/init` 放行。
@@ -38,14 +39,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.23"
+VERSION = "46.24"
 RELEASE_DATE = "2026-06-13"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] 商周廣告素材子網域封鎖語意修正：
-  - admsmaterial.businessweekly.com.tw 從 PRIORITY_BLOCK_DOMAINS 移至 BLOCK_DOMAINS
-  - PRIORITY_BLOCK_DOMAINS 會以 P0 萬用比對提早封鎖子網域，與單主機精確封鎖目標不一致
-  - 修正後只封鎖 admsmaterial.businessweekly.com.tw，本機實測 cdn.admsmaterial.businessweekly.com.tw 恢復放行
+- [BugFix] Coupang 功能路徑誤封修正：
+  - loyalty.tw.coupang.com → PATH_EXEMPTIONS 新增 /m/loyalty/withdraw-request/popup/benefit
+  - cmapi.tw.coupang.com → PATH_EXEMPTIONS 新增 /v3/events/types/pushonoff/
+  - 前者被 PATH_BLOCK /popup/ 誤傷，後者被 CRITICAL_PATH_GENERIC /events 誤傷；notification-front-web.tw.coupang.com 訊息數量查詢維持放行
 """
 
 
@@ -684,8 +685,9 @@ RULES_DB = {
         "storm.mg": ["/_nuxt/track"],
         "shopee.tw": ["/api/v4/search/search_items", "/api/v4/pdp/get"],
         "uber.com": ["/go/_events"],
-        "cmapi.tw.coupang.com": ["/vendor-items/", "/option-list", "/add-to-cart"],
+        "cmapi.tw.coupang.com": ["/vendor-items/", "/option-list", "/add-to-cart", "/v3/events/types/pushonoff/"],
         "coupangcdn.com": ["/image/ccm/banner/", "/image/cmg/oms/banner/"],
+        "loyalty.tw.coupang.com": ["/m/loyalty/withdraw-request/popup/benefit"],
         "m.media-amazon.com": ["/images/g/01/amazonexports/events/"],
         "www.google.com": ["/url", "/search", "/s2/favicons"],
         "play.googleapis.com": ["/log/batch"],
@@ -2923,6 +2925,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
     # --- V46.17 AWS CloudWatch RUM appmonitor precise block ---
     cases.append(TestCase("Privacy: AWS CloudWatch RUM Appmonitor Block", "https://dataplane.rum.us-east-1.amazonaws.com/appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0", RES_BLOCK_403, "V46.17 dataplane.rum.us-east-1.amazonaws.com 指定 appmonitor 路徑精準封鎖；只攔截單一 CloudWatch RUM 端點"))
+    # --- V46.24 Coupang functional path false positive fixes ---
+    cases.append(TestCase("BugFix: Coupang Loyalty Withdraw Benefit Pass", "https://loyalty.tw.coupang.com/m/loyalty/withdraw-request/popup/benefit", RES_ALLOW, "V46.24 loyalty.tw.coupang.com 功能性 popup 頁面被 PATH_BLOCK /popup/ 誤傷；以 PATH_EXEMPTIONS 精準放行退出優惠彈窗路徑"))
+    cases.append(TestCase("BugFix: Coupang PushOnOff Events Pass", "https://cmapi.tw.coupang.com/v3/events/types/pushonoff/", RES_ALLOW, "V46.24 cmapi.tw.coupang.com 推播開關事件類型 API 被 CRITICAL_PATH_GENERIC /events 誤傷；PATH_EXEMPTIONS 精準放行"))
+    cases.append(TestCase("Safe: Coupang Notification Message Count Pass", "https://notification-front-web.tw.coupang.com/api/v1/messages/count?isLogged=true&systemNoti=true&lastViewedAt=1779165851329", RES_ALLOW, "V46.24 notification-front-web.tw.coupang.com 系統通知數量查詢應維持放行；回歸測試鎖定現有正常行為"))
     # --- V46.23 BusinessWeekly ad material host semantics fix ---
     cases.append(TestCase("BugFix: BusinessWeekly Ad Material Host Exact Block", "https://admsmaterial.businessweekly.com.tw/", RES_BLOCK_403, "V46.23 admsmaterial.businessweekly.com.tw 維持單主機精確封鎖；從 PRIORITY_BLOCK_DOMAINS 移至 BLOCK_DOMAINS 後仍應 403"))
     cases.append(TestCase("BugFix: BusinessWeekly Ad Material CDN Subdomain Pass", "https://cdn.admsmaterial.businessweekly.com.tw/", RES_ALLOW, "V46.23 修正 PRIORITY_BLOCK_DOMAINS 萬用比對副作用；cdn.admsmaterial.businessweekly.com.tw 不應被連帶視為 P0 封鎖"))
