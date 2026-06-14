@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.31 (2026-06-14)
+當前版本：V46.32 (2026-06-14)
 最新架構更新：
-- [Privacy] X/Twitter 內嵌播放器分析模組精準封鎖：`abs.twimg.com` 新增 `/responsive-web/client-web/ondemand.inlineplayeranalytics`，僅攔截播放器分析 JS，不擴大到其他 `twimg.com` 靜態資產。
+- [BugFix] x.com live_video_stream/status 誤封修正：加入 `PATH_EXEMPTIONS /i/api/1.1/live_video_stream/status/`，避免 query 參數 `use_syndication_guest_id` 命中 `syndication` 關鍵字。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.32 (2026-06-14): BugFix — x.com `live_video_stream/status/` 加入 `PATH_EXEMPTIONS`，修正 `use_syndication_guest_id` 造成的 query substring 誤封。
 - V46.31 (2026-06-14): Privacy — `abs.twimg.com` 新增 `/responsive-web/client-web/ondemand.inlineplayeranalytics` 精準封鎖，阻擋 X/Twitter 播放器分析模組載入。
 - V46.30 (2026-06-14): BugFix — x.com Strato 豁免改為 regex 錨定，要求同時命中 `/i/api/1.1/strato/` 前綴與 `pushnotifications/clients/permissionsstate` 結尾，避免 `/ads/...` 旁路。
 - V46.29 (2026-06-14): BugFix — x.com Strato 豁免從前綴收窄為 `pushnotifications/clients/permissionsstate`，避免放行其他 Strato analytics 路徑。
@@ -47,14 +48,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.31"
+VERSION = "46.32"
 RELEASE_DATE = "2026-06-14"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] X/Twitter 內嵌播放器分析模組精準封鎖：
-  - abs.twimg.com → CRITICAL_PATH_MAP 新增 /responsive-web/client-web/ondemand.inlineplayeranalytics
-  - 僅封鎖 InlinePlayerAnalytics 按需載入 JS，不使用 hash 全檔名，保留版本升級匹配能力
-  - 不擴大到 twimg.com 其他圖片、字型與一般前端資產
+- [BugFix] x.com live_video_stream/status 誤封修正：
+  - x.com → PATH_EXEMPTIONS 新增 /i/api/1.1/live_video_stream/status/
+  - `use_syndication_guest_id=false` 位於 query string，會讓 path+query 比對命中 PATH_BLOCK `syndication`
+  - 僅放行 `live_video_stream/status/` 路徑，不擴大到其他 live_video_stream 或 x.com API
 """
 
 
@@ -712,7 +713,7 @@ RULES_DB = {
         "chatgpt.com": ["/codex/cloud/sett", "/backend-api/o11y/v1/traces"],
         "www.youtube.com": ["/redirect"],
         "api.production.hushed.com": ["/v1/maelstrom/events"],
-        "x.com": ["/i/api/graphql/", "/account/authenticate_web_view", "RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$"]
+        "x.com": ["/i/api/graphql/", "/account/authenticate_web_view", "RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$", "/i/api/1.1/live_video_stream/status/"]
     }
 }
 
@@ -2967,6 +2968,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Safe: UMSNS Deeplink Init Pass", "https://c.umsns.com/deeplink/init", RES_ALLOW, "V46.21 保留 c.umsns.com /deeplink/init 放行；未命中精準 DROP 規則，避免誤傷深連結初始化功能"))
     # --- V46.20 chatgpt.com /backend-api/o11y/v1/traces 誤封修正 ---
     cases.append(TestCase("BugFix: ChatGPT Codex o11y Traces Pass", "https://chatgpt.com/backend-api/o11y/v1/traces", RES_ALLOW, "V46.20 chatgpt.com Codex 頁面載入必要端點；PRIORITY_DROP /v1/traces 誤殺，前端未處理 204 導致頁面渲染中斷；PATH_EXEMPTIONS /backend-api/o11y/v1/traces 精準放行"))
+    # --- V46.32 x.com live_video_stream status PATH_EXEMPTIONS ---
+    cases.append(TestCase("BugFix: X Live Video Stream Status Pass", "https://x.com/i/api/1.1/live_video_stream/status/28_2066146387905978368?client=web&use_syndication_guest_id=false&cookie_set_host=x.com", RES_ALLOW, "V46.32 x.com live_video_stream/status 功能性影片/直播狀態 API；query 含 use_syndication_guest_id 命中 PATH_BLOCK syndication，需以 PATH_EXEMPTIONS 精準放行"))
+    cases.append(TestCase("BugFix: X Live Video Stream Analytics Still Blocked", "https://x.com/i/api/1.1/live_video_stream/analytics/collect?client=web", RES_BLOCK_403, "V46.32 只放行 /live_video_stream/status/；其他 live_video_stream analytics 路徑不應被連帶豁免"))
     # --- V46.30 x.com Strato 推播權限狀態 API regex 錨定豁免 ---
     cases.append(TestCase("BugFix: X Strato Push Permissions State Pass", "https://x.com/i/api/1.1/strato/column/None/293437868,Mac%2FChrome,pushNotifications/clients/permissionsState", RES_ALLOW, "V46.30 x.com Strato 推播權限狀態 API；PATH_EXEMPTIONS 以 regex 同時錨定 Strato 前綴與 permissionsState 結尾精準放行"))
     cases.append(TestCase("BugFix: X Strato Analytics Still Blocked", "https://x.com/i/api/1.1/strato/column/None/293437868,Mac%2FChrome,analytics/collect", RES_BLOCK_403, "V46.30 其他 Strato 遙測路徑不應被連帶豁免；analytics/collect 仍應命中 PATH_BLOCK 關鍵字封鎖"))

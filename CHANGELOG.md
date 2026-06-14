@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.32 - 2026-06-14
+- [BugFix] x.com live_video_stream/status 誤封修正：
+  - x.com → PATH_EXEMPTIONS 新增 /i/api/1.1/live_video_stream/status/
+  - `use_syndication_guest_id=false` 位於 query string，會讓 path+query 比對命中 PATH_BLOCK `syndication`
+  - 僅放行 `live_video_stream/status/` 路徑，不擴大到其他 live_video_stream 或 x.com API
+
 ## V46.31 - 2026-06-14
 - [Privacy] X/Twitter 內嵌播放器分析模組精準封鎖：
   - abs.twimg.com → CRITICAL_PATH_MAP 新增 /responsive-web/client-web/ondemand.inlineplayeranalytics
