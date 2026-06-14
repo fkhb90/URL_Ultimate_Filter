@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.28 - 2026-06-14
+- [BugFix] x.com Strato 推播權限狀態 API 誤封修正：
+  - x.com → PATH_EXEMPTIONS 新增 /i/api/1.1/strato/
+  - `pushNotifications/clients/permissionsState` 屬功能性通知權限查詢，不應因 `/push` 關鍵字誤封
+  - 維持最小豁免面積，只放行 Strato API 前綴，不擴大到其他 x.com 路徑
+
 ## V46.27 - 2026-06-13
 - [BugFix] Perplexity 手機驗證狀態封鎖回應碼修正：
   - www.perplexity.ai → CRITICAL_PATH_MAP 改為 RE:^/api/auth/phone-verification/status(?:\?|$)
