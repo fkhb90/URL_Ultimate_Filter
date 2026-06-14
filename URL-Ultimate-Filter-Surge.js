@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.34
+ * @version 46.35
  * @date    2026-06-14
  * @rules   1532 total (312 domains, 434 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.34';
-const SCRIPT_BUILD = 'V46.34 (2026-06-14) | 1532 rules | 3187 tests';
+const SCRIPT_VERSION = '46.35';
+const SCRIPT_BUILD = 'V46.35 (2026-06-14) | 1532 rules | 3188 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1075,7 +1075,7 @@ const RULES = {
         '/v1/maelstrom/events'
       ])],
     ['x.com', new Set([
-        '/i/api/graphql/', '/account/authenticate_web_view', 'RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$', 'RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+(?:\\?|$)'
+        '/i/api/graphql/', '/account/authenticate_web_view', 'RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$', 'RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+$'
       ])]
   ])
   }
@@ -1231,7 +1231,7 @@ const HELPERS = {
     return false;
   },
 
-  isPathExemptedForDomain: (matchedExemptions, pathLower) => {
+  isPathExemptedForDomain: (matchedExemptions, pathLower, rawPathOnlyLower) => {
     if (!matchedExemptions) return false;
     const queryIndex = pathLower.indexOf('?');
     const pathOnly = queryIndex >= 0 ? pathLower.substring(0, queryIndex) : pathLower;
@@ -1244,7 +1244,7 @@ const HELPERS = {
             try { re = new RegExp(pattern, 'i'); } catch (_) { re = null; }
             pathExemptionRegexCache.set(pattern, re);
           }
-          if (re && re.test(pathOnly)) return true;
+          if (re && re.test(rawPathOnlyLower)) return true;
           continue;
         }
         if (pathOnly.includes(exemptedPath)) return true;
@@ -1407,6 +1407,9 @@ function processRequest(request) {
     let rawPath = _ps >= 0 ? url.substring(_ps) : '/';
     const _fi = rawPath.indexOf('#');
     if (_fi >= 0) rawPath = rawPath.substring(0, _fi);
+    const rawQueryIndex = rawPath.indexOf('?');
+    const rawPathOnly = rawQueryIndex >= 0 ? rawPath.substring(0, rawQueryIndex) : rawPath;
+    const rawPathOnlyLower = rawPathOnly.toLowerCase();
 
     let pathLower;
     try {
@@ -1510,7 +1513,7 @@ function processRequest(request) {
       return { response: { status: 403, body: 'Blocked by Domain' } };
     }
 
-    if (HELPERS.isPathExemptedForDomain(hostProfile.pathExemptions, pathLower)) {
+    if (HELPERS.isPathExemptedForDomain(hostProfile.pathExemptions, pathLower, rawPathOnlyLower)) {
       stats.allows++;
       return _performCleaning(url, hostname, pathLower, hostProfile);
     }
