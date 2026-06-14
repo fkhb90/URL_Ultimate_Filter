@@ -1,5 +1,23 @@
 # URL Ultimate Filter - Changelog
 
+## V46.33 - 2026-06-14
+- [BugFix] X InlinePlayerAnalytics 封鎖邊界修正：
+  - abs.twimg.com → CRITICAL_PATH_MAP 改為 RE:^/responsive-web/client-web/ondemand\.inlineplayeranalytics(?:[./?]|$)
+  - 維持 `InlinePlayerAnalytics.*.js` 封鎖，但不再因 query 夾帶目標字串誤封 `/favicon.ico` 等其他靜態資產
+  - 保留 `ondemand.VideoPlayer.*.js` 等非目標模組放行
+
+## V46.32 - 2026-06-14
+- [BugFix] x.com live_video_stream/status 誤封修正：
+  - x.com → PATH_EXEMPTIONS 新增 /i/api/1.1/live_video_stream/status/
+  - `use_syndication_guest_id=false` 位於 query string，會讓 path+query 比對命中 PATH_BLOCK `syndication`
+  - 僅放行 `live_video_stream/status/` 路徑，不擴大到其他 live_video_stream 或 x.com API
+
+## V46.31 - 2026-06-14
+- [Privacy] X/Twitter 內嵌播放器分析模組精準封鎖：
+  - abs.twimg.com → CRITICAL_PATH_MAP 新增 /responsive-web/client-web/ondemand.inlineplayeranalytics
+  - 僅封鎖 InlinePlayerAnalytics 按需載入 JS，不使用 hash 全檔名，保留版本升級匹配能力
+  - 不擴大到 twimg.com 其他圖片、字型與一般前端資產
+
 ## V46.30 - 2026-06-14
 - [BugFix] x.com Strato 推播權限狀態 API 豁免改為 regex 錨定：
   - x.com → PATH_EXEMPTIONS 改用 RE:^/i/api/1\.1/strato/.*pushnotifications/clients/permissionsstate$
