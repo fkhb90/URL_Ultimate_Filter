@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.30
+ * @version 46.31
  * @date    2026-06-14
- * @rules   1531 total (312 domains, 433 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1532 total (312 domains, 434 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.30';
-const SCRIPT_BUILD = 'V46.30 (2026-06-14) | 1531 rules | 3181 tests';
+const SCRIPT_VERSION = '46.31';
+const SCRIPT_BUILD = 'V46.31 (2026-06-14) | 1532 rules | 3185 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -269,6 +269,9 @@ const RULES = {
       ])],
     ['static.ctee.com.tw', new Set([
         '/js/ad2019.min.js', '/js/third-party-sticky-ad-callback.min.js'
+      ])],
+    ['abs.twimg.com', new Set([
+        '/responsive-web/client-web/ondemand.inlineplayeranalytics'
       ])],
     ['www.youtube.com', new Set([
         '/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback',

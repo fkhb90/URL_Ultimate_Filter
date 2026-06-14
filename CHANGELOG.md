@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.31 - 2026-06-14
+- [Privacy] X/Twitter 內嵌播放器分析模組精準封鎖：
+  - abs.twimg.com → CRITICAL_PATH_MAP 新增 /responsive-web/client-web/ondemand.inlineplayeranalytics
+  - 僅封鎖 InlinePlayerAnalytics 按需載入 JS，不使用 hash 全檔名，保留版本升級匹配能力
+  - 不擴大到 twimg.com 其他圖片、字型與一般前端資產
+
 ## V46.30 - 2026-06-14
 - [BugFix] x.com Strato 推播權限狀態 API 豁免改為 regex 錨定：
   - x.com → PATH_EXEMPTIONS 改用 RE:^/i/api/1\.1/strato/.*pushnotifications/clients/permissionsstate$
