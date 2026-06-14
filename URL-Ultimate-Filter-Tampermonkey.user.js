@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.33
+// @name         URL Ultimate Filter V46.34
 // @namespace    http://tampermonkey.net/
-// @version      46.33
+// @version      46.34
 // @date         2026-06-14
-// @description  SSOT 前端防護盾牌 V46.33 (2026-06-14) | 1532 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @description  SSOT 前端防護盾牌 V46.34 (2026-06-14) | 1532 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
 // @rules        1532 total (312 domains · 434 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.33
+ * @version 46.34
  * @date    2026-06-14
  * @rules   1532 total (312 domains, 434 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.33';
-const SCRIPT_BUILD = 'V46.33 (2026-06-14) | 1532 rules | 3187 tests';
+const SCRIPT_VERSION = '46.34';
+const SCRIPT_BUILD = 'V46.34 (2026-06-14) | 1532 rules | 3187 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1090,7 +1090,7 @@ const RULES = {
         '/v1/maelstrom/events'
       ])],
     ['x.com', new Set([
-        '/i/api/graphql/', '/account/authenticate_web_view', 'RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$', '/i/api/1.1/live_video_stream/status/'
+        '/i/api/graphql/', '/account/authenticate_web_view', 'RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$', 'RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+(?:\\?|$)'
       ])]
   ])
   }

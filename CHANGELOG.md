@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.34 - 2026-06-14
+- [BugFix] x.com live_video_stream/status 豁免邊界修正：
+  - x.com → PATH_EXEMPTIONS 改為 RE:^/i/api/1\.1/live_video_stream/status/[^/?]+(?:\?|$)
+  - 僅放行 `status/<id>` 本身與 query 版本，不再放行 `status/<id>/analytics/...` 等子路徑
+  - 保留 `use_syndication_guest_id=false` 造成的 query substring 誤封修正
+
 ## V46.33 - 2026-06-14
 - [BugFix] X InlinePlayerAnalytics 封鎖邊界修正：
   - abs.twimg.com → CRITICAL_PATH_MAP 改為 RE:^/responsive-web/client-web/ondemand\.inlineplayeranalytics(?:[./?]|$)

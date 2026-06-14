@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.33
+ * @version 46.34
  * @date    2026-06-14
  * @rules   1532 total (312 domains, 434 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.33';
-const SCRIPT_BUILD = 'V46.33 (2026-06-14) | 1532 rules | 3187 tests';
+const SCRIPT_VERSION = '46.34';
+const SCRIPT_BUILD = 'V46.34 (2026-06-14) | 1532 rules | 3187 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1075,7 +1075,7 @@ const RULES = {
         '/v1/maelstrom/events'
       ])],
     ['x.com', new Set([
-        '/i/api/graphql/', '/account/authenticate_web_view', 'RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$', '/i/api/1.1/live_video_stream/status/'
+        '/i/api/graphql/', '/account/authenticate_web_view', 'RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$', 'RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+(?:\\?|$)'
       ])]
   ])
   }
