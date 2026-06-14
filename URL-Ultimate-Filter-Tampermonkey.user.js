@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.28
+// @name         URL Ultimate Filter V46.29
 // @namespace    http://tampermonkey.net/
-// @version      46.28
+// @version      46.29
 // @date         2026-06-14
-// @description  SSOT 前端防護盾牌 V46.28 (2026-06-14) | 1531 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @description  SSOT 前端防護盾牌 V46.29 (2026-06-14) | 1531 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
 // @rules        1531 total (312 domains · 433 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.28
+ * @version 46.29
  * @date    2026-06-14
  * @rules   1531 total (312 domains, 433 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.28';
-const SCRIPT_BUILD = 'V46.28 (2026-06-14) | 1531 rules | 3181 tests';
+const SCRIPT_VERSION = '46.29';
+const SCRIPT_BUILD = 'V46.29 (2026-06-14) | 1531 rules | 3181 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {

@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.28 (2026-06-14)
+當前版本：V46.29 (2026-06-14)
 最新架構更新：
-- [BugFix] x.com Strato 推播權限狀態 API 誤封修正：`PATH_EXEMPTIONS` 新增 `pushnotifications/clients/permissionsstate` 精準豁免，放行功能性通知權限查詢。
+- [BugFix] x.com Strato 推播權限狀態 API 豁免範圍收窄：`PATH_EXEMPTIONS` 從 Strato 前綴收斂為 `pushnotifications/clients/permissionsstate` 單一端點。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.29 (2026-06-14): BugFix — x.com Strato 豁免從前綴收窄為 `pushnotifications/clients/permissionsstate`，避免放行其他 Strato analytics 路徑。
 - V46.28 (2026-06-14): BugFix — x.com `pushnotifications/clients/permissionsstate` 加入 `PATH_EXEMPTIONS`，修正推播權限狀態 API 被 `/push` 關鍵字誤封。
 - V46.27 (2026-06-13): BugFix — Perplexity `phone-verification/status` 維持 regex 邊界，但由 `204 DROP` 改為 `403 BLOCK`，更符合功能狀態查詢 API 語意。
 - V46.26 (2026-06-13): BugFix — Perplexity `phone-verification/status` 改為邊界明確的 `DROP_RE`，修正 `status-check` 與 query substring 誤傷風險。
@@ -43,14 +44,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.28"
+VERSION = "46.29"
 RELEASE_DATE = "2026-06-14"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] x.com Strato 推播權限狀態 API 誤封修正：
-  - x.com → PATH_EXEMPTIONS 新增 pushnotifications/clients/permissionsstate
-  - `pushNotifications/clients/permissionsState` 屬功能性通知權限查詢，不應因 `/push` 關鍵字誤封
-  - 維持最小豁免面積，只放行穩定端點後綴，不擴大到其他 Strato 路徑
+- [BugFix] x.com Strato 推播權限狀態 API 豁免範圍收窄：
+  - x.com → PATH_EXEMPTIONS 維持 pushnotifications/clients/permissionsstate
+  - 不再依賴較寬的 Strato 前綴豁免，避免放行其他 `/analytics`、`/report`、`/collect` 類路徑
+  - 新增回歸測試確認 `analytics/collect` 仍維持 BLOCK (403)
 """
 
 
