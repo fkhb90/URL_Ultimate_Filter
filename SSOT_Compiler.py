@@ -5,10 +5,10 @@ URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
 當前版本：V46.28 (2026-06-14)
 最新架構更新：
-- [BugFix] x.com Strato 推播權限狀態 API 誤封修正：`PATH_EXEMPTIONS` 新增 `/i/api/1.1/strato/`，放行功能性通知權限查詢。
+- [BugFix] x.com Strato 推播權限狀態 API 誤封修正：`PATH_EXEMPTIONS` 新增 `pushnotifications/clients/permissionsstate` 精準豁免，放行功能性通知權限查詢。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
-- V46.28 (2026-06-14): BugFix — x.com `/i/api/1.1/strato/` 加入 `PATH_EXEMPTIONS`，修正推播權限狀態 API 被 `/push` 關鍵字誤封。
+- V46.28 (2026-06-14): BugFix — x.com `pushnotifications/clients/permissionsstate` 加入 `PATH_EXEMPTIONS`，修正推播權限狀態 API 被 `/push` 關鍵字誤封。
 - V46.27 (2026-06-13): BugFix — Perplexity `phone-verification/status` 維持 regex 邊界，但由 `204 DROP` 改為 `403 BLOCK`，更符合功能狀態查詢 API 語意。
 - V46.26 (2026-06-13): BugFix — Perplexity `phone-verification/status` 改為邊界明確的 `DROP_RE`，修正 `status-check` 與 query substring 誤傷風險。
 - V46.25 (2026-06-13): Privacy — `www.perplexity.ai/api/auth/phone-verification/status` 加入 `CRITICAL_PATH_MAP` 精準封鎖，保留 `rest/sse/entry_creation_events` 放行。
@@ -48,9 +48,9 @@ RELEASE_DATE = "2026-06-14"
 
 CURRENT_RELEASE_NOTES = """
 - [BugFix] x.com Strato 推播權限狀態 API 誤封修正：
-  - x.com → PATH_EXEMPTIONS 新增 /i/api/1.1/strato/
+  - x.com → PATH_EXEMPTIONS 新增 pushnotifications/clients/permissionsstate
   - `pushNotifications/clients/permissionsState` 屬功能性通知權限查詢，不應因 `/push` 關鍵字誤封
-  - 維持最小豁免面積，只放行 Strato API 前綴，不擴大到其他 x.com 路徑
+  - 維持最小豁免面積，只放行穩定端點後綴，不擴大到其他 Strato 路徑
 """
 
 
@@ -707,7 +707,7 @@ RULES_DB = {
         "chatgpt.com": ["/codex/cloud/sett", "/backend-api/o11y/v1/traces"],
         "www.youtube.com": ["/redirect"],
         "api.production.hushed.com": ["/v1/maelstrom/events"],
-        "x.com": ["/i/api/graphql/", "/account/authenticate_web_view", "/i/api/1.1/strato/"]
+        "x.com": ["/i/api/graphql/", "/account/authenticate_web_view", "pushnotifications/clients/permissionsstate"]
     }
 }
 
@@ -2948,8 +2948,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Safe: UMSNS Deeplink Init Pass", "https://c.umsns.com/deeplink/init", RES_ALLOW, "V46.21 保留 c.umsns.com /deeplink/init 放行；未命中精準 DROP 規則，避免誤傷深連結初始化功能"))
     # --- V46.20 chatgpt.com /backend-api/o11y/v1/traces 誤封修正 ---
     cases.append(TestCase("BugFix: ChatGPT Codex o11y Traces Pass", "https://chatgpt.com/backend-api/o11y/v1/traces", RES_ALLOW, "V46.20 chatgpt.com Codex 頁面載入必要端點；PRIORITY_DROP /v1/traces 誤殺，前端未處理 204 導致頁面渲染中斷；PATH_EXEMPTIONS /backend-api/o11y/v1/traces 精準放行"))
-    # --- V46.28 x.com /i/api/1.1/strato/ 推播權限狀態 API 誤封修正 ---
-    cases.append(TestCase("BugFix: X Strato Push Permissions State Pass", "https://x.com/i/api/1.1/strato/column/None/293437868,Mac%2FChrome,pushNotifications/clients/permissionsState", RES_ALLOW, "V46.28 x.com Strato 推播權限狀態 API；pathname 含 pushNotifications 命中 PATH_BLOCK `/push` 子串風險，PATH_EXEMPTIONS /i/api/1.1/strato/ 精準放行"))
+    # --- V46.28 x.com Strato 推播權限狀態 API 誤封修正 ---
+    cases.append(TestCase("BugFix: X Strato Push Permissions State Pass", "https://x.com/i/api/1.1/strato/column/None/293437868,Mac%2FChrome,pushNotifications/clients/permissionsState", RES_ALLOW, "V46.28 x.com Strato 推播權限狀態 API；pathname 含 pushNotifications 命中 PATH_BLOCK `/push` 子串風險，PATH_EXEMPTIONS 以穩定端點後綴精準放行"))
+    cases.append(TestCase("BugFix: X Strato Analytics Still Blocked", "https://x.com/i/api/1.1/strato/column/None/293437868,Mac%2FChrome,analytics/collect", RES_BLOCK_403, "V46.28 其他 Strato 遙測路徑不應被連帶豁免；analytics/collect 仍應命中 PATH_BLOCK 關鍵字封鎖"))
     # --- V46.19 x.com /account/authenticate_web_view 誤封修正 ---
     cases.append(TestCase("BugFix: X Tweet Analytics Auth Pass", "https://x.com/account/authenticate_web_view?redirect_url=https%3A%2F%2Fx.com%2Ffkhb90%2Fstatus%2F2064554007558001045%2Fanalytics", RES_ALLOW, "V46.19 x.com 推文成效數據驗證端點；redirect_url 含 /analytics 命中 PATH_BLOCK；PATH_EXEMPTIONS /account/authenticate_web_view 精準放行"))
     # --- V46.18 Google CSP report endpoint precise drop ---

@@ -8,7 +8,7 @@
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
 const SCRIPT_VERSION = '46.28';
-const SCRIPT_BUILD = 'V46.28 (2026-06-14) | 1531 rules | 3180 tests';
+const SCRIPT_BUILD = 'V46.28 (2026-06-14) | 1531 rules | 3181 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1072,7 +1072,7 @@ const RULES = {
         '/v1/maelstrom/events'
       ])],
     ['x.com', new Set([
-        '/i/api/graphql/', '/account/authenticate_web_view', '/i/api/1.1/strato/'
+        '/i/api/graphql/', '/account/authenticate_web_view', 'pushnotifications/clients/permissionsstate'
       ])]
   ])
   }
