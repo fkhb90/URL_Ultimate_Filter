@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.29 (2026-06-14)
+當前版本：V46.30 (2026-06-14)
 最新架構更新：
-- [BugFix] x.com Strato 推播權限狀態 API 豁免範圍收窄：`PATH_EXEMPTIONS` 從 Strato 前綴收斂為 `pushnotifications/clients/permissionsstate` 單一端點。
+- [BugFix] x.com Strato 推播權限狀態 API 豁免改為 regex 錨定：以 `RE:` 同時綁定 Strato 前綴與 `permissionsstate` 結尾，避免裸字串豁免旁路。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.30 (2026-06-14): BugFix — x.com Strato 豁免改為 regex 錨定，要求同時命中 `/i/api/1.1/strato/` 前綴與 `pushnotifications/clients/permissionsstate` 結尾，避免 `/ads/...` 旁路。
 - V46.29 (2026-06-14): BugFix — x.com Strato 豁免從前綴收窄為 `pushnotifications/clients/permissionsstate`，避免放行其他 Strato analytics 路徑。
 - V46.28 (2026-06-14): BugFix — x.com `pushnotifications/clients/permissionsstate` 加入 `PATH_EXEMPTIONS`，修正推播權限狀態 API 被 `/push` 關鍵字誤封。
 - V46.27 (2026-06-13): BugFix — Perplexity `phone-verification/status` 維持 regex 邊界，但由 `204 DROP` 改為 `403 BLOCK`，更符合功能狀態查詢 API 語意。
@@ -44,14 +45,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.29"
+VERSION = "46.30"
 RELEASE_DATE = "2026-06-14"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] x.com Strato 推播權限狀態 API 豁免範圍收窄：
-  - x.com → PATH_EXEMPTIONS 維持 pushnotifications/clients/permissionsstate
-  - 不再依賴較寬的 Strato 前綴豁免，避免放行其他 `/analytics`、`/report`、`/collect` 類路徑
-  - 新增回歸測試確認 `analytics/collect` 仍維持 BLOCK (403)
+- [BugFix] x.com Strato 推播權限狀態 API 豁免改為 regex 錨定：
+  - x.com → PATH_EXEMPTIONS 改用 RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$
+  - 同時要求 Strato API 前綴與 permissionsstate 結尾，避免 `/ads/pushnotifications/...` 類非目標路徑被放行
+  - 新增回歸測試確認 `/ads/pushnotifications/clients/permissionsstate` 與其他 Strato analytics 路徑仍維持 BLOCK (403)
 """
 
 
@@ -708,7 +709,7 @@ RULES_DB = {
         "chatgpt.com": ["/codex/cloud/sett", "/backend-api/o11y/v1/traces"],
         "www.youtube.com": ["/redirect"],
         "api.production.hushed.com": ["/v1/maelstrom/events"],
-        "x.com": ["/i/api/graphql/", "/account/authenticate_web_view", "pushnotifications/clients/permissionsstate"]
+        "x.com": ["/i/api/graphql/", "/account/authenticate_web_view", "RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$"]
     }
 }
 
@@ -1046,6 +1047,16 @@ const HELPERS = {
     const pathOnly = queryIndex >= 0 ? pathLower.substring(0, queryIndex) : pathLower;
     for (let i = 0; i < matchedExemptions.length; i++) {
       for (const exemptedPath of matchedExemptions[i]) {
+        if (exemptedPath.startsWith('RE:')) {
+          const pattern = exemptedPath.substring(3);
+          let re = pathExemptionRegexCache.get(pattern);
+          if (re === undefined) {
+            try { re = new RegExp(pattern, 'i'); } catch (_) { re = null; }
+            pathExemptionRegexCache.set(pattern, re);
+          }
+          if (re && re.test(pathOnly)) return true;
+          continue;
+        }
         if (pathOnly.includes(exemptedPath)) return true;
       }
     }
@@ -1158,6 +1169,7 @@ function getCriticalBlockedPaths(hostname) {
 }
 
 const criticalMapRuleRegexCache = new Map();
+const pathExemptionRegexCache = new Map();
 
 function matchCriticalMapRule(rule, pathLower) {
   if (!rule) return { matched: false, isDrop: false };
@@ -2949,9 +2961,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Safe: UMSNS Deeplink Init Pass", "https://c.umsns.com/deeplink/init", RES_ALLOW, "V46.21 保留 c.umsns.com /deeplink/init 放行；未命中精準 DROP 規則，避免誤傷深連結初始化功能"))
     # --- V46.20 chatgpt.com /backend-api/o11y/v1/traces 誤封修正 ---
     cases.append(TestCase("BugFix: ChatGPT Codex o11y Traces Pass", "https://chatgpt.com/backend-api/o11y/v1/traces", RES_ALLOW, "V46.20 chatgpt.com Codex 頁面載入必要端點；PRIORITY_DROP /v1/traces 誤殺，前端未處理 204 導致頁面渲染中斷；PATH_EXEMPTIONS /backend-api/o11y/v1/traces 精準放行"))
-    # --- V46.28 x.com Strato 推播權限狀態 API 誤封修正 ---
-    cases.append(TestCase("BugFix: X Strato Push Permissions State Pass", "https://x.com/i/api/1.1/strato/column/None/293437868,Mac%2FChrome,pushNotifications/clients/permissionsState", RES_ALLOW, "V46.28 x.com Strato 推播權限狀態 API；pathname 含 pushNotifications 命中 PATH_BLOCK `/push` 子串風險，PATH_EXEMPTIONS 以穩定端點後綴精準放行"))
-    cases.append(TestCase("BugFix: X Strato Analytics Still Blocked", "https://x.com/i/api/1.1/strato/column/None/293437868,Mac%2FChrome,analytics/collect", RES_BLOCK_403, "V46.28 其他 Strato 遙測路徑不應被連帶豁免；analytics/collect 仍應命中 PATH_BLOCK 關鍵字封鎖"))
+    # --- V46.30 x.com Strato 推播權限狀態 API regex 錨定豁免 ---
+    cases.append(TestCase("BugFix: X Strato Push Permissions State Pass", "https://x.com/i/api/1.1/strato/column/None/293437868,Mac%2FChrome,pushNotifications/clients/permissionsState", RES_ALLOW, "V46.30 x.com Strato 推播權限狀態 API；PATH_EXEMPTIONS 以 regex 同時錨定 Strato 前綴與 permissionsState 結尾精準放行"))
+    cases.append(TestCase("BugFix: X Strato Analytics Still Blocked", "https://x.com/i/api/1.1/strato/column/None/293437868,Mac%2FChrome,analytics/collect", RES_BLOCK_403, "V46.30 其他 Strato 遙測路徑不應被連帶豁免；analytics/collect 仍應命中 PATH_BLOCK 關鍵字封鎖"))
+    cases.append(TestCase("BugFix: X Non-Strato Push Permissions Still Blocked", "https://x.com/ads/pushnotifications/clients/permissionsstate", RES_BLOCK_403, "V46.30 非 Strato 的 x.com /ads/pushnotifications/clients/permissionsstate 不應被豁免；需維持 /ads/ 高信心封鎖"))
     # --- V46.19 x.com /account/authenticate_web_view 誤封修正 ---
     cases.append(TestCase("BugFix: X Tweet Analytics Auth Pass", "https://x.com/account/authenticate_web_view?redirect_url=https%3A%2F%2Fx.com%2Ffkhb90%2Fstatus%2F2064554007558001045%2Fanalytics", RES_ALLOW, "V46.19 x.com 推文成效數據驗證端點；redirect_url 含 /analytics 命中 PATH_BLOCK；PATH_EXEMPTIONS /account/authenticate_web_view 精準放行"))
     # --- V46.18 Google CSP report endpoint precise drop ---
@@ -3136,6 +3149,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
 
     for domain, paths in RULES_DB["PATH_EXEMPTIONS"].items():
         for p in paths:
+            if p.startswith('RE:'):
+                continue
             test_url = f"https://{domain}{p if p.startswith('/') else '/' + p}?test=1"
             cases.append(TestCase("Auto: Path Exemption", test_url, RES_ALLOW, f"路徑豁免 {domain} 的 {p}"))
 

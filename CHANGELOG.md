@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.30 - 2026-06-14
+- [BugFix] x.com Strato 推播權限狀態 API 豁免改為 regex 錨定：
+  - x.com → PATH_EXEMPTIONS 改用 RE:^/i/api/1\.1/strato/.*pushnotifications/clients/permissionsstate$
+  - 同時要求 Strato API 前綴與 permissionsstate 結尾，避免 `/ads/pushnotifications/...` 類非目標路徑被放行
+  - 新增回歸測試確認 `/ads/pushnotifications/clients/permissionsstate` 與其他 Strato analytics 路徑仍維持 BLOCK (403)
+
 ## V46.29 - 2026-06-14
 - [BugFix] x.com Strato 推播權限狀態 API 豁免範圍收窄：
   - x.com → PATH_EXEMPTIONS 維持 pushnotifications/clients/permissionsstate

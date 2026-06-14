@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.29
+ * @version 46.30
  * @date    2026-06-14
  * @rules   1531 total (312 domains, 433 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.29';
-const SCRIPT_BUILD = 'V46.29 (2026-06-14) | 1531 rules | 3181 tests';
+const SCRIPT_VERSION = '46.30';
+const SCRIPT_BUILD = 'V46.30 (2026-06-14) | 1531 rules | 3181 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1072,7 +1072,7 @@ const RULES = {
         '/v1/maelstrom/events'
       ])],
     ['x.com', new Set([
-        '/i/api/graphql/', '/account/authenticate_web_view', 'pushnotifications/clients/permissionsstate'
+        '/i/api/graphql/', '/account/authenticate_web_view', 'RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$'
       ])]
   ])
   }
@@ -1234,6 +1234,16 @@ const HELPERS = {
     const pathOnly = queryIndex >= 0 ? pathLower.substring(0, queryIndex) : pathLower;
     for (let i = 0; i < matchedExemptions.length; i++) {
       for (const exemptedPath of matchedExemptions[i]) {
+        if (exemptedPath.startsWith('RE:')) {
+          const pattern = exemptedPath.substring(3);
+          let re = pathExemptionRegexCache.get(pattern);
+          if (re === undefined) {
+            try { re = new RegExp(pattern, 'i'); } catch (_) { re = null; }
+            pathExemptionRegexCache.set(pattern, re);
+          }
+          if (re && re.test(pathOnly)) return true;
+          continue;
+        }
         if (pathOnly.includes(exemptedPath)) return true;
       }
     }
@@ -1346,6 +1356,7 @@ function getCriticalBlockedPaths(hostname) {
 }
 
 const criticalMapRuleRegexCache = new Map();
+const pathExemptionRegexCache = new Map();
 
 function matchCriticalMapRule(rule, pathLower) {
   if (!rule) return { matched: false, isDrop: false };
