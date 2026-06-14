@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.29 - 2026-06-14
+- [BugFix] x.com Strato 推播權限狀態 API 豁免範圍收窄：
+  - x.com → PATH_EXEMPTIONS 維持 pushnotifications/clients/permissionsstate
+  - 不再依賴較寬的 Strato 前綴豁免，避免放行其他 `/analytics`、`/report`、`/collect` 類路徑
+  - 新增回歸測試確認 `analytics/collect` 仍維持 BLOCK (403)
+
 ## V46.28 - 2026-06-14
 - [BugFix] x.com Strato 推播權限狀態 API 誤封修正：
   - x.com → PATH_EXEMPTIONS 新增 /i/api/1.1/strato/
