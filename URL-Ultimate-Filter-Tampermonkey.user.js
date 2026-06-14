@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.32
+// @name         URL Ultimate Filter V46.33
 // @namespace    http://tampermonkey.net/
-// @version      46.32
+// @version      46.33
 // @date         2026-06-14
-// @description  SSOT 前端防護盾牌 V46.32 (2026-06-14) | 1532 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @description  SSOT 前端防護盾牌 V46.33 (2026-06-14) | 1532 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
 // @rules        1532 total (312 domains · 434 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.32
+ * @version 46.33
  * @date    2026-06-14
  * @rules   1532 total (312 domains, 434 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.32';
-const SCRIPT_BUILD = 'V46.32 (2026-06-14) | 1532 rules | 3188 tests';
+const SCRIPT_VERSION = '46.33';
+const SCRIPT_BUILD = 'V46.33 (2026-06-14) | 1532 rules | 3187 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -286,7 +286,7 @@ const RULES = {
         '/js/ad2019.min.js', '/js/third-party-sticky-ad-callback.min.js'
       ])],
     ['abs.twimg.com', new Set([
-        '/responsive-web/client-web/ondemand.inlineplayeranalytics'
+        'RE:^/responsive-web/client-web/ondemand\\.inlineplayeranalytics(?:[./?]|$)'
       ])],
     ['www.youtube.com', new Set([
         '/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback',

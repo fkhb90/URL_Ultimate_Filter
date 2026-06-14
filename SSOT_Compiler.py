@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.32 (2026-06-14)
+當前版本：V46.33 (2026-06-14)
 最新架構更新：
-- [BugFix] x.com live_video_stream/status 誤封修正：加入 `PATH_EXEMPTIONS /i/api/1.1/live_video_stream/status/`，避免 query 參數 `use_syndication_guest_id` 命中 `syndication` 關鍵字。
+- [BugFix] X InlinePlayerAnalytics 封鎖邊界修正：`abs.twimg.com` 規則改為 `RE:^/responsive-web/client-web/ondemand\\.inlineplayeranalytics(?:[./?]|$)`，避免 query substring 誤封其他靜態資產。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.33 (2026-06-14): BugFix — `abs.twimg.com` InlinePlayerAnalytics 規則改為 `RE:` 錨定 path 起始與邊界，修正 query 夾帶目標字串的誤封風險。
 - V46.32 (2026-06-14): BugFix — x.com `live_video_stream/status/` 加入 `PATH_EXEMPTIONS`，修正 `use_syndication_guest_id` 造成的 query substring 誤封。
 - V46.31 (2026-06-14): Privacy — `abs.twimg.com` 新增 `/responsive-web/client-web/ondemand.inlineplayeranalytics` 精準封鎖，阻擋 X/Twitter 播放器分析模組載入。
 - V46.30 (2026-06-14): BugFix — x.com Strato 豁免改為 regex 錨定，要求同時命中 `/i/api/1.1/strato/` 前綴與 `pushnotifications/clients/permissionsstate` 結尾，避免 `/ads/...` 旁路。
@@ -48,14 +49,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.32"
+VERSION = "46.33"
 RELEASE_DATE = "2026-06-14"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] x.com live_video_stream/status 誤封修正：
-  - x.com → PATH_EXEMPTIONS 新增 /i/api/1.1/live_video_stream/status/
-  - `use_syndication_guest_id=false` 位於 query string，會讓 path+query 比對命中 PATH_BLOCK `syndication`
-  - 僅放行 `live_video_stream/status/` 路徑，不擴大到其他 live_video_stream 或 x.com API
+- [BugFix] X InlinePlayerAnalytics 封鎖邊界修正：
+  - abs.twimg.com → CRITICAL_PATH_MAP 改為 RE:^/responsive-web/client-web/ondemand\\.inlineplayeranalytics(?:[./?]|$)
+  - 維持 `InlinePlayerAnalytics.*.js` 封鎖，但不再因 query 夾帶目標字串誤封 `/favicon.ico` 等其他靜態資產
+  - 保留 `ondemand.VideoPlayer.*.js` 等非目標模組放行
 """
 
 
@@ -422,7 +423,7 @@ RULES_DB = {
         'file.chinatimes.com': ['/ad-param.json'],
         'health.tvbs.com.tw': ['/health-frontend-js/ad-read-page.js'],
         'static.ctee.com.tw': ['/js/ad2019.min.js', '/js/third-party-sticky-ad-callback.min.js'],
-        'abs.twimg.com': ['/responsive-web/client-web/ondemand.inlineplayeranalytics'],
+        'abs.twimg.com': ['RE:^/responsive-web/client-web/ondemand\\.inlineplayeranalytics(?:[./?]|$)'],
         'www.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'm.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'youtubei.googleapis.com': ['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions'],
@@ -2947,9 +2948,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
     # --- V46.17 AWS CloudWatch RUM appmonitor precise block ---
     cases.append(TestCase("Privacy: AWS CloudWatch RUM Appmonitor Block", "https://dataplane.rum.us-east-1.amazonaws.com/appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0", RES_BLOCK_403, "V46.17 dataplane.rum.us-east-1.amazonaws.com 指定 appmonitor 路徑精準封鎖；只攔截單一 CloudWatch RUM 端點"))
-    # --- V46.28 X/Twitter inline player analytics JS block ---
-    cases.append(TestCase("Privacy: X InlinePlayerAnalytics JS Block", "https://abs.twimg.com/responsive-web/client-web/ondemand.InlinePlayerAnalytics.ab7eb54a.js", RES_BLOCK_403, "V46.28 abs.twimg.com InlinePlayerAnalytics 按需分析模組封鎖；pathLower 轉小寫後以 /responsive-web/client-web/ondemand.inlineplayeranalytics 前綴精準匹配，保留版本更新匹配能力"))
-    cases.append(TestCase("Safe: X Non-Analytics Ondemand JS Pass", "https://abs.twimg.com/responsive-web/client-web/ondemand.VideoPlayer.1a2b3c4d.js", RES_ALLOW, "V46.28 僅封鎖 InlinePlayerAnalytics 模組；其他 abs.twimg.com 按需播放器 JS 應維持放行"))
+    # --- V46.33 X/Twitter inline player analytics regex boundary fix ---
+    cases.append(TestCase("Privacy: X InlinePlayerAnalytics JS Block", "https://abs.twimg.com/responsive-web/client-web/ondemand.InlinePlayerAnalytics.ab7eb54a.js", RES_BLOCK_403, "V46.33 abs.twimg.com InlinePlayerAnalytics 按需分析模組改用 RE:^/responsive-web/client-web/ondemand\\.inlineplayeranalytics(?:[./?]|$) 邊界精準匹配，保留版本更新匹配能力"))
+    cases.append(TestCase("Safe: X Non-Analytics Ondemand JS Pass", "https://abs.twimg.com/responsive-web/client-web/ondemand.VideoPlayer.1a2b3c4d.js", RES_ALLOW, "V46.33 僅封鎖 InlinePlayerAnalytics 模組；其他 abs.twimg.com 按需播放器 JS 應維持放行"))
+    cases.append(TestCase("Safe: X Static Asset Query Contains InlinePlayerAnalytics Pass", "https://abs.twimg.com/favicon.ico?next=/responsive-web/client-web/ondemand.inlineplayeranalytics", RES_ALLOW, "V46.33 規則改為 path 起始錨定；query 夾帶目標字串的其他靜態資產不應被誤封"))
     # --- V46.27 Perplexity phone verification regex block response fix ---
     cases.append(TestCase("Privacy: Perplexity Phone Verification Status Block", "https://www.perplexity.ai/api/auth/phone-verification/status", RES_BLOCK_403, "V46.27 www.perplexity.ai 手機驗證狀態查詢端點維持 regex 邊界精準攔截，但改為 403 BLOCK；功能狀態查詢 API 不應偽裝成成功"))
     cases.append(TestCase("Privacy: Perplexity Phone Verification Status With Query Block", "https://www.perplexity.ai/api/auth/phone-verification/status?source=settings", RES_BLOCK_403, "V46.27 RE:^/api/auth/phone-verification/status(?:\\?|$) 應覆蓋 query 版本且回 403"))

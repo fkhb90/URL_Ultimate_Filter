@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.33 - 2026-06-14
+- [BugFix] X InlinePlayerAnalytics 封鎖邊界修正：
+  - abs.twimg.com → CRITICAL_PATH_MAP 改為 RE:^/responsive-web/client-web/ondemand\.inlineplayeranalytics(?:[./?]|$)
+  - 維持 `InlinePlayerAnalytics.*.js` 封鎖，但不再因 query 夾帶目標字串誤封 `/favicon.ico` 等其他靜態資產
+  - 保留 `ondemand.VideoPlayer.*.js` 等非目標模組放行
+
 ## V46.32 - 2026-06-14
 - [BugFix] x.com live_video_stream/status 誤封修正：
   - x.com → PATH_EXEMPTIONS 新增 /i/api/1.1/live_video_stream/status/

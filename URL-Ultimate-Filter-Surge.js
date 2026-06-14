@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.32
+ * @version 46.33
  * @date    2026-06-14
  * @rules   1532 total (312 domains, 434 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.32';
-const SCRIPT_BUILD = 'V46.32 (2026-06-14) | 1532 rules | 3188 tests';
+const SCRIPT_VERSION = '46.33';
+const SCRIPT_BUILD = 'V46.33 (2026-06-14) | 1532 rules | 3187 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -271,7 +271,7 @@ const RULES = {
         '/js/ad2019.min.js', '/js/third-party-sticky-ad-callback.min.js'
       ])],
     ['abs.twimg.com', new Set([
-        '/responsive-web/client-web/ondemand.inlineplayeranalytics'
+        'RE:^/responsive-web/client-web/ondemand\\.inlineplayeranalytics(?:[./?]|$)'
       ])],
     ['www.youtube.com', new Set([
         '/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback',
