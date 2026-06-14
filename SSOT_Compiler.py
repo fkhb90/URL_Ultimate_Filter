@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.33 (2026-06-14)
+當前版本：V46.34 (2026-06-14)
 最新架構更新：
-- [BugFix] X InlinePlayerAnalytics 封鎖邊界修正：`abs.twimg.com` 規則改為 `RE:^/responsive-web/client-web/ondemand\\.inlineplayeranalytics(?:[./?]|$)`，避免 query substring 誤封其他靜態資產。
+- [BugFix] x.com live_video_stream/status 豁免邊界修正：改用 `RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+(?:\\?|$)`，僅放行 status 資源本身，不放行其下 analytics 子路徑。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.34 (2026-06-14): BugFix — x.com `live_video_stream/status` 豁免改為 `RE:` 錨定 ID 邊界，修正 `status/<id>/analytics/...` 被連帶放行的風險。
 - V46.33 (2026-06-14): BugFix — `abs.twimg.com` InlinePlayerAnalytics 規則改為 `RE:` 錨定 path 起始與邊界，修正 query 夾帶目標字串的誤封風險。
 - V46.32 (2026-06-14): BugFix — x.com `live_video_stream/status/` 加入 `PATH_EXEMPTIONS`，修正 `use_syndication_guest_id` 造成的 query substring 誤封。
 - V46.31 (2026-06-14): Privacy — `abs.twimg.com` 新增 `/responsive-web/client-web/ondemand.inlineplayeranalytics` 精準封鎖，阻擋 X/Twitter 播放器分析模組載入。
@@ -49,14 +50,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.33"
+VERSION = "46.34"
 RELEASE_DATE = "2026-06-14"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] X InlinePlayerAnalytics 封鎖邊界修正：
-  - abs.twimg.com → CRITICAL_PATH_MAP 改為 RE:^/responsive-web/client-web/ondemand\\.inlineplayeranalytics(?:[./?]|$)
-  - 維持 `InlinePlayerAnalytics.*.js` 封鎖，但不再因 query 夾帶目標字串誤封 `/favicon.ico` 等其他靜態資產
-  - 保留 `ondemand.VideoPlayer.*.js` 等非目標模組放行
+- [BugFix] x.com live_video_stream/status 豁免邊界修正：
+  - x.com → PATH_EXEMPTIONS 改為 RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+(?:\\?|$)
+  - 僅放行 `status/<id>` 本身與 query 版本，不再放行 `status/<id>/analytics/...` 等子路徑
+  - 保留 `use_syndication_guest_id=false` 導致的 query substring 誤封修正
 """
 
 
@@ -714,7 +715,7 @@ RULES_DB = {
         "chatgpt.com": ["/codex/cloud/sett", "/backend-api/o11y/v1/traces"],
         "www.youtube.com": ["/redirect"],
         "api.production.hushed.com": ["/v1/maelstrom/events"],
-        "x.com": ["/i/api/graphql/", "/account/authenticate_web_view", "RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$", "/i/api/1.1/live_video_stream/status/"]
+        "x.com": ["/i/api/graphql/", "/account/authenticate_web_view", "RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$", "RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+(?:\\?|$)"]
     }
 }
 
@@ -2970,9 +2971,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Safe: UMSNS Deeplink Init Pass", "https://c.umsns.com/deeplink/init", RES_ALLOW, "V46.21 保留 c.umsns.com /deeplink/init 放行；未命中精準 DROP 規則，避免誤傷深連結初始化功能"))
     # --- V46.20 chatgpt.com /backend-api/o11y/v1/traces 誤封修正 ---
     cases.append(TestCase("BugFix: ChatGPT Codex o11y Traces Pass", "https://chatgpt.com/backend-api/o11y/v1/traces", RES_ALLOW, "V46.20 chatgpt.com Codex 頁面載入必要端點；PRIORITY_DROP /v1/traces 誤殺，前端未處理 204 導致頁面渲染中斷；PATH_EXEMPTIONS /backend-api/o11y/v1/traces 精準放行"))
-    # --- V46.32 x.com live_video_stream status PATH_EXEMPTIONS ---
-    cases.append(TestCase("BugFix: X Live Video Stream Status Pass", "https://x.com/i/api/1.1/live_video_stream/status/28_2066146387905978368?client=web&use_syndication_guest_id=false&cookie_set_host=x.com", RES_ALLOW, "V46.32 x.com live_video_stream/status 功能性影片/直播狀態 API；query 含 use_syndication_guest_id 命中 PATH_BLOCK syndication，需以 PATH_EXEMPTIONS 精準放行"))
-    cases.append(TestCase("BugFix: X Live Video Stream Analytics Still Blocked", "https://x.com/i/api/1.1/live_video_stream/analytics/collect?client=web", RES_BLOCK_403, "V46.32 只放行 /live_video_stream/status/；其他 live_video_stream analytics 路徑不應被連帶豁免"))
+    # --- V46.34 x.com live_video_stream status regex-bound PATH_EXEMPTIONS ---
+    cases.append(TestCase("BugFix: X Live Video Stream Status Pass", "https://x.com/i/api/1.1/live_video_stream/status/28_2066146387905978368?client=web&use_syndication_guest_id=false&cookie_set_host=x.com", RES_ALLOW, "V46.34 x.com live_video_stream/status/<id> 功能性影片/直播狀態 API；以 RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+(?:\\?|$) 精準放行"))
+    cases.append(TestCase("BugFix: X Live Video Stream Status Analytics Still Blocked", "https://x.com/i/api/1.1/live_video_stream/status/28_2066146387905978368/analytics/collect?client=web", RES_BLOCK_403, "V46.34 status/<id>/analytics/... 不應被 live_video_stream/status 資源豁免連帶放行"))
+    cases.append(TestCase("BugFix: X Live Video Stream Analytics Still Blocked", "https://x.com/i/api/1.1/live_video_stream/analytics/collect?client=web", RES_BLOCK_403, "V46.34 非 status 資源的 live_video_stream analytics 路徑仍應維持封鎖"))
     # --- V46.30 x.com Strato 推播權限狀態 API regex 錨定豁免 ---
     cases.append(TestCase("BugFix: X Strato Push Permissions State Pass", "https://x.com/i/api/1.1/strato/column/None/293437868,Mac%2FChrome,pushNotifications/clients/permissionsState", RES_ALLOW, "V46.30 x.com Strato 推播權限狀態 API；PATH_EXEMPTIONS 以 regex 同時錨定 Strato 前綴與 permissionsState 結尾精準放行"))
     cases.append(TestCase("BugFix: X Strato Analytics Still Blocked", "https://x.com/i/api/1.1/strato/column/None/293437868,Mac%2FChrome,analytics/collect", RES_BLOCK_403, "V46.30 其他 Strato 遙測路徑不應被連帶豁免；analytics/collect 仍應命中 PATH_BLOCK 關鍵字封鎖"))
