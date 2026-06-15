@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.38
+ * @version 46.39
  * @date    2026-06-15
- * @rules   1533 total (312 domains, 435 critical paths, 403 path keywords, 109 param rules)
+ * @rules   1534 total (312 domains, 436 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.38';
-const SCRIPT_BUILD = 'V46.38 (2026-06-15) | 1533 rules | 3190 tests';
+const SCRIPT_VERSION = '46.39';
+const SCRIPT_BUILD = 'V46.39 (2026-06-15) | 1534 rules | 3191 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -271,7 +271,7 @@ const RULES = {
         '/js/ad2019.min.js', '/js/third-party-sticky-ad-callback.min.js'
       ])],
     ['x.com', new Set([
-        'RE:^/i/api/1\\.1/promoted_content/log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/graphql/error_log\\.json(?:\\?|$)'
+        'RE:^/i/api/1\\.1/promoted_content/log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/graphql/error_log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/videoads/v2/prerolls\\.json(?:\\?|$)'
       ])],
     ['www.youtube.com', new Set([
         '/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback',
