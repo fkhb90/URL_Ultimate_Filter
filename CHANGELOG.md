@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.38 - 2026-06-15
+- [BugFix] x.com live_video_stream/status 豁免防 `%3F` 繞過：
+  - PATH_EXEMPTIONS regex 改為以真實 query 切分後的 raw pathname 比對
+  - x.com → PATH_EXEMPTIONS 改為 RE:^/i/api/1\.1/live_video_stream/status/[^/?]+$
+  - `status/<id>%3F/analytics/...` 不再能藉由 decode 後的 `?` 提前截斷旁路
+
 ## V46.37 - 2026-06-15
 - [BugFix] x.com live_video_stream/status 豁免防 `%3F` 繞過：
   - PATH_EXEMPTIONS regex 改為以真實 query 切分後的 raw pathname 比對
