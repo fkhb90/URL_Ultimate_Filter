@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.35
- * @date    2026-06-14
- * @rules   1532 total (312 domains, 434 critical paths, 403 path keywords, 109 param rules)
+ * @version 46.36
+ * @date    2026-06-15
+ * @rules   1531 total (312 domains, 433 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.35';
-const SCRIPT_BUILD = 'V46.35 (2026-06-14) | 1532 rules | 3188 tests';
+const SCRIPT_VERSION = '46.36';
+const SCRIPT_BUILD = 'V46.36 (2026-06-15) | 1531 rules | 3188 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -269,9 +269,6 @@ const RULES = {
       ])],
     ['static.ctee.com.tw', new Set([
         '/js/ad2019.min.js', '/js/third-party-sticky-ad-callback.min.js'
-      ])],
-    ['abs.twimg.com', new Set([
-        'RE:^/responsive-web/client-web/ondemand\\.inlineplayeranalytics(?:[./?]|$)'
       ])],
     ['www.youtube.com', new Set([
         '/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback',
@@ -1064,6 +1061,9 @@ const RULES = {
       ])],
     ['mobile-api.g2a.com', new Set([
         '/api/v1/transactions/'
+      ])],
+    ['abs.twimg.com', new Set([
+        'RE:^/responsive-web/client-web/ondemand\\.inlineplayeranalytics(?:[./?]|$)'
       ])],
     ['chatgpt.com', new Set([
         '/codex/cloud/sett', '/backend-api/o11y/v1/traces'
