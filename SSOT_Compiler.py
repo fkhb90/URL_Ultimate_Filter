@@ -3,11 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.38 (2026-06-15)
+當前版本：V46.39 (2026-06-15)
 最新架構更新：
-- [Privacy] `x.com/i/api/1.1/graphql/error_log.json` 新增 `CRITICAL_PATH_MAP` 精準封鎖，阻擋 GraphQL 錯誤回報端點。
+- [Privacy] `x.com/i/api/1.1/videoads/v2/prerolls.json` 新增 `CRITICAL_PATH_MAP` 精準封鎖，阻擋影片廣告預播端點。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.38 (2026-06-15): Privacy — `x.com/i/api/1.1/graphql/error_log.json` 新增 `CRITICAL_PATH_MAP` 精準封鎖，阻擋 GraphQL 錯誤回報端點。
+- V46.39 (2026-06-15): Privacy — `x.com/i/api/1.1/videoads/v2/prerolls.json` 新增 `CRITICAL_PATH_MAP` 精準封鎖，阻擋影片廣告預播端點。
 - V46.38 (2026-06-15): Privacy — `x.com/i/api/1.1/graphql/error_log.json` 新增 `CRITICAL_PATH_MAP` 精準封鎖，阻擋 GraphQL 錯誤回報端點。
 - V46.37 (2026-06-15): Privacy — `x.com/i/api/1.1/promoted_content/log.json` 新增 `CRITICAL_PATH_MAP` 精準封鎖，阻擋推廣內容回報端點。
 - V46.36 (2026-06-15): BugFix — `abs.twimg.com` InlinePlayerAnalytics 改為 `PATH_EXEMPTIONS` 精準放行，保留版本化檔名載入能力，不再於 `CRITICAL_PATH_MAP` 提前封鎖。
@@ -53,7 +55,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.38"
+VERSION = "46.39"
 RELEASE_DATE = "2026-06-15"
 
 CURRENT_RELEASE_NOTES = """
@@ -427,7 +429,7 @@ RULES_DB = {
         'file.chinatimes.com': ['/ad-param.json'],
         'health.tvbs.com.tw': ['/health-frontend-js/ad-read-page.js'],
         'static.ctee.com.tw': ['/js/ad2019.min.js', '/js/third-party-sticky-ad-callback.min.js'],
-        'x.com': ['RE:^/i/api/1\\.1/promoted_content/log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/graphql/error_log\\.json(?:\\?|$)'],
+        'x.com': ['RE:^/i/api/1\\.1/promoted_content/log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/graphql/error_log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/videoads/v2/prerolls\\.json(?:\\?|$)'],
         'www.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'm.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'youtubei.googleapis.com': ['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions'],
@@ -2960,6 +2962,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Safe: X InlinePlayerAnalytics JS Pass", "https://abs.twimg.com/responsive-web/client-web/ondemand.InlinePlayerAnalytics.ab7eb54a.js", RES_ALLOW, "V46.36 abs.twimg.com InlinePlayerAnalytics 改為 PATH_EXEMPTIONS 精準放行；僅允許版本化播放器分析資源，不再提前封鎖"))
     cases.append(TestCase("Privacy: X Promoted Content Log Block", "https://x.com/i/api/1.1/promoted_content/log.json", RES_BLOCK_403, "V46.37 x.com promoted_content/log.json 推廣內容回報端點；以 CRITICAL_PATH_MAP 精準封鎖"))
     cases.append(TestCase("Privacy: X GraphQL Error Log Block", "https://x.com/i/api/1.1/graphql/error_log.json", RES_BLOCK_403, "V46.38 x.com GraphQL error_log.json 錯誤回報端點；以 CRITICAL_PATH_MAP 精準封鎖，避免誤動 graphql/ 一般流量"))
+    cases.append(TestCase("Privacy: X Video Ads Prerolls Block", "https://x.com/i/api/1.1/videoads/v2/prerolls.json", RES_BLOCK_403, "V46.39 x.com videoads/v2/prerolls.json 影片廣告預播端點；以 CRITICAL_PATH_MAP 精準封鎖，避免誤傷其他 videoads 路徑"))
     cases.append(TestCase("Safe: X Non-Analytics Ondemand JS Pass", "https://abs.twimg.com/responsive-web/client-web/ondemand.VideoPlayer.1a2b3c4d.js", RES_ALLOW, "V46.33 僅封鎖 InlinePlayerAnalytics 模組；其他 abs.twimg.com 按需播放器 JS 應維持放行"))
     cases.append(TestCase("Safe: X Static Asset Query Contains InlinePlayerAnalytics Pass", "https://abs.twimg.com/favicon.ico?next=/responsive-web/client-web/ondemand.inlineplayeranalytics", RES_ALLOW, "V46.33 規則改為 path 起始錨定；query 夾帶目標字串的其他靜態資產不應被誤封"))
     # --- V46.27 Perplexity phone verification regex block response fix ---
