@@ -1,5 +1,17 @@
 # URL Ultimate Filter - Changelog
 
+## V46.42 - 2026-06-17
+- [BugFix] 移除低信心 `qxs` keyword：
+  - 自 `PATH_BLOCK` 刪除裸字串 `qxs`
+  - 移除 `t.co` 臨時單一路徑豁免
+  - 讓短網址與隨機 slug 不再因 `qxs` 子字串被 `Blocked by Keyword`
+
+## V46.41 - 2026-06-17
+- [BugFix] 修正 t.co 短碼 `qxs` 子字串誤封：
+  - `https://t.co/vmsN4WYqxs`
+  - 加入 `PATH_EXEMPTIONS` 精準放行 `RE:^/vmsn4wyqxs$`
+  - 避免被 `PATH_BLOCK` 的 `qxs` 關鍵字誤判為 `Blocked by Keyword`
+
 ## V46.40 - 2026-06-16
 - [Privacy] 封鎖 X/Twitter Ads API 專用網域：
   - `ads-api.x.com`
