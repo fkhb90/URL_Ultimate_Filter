@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.40 - 2026-06-16
+- [Privacy] 封鎖 X/Twitter Ads API 專用網域：
+  - `ads-api.x.com`
+  - `ads-api.twitter.com`
+  - 兩者加入 `PRIORITY_BLOCK_DOMAINS`，host-level 直接回傳 `403 BLOCK`
+
 ## V46.39 - 2026-06-15
 - [BugFix] x.com live_video_stream/status 豁免防 `%3F` 繞過：
   - PATH_EXEMPTIONS regex 改為以真實 query 切分後的 raw pathname 比對

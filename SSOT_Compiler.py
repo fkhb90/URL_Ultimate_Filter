@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.39 (2026-06-15)
+當前版本：V46.40 (2026-06-16)
 最新架構更新：
-- [Privacy] `x.com/i/api/1.1/videoads/v2/prerolls.json` 新增 `CRITICAL_PATH_MAP` 精準封鎖，阻擋影片廣告預播端點。
+- [Privacy] `ads-api.x.com`、`ads-api.twitter.com` 加入 `PRIORITY_BLOCK_DOMAINS`，直接封鎖 X/Twitter Ads API 專用網域。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.40 (2026-06-16): Privacy — `ads-api.x.com`、`ads-api.twitter.com` 加入 `PRIORITY_BLOCK_DOMAINS`，直接封鎖 X/Twitter Ads API 專用網域。
 - V46.38 (2026-06-15): Privacy — `x.com/i/api/1.1/graphql/error_log.json` 新增 `CRITICAL_PATH_MAP` 精準封鎖，阻擋 GraphQL 錯誤回報端點。
 - V46.39 (2026-06-15): Privacy — `x.com/i/api/1.1/videoads/v2/prerolls.json` 新增 `CRITICAL_PATH_MAP` 精準封鎖，阻擋影片廣告預播端點。
 - V46.38 (2026-06-15): Privacy — `x.com/i/api/1.1/graphql/error_log.json` 新增 `CRITICAL_PATH_MAP` 精準封鎖，阻擋 GraphQL 錯誤回報端點。
@@ -55,14 +56,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.39"
-RELEASE_DATE = "2026-06-15"
+VERSION = "46.40"
+RELEASE_DATE = "2026-06-16"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] x.com live_video_stream/status 豁免防 `%3F` 繞過：
-  - PATH_EXEMPTIONS regex 改為以真實 query 切分後的 raw pathname 比對
-  - x.com → PATH_EXEMPTIONS 改為 RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+$
-  - `status/<id>%3F/analytics/...` 不再能藉由 decode 後的 `?` 提前截斷旁路
+- [Privacy] 封鎖 X/Twitter Ads API 專用網域：
+  - `ads-api.x.com`
+  - `ads-api.twitter.com`
+  - 兩者加入 `PRIORITY_BLOCK_DOMAINS`，host-level 直接回傳 `403 BLOCK`
 """
 
 
@@ -139,6 +140,7 @@ RULES_DB = {
         'app-measurement.com', 'branch.io', 'singular.net',
         'ad.etmall.com.tw', 'ad.line.me', 'ad-history.line.me',
         'ads.linkedin.com', 'ads.tiktok.com', 'analytics.tiktok.com',
+        'ads-api.twitter.com', 'ads-api.x.com',
         'cdn.segment.com', 'clarity.ms', 'fullstory.com',
         'inmobi.com', 'inner-active.mobi', 'launchdarkly.com', 'split.io',
         'iadsdk.apple.com', 'metrics.icloud.com',
@@ -2960,6 +2962,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: AWS CloudWatch RUM Appmonitor Block", "https://dataplane.rum.us-east-1.amazonaws.com/appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0", RES_BLOCK_403, "V46.17 dataplane.rum.us-east-1.amazonaws.com 指定 appmonitor 路徑精準封鎖；只攔截單一 CloudWatch RUM 端點"))
     # --- V46.33 X/Twitter inline player analytics regex boundary fix ---
     cases.append(TestCase("Safe: X InlinePlayerAnalytics JS Pass", "https://abs.twimg.com/responsive-web/client-web/ondemand.InlinePlayerAnalytics.ab7eb54a.js", RES_ALLOW, "V46.36 abs.twimg.com InlinePlayerAnalytics 改為 PATH_EXEMPTIONS 精準放行；僅允許版本化播放器分析資源，不再提前封鎖"))
+    cases.append(TestCase("Privacy: X Ads API Domain Block", "https://ads-api.x.com/1.1/accounts/12345/campaigns", RES_BLOCK_403, "V46.40 ads-api.x.com 加入 PRIORITY_BLOCK_DOMAINS；X Ads API 專用網域應於 host-level 直接 403 封鎖"))
+    cases.append(TestCase("Privacy: Twitter Ads API Domain Block", "https://ads-api.twitter.com/1.1/accounts/12345/campaigns", RES_BLOCK_403, "V46.40 ads-api.twitter.com 加入 PRIORITY_BLOCK_DOMAINS；Twitter Ads API 專用網域應於 host-level 直接 403 封鎖"))
     cases.append(TestCase("Privacy: X Promoted Content Log Block", "https://x.com/i/api/1.1/promoted_content/log.json", RES_BLOCK_403, "V46.37 x.com promoted_content/log.json 推廣內容回報端點；以 CRITICAL_PATH_MAP 精準封鎖"))
     cases.append(TestCase("Privacy: X GraphQL Error Log Block", "https://x.com/i/api/1.1/graphql/error_log.json", RES_BLOCK_403, "V46.38 x.com GraphQL error_log.json 錯誤回報端點；以 CRITICAL_PATH_MAP 精準封鎖，避免誤動 graphql/ 一般流量"))
     cases.append(TestCase("Privacy: X Video Ads Prerolls Block", "https://x.com/i/api/1.1/videoads/v2/prerolls.json", RES_BLOCK_403, "V46.39 x.com videoads/v2/prerolls.json 影片廣告預播端點；以 CRITICAL_PATH_MAP 精準封鎖，避免誤傷其他 videoads 路徑"))

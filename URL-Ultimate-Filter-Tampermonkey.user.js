@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.39
+// @name         URL Ultimate Filter V46.40
 // @namespace    http://tampermonkey.net/
-// @version      46.39
-// @date         2026-06-15
-// @description  SSOT 前端防護盾牌 V46.39 (2026-06-15) | 1534 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @version      46.40
+// @date         2026-06-16
+// @description  SSOT 前端防護盾牌 V46.40 (2026-06-16) | 1534 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
 // @rules        1534 total (312 domains · 436 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.39
- * @date    2026-06-15
+ * @version 46.40
+ * @date    2026-06-16
  * @rules   1534 total (312 domains, 436 critical paths, 403 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.39';
-const SCRIPT_BUILD = 'V46.39 (2026-06-15) | 1534 rules | 3191 tests';
+const SCRIPT_VERSION = '46.40';
+const SCRIPT_BUILD = 'V46.40 (2026-06-16) | 1534 rules | 3195 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -80,25 +80,25 @@ const RULES = {
     'applovin.com', 'chartboost.com', 'ironsrc.com', 'pangle.io', 'popads.net', 'tapjoy.com',
     'unityads.unity3d.com', 'vungle.com', 'outbrain.com', 'taboola.com', 'app-measurement.com', 'branch.io',
     'singular.net', 'ad.etmall.com.tw', 'ad.line.me', 'ad-history.line.me', 'ads.linkedin.com', 'ads.tiktok.com',
-    'analytics.tiktok.com', 'cdn.segment.com', 'clarity.ms', 'fullstory.com', 'inmobi.com', 'inner-active.mobi',
-    'launchdarkly.com', 'split.io', 'iadsdk.apple.com', 'metrics.icloud.com', 'ad.impactify.io', 'impactify.media',
-    'adsv.omgrmn.tw', 'browser.sentry-cdn.com', 'caid.china-caa.org', 'events.tiktok.com', 'ibytedtos.com', 'log.tiktokv.com',
-    'log16-normal-c-useast1a.tiktokv.com', 'mon.tiktokv.com', 'mon-va.tiktokv.com', 'analysis.shein.com', 'dc.shein.com', 'st.shein.com',
-    'report.temu.com', 'alimama.com', 'hm.baidu.com', 'mmstat.com', 'pos.baidu.com', 'sm.cn',
-    'sofire.baidu.com', 'sp0.baidu.com', 'sp1.baidu.com', 'tanx.com', 'uc.cn', 'ucweb.com',
-    'uczzd.cn', 'ynuf.alipay.com', 'cms-statistics.quark.cn', 'stat.quark.cn', 'unpm-upaas.quark.cn', 'browser.360.cn',
-    's.360.cn', 'shouji.360.cn', 'stat.360.cn', 'inte.sogou.com', 'lu.sogou.com', 'pb.sogou.com',
-    'ping.sogou.com', 'analytics.shopee.tw', 'apm.tracking.shopee.tw', 'dem.shopee.com', 'dmp.shopee.tw', 'live-apm.shopee.tw',
-    'log-collector.shopee.tw', 'analysis.momoshop.com.tw', 'ecdmp.momoshop.com.tw', 'event.momoshop.com.tw', 'log.momoshop.com.tw', 'pixel.momoshop.com.tw',
-    'rtb.momoshop.com.tw', 'sspap.momoshop.com.tw', 'trace.momoshop.com.tw', 'trk.momoshop.com.tw', 'jslog.coupang.com', 'mercury.coupang.com',
-    'pixel.dcard.tw', 'giocdn.com', 'ad.gamer.com.tw', 'ad-geek.net', 'ad-hub.net', 'ad-serv.teepr.com',
-    'ad-tracking.dcard.tw', 'analysis.tw', 'appier.net', 'b.bridgewell.com', 'cacafly.com', 'clickforce.com.tw',
-    'fast-trk.com', 'funp.com', 'guoshipartners.com', 'imedia.com.tw', 'is-tracking.com', 'itad.linetv.tw',
-    'likr.tw', 'scupio.com', 'sitetag.us', 'tagtoo.co', 'tenmax.io', 'trk.tw',
-    'urad.com.tw', 'vpon.com', 'adnext-a.akamaihd.net', 'toots-a.akamaihd.net', 'analytics.twitter.com', 'edge-analytics.amazonaws.com',
-    'edge-tracking.cloudflare.com', 'insight.linkedin.com', 'px.ads.linkedin.com', 'cdn.amplitude.com', 'cdn.eu.amplitude.com', 'cdn.mxpnl.com',
-    'decide.mixpanel.com', 'heapanalytics.com', 'heap-api.com', 'cdn.rudderlabs.com', 'segmentapis.com', 'tr.line.me',
-    'onevision.com.tw', 'pixanalytics.com', 'pixplug.in'
+    'analytics.tiktok.com', 'ads-api.twitter.com', 'ads-api.x.com', 'cdn.segment.com', 'clarity.ms', 'fullstory.com',
+    'inmobi.com', 'inner-active.mobi', 'launchdarkly.com', 'split.io', 'iadsdk.apple.com', 'metrics.icloud.com',
+    'ad.impactify.io', 'impactify.media', 'adsv.omgrmn.tw', 'browser.sentry-cdn.com', 'caid.china-caa.org', 'events.tiktok.com',
+    'ibytedtos.com', 'log.tiktokv.com', 'log16-normal-c-useast1a.tiktokv.com', 'mon.tiktokv.com', 'mon-va.tiktokv.com', 'analysis.shein.com',
+    'dc.shein.com', 'st.shein.com', 'report.temu.com', 'alimama.com', 'hm.baidu.com', 'mmstat.com',
+    'pos.baidu.com', 'sm.cn', 'sofire.baidu.com', 'sp0.baidu.com', 'sp1.baidu.com', 'tanx.com',
+    'uc.cn', 'ucweb.com', 'uczzd.cn', 'ynuf.alipay.com', 'cms-statistics.quark.cn', 'stat.quark.cn',
+    'unpm-upaas.quark.cn', 'browser.360.cn', 's.360.cn', 'shouji.360.cn', 'stat.360.cn', 'inte.sogou.com',
+    'lu.sogou.com', 'pb.sogou.com', 'ping.sogou.com', 'analytics.shopee.tw', 'apm.tracking.shopee.tw', 'dem.shopee.com',
+    'dmp.shopee.tw', 'live-apm.shopee.tw', 'log-collector.shopee.tw', 'analysis.momoshop.com.tw', 'ecdmp.momoshop.com.tw', 'event.momoshop.com.tw',
+    'log.momoshop.com.tw', 'pixel.momoshop.com.tw', 'rtb.momoshop.com.tw', 'sspap.momoshop.com.tw', 'trace.momoshop.com.tw', 'trk.momoshop.com.tw',
+    'jslog.coupang.com', 'mercury.coupang.com', 'pixel.dcard.tw', 'giocdn.com', 'ad.gamer.com.tw', 'ad-geek.net',
+    'ad-hub.net', 'ad-serv.teepr.com', 'ad-tracking.dcard.tw', 'analysis.tw', 'appier.net', 'b.bridgewell.com',
+    'cacafly.com', 'clickforce.com.tw', 'fast-trk.com', 'funp.com', 'guoshipartners.com', 'imedia.com.tw',
+    'is-tracking.com', 'itad.linetv.tw', 'likr.tw', 'scupio.com', 'sitetag.us', 'tagtoo.co',
+    'tenmax.io', 'trk.tw', 'urad.com.tw', 'vpon.com', 'adnext-a.akamaihd.net', 'toots-a.akamaihd.net',
+    'analytics.twitter.com', 'edge-analytics.amazonaws.com', 'edge-tracking.cloudflare.com', 'insight.linkedin.com', 'px.ads.linkedin.com', 'cdn.amplitude.com',
+    'cdn.eu.amplitude.com', 'cdn.mxpnl.com', 'decide.mixpanel.com', 'heapanalytics.com', 'heap-api.com', 'cdn.rudderlabs.com',
+    'segmentapis.com', 'tr.line.me', 'onevision.com.tw', 'pixanalytics.com', 'pixplug.in'
   ]),
   REDIRECTOR_HOSTS: new Set([
     'adf.ly', 'ay.gy', 'gloyah.net', 'j.gs', 'q.gs', 'zo.ee',
