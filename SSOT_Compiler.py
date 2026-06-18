@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.42 (2026-06-17)
+當前版本：V46.43 (2026-06-18)
 最新架構更新：
-- [BugFix] 從 `PATH_BLOCK` 移除低信心裸字串 `qxs`，根因修復短網址與隨機 slug 誤封。
+- [Privacy] `ogads-pa.googleapis.com` 加入 `PRIORITY_BLOCK_DOMAINS`，精準封鎖 Google `-pa` 系列中偏廣告/個人化的 async data 端點。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.43 (2026-06-18): Privacy — `ogads-pa.googleapis.com` 加入 `PRIORITY_BLOCK_DOMAINS`，精準封鎖 Google `-pa` 系列中偏廣告/個人化的 async data 端點。
 - V46.42 (2026-06-17): BugFix — 從 `PATH_BLOCK` 移除低信心裸字串 `qxs`，根因修復短網址與隨機 slug 誤封，並移除臨時 `t.co` 單一路徑豁免。
 - V46.41 (2026-06-17): BugFix — `t.co/vmsN4WYqxs` 加入 `PATH_EXEMPTIONS` 精準放行，修正短碼包含 `qxs` 子字串時被 `PATH_BLOCK` 誤封。
 - V46.40 (2026-06-16): Privacy — `ads-api.x.com`、`ads-api.twitter.com` 加入 `PRIORITY_BLOCK_DOMAINS`，直接封鎖 X/Twitter Ads API 專用網域。
@@ -58,14 +59,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.42"
-RELEASE_DATE = "2026-06-17"
+VERSION = "46.43"
+RELEASE_DATE = "2026-06-18"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] 移除低信心 `qxs` keyword：
-  - 自 `PATH_BLOCK` 刪除裸字串 `qxs`
-  - 移除 `t.co` 臨時單一路徑豁免
-  - 讓短網址與隨機 slug 不再因 `qxs` 子字串被 `Blocked by Keyword`
+- [Privacy] Google `-pa` 系列補封：
+  - `ogads-pa.googleapis.com`
+  - 納入 `PRIORITY_BLOCK_DOMAINS`
+  - 與 `growth-pa.googleapis.com`、`crashlyticsreports-pa.googleapis.com`、`firebaselogging-pa.googleapis.com` 同列
 """
 
 
@@ -127,7 +128,7 @@ RULES_DB = {
         'penphone92.com', 'sir90hl.com', 'uymgg1.com',
         'admob.com', 'ads.google.com', 'adservice.google.com', 'adservice.google.com.tw',
         'doubleclick.net', 'googleadservices.com', 'googlesyndication.com',
-        'crashlyticsreports-pa.googleapis.com', 'firebaselogging-pa.googleapis.com', 'growth-pa.googleapis.com',
+        'crashlyticsreports-pa.googleapis.com', 'firebaselogging-pa.googleapis.com', 'growth-pa.googleapis.com', 'ogads-pa.googleapis.com',
         'imasdk.googleapis.com', 'measurement.adservices.google.com', 'privacysandbox.googleapis.com',
         'business.facebook.com', 'connect.facebook.net', 'graph.facebook.com',
         '2o7.net', 'adobedc.net', 'demdex.net', 'everesttech.net', 'omtrdc.net',
@@ -2918,6 +2919,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: zztfly Config Client Block", "https://cfgc.zztfly.com/config/fetch?appid=123", RES_BLOCK_403, "V45.55 zztfly.com SDK 設定拉取端點封鎖"))
     # --- V45.56 Google growth-pa 成長分析端點 ---
     cases.append(TestCase("Privacy: Google growth-pa Block", "https://growth-pa.googleapis.com/v1/growthlogs", RES_BLOCK_403, "V45.56 Google growth-pa.googleapis.com 成長分析端點封鎖；與 crashlyticsreports-pa / firebaselogging-pa 同屬 PRIORITY_BLOCK_DOMAINS -pa 系列"))
+    cases.append(TestCase("Privacy: Google ogads-pa Block", "https://ogads-pa.googleapis.com/$rpc/google.internal.onegoogle.asyncdata.v1.AsyncDataService/GetAsyncData", RES_BLOCK_403, "V46.43 ogads-pa.googleapis.com 納入 PRIORITY_BLOCK_DOMAINS；Google -pa 系列中偏廣告/個人化 async data 端點應於 host-level 直接 403 封鎖"))
     # --- V45.57 高德 adashx.ut + qchannel01.cn ---
     cases.append(TestCase("Privacy: Amap adashx UT Ad Analytics Drop", "https://adashx.ut.amap.com/api/track/event", RES_DROP_204, "V45.57 高德地圖 UT 廣告看板遙測 DROP；adashx = ad dashboard X；ut.amap.com 為 UserTracker 子域，同系列 adiu/logs/cgicol 全域 DROP"))
     cases.append(TestCase("Privacy: qchannel01 Tracking Block", "https://i.qchannel01.cn/track?channel=abc&uid=123", RES_BLOCK_403, "V45.57 qchannel01.cn 中國渠道追蹤域名封鎖；BLOCK_DOMAINS_WILDCARDS 覆蓋 i./www. 等所有子域名"))

@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.43 - 2026-06-18
+- [Privacy] Google `-pa` 系列補封：
+  - `ogads-pa.googleapis.com`
+  - 納入 `PRIORITY_BLOCK_DOMAINS`
+  - 與 `growth-pa.googleapis.com`、`crashlyticsreports-pa.googleapis.com`、`firebaselogging-pa.googleapis.com` 同列
+
 ## V46.42 - 2026-06-17
 - [BugFix] 移除低信心 `qxs` keyword：
   - 自 `PATH_BLOCK` 刪除裸字串 `qxs`
