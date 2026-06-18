@@ -7,7 +7,7 @@ Advanced URL filtering, tracking parameter removal, and privacy protection rules
 [![Issues](https://img.shields.io/github/issues/fkhb90/URL_Ultimate_Filter)](https://github.com/fkhb90/URL_Ultimate_Filter/issues)
 [![Stars](https://img.shields.io/github/stars/fkhb90/URL_Ultimate_Filter?style=social)](https://github.com/fkhb90/URL_Ultimate_Filter/stargazers)
 
-![Regression Report — 3198 cases, 100% pass rate](docs/regression-report.png)
+![Regression Report — 3198 cases, 100% pass rate](docs/regression-reportV46.43.png)
 
 ## Overview
 
