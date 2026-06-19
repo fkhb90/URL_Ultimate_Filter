@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.45 - 2026-06-19
+- [BugFix] Uber Payments 事件端點誤封修正：
+  - `payments.uber.com/_events`
+  - 納入 `PATH_EXEMPTIONS`
+  - 避免被泛用 `/_events` L1 規則提前 403 封鎖
+
 ## V46.44 - 2026-06-19
 - [BugFix] Uber Payments 功能 API 誤封修正：
   - `payments.uber.com/api/getTransactions`

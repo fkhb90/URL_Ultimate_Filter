@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.44 (2026-06-19)
+當前版本：V46.45 (2026-06-19)
 最新架構更新：
-- [BugFix] `payments.uber.com` 的 `/api/getTransactions` 與 `/api/walletCyclingConfigGet` 加入 `PATH_EXEMPTIONS`，修正 query 內 `advertiserId`／`advertiserTrackingEnabled` 造成的交易／錢包 API 誤封。
+- [BugFix] `payments.uber.com/_events` 加入 `PATH_EXEMPTIONS`，修正 Uber Payments 事件端點被泛用 `/_events` L1 規則誤封。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.45 (2026-06-19): BugFix — `payments.uber.com/_events` 加入 `PATH_EXEMPTIONS`，修正 Uber Payments 事件端點被泛用 `/_events` L1 規則誤封。
 - V46.44 (2026-06-19): BugFix — `payments.uber.com` 的 `/api/getTransactions` 與 `/api/walletCyclingConfigGet` 加入 `PATH_EXEMPTIONS`，修正 query 內 `advertiserId`／`advertiserTrackingEnabled` 造成的 Uber Eats 付款交易／錢包 API 誤封。
 - V46.43 (2026-06-18): Privacy — `ogads-pa.googleapis.com` 加入 `PRIORITY_BLOCK_DOMAINS`，精準封鎖 Google `-pa` 系列中偏廣告/個人化的 async data 端點。
 - V46.42 (2026-06-17): BugFix — 從 `PATH_BLOCK` 移除低信心裸字串 `qxs`，根因修復短網址與隨機 slug 誤封，並移除臨時 `t.co` 單一路徑豁免。
@@ -60,15 +61,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.44"
+VERSION = "46.45"
 RELEASE_DATE = "2026-06-19"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] Uber Payments 功能 API 誤封修正：
-  - `payments.uber.com/api/getTransactions`
-  - `payments.uber.com/api/walletCyclingConfigGet`
+- [BugFix] Uber Payments 事件端點誤封修正：
+  - `payments.uber.com/_events`
   - 納入 `PATH_EXEMPTIONS`
-  - 避免 query 內 `advertiserId`／`advertiserTrackingEnabled` 被 `PATH_BLOCK` 裸字串誤殺
+  - 避免被泛用 `/_events` L1 規則提前 403 封鎖
 """
 
 
@@ -710,7 +710,7 @@ RULES_DB = {
         "storm.mg": ["/_nuxt/track"],
         "shopee.tw": ["/api/v4/search/search_items", "/api/v4/pdp/get"],
         "uber.com": ["/go/_events"],
-        "payments.uber.com": ["/api/gettransactions", "/api/walletcyclingconfigget"],
+        "payments.uber.com": ["/api/gettransactions", "/api/walletcyclingconfigget", "/_events"],
         "cmapi.tw.coupang.com": ["/vendor-items/", "/option-list", "/add-to-cart", "/v3/events/types/pushonoff/"],
         "coupangcdn.com": ["/image/ccm/banner/", "/image/cmg/oms/banner/"],
         "loyalty.tw.coupang.com": ["/m/loyalty/withdraw-request/popup/benefit"],
@@ -2926,6 +2926,8 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V46.44 Uber Payments 功能 API 誤封修正 ---
     cases.append(TestCase("BugFix: Uber Payments Get Transactions Pass", "https://payments.uber.com/api/getTransactions?key=production_ocjkzdicu3exsfea&device=iphone&clientVersion=6.327.10001&clientName=eats&deviceOS=18.7.1&deviceID=31B7766B-6A4F-4246-ADCD-CB88CB1E989C&clientID=com.ubercab.UberEats&deviceIds=advertiserId%3A00000000-0000-0000-0000-000000000000%2CadvertiserTrackingEnabled%3A0%2CuberId%3A31B7766B-6A4F-4246-ADCD-CB88CB1E989C%2CvendorId%3A3B671F50-3BE3-44A7-8DBB-8EEC62171C14%2CiCloudToken%3A%7Blength%20%3D%2020%2C%20bytes%20%3D%200xca2e2b598d84f7194704763f40a8dcdbd96678ce%7D&deviceLanguage=zh_TW&localeCode=zh-TW", RES_ALLOW, "V46.44 payments.uber.com /api/getTransactions 加入 PATH_EXEMPTIONS；修正 query 內 advertiserId / advertiserTrackingEnabled 被 PATH_BLOCK 裸字串誤封"))
     cases.append(TestCase("BugFix: Uber Payments Wallet Cycling Config Pass", "https://payments.uber.com/api/walletCyclingConfigGet?key=production_ocjkzdicu3exsfea&device=iphone&clientVersion=6.327.10001&clientName=eats&deviceOS=18.7.1&deviceID=31B7766B-6A4F-4246-ADCD-CB88CB1E989C&clientID=com.ubercab.UberEats&deviceIds=advertiserId%3A00000000-0000-0000-0000-000000000000%2CadvertiserTrackingEnabled%3A0%2CuberId%3A31B7766B-6A4F-4246-ADCD-CB88CB1E989C%2CvendorId%3A3B671F50-3BE3-44A7-8DBB-8EEC62171C14%2CiCloudToken%3A%7Blength%20%3D%2020%2C%20bytes%20%3D%200xca2e2b598d84f7194704763f40a8dcdbd96678ce%7D&deviceLanguage=zh_TW&localeCode=zh-TW", RES_ALLOW, "V46.44 payments.uber.com /api/walletCyclingConfigGet 加入 PATH_EXEMPTIONS；修正 query 內 advertiserId / advertiserTrackingEnabled 被 PATH_BLOCK 裸字串誤封"))
+    # --- V46.45 Uber Payments /_events 誤封修正 ---
+    cases.append(TestCase("BugFix: Uber Payments Events Pass", "https://payments.uber.com/_events", RES_ALLOW, "V46.45 payments.uber.com /_events 加入 PATH_EXEMPTIONS；修正被泛用 /_events L1 規則誤封"))
     # --- V45.57 高德 adashx.ut + qchannel01.cn ---
     cases.append(TestCase("Privacy: Amap adashx UT Ad Analytics Drop", "https://adashx.ut.amap.com/api/track/event", RES_DROP_204, "V45.57 高德地圖 UT 廣告看板遙測 DROP；adashx = ad dashboard X；ut.amap.com 為 UserTracker 子域，同系列 adiu/logs/cgicol 全域 DROP"))
     cases.append(TestCase("Privacy: qchannel01 Tracking Block", "https://i.qchannel01.cn/track?channel=abc&uid=123", RES_BLOCK_403, "V45.57 qchannel01.cn 中國渠道追蹤域名封鎖；BLOCK_DOMAINS_WILDCARDS 覆蓋 i./www. 等所有子域名"))

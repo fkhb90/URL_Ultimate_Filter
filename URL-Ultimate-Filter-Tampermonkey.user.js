@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.44
+// @name         URL Ultimate Filter V46.45
 // @namespace    http://tampermonkey.net/
-// @version      46.44
+// @version      46.45
 // @date         2026-06-19
-// @description  SSOT 前端防護盾牌 V46.44 (2026-06-19) | 1533 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @description  SSOT 前端防護盾牌 V46.45 (2026-06-19) | 1533 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
 // @rules        1533 total (312 domains · 436 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.44
+ * @version 46.45
  * @date    2026-06-19
  * @rules   1533 total (312 domains, 436 critical paths, 402 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.44';
-const SCRIPT_BUILD = 'V46.44 (2026-06-19) | 1533 rules | 3202 tests';
+const SCRIPT_VERSION = '46.45';
+const SCRIPT_BUILD = 'V46.45 (2026-06-19) | 1533 rules | 3204 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1038,7 +1038,7 @@ const RULES = {
         '/go/_events'
       ])],
     ['payments.uber.com', new Set([
-        '/api/gettransactions', '/api/walletcyclingconfigget'
+        '/api/gettransactions', '/api/walletcyclingconfigget', '/_events'
       ])],
     ['cmapi.tw.coupang.com', new Set([
         '/vendor-items/', '/option-list', '/add-to-cart', '/v3/events/types/pushonoff/'
