@@ -1,5 +1,12 @@
 # URL Ultimate Filter - Changelog
 
+## V46.44 - 2026-06-19
+- [BugFix] Uber Payments 功能 API 誤封修正：
+  - `payments.uber.com/api/getTransactions`
+  - `payments.uber.com/api/walletCyclingConfigGet`
+  - 納入 `PATH_EXEMPTIONS`
+  - 避免 query 內 `advertiserId`／`advertiserTrackingEnabled` 被 `PATH_BLOCK` 裸字串誤殺
+
 ## V46.43 - 2026-06-18
 - [Privacy] Google `-pa` 系列補封：
   - `ogads-pa.googleapis.com`

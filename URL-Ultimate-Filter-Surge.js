@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.43
- * @date    2026-06-18
+ * @version 46.44
+ * @date    2026-06-19
  * @rules   1533 total (312 domains, 436 critical paths, 402 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.43';
-const SCRIPT_BUILD = 'V46.43 (2026-06-18) | 1533 rules | 3198 tests';
+const SCRIPT_VERSION = '46.44';
+const SCRIPT_BUILD = 'V46.44 (2026-06-19) | 1533 rules | 3202 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1021,6 +1021,9 @@ const RULES = {
       ])],
     ['uber.com', new Set([
         '/go/_events'
+      ])],
+    ['payments.uber.com', new Set([
+        '/api/gettransactions', '/api/walletcyclingconfigget'
       ])],
     ['cmapi.tw.coupang.com', new Set([
         '/vendor-items/', '/option-list', '/add-to-cart', '/v3/events/types/pushonoff/'
