@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V46.47 - 2026-07-09
+- [BugFix] 移除 `PATH_BLOCK` 低信心裸字串 `analysis`
+  - 修正新聞/文章 slug（如 `performance-analysis`）被誤判為追蹤路徑
+  - 保留 `analytics`、`cohort-analysis` 與 `analysis.*` 專用追蹤網域封鎖能力
+
 ## V46.46 - 2026-06-21
 - [BugFix] Uber Payments 事件端點誤封修正：
   - `payments.uber.com/events`

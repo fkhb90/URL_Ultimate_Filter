@@ -62,14 +62,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.46"
-RELEASE_DATE = "2026-06-21"
+VERSION = "46.47"
+RELEASE_DATE = "2026-07-09"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] Uber Payments 事件端點誤封修正：
-  - `payments.uber.com/events`
-  - 納入 `PATH_EXEMPTIONS`
-  - 避免被泛用 `/events` L1 規則提前 403 封鎖
+- [BugFix] 移除 `PATH_BLOCK` 低信心裸字串 `analysis`
+  - 修正新聞/文章 slug（如 `performance-analysis`）被誤判為追蹤路徑
+  - 保留 `analytics`、`cohort-analysis` 與 `analysis.*` 專用追蹤網域封鎖能力
 """
 
 
@@ -630,7 +629,7 @@ RULES_DB = {
         'adserver', 'adservice', 'adsh', 'adskeeper', 'adsmind', 'adsmogo', 'adsnew', 'adsrvmedia', 'adsrvr',
         'adsserving', 'adsterra', 'adsupply', 'adsupport', 'adswizz', 'adsystem', 'adtilt', 'adtima', 'adtrack',
         'advert', 'advertise', 'advertisement', 'advertiser', 'adview', 'ad-video', 'advideo', 'adware',
-        'adwhirl', 'adwords', 'adzcore', 'affiliate', 'alexametrics', 'allyes', 'amplitude', 'analysis',
+        'adwhirl', 'adwords', 'adzcore', 'affiliate', 'alexametrics', 'allyes', 'amplitude',
         'analysys', 'analytics', 'aottertrek', 'appadhoc', 'appads', 'appboy', 'appier', 'applovin', 'appsflyer',
         'apptimize', 'apsalar', 'baichuan', 'bango', 'bangobango', 'bidvertiser', 'bingads', 'bkrtx', 'bluekai',
         'breaktime', 'bugsense', 'burstly', 'cedexis', 'chartboost', 'circulate', 'click-fraud', 'clkservice',
@@ -2974,6 +2973,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Privacy: Aliyun SAF Device Shanghai Block", "https://cn-shanghai.device.saf.aliyuncs.com/", RES_BLOCK_403, "V45.80 阿里雲 SAF 裝置安全稽核框架封鎖；saf.aliyuncs.com wildcard 覆蓋所有地區節點"))
     # --- V46.17 AWS CloudWatch RUM appmonitor precise block ---
     cases.append(TestCase("Privacy: AWS CloudWatch RUM Appmonitor Block", "https://dataplane.rum.us-east-1.amazonaws.com/appmonitors/d62f41fc-afe2-438a-98a2-e30154e389e0", RES_BLOCK_403, "V46.17 dataplane.rum.us-east-1.amazonaws.com 指定 appmonitor 路徑精準封鎖；只攔截單一 CloudWatch RUM 端點"))
+    # --- V46.47 remove low-confidence bare analysis keyword from PATH_BLOCK ---
+    cases.append(TestCase("BugFix: Soft4Fun Analysis Article Pass", "https://www.soft4fun.net/tech/ai/openai-gpt-5-6-sol-terra-luna-pricing-and-performance-analysis.htm", RES_ALLOW, "V46.47 移除低信心裸字串 analysis；新聞文章 slug `performance-analysis` 不應被 PATH_BLOCK 誤殺"))
+    cases.append(TestCase("BugFix: Generic Performance Analysis Slug Pass", "https://example.com/posts/performance-analysis-overview", RES_ALLOW, "V46.47 一般內容 slug 含 analysis 不應再被 PATH_BLOCK 誤判"))
+    cases.append(TestCase("Regression: Cohort Analysis Still Block", "https://example.com/cohort-analysis/dashboard", RES_BLOCK_403, "V46.47 僅移除裸字串 analysis；具明確追蹤語義的 cohort-analysis 仍應維持封鎖"))
     # --- V46.33 X/Twitter inline player analytics regex boundary fix ---
     cases.append(TestCase("Safe: X InlinePlayerAnalytics JS Pass", "https://abs.twimg.com/responsive-web/client-web/ondemand.InlinePlayerAnalytics.ab7eb54a.js", RES_ALLOW, "V46.36 abs.twimg.com InlinePlayerAnalytics 改為 PATH_EXEMPTIONS 精準放行；僅允許版本化播放器分析資源，不再提前封鎖"))
     cases.append(TestCase("BugFix: t.co Shortcode Pass", "https://t.co/vmsN4WYqxs", RES_ALLOW, "V46.42 移除低信心 qxs 後，t.co 短碼不再被 PATH_BLOCK 誤判"))
