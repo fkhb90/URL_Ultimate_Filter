@@ -3,42 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.46 (2026-06-21)
+當前版本：V46.48 (2026-07-10)
 最新架構更新：
-- [BugFix] `payments.uber.com/events` 加入 `PATH_EXEMPTIONS`，修正 Uber Payments 事件端點被泛用 `/events` L1 規則誤封。
+- [Privacy] `x.com/i/csp_report` 加入 `CRITICAL_PATH_MAP` 的精準 `DROP_RE`，靜默丟棄 CSP 違規回報，避免 403 造成回報端重試。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
-- V46.46 (2026-06-21): BugFix — `payments.uber.com/events` 加入 `PATH_EXEMPTIONS`，修正 Uber Payments 事件端點被泛用 `/events` L1 規則誤封。
-- V46.45 (2026-06-19): BugFix — `payments.uber.com/_events` 加入 `PATH_EXEMPTIONS`，修正 Uber Payments 事件端點被泛用 `/_events` L1 規則誤封。
-- V46.44 (2026-06-19): BugFix — `payments.uber.com` 的 `/api/getTransactions` 與 `/api/walletCyclingConfigGet` 加入 `PATH_EXEMPTIONS`，修正 query 內 `advertiserId`／`advertiserTrackingEnabled` 造成的 Uber Eats 付款交易／錢包 API 誤封。
-- V46.43 (2026-06-18): Privacy — `ogads-pa.googleapis.com` 加入 `PRIORITY_BLOCK_DOMAINS`，精準封鎖 Google `-pa` 系列中偏廣告/個人化的 async data 端點。
-- V46.42 (2026-06-17): BugFix — 從 `PATH_BLOCK` 移除低信心裸字串 `qxs`，根因修復短網址與隨機 slug 誤封，並移除臨時 `t.co` 單一路徑豁免。
-- V46.41 (2026-06-17): BugFix — `t.co/vmsN4WYqxs` 加入 `PATH_EXEMPTIONS` 精準放行，修正短碼包含 `qxs` 子字串時被 `PATH_BLOCK` 誤封。
-- V46.40 (2026-06-16): Privacy — `ads-api.x.com`、`ads-api.twitter.com` 加入 `PRIORITY_BLOCK_DOMAINS`，直接封鎖 X/Twitter Ads API 專用網域。
-- V46.38 (2026-06-15): Privacy — `x.com/i/api/1.1/graphql/error_log.json` 新增 `CRITICAL_PATH_MAP` 精準封鎖，阻擋 GraphQL 錯誤回報端點。
-- V46.39 (2026-06-15): Privacy — `x.com/i/api/1.1/videoads/v2/prerolls.json` 新增 `CRITICAL_PATH_MAP` 精準封鎖，阻擋影片廣告預播端點。
-- V46.38 (2026-06-15): Privacy — `x.com/i/api/1.1/graphql/error_log.json` 新增 `CRITICAL_PATH_MAP` 精準封鎖，阻擋 GraphQL 錯誤回報端點。
-- V46.37 (2026-06-15): Privacy — `x.com/i/api/1.1/promoted_content/log.json` 新增 `CRITICAL_PATH_MAP` 精準封鎖，阻擋推廣內容回報端點。
-- V46.36 (2026-06-15): BugFix — `abs.twimg.com` InlinePlayerAnalytics 改為 `PATH_EXEMPTIONS` 精準放行，保留版本化檔名載入能力，不再於 `CRITICAL_PATH_MAP` 提前封鎖。
-- V46.35 (2026-06-14): BugFix — PATH_EXEMPTIONS regex 改為以真實 query 切分後的 raw pathname 比對，並將 x.com `live_video_stream/status` 豁免收緊為完整資源 path，封住 `%3F` 編碼分隔符旁路。
-- V46.34 (2026-06-14): BugFix — x.com `live_video_stream/status` 豁免改為 `RE:` 錨定 ID 邊界，修正 `status/<id>/analytics/...` 被連帶放行的風險。
-- V46.33 (2026-06-14): BugFix — `abs.twimg.com` InlinePlayerAnalytics 規則改為 `RE:` 錨定 path 起始與邊界，修正 query 夾帶目標字串的誤封風險。
-- V46.32 (2026-06-14): BugFix — x.com `live_video_stream/status/` 加入 `PATH_EXEMPTIONS`，修正 `use_syndication_guest_id` 造成的 query substring 誤封。
-- V46.31 (2026-06-14): Privacy — `abs.twimg.com` 新增 `/responsive-web/client-web/ondemand.inlineplayeranalytics` 精準封鎖，阻擋 X/Twitter 播放器分析模組載入。
-- V46.29 (2026-06-14): BugFix — x.com Strato 豁免從前綴收窄為 `pushnotifications/clients/permissionsstate`，避免放行其他 Strato analytics 路徑。
-- V46.28 (2026-06-14): BugFix — x.com `pushnotifications/clients/permissionsstate` 加入 `PATH_EXEMPTIONS`，修正推播權限狀態 API 被 `/push` 關鍵字誤封。
-- V46.27 (2026-06-13): BugFix — Perplexity `phone-verification/status` 維持 regex 邊界，但由 `204 DROP` 改為 `403 BLOCK`，更符合功能狀態查詢 API 語意。
-- V46.27 (2026-06-13): BugFix — Perplexity `phone-verification/status` 維持 regex 邊界，但由 `204 DROP` 改為 `403 BLOCK`，更符合功能狀態查詢 API 語意。
-- V46.26 (2026-06-13): BugFix — Perplexity `phone-verification/status` 改為邊界明確的 `DROP_RE`，修正 `status-check` 與 query substring 誤傷風險。
-- V46.25 (2026-06-13): Privacy — `www.perplexity.ai/api/auth/phone-verification/status` 加入 `CRITICAL_PATH_MAP` 精準封鎖，保留 `rest/sse/entry_creation_events` 放行。
-- V46.24 (2026-06-13): BugFix — Coupang loyalty withdraw benefit 與 pushonoff 功能路徑加入 `PATH_EXEMPTIONS`，修正 `/popup/`、`/events` 關鍵字誤封。
-- V46.23 (2026-06-13): BugFix — admsmaterial.businessweekly.com.tw 從 `PRIORITY_BLOCK_DOMAINS` 移至 `BLOCK_DOMAINS`，修正子網域誤判為 P0 的問題。
-- V46.22 (2026-06-13): Privacy — admsmaterial.businessweekly.com.tw 加入 `BLOCK_DOMAINS` 精確封鎖，最小化攔截商周廣告素材子網域。
-- V46.21 (2026-06-12): Privacy — c.umsns.com 新增 `DROP:/slink_logs`，精準靜默拋棄短連結記錄端點，保留 `deeplink/init` 放行。
-- V46.20 (2026-06-10): BugFix — chatgpt.com /backend-api/o11y/v1/traces 誤封修正，PATH_EXEMPTIONS 新增豁免，修復 Codex 頁面無法開啟。
-- V46.19 (2026-06-10): BugFix — x.com /account/authenticate_web_view 誤封修正，PATH_EXEMPTIONS 新增豁免，放行推文成效數據驗證端點。
-- V46.18 (2026-06-07): Privacy — csp.withgoogle.com 新增 `DROP:/csp/`，靜默拋棄 Google CSP violation report 遙測回報。
-- V46.17 (2026-06-04): Privacy — dataplane.rum.us-east-1.amazonaws.com 新增指定 appmonitor 路徑封鎖，精準攔截單一 AWS CloudWatch RUM 端點。
+- V46.48 (2026-07-10): Privacy — `x.com/i/csp_report` 加入精準 `DROP_RE`，靜默丟棄 CSP 違規回報遙測。
+- V46.47 (2026-07-09): BugFix — 移除 `PATH_BLOCK` 的低信心裸字串 `analysis`，避免一般文章 slug 被誤封。
+- V46.46 (2026-06-21): BugFix — `payments.uber.com/events` 加入 `PATH_EXEMPTIONS`，修正事件端點被泛用 `/events` 規則誤封。
+- V46.45 (2026-06-19): BugFix — `payments.uber.com/_events` 加入 `PATH_EXEMPTIONS`，修正事件端點被泛用 `/_events` 規則誤封。
+- V46.44 (2026-06-19): BugFix — `payments.uber.com` 的付款 API 加入 `PATH_EXEMPTIONS`，避免 query 中廣告關鍵字造成誤封。
 """
 
 import hashlib
@@ -62,13 +36,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.47"
-RELEASE_DATE = "2026-07-09"
+VERSION = "46.48"
+RELEASE_DATE = "2026-07-10"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] 移除 `PATH_BLOCK` 低信心裸字串 `analysis`
-  - 修正新聞/文章 slug（如 `performance-analysis`）被誤判為追蹤路徑
-  - 保留 `analytics`、`cohort-analysis` 與 `analysis.*` 專用追蹤網域封鎖能力
+- [Privacy] `x.com/i/csp_report` 加入精準 `DROP_RE`
+  - 靜默丟棄 CSP 違規回報遙測，避免 `403` 造成瀏覽器回報端重試
+  - 僅匹配 `/i/csp_report` 與其 query 版本，不影響其他 X API
 """
 
 
@@ -436,7 +410,7 @@ RULES_DB = {
         'file.chinatimes.com': ['/ad-param.json'],
         'health.tvbs.com.tw': ['/health-frontend-js/ad-read-page.js'],
         'static.ctee.com.tw': ['/js/ad2019.min.js', '/js/third-party-sticky-ad-callback.min.js'],
-        'x.com': ['RE:^/i/api/1\\.1/promoted_content/log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/graphql/error_log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/videoads/v2/prerolls\\.json(?:\\?|$)'],
+        'x.com': ['DROP_RE:^/i/csp_report(?:\\?|$)', 'RE:^/i/api/1\\.1/promoted_content/log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/graphql/error_log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/videoads/v2/prerolls\\.json(?:\\?|$)'],
         'www.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'm.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'youtubei.googleapis.com': ['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions'],
@@ -2982,6 +2956,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: t.co Shortcode Pass", "https://t.co/vmsN4WYqxs", RES_ALLOW, "V46.42 移除低信心 qxs 後，t.co 短碼不再被 PATH_BLOCK 誤判"))
     cases.append(TestCase("BugFix: Generic qxs Slug Pass", "https://example.com/share/vmsn4wyqxs", RES_ALLOW, "V46.42 隨機 slug 含 qxs 子字串不應再被 PATH_BLOCK 裸字串誤殺"))
     cases.append(TestCase("Regression: Neighbor Keyword Queryly Still Block", "https://example.com/path/queryly/file", RES_BLOCK_403, "V46.42 僅移除 qxs；相鄰且具明確語義的 queryly keyword 仍應維持封鎖"))
+    # --- V46.48 X CSP violation report telemetry ---
+    cases.append(TestCase("Privacy: X CSP Report Drop", "https://x.com/i/csp_report?a=O5RXE%3D%3D%3D&ro=false", RES_DROP_204, "V46.48 x.com /i/csp_report 為 CSP 違規回報遙測；精準 DROP_RE 回 204，避免 403 觸發回報重試且不影響其他 X API"))
+    cases.append(TestCase("Safe: X CSP Report Prefix Neighbor Pass", "https://x.com/i/csp_reports", RES_ALLOW, "V46.48 regex 以 path/query 邊界錨定；相鄰但不同的 /i/csp_reports 不可連帶攔截"))
     cases.append(TestCase("Privacy: X Ads API Domain Block", "https://ads-api.x.com/1.1/accounts/12345/campaigns", RES_BLOCK_403, "V46.40 ads-api.x.com 加入 PRIORITY_BLOCK_DOMAINS；X Ads API 專用網域應於 host-level 直接 403 封鎖"))
     cases.append(TestCase("Privacy: Twitter Ads API Domain Block", "https://ads-api.twitter.com/1.1/accounts/12345/campaigns", RES_BLOCK_403, "V46.40 ads-api.twitter.com 加入 PRIORITY_BLOCK_DOMAINS；Twitter Ads API 專用網域應於 host-level 直接 403 封鎖"))
     cases.append(TestCase("Privacy: X Promoted Content Log Block", "https://x.com/i/api/1.1/promoted_content/log.json", RES_BLOCK_403, "V46.37 x.com promoted_content/log.json 推廣內容回報端點；以 CRITICAL_PATH_MAP 精準封鎖"))

@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.47
- * @date    2026-07-09
- * @rules   1532 total (312 domains, 436 critical paths, 401 path keywords, 109 param rules)
+ * @version 46.48
+ * @date    2026-07-10
+ * @rules   1533 total (312 domains, 437 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.47';
-const SCRIPT_BUILD = 'V46.47 (2026-07-09) | 1532 rules | 3207 tests';
+const SCRIPT_VERSION = '46.48';
+const SCRIPT_BUILD = 'V46.48 (2026-07-10) | 1533 rules | 3209 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -271,7 +271,7 @@ const RULES = {
         '/js/ad2019.min.js', '/js/third-party-sticky-ad-callback.min.js'
       ])],
     ['x.com', new Set([
-        'RE:^/i/api/1\\.1/promoted_content/log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/graphql/error_log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/videoads/v2/prerolls\\.json(?:\\?|$)'
+        'DROP_RE:^/i/csp_report(?:\\?|$)', 'RE:^/i/api/1\\.1/promoted_content/log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/graphql/error_log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/videoads/v2/prerolls\\.json(?:\\?|$)'
       ])],
     ['www.youtube.com', new Set([
         '/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback',

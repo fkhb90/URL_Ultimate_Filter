@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V46.48 - 2026-07-10
+- [Privacy] `x.com/i/csp_report` 加入精準 `DROP_RE`
+  - 靜默丟棄 CSP 違規回報遙測，避免 `403` 造成瀏覽器回報端重試
+  - 僅匹配 `/i/csp_report` 與其 query 版本，不影響其他 X API
+
 ## V46.47 - 2026-07-09
 - [BugFix] 移除 `PATH_BLOCK` 低信心裸字串 `analysis`
   - 修正新聞/文章 slug（如 `performance-analysis`）被誤判為追蹤路徑
