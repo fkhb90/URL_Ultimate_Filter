@@ -3,11 +3,12 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.48 (2026-07-10)
+當前版本：V46.49 (2026-07-10)
 最新架構更新：
-- [Privacy] `x.com/i/csp_report` 加入 `CRITICAL_PATH_MAP` 的精準 `DROP_RE`，靜默丟棄 CSP 違規回報，避免 403 造成回報端重試。
+- [Privacy] X CSP 回報規則擴及 `/i/csp_report`、`/i/csp_reports` 與 `/1/csp_reports`，全部精準靜默丟棄。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.49 (2026-07-10): Privacy — X CSP 回報規則擴及 `/i/csp_report`、`/i/csp_reports` 與 `/1/csp_reports`，全部精準 `DROP_RE`。
 - V46.48 (2026-07-10): Privacy — `x.com/i/csp_report` 加入精準 `DROP_RE`，靜默丟棄 CSP 違規回報遙測。
 - V46.47 (2026-07-09): BugFix — 移除 `PATH_BLOCK` 的低信心裸字串 `analysis`，避免一般文章 slug 被誤封。
 - V46.46 (2026-06-21): BugFix — `payments.uber.com/events` 加入 `PATH_EXEMPTIONS`，修正事件端點被泛用 `/events` 規則誤封。
@@ -36,13 +37,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.48"
+VERSION = "46.49"
 RELEASE_DATE = "2026-07-10"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] `x.com/i/csp_report` 加入精準 `DROP_RE`
-  - 靜默丟棄 CSP 違規回報遙測，避免 `403` 造成瀏覽器回報端重試
-  - 僅匹配 `/i/csp_report` 與其 query 版本，不影響其他 X API
+- [Privacy] X CSP 回報規則擴及單複數與 `/i`、`/1` 命名空間
+  - `^/(?:i|1)/csp_reports?(?:\\?|$)` 一律精準 DROP 204
+  - 僅涵蓋 CSP 回報路徑，不影響其他 X API
 """
 
 
@@ -410,7 +411,7 @@ RULES_DB = {
         'file.chinatimes.com': ['/ad-param.json'],
         'health.tvbs.com.tw': ['/health-frontend-js/ad-read-page.js'],
         'static.ctee.com.tw': ['/js/ad2019.min.js', '/js/third-party-sticky-ad-callback.min.js'],
-        'x.com': ['DROP_RE:^/i/csp_report(?:\\?|$)', 'RE:^/i/api/1\\.1/promoted_content/log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/graphql/error_log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/videoads/v2/prerolls\\.json(?:\\?|$)'],
+        'x.com': ['DROP_RE:^/(?:i|1)/csp_reports?(?:\\?|$)', 'RE:^/i/api/1\\.1/promoted_content/log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/graphql/error_log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/videoads/v2/prerolls\\.json(?:\\?|$)'],
         'www.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'm.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'youtubei.googleapis.com': ['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions'],
@@ -2956,9 +2957,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: t.co Shortcode Pass", "https://t.co/vmsN4WYqxs", RES_ALLOW, "V46.42 移除低信心 qxs 後，t.co 短碼不再被 PATH_BLOCK 誤判"))
     cases.append(TestCase("BugFix: Generic qxs Slug Pass", "https://example.com/share/vmsn4wyqxs", RES_ALLOW, "V46.42 隨機 slug 含 qxs 子字串不應再被 PATH_BLOCK 裸字串誤殺"))
     cases.append(TestCase("Regression: Neighbor Keyword Queryly Still Block", "https://example.com/path/queryly/file", RES_BLOCK_403, "V46.42 僅移除 qxs；相鄰且具明確語義的 queryly keyword 仍應維持封鎖"))
-    # --- V46.48 X CSP violation report telemetry ---
-    cases.append(TestCase("Privacy: X CSP Report Drop", "https://x.com/i/csp_report?a=O5RXE%3D%3D%3D&ro=false", RES_DROP_204, "V46.48 x.com /i/csp_report 為 CSP 違規回報遙測；精準 DROP_RE 回 204，避免 403 觸發回報重試且不影響其他 X API"))
-    cases.append(TestCase("Safe: X CSP Report Prefix Neighbor Pass", "https://x.com/i/csp_reports", RES_ALLOW, "V46.48 regex 以 path/query 邊界錨定；相鄰但不同的 /i/csp_reports 不可連帶攔截"))
+    # --- V46.49 X CSP violation report telemetry variants ---
+    cases.append(TestCase("Privacy: X CSP Report Drop", "https://x.com/i/csp_report?a=O5RXE%3D%3D%3D&ro=false", RES_DROP_204, "V46.49 X CSP 單數回報路徑精準 DROP 204"))
+    cases.append(TestCase("Privacy: X CSP Reports Drop", "https://x.com/i/csp_reports", RES_DROP_204, "V46.49 X CSP 複數回報路徑精準 DROP 204"))
+    cases.append(TestCase("Privacy: X Legacy CSP Reports Drop", "https://x.com/1/csp_reports", RES_DROP_204, "V46.49 X `/1` 命名空間 CSP 複數回報路徑精準 DROP 204"))
     cases.append(TestCase("Privacy: X Ads API Domain Block", "https://ads-api.x.com/1.1/accounts/12345/campaigns", RES_BLOCK_403, "V46.40 ads-api.x.com 加入 PRIORITY_BLOCK_DOMAINS；X Ads API 專用網域應於 host-level 直接 403 封鎖"))
     cases.append(TestCase("Privacy: Twitter Ads API Domain Block", "https://ads-api.twitter.com/1.1/accounts/12345/campaigns", RES_BLOCK_403, "V46.40 ads-api.twitter.com 加入 PRIORITY_BLOCK_DOMAINS；Twitter Ads API 專用網域應於 host-level 直接 403 封鎖"))
     cases.append(TestCase("Privacy: X Promoted Content Log Block", "https://x.com/i/api/1.1/promoted_content/log.json", RES_BLOCK_403, "V46.37 x.com promoted_content/log.json 推廣內容回報端點；以 CRITICAL_PATH_MAP 精準封鎖"))

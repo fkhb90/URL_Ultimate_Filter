@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V46.49 - 2026-07-10
+- [Privacy] X CSP 回報規則擴及單複數與 `/i`、`/1` 命名空間
+  - `^/(?:i|1)/csp_reports?(?:\?|$)` 一律精準 DROP 204
+  - 僅涵蓋 CSP 回報路徑，不影響其他 X API
+
 ## V46.48 - 2026-07-10
 - [Privacy] `x.com/i/csp_report` 加入精準 `DROP_RE`
   - 靜默丟棄 CSP 違規回報遙測，避免 `403` 造成瀏覽器回報端重試
