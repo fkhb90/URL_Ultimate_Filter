@@ -3,11 +3,13 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.49 (2026-07-10)
+當前版本：V46.50 (2026-07-11)
 最新架構更新：
+- [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源加入精準路徑豁免，避免檔名中的 `sp.js` 子字串被 L1 誤封。
 - [Privacy] X CSP 回報規則擴及 `/i/csp_report`、`/i/csp_reports` 與 `/1/csp_reports`，全部精準靜默丟棄。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.50 (2026-07-11): BugFix — `chatgpt.com/cdn/assets/` 加入 `PATH_EXEMPTIONS`，避免正常 CDN JavaScript 檔名中的 `sp.js` 子字串被 L1 誤封。
 - V46.49 (2026-07-10): Privacy — X CSP 回報規則擴及 `/i/csp_report`、`/i/csp_reports` 與 `/1/csp_reports`，全部精準 `DROP_RE`。
 - V46.48 (2026-07-10): Privacy — `x.com/i/csp_report` 加入精準 `DROP_RE`，靜默丟棄 CSP 違規回報遙測。
 - V46.47 (2026-07-09): BugFix — 移除 `PATH_BLOCK` 的低信心裸字串 `analysis`，避免一般文章 slug 被誤封。
@@ -37,10 +39,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.49"
-RELEASE_DATE = "2026-07-10"
+VERSION = "46.50"
+RELEASE_DATE = "2026-07-11"
 
 CURRENT_RELEASE_NOTES = """
+- [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源精準路徑豁免
+  - 避免正常資源檔名中的 `sp.js` 子字串觸發 L1 Script/Path 封鎖
+  - 僅涵蓋 `chatgpt.com` 及其子網域的 `/cdn/assets/` 路徑
 - [Privacy] X CSP 回報規則擴及單複數與 `/i`、`/1` 命名空間
   - `^/(?:i|1)/csp_reports?(?:\\?|$)` 一律精準 DROP 204
   - 僅涵蓋 CSP 回報路徑，不影響其他 X API
@@ -701,7 +706,7 @@ RULES_DB = {
         "traffic-dist.map.naver.com": ["/v3/events/"],
         "mobile-api.g2a.com": ["/api/v1/transactions/"],
         "abs.twimg.com": ["RE:^/responsive-web/client-web/ondemand\\.inlineplayeranalytics(?:[./?]|$)"],
-        "chatgpt.com": ["/codex/cloud/sett", "/backend-api/o11y/v1/traces"],
+        "chatgpt.com": ["/cdn/assets/", "/codex/cloud/sett", "/backend-api/o11y/v1/traces"],
         "www.youtube.com": ["/redirect"],
         "api.production.hushed.com": ["/v1/maelstrom/events"],
         "x.com": ["/i/api/graphql/", "/account/authenticate_web_view", "RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$", "RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+$"]
@@ -2957,6 +2962,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: t.co Shortcode Pass", "https://t.co/vmsN4WYqxs", RES_ALLOW, "V46.42 移除低信心 qxs 後，t.co 短碼不再被 PATH_BLOCK 誤判"))
     cases.append(TestCase("BugFix: Generic qxs Slug Pass", "https://example.com/share/vmsn4wyqxs", RES_ALLOW, "V46.42 隨機 slug 含 qxs 子字串不應再被 PATH_BLOCK 裸字串誤殺"))
     cases.append(TestCase("Regression: Neighbor Keyword Queryly Still Block", "https://example.com/path/queryly/file", RES_BLOCK_403, "V46.42 僅移除 qxs；相鄰且具明確語義的 queryly keyword 仍應維持封鎖"))
+    # --- V46.50 ChatGPT CDN JavaScript `sp.js` 子字串誤封修正 ---
+    cases.append(TestCase("BugFix: ChatGPT CDN Asset JavaScript Pass", "https://chatgpt.com/cdn/assets/b4c3a217-lrtmahqc1etu3nsp.js", RES_ALLOW, "V46.50 chatgpt.com `/cdn/assets/` 功能性 JavaScript 資源加入 PATH_EXEMPTIONS；避免檔名中的 `sp.js` 子字串被 L1 誤封"))
+    cases.append(TestCase("Regression: ChatGPT Non-Asset sp.js Still Block", "https://chatgpt.com/cdn/telemetry/b4c3a217-lrtmahqc1etu3nsp.js", RES_BLOCK_403, "V46.50 路徑豁免僅限 `/cdn/assets/`；其他含 `sp.js` 的非資產路徑仍由 L1 攔截"))
     # --- V46.49 X CSP violation report telemetry variants ---
     cases.append(TestCase("Privacy: X CSP Report Drop", "https://x.com/i/csp_report?a=O5RXE%3D%3D%3D&ro=false", RES_DROP_204, "V46.49 X CSP 單數回報路徑精準 DROP 204"))
     cases.append(TestCase("Privacy: X CSP Reports Drop", "https://x.com/i/csp_reports", RES_DROP_204, "V46.49 X CSP 複數回報路徑精準 DROP 204"))

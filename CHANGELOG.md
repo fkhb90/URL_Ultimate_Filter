@@ -1,5 +1,13 @@
 # URL Ultimate Filter - Changelog
 
+## V46.50 - 2026-07-11
+- [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源精準路徑豁免
+  - 避免正常資源檔名中的 `sp.js` 子字串觸發 L1 Script/Path 封鎖
+  - 僅涵蓋 `chatgpt.com` 及其子網域的 `/cdn/assets/` 路徑
+- [Privacy] X CSP 回報規則擴及單複數與 `/i`、`/1` 命名空間
+  - `^/(?:i|1)/csp_reports?(?:\?|$)` 一律精準 DROP 204
+  - 僅涵蓋 CSP 回報路徑，不影響其他 X API
+
 ## V46.49 - 2026-07-10
 - [Privacy] X CSP 回報規則擴及單複數與 `/i`、`/1` 命名空間
   - `^/(?:i|1)/csp_reports?(?:\?|$)` 一律精準 DROP 204
