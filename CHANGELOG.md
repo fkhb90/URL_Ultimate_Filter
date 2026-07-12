@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V46.51 - 2026-07-12
+- [Privacy] Reddit `w3-reporting` 診斷回報端點精準靜默丟棄
+  - `^/reports(?:\?|$)` 僅涵蓋 `/reports` 與其 query 版本
+  - 不影響同網域其他路徑
+
 ## V46.50 - 2026-07-11
 - [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源精準路徑豁免
   - 避免正常資源檔名中的 `sp.js` 子字串觸發 L1 Script/Path 封鎖

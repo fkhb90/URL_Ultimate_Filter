@@ -3,19 +3,18 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.50 (2026-07-11)
+當前版本：V46.51 (2026-07-12)
 最新架構更新：
+- [Privacy] Reddit `w3-reporting` 回報端點加入精準靜默丟棄，避免診斷遙測外送。
 - [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源加入精準路徑豁免，避免檔名中的 `sp.js` 子字串被 L1 誤封。
 - [Privacy] X CSP 回報規則擴及 `/i/csp_report`、`/i/csp_reports` 與 `/1/csp_reports`，全部精準靜默丟棄。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.51 (2026-07-12): Privacy — `w3-reporting.reddit.com/reports` 加入精準 `DROP_RE`，靜默丟棄診斷回報遙測。
 - V46.50 (2026-07-11): BugFix — `chatgpt.com/cdn/assets/` 加入 `PATH_EXEMPTIONS`，避免正常 CDN JavaScript 檔名中的 `sp.js` 子字串被 L1 誤封。
 - V46.49 (2026-07-10): Privacy — X CSP 回報規則擴及 `/i/csp_report`、`/i/csp_reports` 與 `/1/csp_reports`，全部精準 `DROP_RE`。
 - V46.48 (2026-07-10): Privacy — `x.com/i/csp_report` 加入精準 `DROP_RE`，靜默丟棄 CSP 違規回報遙測。
 - V46.47 (2026-07-09): BugFix — 移除 `PATH_BLOCK` 的低信心裸字串 `analysis`，避免一般文章 slug 被誤封。
-- V46.46 (2026-06-21): BugFix — `payments.uber.com/events` 加入 `PATH_EXEMPTIONS`，修正事件端點被泛用 `/events` 規則誤封。
-- V46.45 (2026-06-19): BugFix — `payments.uber.com/_events` 加入 `PATH_EXEMPTIONS`，修正事件端點被泛用 `/_events` 規則誤封。
-- V46.44 (2026-06-19): BugFix — `payments.uber.com` 的付款 API 加入 `PATH_EXEMPTIONS`，避免 query 中廣告關鍵字造成誤封。
 """
 
 import hashlib
@@ -39,16 +38,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.50"
-RELEASE_DATE = "2026-07-11"
+VERSION = "46.51"
+RELEASE_DATE = "2026-07-12"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源精準路徑豁免
-  - 避免正常資源檔名中的 `sp.js` 子字串觸發 L1 Script/Path 封鎖
-  - 僅涵蓋 `chatgpt.com` 及其子網域的 `/cdn/assets/` 路徑
-- [Privacy] X CSP 回報規則擴及單複數與 `/i`、`/1` 命名空間
-  - `^/(?:i|1)/csp_reports?(?:\\?|$)` 一律精準 DROP 204
-  - 僅涵蓋 CSP 回報路徑，不影響其他 X API
+- [Privacy] Reddit `w3-reporting` 診斷回報端點精準靜默丟棄
+  - `^/reports(?:\\?|$)` 僅涵蓋 `/reports` 與其 query 版本
+  - 不影響同網域其他路徑
 """
 
 
@@ -417,6 +413,7 @@ RULES_DB = {
         'health.tvbs.com.tw': ['/health-frontend-js/ad-read-page.js'],
         'static.ctee.com.tw': ['/js/ad2019.min.js', '/js/third-party-sticky-ad-callback.min.js'],
         'x.com': ['DROP_RE:^/(?:i|1)/csp_reports?(?:\\?|$)', 'RE:^/i/api/1\\.1/promoted_content/log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/graphql/error_log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/videoads/v2/prerolls\\.json(?:\\?|$)'],
+        'w3-reporting.reddit.com': ['DROP_RE:^/reports(?:\\?|$)'],
         'www.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'm.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'youtubei.googleapis.com': ['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions'],
@@ -2965,6 +2962,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V46.50 ChatGPT CDN JavaScript `sp.js` 子字串誤封修正 ---
     cases.append(TestCase("BugFix: ChatGPT CDN Asset JavaScript Pass", "https://chatgpt.com/cdn/assets/b4c3a217-lrtmahqc1etu3nsp.js", RES_ALLOW, "V46.50 chatgpt.com `/cdn/assets/` 功能性 JavaScript 資源加入 PATH_EXEMPTIONS；避免檔名中的 `sp.js` 子字串被 L1 誤封"))
     cases.append(TestCase("Regression: ChatGPT Non-Asset sp.js Still Block", "https://chatgpt.com/cdn/telemetry/b4c3a217-lrtmahqc1etu3nsp.js", RES_BLOCK_403, "V46.50 路徑豁免僅限 `/cdn/assets/`；其他含 `sp.js` 的非資產路徑仍由 L1 攔截"))
+    # --- V46.51 Reddit w3-reporting diagnostic telemetry precise drop ---
+    cases.append(TestCase("Privacy: Reddit W3 Reporting Drop", "https://w3-reporting.reddit.com/reports", RES_DROP_204, "V46.51 Reddit 診斷回報端點精準 DROP 204；避免遙測外送且不以 403 造成頁面可見錯誤"))
+    cases.append(TestCase("Safe: Reddit W3 Reporting Boundary Pass", "https://w3-reporting.reddit.com/reports-extra", RES_ALLOW, "V46.51 `^/reports(?:\\?|$)` 僅命中 /reports 與 query 版本；相鄰路徑不得被連帶攔截"))
     # --- V46.49 X CSP violation report telemetry variants ---
     cases.append(TestCase("Privacy: X CSP Report Drop", "https://x.com/i/csp_report?a=O5RXE%3D%3D%3D&ro=false", RES_DROP_204, "V46.49 X CSP 單數回報路徑精準 DROP 204"))
     cases.append(TestCase("Privacy: X CSP Reports Drop", "https://x.com/i/csp_reports", RES_DROP_204, "V46.49 X CSP 複數回報路徑精準 DROP 204"))
