@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V46.52 - 2026-07-16
+- [BugFix] X/Twitter `pbs.twimg.com/media/` 圖片路徑精準放行
+  - 避免不透明媒體 ID 中的 `fbq` 子字串誤撞追蹤關鍵字
+  - 豁免只限 `pbs.twimg.com` 的 `/media/`，其他路徑仍維持原規則
+
 ## V46.51 - 2026-07-12
 - [Privacy] Reddit `w3-reporting` 診斷回報端點精準靜默丟棄
   - `^/reports(?:\?|$)` 僅涵蓋 `/reports` 與其 query 版本

@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.51
- * @date    2026-07-12
+ * @version 46.52
+ * @date    2026-07-16
  * @rules   1534 total (312 domains, 438 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.51';
-const SCRIPT_BUILD = 'V46.51 (2026-07-12) | 1534 rules | 3215 tests';
+const SCRIPT_VERSION = '46.52';
+const SCRIPT_BUILD = 'V46.52 (2026-07-16) | 1534 rules | 3218 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1072,6 +1072,9 @@ const RULES = {
       ])],
     ['abs.twimg.com', new Set([
         'RE:^/responsive-web/client-web/ondemand\\.inlineplayeranalytics(?:[./?]|$)'
+      ])],
+    ['pbs.twimg.com', new Set([
+        '/media/'
       ])],
     ['chatgpt.com', new Set([
         '/cdn/assets/', '/codex/cloud/sett', '/backend-api/o11y/v1/traces'

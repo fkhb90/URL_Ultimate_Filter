@@ -3,18 +3,18 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.51 (2026-07-12)
+當前版本：V46.52 (2026-07-16)
 最新架構更新：
+- [BugFix] X/Twitter `pbs.twimg.com/media/` 圖片路徑加入精準豁免，避免隨機媒體 ID 誤撞 `fbq`。
 - [Privacy] Reddit `w3-reporting` 回報端點加入精準靜默丟棄，避免診斷遙測外送。
 - [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源加入精準路徑豁免，避免檔名中的 `sp.js` 子字串被 L1 誤封。
-- [Privacy] X CSP 回報規則擴及 `/i/csp_report`、`/i/csp_reports` 與 `/1/csp_reports`，全部精準靜默丟棄。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.52 (2026-07-16): BugFix — `pbs.twimg.com/media/` 加入 `PATH_EXEMPTIONS`，避免隨機圖片 ID 中的 `fbq` 子字串被誤封。
 - V46.51 (2026-07-12): Privacy — `w3-reporting.reddit.com/reports` 加入精準 `DROP_RE`，靜默丟棄診斷回報遙測。
 - V46.50 (2026-07-11): BugFix — `chatgpt.com/cdn/assets/` 加入 `PATH_EXEMPTIONS`，避免正常 CDN JavaScript 檔名中的 `sp.js` 子字串被 L1 誤封。
 - V46.49 (2026-07-10): Privacy — X CSP 回報規則擴及 `/i/csp_report`、`/i/csp_reports` 與 `/1/csp_reports`，全部精準 `DROP_RE`。
 - V46.48 (2026-07-10): Privacy — `x.com/i/csp_report` 加入精準 `DROP_RE`，靜默丟棄 CSP 違規回報遙測。
-- V46.47 (2026-07-09): BugFix — 移除 `PATH_BLOCK` 的低信心裸字串 `analysis`，避免一般文章 slug 被誤封。
 """
 
 import hashlib
@@ -38,13 +38,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.51"
-RELEASE_DATE = "2026-07-12"
+VERSION = "46.52"
+RELEASE_DATE = "2026-07-16"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] Reddit `w3-reporting` 診斷回報端點精準靜默丟棄
-  - `^/reports(?:\\?|$)` 僅涵蓋 `/reports` 與其 query 版本
-  - 不影響同網域其他路徑
+- [BugFix] X/Twitter `pbs.twimg.com/media/` 圖片路徑精準放行
+  - 避免不透明媒體 ID 中的 `fbq` 子字串誤撞追蹤關鍵字
+  - 豁免只限 `pbs.twimg.com` 的 `/media/`，其他路徑仍維持原規則
 """
 
 
@@ -703,6 +703,7 @@ RULES_DB = {
         "traffic-dist.map.naver.com": ["/v3/events/"],
         "mobile-api.g2a.com": ["/api/v1/transactions/"],
         "abs.twimg.com": ["RE:^/responsive-web/client-web/ondemand\\.inlineplayeranalytics(?:[./?]|$)"],
+        "pbs.twimg.com": ["/media/"],
         "chatgpt.com": ["/cdn/assets/", "/codex/cloud/sett", "/backend-api/o11y/v1/traces"],
         "www.youtube.com": ["/redirect"],
         "api.production.hushed.com": ["/v1/maelstrom/events"],
@@ -2965,6 +2966,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V46.51 Reddit w3-reporting diagnostic telemetry precise drop ---
     cases.append(TestCase("Privacy: Reddit W3 Reporting Drop", "https://w3-reporting.reddit.com/reports", RES_DROP_204, "V46.51 Reddit 診斷回報端點精準 DROP 204；避免遙測外送且不以 403 造成頁面可見錯誤"))
     cases.append(TestCase("Safe: Reddit W3 Reporting Boundary Pass", "https://w3-reporting.reddit.com/reports-extra", RES_ALLOW, "V46.51 `^/reports(?:\\?|$)` 僅命中 /reports 與 query 版本；相鄰路徑不得被連帶攔截"))
+    # --- V46.52 X/Twitter pbs media image random-ID false positive fix ---
+    cases.append(TestCase("BugFix: X PBS Media Image fbq Collision Pass", "https://pbs.twimg.com/media/HNR-YjFbQAAbldF?format=jpg&name=900x900", RES_ALLOW, "V46.52 pbs.twimg.com `/media/` 功能性圖片路徑加入 PATH_EXEMPTIONS；避免隨機媒體 ID 中的 `fbq` 子字串被 PATH_BLOCK 誤封"))
+    cases.append(TestCase("Regression: X PBS Non-Media fbq Still Filtered", "https://pbs.twimg.com/telemetry/fbq", RES_DROP_204, "V46.52 豁免只限 `/media/`；其他含 `fbq` 的非圖片遙測路徑仍維持 PRIORITY_DROP 靜默丟棄"))
     # --- V46.49 X CSP violation report telemetry variants ---
     cases.append(TestCase("Privacy: X CSP Report Drop", "https://x.com/i/csp_report?a=O5RXE%3D%3D%3D&ro=false", RES_DROP_204, "V46.49 X CSP 單數回報路徑精準 DROP 204"))
     cases.append(TestCase("Privacy: X CSP Reports Drop", "https://x.com/i/csp_reports", RES_DROP_204, "V46.49 X CSP 複數回報路徑精準 DROP 204"))
