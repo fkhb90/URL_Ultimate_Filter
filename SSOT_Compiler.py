@@ -3,14 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.53 (2026-07-23)
+當前版本：V46.54 (2026-07-23)
 最新架構更新：
+- [Privacy] Atlassian `web-security-reports.services.atlassian.com/expect-ct-report/` 加入精準靜默丟棄，避免 Expect-CT 安全回報遙測外送。
 - [BugFix] Atlassian `id.atlassian.com/login` OAuth 登入路徑加入精準豁免，避免必要 `audience` 參數被全域關鍵字誤封。
 - [BugFix] X/Twitter `pbs.twimg.com/media/` 圖片路徑加入精準豁免，避免隨機媒體 ID 誤撞 `fbq`。
 - [Privacy] Reddit `w3-reporting` 回報端點加入精準靜默丟棄，避免診斷遙測外送。
 - [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源加入精準路徑豁免，避免檔名中的 `sp.js` 子字串被 L1 誤封。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.54 (2026-07-23): Privacy — `web-security-reports.services.atlassian.com/expect-ct-report/` 加入精準 `DROP_RE`，靜默丟棄 Expect-CT 安全回報遙測。
 - V46.53 (2026-07-23): BugFix — `id.atlassian.com/login` 加入 `PATH_EXEMPTIONS`，避免 Trello OAuth 登入網址的必要 `audience` 參數被誤封。
 - V46.52 (2026-07-16): BugFix — `pbs.twimg.com/media/` 加入 `PATH_EXEMPTIONS`，避免隨機圖片 ID 中的 `fbq` 子字串被誤封。
 - V46.51 (2026-07-12): Privacy — `w3-reporting.reddit.com/reports` 加入精準 `DROP_RE`，靜默丟棄診斷回報遙測。
@@ -40,13 +42,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.53"
+VERSION = "46.54"
 RELEASE_DATE = "2026-07-23"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] Atlassian `id.atlassian.com/login` OAuth 登入路徑精準放行
-  - 避免必要 `audience` 參數被全域 PATH_BLOCK 關鍵字誤封
-  - 豁免只限 `id.atlassian.com` 的 `/login`，其他路徑仍維持原規則
+- [Privacy] Atlassian `web-security-reports.services.atlassian.com/expect-ct-report/` 精準靜默丟棄
+  - 阻止 Expect-CT 安全回報遙測外送，不以 403 造成瀏覽器可見錯誤
+  - 豁免只限 `web-security-reports.services.atlassian.com` 的 `/expect-ct-report/`，其他路徑仍維持原規則
 """
 
 
@@ -416,6 +418,7 @@ RULES_DB = {
         'static.ctee.com.tw': ['/js/ad2019.min.js', '/js/third-party-sticky-ad-callback.min.js'],
         'x.com': ['DROP_RE:^/(?:i|1)/csp_reports?(?:\\?|$)', 'RE:^/i/api/1\\.1/promoted_content/log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/graphql/error_log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/videoads/v2/prerolls\\.json(?:\\?|$)'],
         'w3-reporting.reddit.com': ['DROP_RE:^/reports(?:\\?|$)'],
+        'web-security-reports.services.atlassian.com': ['DROP_RE:^/expect-ct-report(?:/|\\?|$)'],
         'www.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'm.youtube.com': ['/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback', '/youtubei/v1/log_event', '/youtubei/v1/log_interaction'],
         'youtubei.googleapis.com': ['/youtubei/v1/log_event', '/youtubei/v1/log_interaction', '/api/stats/', '/youtubei/v1/notification/record_interactions'],
@@ -2969,6 +2972,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V46.51 Reddit w3-reporting diagnostic telemetry precise drop ---
     cases.append(TestCase("Privacy: Reddit W3 Reporting Drop", "https://w3-reporting.reddit.com/reports", RES_DROP_204, "V46.51 Reddit 診斷回報端點精準 DROP 204；避免遙測外送且不以 403 造成頁面可見錯誤"))
     cases.append(TestCase("Safe: Reddit W3 Reporting Boundary Pass", "https://w3-reporting.reddit.com/reports-extra", RES_ALLOW, "V46.51 `^/reports(?:\\?|$)` 僅命中 /reports 與 query 版本；相鄰路徑不得被連帶攔截"))
+    # --- V46.54 Atlassian Expect-CT report telemetry precise drop ---
+    cases.append(TestCase("Privacy: Atlassian Expect-CT Report Drop", "https://web-security-reports.services.atlassian.com/expect-ct-report/global-proxy", RES_DROP_204, "V46.54 Atlassian Expect-CT 安全回報端點精準 DROP 204；避免安全診斷遙測外送且不以 403 造成瀏覽器可見錯誤"))
+    cases.append(TestCase("Privacy: Atlassian Expect-CT Report Query Drop", "https://web-security-reports.services.atlassian.com/expect-ct-report/global-proxy?x=1", RES_DROP_204, "V46.54 `DROP_RE:^/expect-ct-report(?:/|\\?|$)` 覆蓋帶 query 的 Expect-CT 回報端點"))
+    cases.append(TestCase("Safe: Atlassian Expect-CT Report Boundary Pass", "https://web-security-reports.services.atlassian.com/expect-ct-report-extra", RES_ALLOW, "V46.54 路徑邊界保護；相鄰 `/expect-ct-report-extra` 不得被連帶 DROP"))
     # --- V46.53 Atlassian OAuth login `audience` query false-positive fix ---
     cases.append(TestCase("BugFix: Atlassian Trello OAuth Login Pass", "https://id.atlassian.com/login?continue=https%3A%2F%2Fauth.atlassian.com%2Fauthorize%3Faudience%3Dapi.atlassian.com", RES_ALLOW, "V46.53 id.atlassian.com `/login` 精準 PATH_EXEMPTIONS；避免 OAuth 必要 `audience` 參數被 PATH_BLOCK 誤封，保留 Trello 授權登入流程"))
     cases.append(TestCase("Regression: Atlassian Login Boundary Still Filtered", "https://id.atlassian.com/login-extra?continue=https%3A%2F%2Fauth.atlassian.com%2Fauthorize%3Faudience%3Dapi.atlassian.com", RES_BLOCK_403, "V46.53 豁免以 `^/login(?:/|$)` 錨定；相鄰 `/login-extra` 不得被路徑豁免連帶放行"))

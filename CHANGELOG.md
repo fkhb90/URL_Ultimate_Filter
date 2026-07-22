@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V46.54 - 2026-07-23
+- [Privacy] Atlassian `web-security-reports.services.atlassian.com/expect-ct-report/` 精準靜默丟棄
+  - 阻止 Expect-CT 安全回報遙測外送，不以 403 造成瀏覽器可見錯誤
+  - 豁免只限 `web-security-reports.services.atlassian.com` 的 `/expect-ct-report/`，其他路徑仍維持原規則
+
 ## V46.53 - 2026-07-23
 - [BugFix] Atlassian `id.atlassian.com/login` OAuth 登入路徑精準放行
   - 避免必要 `audience` 參數被全域 PATH_BLOCK 關鍵字誤封

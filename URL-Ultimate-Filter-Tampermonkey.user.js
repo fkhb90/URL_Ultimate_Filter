@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.53
+// @name         URL Ultimate Filter V46.54
 // @namespace    http://tampermonkey.net/
-// @version      46.53
+// @version      46.54
 // @date         2026-07-23
-// @description  SSOT 前端防護盾牌 V46.53 (2026-07-23) | 1534 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1534 total (312 domains · 438 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V46.54 (2026-07-23) | 1535 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1535 total (312 domains · 439 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.53
+ * @version 46.54
  * @date    2026-07-23
- * @rules   1534 total (312 domains, 438 critical paths, 401 path keywords, 109 param rules)
+ * @rules   1535 total (312 domains, 439 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.53';
-const SCRIPT_BUILD = 'V46.53 (2026-07-23) | 1534 rules | 3220 tests';
+const SCRIPT_VERSION = '46.54';
+const SCRIPT_BUILD = 'V46.54 (2026-07-23) | 1535 rules | 3223 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -290,6 +290,9 @@ const RULES = {
       ])],
     ['w3-reporting.reddit.com', new Set([
         'DROP_RE:^/reports(?:\\?|$)'
+      ])],
+    ['web-security-reports.services.atlassian.com', new Set([
+        'DROP_RE:^/expect-ct-report(?:/|\\?|$)'
       ])],
     ['www.youtube.com', new Set([
         '/ptracking', '/api/stats/atr', '/api/stats/qoe', '/api/stats/playback',
