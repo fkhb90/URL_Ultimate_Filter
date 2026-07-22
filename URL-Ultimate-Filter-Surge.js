@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.52
- * @date    2026-07-16
+ * @version 46.53
+ * @date    2026-07-23
  * @rules   1534 total (312 domains, 438 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.52';
-const SCRIPT_BUILD = 'V46.52 (2026-07-16) | 1534 rules | 3218 tests';
+const SCRIPT_VERSION = '46.53';
+const SCRIPT_BUILD = 'V46.53 (2026-07-23) | 1534 rules | 3220 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1016,6 +1016,9 @@ const RULES = {
     SUBSTRINGS: new Set(['cdn-cgi']),
     SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js']),
     PATH_EXEMPTIONS: new Map([
+    ['id.atlassian.com', new Set([
+        'RE:^/login(?:/|$)'
+      ])],
     ['storm.mg', new Set([
         '/_nuxt/track'
       ])],

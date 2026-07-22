@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V46.53 - 2026-07-23
+- [BugFix] Atlassian `id.atlassian.com/login` OAuth 登入路徑精準放行
+  - 避免必要 `audience` 參數被全域 PATH_BLOCK 關鍵字誤封
+  - 豁免只限 `id.atlassian.com` 的 `/login`，其他路徑仍維持原規則
+
 ## V46.52 - 2026-07-16
 - [BugFix] X/Twitter `pbs.twimg.com/media/` 圖片路徑精準放行
   - 避免不透明媒體 ID 中的 `fbq` 子字串誤撞追蹤關鍵字

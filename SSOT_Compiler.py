@@ -3,13 +3,15 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.52 (2026-07-16)
+當前版本：V46.53 (2026-07-23)
 最新架構更新：
+- [BugFix] Atlassian `id.atlassian.com/login` OAuth 登入路徑加入精準豁免，避免必要 `audience` 參數被全域關鍵字誤封。
 - [BugFix] X/Twitter `pbs.twimg.com/media/` 圖片路徑加入精準豁免，避免隨機媒體 ID 誤撞 `fbq`。
 - [Privacy] Reddit `w3-reporting` 回報端點加入精準靜默丟棄，避免診斷遙測外送。
 - [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源加入精準路徑豁免，避免檔名中的 `sp.js` 子字串被 L1 誤封。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.53 (2026-07-23): BugFix — `id.atlassian.com/login` 加入 `PATH_EXEMPTIONS`，避免 Trello OAuth 登入網址的必要 `audience` 參數被誤封。
 - V46.52 (2026-07-16): BugFix — `pbs.twimg.com/media/` 加入 `PATH_EXEMPTIONS`，避免隨機圖片 ID 中的 `fbq` 子字串被誤封。
 - V46.51 (2026-07-12): Privacy — `w3-reporting.reddit.com/reports` 加入精準 `DROP_RE`，靜默丟棄診斷回報遙測。
 - V46.50 (2026-07-11): BugFix — `chatgpt.com/cdn/assets/` 加入 `PATH_EXEMPTIONS`，避免正常 CDN JavaScript 檔名中的 `sp.js` 子字串被 L1 誤封。
@@ -38,13 +40,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.52"
-RELEASE_DATE = "2026-07-16"
+VERSION = "46.53"
+RELEASE_DATE = "2026-07-23"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] X/Twitter `pbs.twimg.com/media/` 圖片路徑精準放行
-  - 避免不透明媒體 ID 中的 `fbq` 子字串誤撞追蹤關鍵字
-  - 豁免只限 `pbs.twimg.com` 的 `/media/`，其他路徑仍維持原規則
+- [BugFix] Atlassian `id.atlassian.com/login` OAuth 登入路徑精準放行
+  - 避免必要 `audience` 參數被全域 PATH_BLOCK 關鍵字誤封
+  - 豁免只限 `id.atlassian.com` 的 `/login`，其他路徑仍維持原規則
 """
 
 
@@ -684,6 +686,7 @@ RULES_DB = {
         '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar'
     ],
     "PATH_EXEMPTIONS": {
+        "id.atlassian.com": ["RE:^/login(?:/|$)"],
         "storm.mg": ["/_nuxt/track"],
         "shopee.tw": ["/api/v4/search/search_items", "/api/v4/pdp/get"],
         "uber.com": ["/go/_events"],
@@ -2966,6 +2969,9 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V46.51 Reddit w3-reporting diagnostic telemetry precise drop ---
     cases.append(TestCase("Privacy: Reddit W3 Reporting Drop", "https://w3-reporting.reddit.com/reports", RES_DROP_204, "V46.51 Reddit 診斷回報端點精準 DROP 204；避免遙測外送且不以 403 造成頁面可見錯誤"))
     cases.append(TestCase("Safe: Reddit W3 Reporting Boundary Pass", "https://w3-reporting.reddit.com/reports-extra", RES_ALLOW, "V46.51 `^/reports(?:\\?|$)` 僅命中 /reports 與 query 版本；相鄰路徑不得被連帶攔截"))
+    # --- V46.53 Atlassian OAuth login `audience` query false-positive fix ---
+    cases.append(TestCase("BugFix: Atlassian Trello OAuth Login Pass", "https://id.atlassian.com/login?continue=https%3A%2F%2Fauth.atlassian.com%2Fauthorize%3Faudience%3Dapi.atlassian.com", RES_ALLOW, "V46.53 id.atlassian.com `/login` 精準 PATH_EXEMPTIONS；避免 OAuth 必要 `audience` 參數被 PATH_BLOCK 誤封，保留 Trello 授權登入流程"))
+    cases.append(TestCase("Regression: Atlassian Login Boundary Still Filtered", "https://id.atlassian.com/login-extra?continue=https%3A%2F%2Fauth.atlassian.com%2Fauthorize%3Faudience%3Dapi.atlassian.com", RES_BLOCK_403, "V46.53 豁免以 `^/login(?:/|$)` 錨定；相鄰 `/login-extra` 不得被路徑豁免連帶放行"))
     # --- V46.52 X/Twitter pbs media image random-ID false positive fix ---
     cases.append(TestCase("BugFix: X PBS Media Image fbq Collision Pass", "https://pbs.twimg.com/media/HNR-YjFbQAAbldF?format=jpg&name=900x900", RES_ALLOW, "V46.52 pbs.twimg.com `/media/` 功能性圖片路徑加入 PATH_EXEMPTIONS；避免隨機媒體 ID 中的 `fbq` 子字串被 PATH_BLOCK 誤封"))
     cases.append(TestCase("Regression: X PBS Non-Media fbq Still Filtered", "https://pbs.twimg.com/telemetry/fbq", RES_DROP_204, "V46.52 豁免只限 `/media/`；其他含 `fbq` 的非圖片遙測路徑仍維持 PRIORITY_DROP 靜默丟棄"))
