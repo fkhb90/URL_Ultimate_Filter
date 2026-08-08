@@ -3,8 +3,9 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.54 (2026-07-23)
+當前版本：V46.55 (2026-08-08)
 最新架構更新：
+- [BugFix] 全聯電商 `pxbox.es.pxmart.com.tw/_nuxt3/` Nuxt 3 建置資源加入精準路徑豁免，避免 hash 檔名（`BK-`、`ActivityTag.`）撞上 `\\/bk` 與 `ytag\\.` 關鍵路徑樣式誤封。
 - [Privacy] Atlassian `web-security-reports.services.atlassian.com/expect-ct-report/` 加入精準靜默丟棄，避免 Expect-CT 安全回報遙測外送。
 - [BugFix] Atlassian `id.atlassian.com/login` OAuth 登入路徑加入精準豁免，避免必要 `audience` 參數被全域關鍵字誤封。
 - [BugFix] X/Twitter `pbs.twimg.com/media/` 圖片路徑加入精準豁免，避免隨機媒體 ID 誤撞 `fbq`。
@@ -12,6 +13,7 @@ URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 - [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源加入精準路徑豁免，避免檔名中的 `sp.js` 子字串被 L1 誤封。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.55 (2026-08-08): BugFix — `pxbox.es.pxmart.com.tw/_nuxt3/` 加入 `PATH_EXEMPTIONS`，避免 Nuxt 3 hash 檔名（`BK-`、`ActivityTag.`）撞上 `\\/bk` 與 `ytag\\.` 關鍵路徑樣式誤封。
 - V46.54 (2026-07-23): Privacy — `web-security-reports.services.atlassian.com/expect-ct-report/` 加入精準 `DROP_RE`，靜默丟棄 Expect-CT 安全回報遙測。
 - V46.53 (2026-07-23): BugFix — `id.atlassian.com/login` 加入 `PATH_EXEMPTIONS`，避免 Trello OAuth 登入網址的必要 `audience` 參數被誤封。
 - V46.52 (2026-07-16): BugFix — `pbs.twimg.com/media/` 加入 `PATH_EXEMPTIONS`，避免隨機圖片 ID 中的 `fbq` 子字串被誤封。
@@ -42,13 +44,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.54"
-RELEASE_DATE = "2026-07-23"
+VERSION = "46.55"
+RELEASE_DATE = "2026-08-08"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] Atlassian `web-security-reports.services.atlassian.com/expect-ct-report/` 精準靜默丟棄
-  - 阻止 Expect-CT 安全回報遙測外送，不以 403 造成瀏覽器可見錯誤
-  - 豁免只限 `web-security-reports.services.atlassian.com` 的 `/expect-ct-report/`，其他路徑仍維持原規則
+- [BugFix] 全聯電商 `pxbox.es.pxmart.com.tw/_nuxt3/` Nuxt 3 建置資源精準路徑豁免
+  - 避免 hash 檔名（BK-gAc5P.js、ActivityTag.BHUini8r.css）撞上 CRITICAL_PATH 的 `\\/bk` 與 `ytag\\.` 樣式誤封
+  - 豁免只限該 host 的 `/_nuxt3/` 目錄，其他路徑與全域關鍵字維持原規則
 """
 
 
@@ -691,6 +693,7 @@ RULES_DB = {
     "PATH_EXEMPTIONS": {
         "id.atlassian.com": ["RE:^/login(?:/|$)"],
         "storm.mg": ["/_nuxt/track"],
+        "pxbox.es.pxmart.com.tw": ["/_nuxt3/"],
         "shopee.tw": ["/api/v4/search/search_items", "/api/v4/pdp/get"],
         "uber.com": ["/go/_events"],
         "payments.uber.com": ["/api/gettransactions", "/api/walletcyclingconfigget", "/_events", "/events"],
@@ -2972,6 +2975,11 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V46.51 Reddit w3-reporting diagnostic telemetry precise drop ---
     cases.append(TestCase("Privacy: Reddit W3 Reporting Drop", "https://w3-reporting.reddit.com/reports", RES_DROP_204, "V46.51 Reddit 診斷回報端點精準 DROP 204；避免遙測外送且不以 403 造成頁面可見錯誤"))
     cases.append(TestCase("Safe: Reddit W3 Reporting Boundary Pass", "https://w3-reporting.reddit.com/reports-extra", RES_ALLOW, "V46.51 `^/reports(?:\\?|$)` 僅命中 /reports 與 query 版本；相鄰路徑不得被連帶攔截"))
+    # --- V46.55 PXMart Nuxt3 hash asset false-positive fix ---
+    cases.append(TestCase("BugFix: PXMart Nuxt3 BK JS Pass", "https://pxbox.es.pxmart.com.tw/_nuxt3/BK-gAc5P.js", RES_ALLOW, "V46.55 pxbox.es.pxmart.com.tw `/_nuxt3/` 加入 PATH_EXEMPTIONS；Nuxt 3 hash 檔名 `BK-` 前綴撞上 CRITICAL_PATH `\\/bk` 樣式誤封，豁免後放行功能性建置資源"))
+    cases.append(TestCase("BugFix: PXMart Nuxt3 ActivityTag CSS Pass", "https://pxbox.es.pxmart.com.tw/_nuxt3/ActivityTag.BHUini8r.css", RES_ALLOW, "V46.55 同一豁免；元件名 `ActivityTag.` 撞上 CRITICAL_PATH `ytag\\.` 樣式誤封，豁免後放行 scoped 樣式資源"))
+    cases.append(TestCase("Regression: PXMart Non-Nuxt /bk Still Block", "https://pxbox.es.pxmart.com.tw/bk", RES_BLOCK_403, "V46.55 豁免僅限 `/_nuxt3/`；裸 `/bk` 路徑仍由 CRITICAL_PATH `\\/bk` 樣式封鎖"))
+    cases.append(TestCase("Regression: PXMart Nuxt3-extra Sibling Still Block", "https://pxbox.es.pxmart.com.tw/_nuxt3-extra/bk-gac5p.js", RES_BLOCK_403, "V46.55 `/_nuxt3/` 豁免不含相鄰 `/_nuxt3-extra/` 前綴；該路徑含 `/bk` 仍由 L1 攔截"))
     # --- V46.54 Atlassian Expect-CT report telemetry precise drop ---
     cases.append(TestCase("Privacy: Atlassian Expect-CT Report Drop", "https://web-security-reports.services.atlassian.com/expect-ct-report/global-proxy", RES_DROP_204, "V46.54 Atlassian Expect-CT 安全回報端點精準 DROP 204；避免安全診斷遙測外送且不以 403 造成瀏覽器可見錯誤"))
     cases.append(TestCase("Privacy: Atlassian Expect-CT Report Query Drop", "https://web-security-reports.services.atlassian.com/expect-ct-report/global-proxy?x=1", RES_DROP_204, "V46.54 `DROP_RE:^/expect-ct-report(?:/|\\?|$)` 覆蓋帶 query 的 Expect-CT 回報端點"))

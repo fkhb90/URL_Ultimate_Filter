@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V46.55 - 2026-08-08
+- [BugFix] 全聯電商 `pxbox.es.pxmart.com.tw/_nuxt3/` Nuxt 3 建置資源精準路徑豁免
+  - 避免 hash 檔名（BK-gAc5P.js、ActivityTag.BHUini8r.css）撞上 CRITICAL_PATH 的 `\/bk` 與 `ytag\.` 樣式誤封
+  - 豁免只限該 host 的 `/_nuxt3/` 目錄，其他路徑與全域關鍵字維持原規則
+
 ## V46.54 - 2026-07-23
 - [Privacy] Atlassian `web-security-reports.services.atlassian.com/expect-ct-report/` 精準靜默丟棄
   - 阻止 Expect-CT 安全回報遙測外送，不以 403 造成瀏覽器可見錯誤
