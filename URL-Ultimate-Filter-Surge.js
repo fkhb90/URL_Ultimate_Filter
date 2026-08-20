@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.55
- * @date    2026-08-08
+ * @version 46.56
+ * @date    2026-08-20
  * @rules   1535 total (312 domains, 439 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.55';
-const SCRIPT_BUILD = 'V46.55 (2026-08-08) | 1535 rules | 3228 tests';
+const SCRIPT_VERSION = '46.56';
+const SCRIPT_BUILD = 'V46.56 (2026-08-20) | 1535 rules | 3232 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1027,6 +1027,9 @@ const RULES = {
       ])],
     ['pxbox.es.pxmart.com.tw', new Set([
         '/_nuxt3/'
+      ])],
+    ['cart.momoshop.com.tw', new Set([
+        '/api/shoppingcart/'
       ])],
     ['shopee.tw', new Set([
         '/api/v4/search/search_items', '/api/v4/pdp/get'

@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V46.56 - 2026-08-20
+- [BugFix] momo 購物網 `cart.momoshop.com.tw/api/shoppingcart/` 精準路徑豁免
+  - 避免購物車 API 路徑 `/trackandhistory` 撞上全域 CRITICAL_PATH `/track` 關鍵字誤封（e.g. `checkWishItem`）
+  - 豁免只限該 host 的 `/api/shoppingcart/` 路徑，其他含 `/track` 的 telemetry 路徑維持原規則
+
 ## V46.55 - 2026-08-08
 - [BugFix] 全聯電商 `pxbox.es.pxmart.com.tw/_nuxt3/` Nuxt 3 建置資源精準路徑豁免
   - 避免 hash 檔名（BK-gAc5P.js、ActivityTag.BHUini8r.css）撞上 CRITICAL_PATH 的 `\/bk` 與 `ytag\.` 樣式誤封
