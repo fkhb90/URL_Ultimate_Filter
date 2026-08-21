@@ -3,8 +3,9 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.56 (2026-08-20)
+當前版本：V46.57 (2026-08-21)
 最新架構更新：
+- [BugFix] Patreon `www.patreon.com/api/tracking` 文章串流更新端點加入精準路徑豁免，避免全域 `/api/track` 關鍵字誤封導致主頁下拉更新失敗。
 - [BugFix] momo 購物網 `cart.momoshop.com.tw/api/shoppingcart/` 加入精準路徑豁免，避免購物車 API 路徑 `/trackandhistory` 撞上全域 `/track` 關鍵字誤封。
 - [BugFix] 全聯電商 `pxbox.es.pxmart.com.tw/_nuxt3/` Nuxt 3 建置資源加入精準路徑豁免，避免 hash 檔名（`BK-`、`ActivityTag.`）撞上 `\\/bk` 與 `ytag\\.` 關鍵路徑樣式誤封。
 - [Privacy] Atlassian `web-security-reports.services.atlassian.com/expect-ct-report/` 加入精準靜默丟棄，避免 Expect-CT 安全回報遙測外送。
@@ -14,6 +15,7 @@ URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 - [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源加入精準路徑豁免，避免檔名中的 `sp.js` 子字串被 L1 誤封。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.57 (2026-08-21): BugFix — `www.patreon.com/api/tracking` 加入邊界錨定的 `PATH_EXEMPTIONS`，避免 Patreon 文章串流下拉更新被全域 `/api/track` 誤封。
 - V46.56 (2026-08-20): BugFix — `cart.momoshop.com.tw/api/shoppingcart/` 加入 `PATH_EXEMPTIONS`，避免購物車 API 路徑 `/trackandhistory` 撞上全域 `/track` 關鍵字誤封。
 - V46.55 (2026-08-08): BugFix — `pxbox.es.pxmart.com.tw/_nuxt3/` 加入 `PATH_EXEMPTIONS`，避免 Nuxt 3 hash 檔名（`BK-`、`ActivityTag.`）撞上 `\\/bk` 與 `ytag\\.` 關鍵路徑樣式誤封。
 - V46.54 (2026-07-23): Privacy — `web-security-reports.services.atlassian.com/expect-ct-report/` 加入精準 `DROP_RE`，靜默丟棄 Expect-CT 安全回報遙測。
@@ -46,10 +48,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.56"
-RELEASE_DATE = "2026-08-20"
+VERSION = "46.57"
+RELEASE_DATE = "2026-08-21"
 
 CURRENT_RELEASE_NOTES = """
+- [BugFix] Patreon `www.patreon.com/api/tracking` 精準路徑豁免
+  - Patreon 主頁文章串流下拉更新會呼叫此 POST-only 端點；全域 `/api/track` 前綴規則誤封會使更新提示失敗
+  - 豁免只限 `/api/tracking` 路徑家族，`/api/tracking-extra` 與其他 `/track` 路徑維持原規則
 - [BugFix] momo 購物網 `cart.momoshop.com.tw/api/shoppingcart/` 精準路徑豁免
   - 避免購物車 API 路徑 `/trackandhistory` 撞上全域 CRITICAL_PATH `/track` 關鍵字誤封（e.g. `checkWishItem`）
   - 豁免只限該 host 的 `/api/shoppingcart/` 路徑，其他含 `/track` 的 telemetry 路徑維持原規則
@@ -694,6 +699,7 @@ RULES_DB = {
     ],
     "PATH_EXEMPTIONS": {
         "id.atlassian.com": ["RE:^/login(?:/|$)"],
+        "www.patreon.com": ["RE:^/api/tracking(?:/|$)"],
         "storm.mg": ["/_nuxt/track"],
         "pxbox.es.pxmart.com.tw": ["/_nuxt3/"],
         "cart.momoshop.com.tw": ["/api/shoppingcart/"],
@@ -2978,6 +2984,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V46.51 Reddit w3-reporting diagnostic telemetry precise drop ---
     cases.append(TestCase("Privacy: Reddit W3 Reporting Drop", "https://w3-reporting.reddit.com/reports", RES_DROP_204, "V46.51 Reddit 診斷回報端點精準 DROP 204；避免遙測外送且不以 403 造成頁面可見錯誤"))
     cases.append(TestCase("Safe: Reddit W3 Reporting Boundary Pass", "https://w3-reporting.reddit.com/reports-extra", RES_ALLOW, "V46.51 `^/reports(?:\\?|$)` 僅命中 /reports 與 query 版本；相鄰路徑不得被連帶攔截"))
+    # --- V46.57 Patreon article feed tracking endpoint false-positive fix ---
+    cases.append(TestCase("BugFix: Patreon Article Feed Tracking Pass", "https://www.patreon.com/api/tracking", RES_ALLOW, "V46.57 Patreon 文章串流下拉更新所需的 POST-only `/api/tracking` 端點被全域 CRITICAL_PATH `/api/track` 前綴誤封；以 host-scoped PATH_EXEMPTIONS 精準放行"))
+    cases.append(TestCase("BugFix: Patreon Article Feed Tracking Query Pass", "https://www.patreon.com/api/tracking?source=feed", RES_ALLOW, "V46.57 同一路徑帶 query 時仍應由 raw pathname 豁免，避免文章串流更新因 query 版本被誤封"))
+    cases.append(TestCase("Regression: Patreon Tracking Boundary Still Blocked", "https://www.patreon.com/api/tracking-extra", RES_BLOCK_403, "V46.57 `^/api/tracking(?:/|$)` 邊界錨定；相鄰 `/api/tracking-extra` 不得被連帶放行"))
     # --- V46.56 momo Shopping Cart API /trackandhistory false-positive fix ---
     cases.append(TestCase("BugFix: Momo Cart API checkWishItem Pass", "https://cart.momoshop.com.tw/api/shoppingcart/trackandhistory/checkWishItem", RES_ALLOW, "V46.56 cart.momoshop.com.tw `/api/shoppingcart/` 加入 PATH_EXEMPTIONS；購物車 API 路徑 `/trackandhistory` 撞上全域 CRITICAL_PATH `/track` 關鍵字誤封，豁免後放行功能性願望清單查詢端點"))
     cases.append(TestCase("Regression: Momo Cart Bare /track Still Block", "https://cart.momoshop.com.tw/track/extra", RES_BLOCK_403, "V46.56 豁免僅限 `/api/shoppingcart/`；裸 `/track/extra` 仍由全域 CRITICAL_PATH `/track` 封鎖"))

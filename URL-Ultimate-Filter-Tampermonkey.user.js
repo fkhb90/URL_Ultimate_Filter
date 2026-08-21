@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.56
+// @name         URL Ultimate Filter V46.57
 // @namespace    http://tampermonkey.net/
-// @version      46.56
-// @date         2026-08-20
-// @description  SSOT 前端防護盾牌 V46.56 (2026-08-20) | 1535 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @version      46.57
+// @date         2026-08-21
+// @description  SSOT 前端防護盾牌 V46.57 (2026-08-21) | 1535 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
 // @rules        1535 total (312 domains · 439 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.56
- * @date    2026-08-20
+ * @version 46.57
+ * @date    2026-08-21
  * @rules   1535 total (312 domains, 439 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.56';
-const SCRIPT_BUILD = 'V46.56 (2026-08-20) | 1535 rules | 3232 tests';
+const SCRIPT_VERSION = '46.57';
+const SCRIPT_BUILD = 'V46.57 (2026-08-21) | 1535 rules | 3235 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1036,6 +1036,9 @@ const RULES = {
     PATH_EXEMPTIONS: new Map([
     ['id.atlassian.com', new Set([
         'RE:^/login(?:/|$)'
+      ])],
+    ['www.patreon.com', new Set([
+        'RE:^/api/tracking(?:/|$)'
       ])],
     ['storm.mg', new Set([
         '/_nuxt/track'

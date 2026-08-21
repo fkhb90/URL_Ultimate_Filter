@@ -1,5 +1,13 @@
 # URL Ultimate Filter - Changelog
 
+## V46.57 - 2026-08-21
+- [BugFix] Patreon `www.patreon.com/api/tracking` 精準路徑豁免
+  - Patreon 主頁文章串流下拉更新會呼叫此 POST-only 端點；全域 `/api/track` 前綴規則誤封會使更新提示失敗
+  - 豁免只限 `/api/tracking` 路徑家族，`/api/tracking-extra` 與其他 `/track` 路徑維持原規則
+- [BugFix] momo 購物網 `cart.momoshop.com.tw/api/shoppingcart/` 精準路徑豁免
+  - 避免購物車 API 路徑 `/trackandhistory` 撞上全域 CRITICAL_PATH `/track` 關鍵字誤封（e.g. `checkWishItem`）
+  - 豁免只限該 host 的 `/api/shoppingcart/` 路徑，其他含 `/track` 的 telemetry 路徑維持原規則
+
 ## V46.56 - 2026-08-20
 - [BugFix] momo 購物網 `cart.momoshop.com.tw/api/shoppingcart/` 精準路徑豁免
   - 避免購物車 API 路徑 `/trackandhistory` 撞上全域 CRITICAL_PATH `/track` 關鍵字誤封（e.g. `checkWishItem`）
