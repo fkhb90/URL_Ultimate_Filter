@@ -1,5 +1,18 @@
 # URL Ultimate Filter - Changelog
 
+## V46.59 - 2026-08-21
+- [BugFix] Patreon `www.patreon.com/api/launcher_feed/v1` 精準路徑豁免
+  - 首頁文章串流 API 的 query 會包含 `collection` 欄位；全域 `collect` 關鍵字誤封會使下拉更新失敗
+  - 豁免只限 `/api/launcher_feed/v1` 路徑家族，其他 Patreon 路徑與相鄰版本仍維持原規則
+- [BugFix] Google `lh3.googleusercontent.com/a-/` 精準路徑豁免
+  - 使用者圖片的隨機 opaque ID 可能偶然包含全域 `dfp` 關鍵字；豁免僅限 Google 圖片 `/a-/` 路徑，其他路徑仍維持掃描
+- [BugFix] Patreon `www.patreon.com/api/tracking` 精準路徑豁免
+  - Patreon 主頁文章串流下拉更新會呼叫此 POST-only 端點；全域 `/api/track` 前綴規則誤封會使更新提示失敗
+  - 豁免只限 `/api/tracking` 路徑家族，`/api/tracking-extra` 與其他 `/track` 路徑維持原規則
+- [BugFix] momo 購物網 `cart.momoshop.com.tw/api/shoppingcart/` 精準路徑豁免
+  - 避免購物車 API 路徑 `/trackandhistory` 撞上全域 CRITICAL_PATH `/track` 關鍵字誤封（e.g. `checkWishItem`）
+  - 豁免只限該 host 的 `/api/shoppingcart/` 路徑，其他含 `/track` 的 telemetry 路徑維持原規則
+
 ## V46.58 - 2026-08-21
 - [BugFix] Google `lh3.googleusercontent.com/a-/` 精準路徑豁免
   - 使用者圖片的隨機 opaque ID 可能偶然包含全域 `dfp` 關鍵字；豁免僅限 Google 圖片 `/a-/` 路徑，其他路徑仍維持掃描
