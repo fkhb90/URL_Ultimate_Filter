@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.57
+ * @version 46.58
  * @date    2026-08-21
  * @rules   1535 total (312 domains, 439 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.57';
-const SCRIPT_BUILD = 'V46.57 (2026-08-21) | 1535 rules | 3235 tests';
+const SCRIPT_VERSION = '46.58';
+const SCRIPT_BUILD = 'V46.58 (2026-08-21) | 1535 rules | 3238 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1057,6 +1057,9 @@ const RULES = {
       ])],
     ['www.google.com', new Set([
         '/url', '/search', '/s2/favicons'
+      ])],
+    ['lh3.googleusercontent.com', new Set([
+        '/a-/'
       ])],
     ['play.googleapis.com', new Set([
         '/log/batch'

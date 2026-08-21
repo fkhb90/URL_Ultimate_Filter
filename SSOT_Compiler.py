@@ -3,8 +3,9 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.57 (2026-08-21)
+當前版本：V46.58 (2026-08-21)
 最新架構更新：
+- [BugFix] Google `lh3.googleusercontent.com/a-/` 使用者圖片資源加入精準路徑豁免，避免隨機圖片 ID 撞上 `dfp` 關鍵字誤封。
 - [BugFix] Patreon `www.patreon.com/api/tracking` 文章串流更新端點加入精準路徑豁免，避免全域 `/api/track` 關鍵字誤封導致主頁下拉更新失敗。
 - [BugFix] momo 購物網 `cart.momoshop.com.tw/api/shoppingcart/` 加入精準路徑豁免，避免購物車 API 路徑 `/trackandhistory` 撞上全域 `/track` 關鍵字誤封。
 - [BugFix] 全聯電商 `pxbox.es.pxmart.com.tw/_nuxt3/` Nuxt 3 建置資源加入精準路徑豁免，避免 hash 檔名（`BK-`、`ActivityTag.`）撞上 `\\/bk` 與 `ytag\\.` 關鍵路徑樣式誤封。
@@ -15,6 +16,7 @@ URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 - [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源加入精準路徑豁免，避免檔名中的 `sp.js` 子字串被 L1 誤封。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.58 (2026-08-21): BugFix — `lh3.googleusercontent.com/a-/` 加入 `PATH_EXEMPTIONS`，避免 Google 使用者圖片隨機 ID 中的 `dfp` 子字串造成誤封。
 - V46.57 (2026-08-21): BugFix — `www.patreon.com/api/tracking` 加入邊界錨定的 `PATH_EXEMPTIONS`，避免 Patreon 文章串流下拉更新被全域 `/api/track` 誤封。
 - V46.56 (2026-08-20): BugFix — `cart.momoshop.com.tw/api/shoppingcart/` 加入 `PATH_EXEMPTIONS`，避免購物車 API 路徑 `/trackandhistory` 撞上全域 `/track` 關鍵字誤封。
 - V46.55 (2026-08-08): BugFix — `pxbox.es.pxmart.com.tw/_nuxt3/` 加入 `PATH_EXEMPTIONS`，避免 Nuxt 3 hash 檔名（`BK-`、`ActivityTag.`）撞上 `\\/bk` 與 `ytag\\.` 關鍵路徑樣式誤封。
@@ -48,10 +50,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.57"
+VERSION = "46.58"
 RELEASE_DATE = "2026-08-21"
 
 CURRENT_RELEASE_NOTES = """
+- [BugFix] Google `lh3.googleusercontent.com/a-/` 精準路徑豁免
+  - 使用者圖片的隨機 opaque ID 可能偶然包含全域 `dfp` 關鍵字；豁免僅限 Google 圖片 `/a-/` 路徑，其他路徑仍維持掃描
 - [BugFix] Patreon `www.patreon.com/api/tracking` 精準路徑豁免
   - Patreon 主頁文章串流下拉更新會呼叫此 POST-only 端點；全域 `/api/track` 前綴規則誤封會使更新提示失敗
   - 豁免只限 `/api/tracking` 路徑家族，`/api/tracking-extra` 與其他 `/track` 路徑維持原規則
@@ -711,6 +715,7 @@ RULES_DB = {
         "loyalty.tw.coupang.com": ["/m/loyalty/withdraw-request/popup/benefit"],
         "m.media-amazon.com": ["/images/g/01/amazonexports/events/"],
         "www.google.com": ["/url", "/search", "/s2/favicons"],
+        "lh3.googleusercontent.com": ["/a-/"],
         "play.googleapis.com": ["/log/batch"],
         "threads.com": ["/post/"],
         "threads.net": ["/post/"],
@@ -2984,6 +2989,10 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V46.51 Reddit w3-reporting diagnostic telemetry precise drop ---
     cases.append(TestCase("Privacy: Reddit W3 Reporting Drop", "https://w3-reporting.reddit.com/reports", RES_DROP_204, "V46.51 Reddit 診斷回報端點精準 DROP 204；避免遙測外送且不以 403 造成頁面可見錯誤"))
     cases.append(TestCase("Safe: Reddit W3 Reporting Boundary Pass", "https://w3-reporting.reddit.com/reports-extra", RES_ALLOW, "V46.51 `^/reports(?:\\?|$)` 僅命中 /reports 與 query 版本；相鄰路徑不得被連帶攔截"))
+    # --- V46.58 Google user avatar opaque ID false-positive fix ---
+    cases.append(TestCase("BugFix: Google User Avatar Opaque ID Allow", "https://lh3.googleusercontent.com/a-/ALV-UjWVY3lyMc6NVp-MsO6JLNkeaQ1_2Wo-Q_p6PXg6PdYr10S1WzTPPRZja89VO__1dQuUaJeyOxnamKGQtmmjVeOe5UiyC2rCldiK8sEVYz0FNNzIe0V1rpFHzsT0yD_Vdz_LrPnpxhMR7JdJKdPbJrFOhQ_7Vs3kEy3TnOWsvtK5D6l8WTX-AWYQis8LuxOB6M1-X3edK_lLkh50_aauCAjY4sutb5siyGTYWDKioGwVvB2gqq9qIbPU907_qb6z3NXB2c5d00y85ZuW1HQxWFDEjgh5A_owM3pfn04rLRcdaaSrBSdk-NuQff4OOWgEQbGRxTHKKUBGyIRXunr66-fTVxX6g7kVhI9frGgb_kwmaD2osNaDifblZQGWS-9CMXu29umxCXB59nfSFd9L7rmDgBq8Z9HJjhq0ndFpOg-101zmQPhtu74Gg7Pa5tpce3zQayaqJaBl6Nhv4wV5Hg5LW9_5PzTXXTVynkZRt9DUkPyYoo8Bamm9oHL2AKhHQeB4RQowtsiuf-PVuQ0MZcmzTFonpTXvm8jGX0eAwftxEvDW7T_hMl1Eb08qKaUkF1NijPV63cf0NVNcjoOViZ7v7nhiT5ymXLw3rX7dt49X3e7D2cd3oDWeeWWZ1HHbGaRFWls6-Y8wuco7rFIDoBtvpeV1GFBoYNujHjgtfsyFoq8HsOuL3QwLrkLsHk72CoMzI558t8-kMus8LJyTTJxvsR0mwYeQac3ZykRxhMTkcthXlLGx8GIcP4MoaKdGgaH-IObhwldaMgpyt7o-kfW-I34SM4MZH3Fl_G5m_GAt8jQwpMwYxEZkRhopFgg_BrzKAsnqiY06OEafHUzDkNZS7Fkcns4XGBzIirxQK3GMYaX5pCAq1aK9HPlGmwPUOMpqAkezH5aGvuwDAnc2qTjh93lwS_jJyqVq-b7-qgoWeeXqIwY_Ri6LPO1OO8Lu70GROA5EW3hF9wJ3YDP4KrOpqOnOZCB2XNIkB0m5qYqOAc1EJCwII0_ysU5GuSLXPwJA52D14E0qss68Cn2uphUuzbHqx5RxERANcz7S=s192-p", RES_ALLOW, "V46.58 Google 使用者圖片 `/a-/` 路徑的 opaque ID 含 `dFp`；路徑正規化後撞上全域 PATH_BLOCK `dfp`，由 host-scoped PATH_EXEMPTIONS 精準放行"))
+    cases.append(TestCase("Regression: Google User Avatar Exemption Boundary", "https://lh3.googleusercontent.com/dfp/test", RES_BLOCK_403, "V46.58 豁免僅限 `/a-/`；同 host 其他路徑仍應由全域 `dfp` 關鍵字封鎖"))
+
     # --- V46.57 Patreon article feed tracking endpoint false-positive fix ---
     cases.append(TestCase("BugFix: Patreon Article Feed Tracking Pass", "https://www.patreon.com/api/tracking", RES_ALLOW, "V46.57 Patreon 文章串流下拉更新所需的 POST-only `/api/tracking` 端點被全域 CRITICAL_PATH `/api/track` 前綴誤封；以 host-scoped PATH_EXEMPTIONS 精準放行"))
     cases.append(TestCase("BugFix: Patreon Article Feed Tracking Query Pass", "https://www.patreon.com/api/tracking?source=feed", RES_ALLOW, "V46.57 同一路徑帶 query 時仍應由 raw pathname 豁免，避免文章串流更新因 query 版本被誤封"))
