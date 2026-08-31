@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.59
+// @name         URL Ultimate Filter V46.60
 // @namespace    http://tampermonkey.net/
-// @version      46.59
-// @date         2026-08-21
-// @description  SSOT 前端防護盾牌 V46.59 (2026-08-21) | 1535 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1535 total (312 domains · 439 critical · 109 param)
+// @version      46.60
+// @date         2026-08-31
+// @description  SSOT 前端防護盾牌 V46.60 (2026-08-31) | 1536 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        1536 total (312 domains · 440 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.59
- * @date    2026-08-21
- * @rules   1535 total (312 domains, 439 critical paths, 401 path keywords, 109 param rules)
+ * @version 46.60
+ * @date    2026-08-31
+ * @rules   1536 total (312 domains, 440 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.59';
-const SCRIPT_BUILD = 'V46.59 (2026-08-21) | 1535 rules | 3241 tests';
+const SCRIPT_VERSION = '46.60';
+const SCRIPT_BUILD = 'V46.60 (2026-08-31) | 1536 rules | 3244 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -284,6 +284,9 @@ const RULES = {
       ])],
     ['static.ctee.com.tw', new Set([
         '/js/ad2019.min.js', '/js/third-party-sticky-ad-callback.min.js'
+      ])],
+    ['www.businesstoday.com.tw', new Set([
+        'RE:^/api/article/ad_text(?:[?]|$)'
       ])],
     ['x.com', new Set([
         'DROP_RE:^/(?:i|1)/csp_reports?(?:\\?|$)', 'RE:^/i/api/1\\.1/promoted_content/log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/graphql/error_log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/videoads/v2/prerolls\\.json(?:\\?|$)'

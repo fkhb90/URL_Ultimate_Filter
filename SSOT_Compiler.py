@@ -3,8 +3,9 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.59 (2026-08-21)
+當前版本：V46.60 (2026-08-31)
 最新架構更新：
+- [Privacy] BusinessToday `www.businesstoday.com.tw/api/article/ad_text` 加入精確端點封鎖，避免站內訂閱促銷文案注入。
 - [BugFix] Patreon `www.patreon.com/api/launcher_feed/v1` 首頁文章串流 API 加入精準路徑豁免，避免 query 欄位 `collection` 被全域 `collect` 關鍵字誤封。
 - [BugFix] Google `lh3.googleusercontent.com/a-/` 使用者圖片資源加入精準路徑豁免，避免隨機圖片 ID 撞上 `dfp` 關鍵字誤封。
 - [BugFix] Patreon `www.patreon.com/api/tracking` 文章串流更新端點加入精準路徑豁免，避免全域 `/api/track` 關鍵字誤封導致主頁下拉更新失敗。
@@ -17,6 +18,7 @@ URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 - [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源加入精準路徑豁免，避免檔名中的 `sp.js` 子字串被 L1 誤封。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.60 (2026-08-31): Privacy — `www.businesstoday.com.tw/api/article/ad_text` 精確封鎖站內訂閱促銷文案端點。
 - V46.59 (2026-08-21): BugFix — `www.patreon.com/api/launcher_feed/v1` 加入 `PATH_EXEMPTIONS`，避免首頁 feed API query 內的 `collection` 欄位被全域 `collect` 誤封。
 - V46.58 (2026-08-21): BugFix — `lh3.googleusercontent.com/a-/` 加入 `PATH_EXEMPTIONS`，避免 Google 使用者圖片隨機 ID 中的 `dfp` 子字串造成誤封。
 - V46.57 (2026-08-21): BugFix — `www.patreon.com/api/tracking` 加入邊界錨定的 `PATH_EXEMPTIONS`，避免 Patreon 文章串流下拉更新被全域 `/api/track` 誤封。
@@ -52,10 +54,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.59"
-RELEASE_DATE = "2026-08-21"
+VERSION = "46.60"
+RELEASE_DATE = "2026-08-31"
 
 CURRENT_RELEASE_NOTES = """
+- [Privacy] BusinessToday `www.businesstoday.com.tw/api/article/ad_text` 精確端點封鎖
+  - 該 GET API 實際回傳 `article_adtext` 訂閱促銷內容，不是文章核心資料或遙測回報
+  - 使用 host-scoped 邊界規則，只處理 `/api/article/ad_text`；`ad_text-extra` 與其他路徑維持原規則
 - [BugFix] Patreon `www.patreon.com/api/launcher_feed/v1` 精準路徑豁免
   - 首頁文章串流 API 的 query 會包含 `collection` 欄位；全域 `collect` 關鍵字誤封會使下拉更新失敗
   - 豁免只限 `/api/launcher_feed/v1` 路徑家族，其他 Patreon 路徑與相鄰版本仍維持原規則
@@ -434,6 +439,7 @@ RULES_DB = {
         'file.chinatimes.com': ['/ad-param.json'],
         'health.tvbs.com.tw': ['/health-frontend-js/ad-read-page.js'],
         'static.ctee.com.tw': ['/js/ad2019.min.js', '/js/third-party-sticky-ad-callback.min.js'],
+        'www.businesstoday.com.tw': ['RE:^/api/article/ad_text(?:[?]|$)'],
         'x.com': ['DROP_RE:^/(?:i|1)/csp_reports?(?:\\?|$)', 'RE:^/i/api/1\\.1/promoted_content/log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/graphql/error_log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/videoads/v2/prerolls\\.json(?:\\?|$)'],
         'w3-reporting.reddit.com': ['DROP_RE:^/reports(?:\\?|$)'],
         'web-security-reports.services.atlassian.com': ['DROP_RE:^/expect-ct-report(?:/|\\?|$)'],
@@ -2997,6 +3003,11 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V46.58 Google user avatar opaque ID false-positive fix ---
     cases.append(TestCase("BugFix: Google User Avatar Opaque ID Allow", "https://lh3.googleusercontent.com/a-/ALV-UjWVY3lyMc6NVp-MsO6JLNkeaQ1_2Wo-Q_p6PXg6PdYr10S1WzTPPRZja89VO__1dQuUaJeyOxnamKGQtmmjVeOe5UiyC2rCldiK8sEVYz0FNNzIe0V1rpFHzsT0yD_Vdz_LrPnpxhMR7JdJKdPbJrFOhQ_7Vs3kEy3TnOWsvtK5D6l8WTX-AWYQis8LuxOB6M1-X3edK_lLkh50_aauCAjY4sutb5siyGTYWDKioGwVvB2gqq9qIbPU907_qb6z3NXB2c5d00y85ZuW1HQxWFDEjgh5A_owM3pfn04rLRcdaaSrBSdk-NuQff4OOWgEQbGRxTHKKUBGyIRXunr66-fTVxX6g7kVhI9frGgb_kwmaD2osNaDifblZQGWS-9CMXu29umxCXB59nfSFd9L7rmDgBq8Z9HJjhq0ndFpOg-101zmQPhtu74Gg7Pa5tpce3zQayaqJaBl6Nhv4wV5Hg5LW9_5PzTXXTVynkZRt9DUkPyYoo8Bamm9oHL2AKhHQeB4RQowtsiuf-PVuQ0MZcmzTFonpTXvm8jGX0eAwftxEvDW7T_hMl1Eb08qKaUkF1NijPV63cf0NVNcjoOViZ7v7nhiT5ymXLw3rX7dt49X3e7D2cd3oDWeeWWZ1HHbGaRFWls6-Y8wuco7rFIDoBtvpeV1GFBoYNujHjgtfsyFoq8HsOuL3QwLrkLsHk72CoMzI558t8-kMus8LJyTTJxvsR0mwYeQac3ZykRxhMTkcthXlLGx8GIcP4MoaKdGgaH-IObhwldaMgpyt7o-kfW-I34SM4MZH3Fl_G5m_GAt8jQwpMwYxEZkRhopFgg_BrzKAsnqiY06OEafHUzDkNZS7Fkcns4XGBzIirxQK3GMYaX5pCAq1aK9HPlGmwPUOMpqAkezH5aGvuwDAnc2qTjh93lwS_jJyqVq-b7-qgoWeeXqIwY_Ri6LPO1OO8Lu70GROA5EW3hF9wJ3YDP4KrOpqOnOZCB2XNIkB0m5qYqOAc1EJCwII0_ysU5GuSLXPwJA52D14E0qss68Cn2uphUuzbHqx5RxERANcz7S=s192-p", RES_ALLOW, "V46.58 Google 使用者圖片 `/a-/` 路徑的 opaque ID 含 `dFp`；路徑正規化後撞上全域 PATH_BLOCK `dfp`，由 host-scoped PATH_EXEMPTIONS 精準放行"))
     cases.append(TestCase("Regression: Google User Avatar Exemption Boundary", "https://lh3.googleusercontent.com/dfp/test", RES_BLOCK_403, "V46.58 豁免僅限 `/a-/`；同 host 其他路徑仍應由全域 `dfp` 關鍵字封鎖"))
+
+    # --- V46.60 BusinessToday article ad text endpoint block ---
+    cases.append(TestCase("AdBlock: BusinessToday Article Ad Text", "https://www.businesstoday.com.tw/api/article/ad_text?ver=1", RES_BLOCK_403, "V46.60 BusinessToday 文章內訂閱促銷文案 API 精確 403 封鎖，不封鎖整個站台"))
+    cases.append(TestCase("AdBlock: BusinessToday Article Ad Text Without Query", "https://www.businesstoday.com.tw/api/article/ad_text", RES_BLOCK_403, "V46.60 精確端點規則不依賴 ver query 仍應封鎖"))
+    cases.append(TestCase("Regression: BusinessToday Article Ad Text Boundary", "https://www.businesstoday.com.tw/api/article/ad_text-extra?ver=1", RES_ALLOW, "V46.60 邊界錨定避免相鄰 ad_text-extra 路徑被連帶封鎖"))
 
     # --- V46.59 Patreon launcher feed query false-positive fix ---
     cases.append(TestCase("BugFix: Patreon Launcher Feed Collection Query Pass", "https://www.patreon.com/api/launcher_feed/v1?fields%5Bcollection%5D=num_posts,title&include-tree=items%7Bcard_collection%7Bcollection%7D%7D", RES_ALLOW, "V46.59 Patreon 首頁文章串流 API 的 collection query 欄位撞上全域 PATH_BLOCK collect；以 host-scoped PATH_EXEMPTIONS 精準放行"))
