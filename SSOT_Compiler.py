@@ -3,8 +3,9 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.60 (2026-08-31)
+當前版本：V46.61 (2026-09-01)
 最新架構更新：
+- [BugFix] CommandCode `commandcode.ai/assets/` 前端認證 bundle 加入精準路徑豁免，避免隨機 hash 檔名（auth-client-BmzwGTsP.js）撞上 `sp.js` 關鍵路徑樣式誤封。
 - [Privacy] BusinessToday `www.businesstoday.com.tw/api/article/ad_text` 加入精確端點封鎖，避免站內訂閱促銷文案注入。
 - [BugFix] Patreon `www.patreon.com/api/launcher_feed/v1` 首頁文章串流 API 加入精準路徑豁免，避免 query 欄位 `collection` 被全域 `collect` 關鍵字誤封。
 - [BugFix] Google `lh3.googleusercontent.com/a-/` 使用者圖片資源加入精準路徑豁免，避免隨機圖片 ID 撞上 `dfp` 關鍵字誤封。
@@ -18,12 +19,12 @@ URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 - [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源加入精準路徑豁免，避免檔名中的 `sp.js` 子字串被 L1 誤封。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.61 (2026-09-01): BugFix — `commandcode.ai/assets/` 加入 `PATH_EXEMPTIONS`，避免前端 bundle 隨機 hash 檔名撞上 `sp.js` 關鍵路徑樣式誤封。
 - V46.60 (2026-08-31): Privacy — `www.businesstoday.com.tw/api/article/ad_text` 精確封鎖站內訂閱促銷文案端點。
 - V46.59 (2026-08-21): BugFix — `www.patreon.com/api/launcher_feed/v1` 加入 `PATH_EXEMPTIONS`，避免首頁 feed API query 內的 `collection` 欄位被全域 `collect` 誤封。
 - V46.58 (2026-08-21): BugFix — `lh3.googleusercontent.com/a-/` 加入 `PATH_EXEMPTIONS`，避免 Google 使用者圖片隨機 ID 中的 `dfp` 子字串造成誤封。
 - V46.57 (2026-08-21): BugFix — `www.patreon.com/api/tracking` 加入邊界錨定的 `PATH_EXEMPTIONS`，避免 Patreon 文章串流下拉更新被全域 `/api/track` 誤封。
 - V46.56 (2026-08-20): BugFix — `cart.momoshop.com.tw/api/shoppingcart/` 加入 `PATH_EXEMPTIONS`，避免購物車 API 路徑 `/trackandhistory` 撞上全域 `/track` 關鍵字誤封。
-- V46.55 (2026-08-08): BugFix — `pxbox.es.pxmart.com.tw/_nuxt3/` 加入 `PATH_EXEMPTIONS`，避免 Nuxt 3 hash 檔名（`BK-`、`ActivityTag.`）撞上 `\\/bk` 與 `ytag\\.` 關鍵路徑樣式誤封。
 - V46.54 (2026-07-23): Privacy — `web-security-reports.services.atlassian.com/expect-ct-report/` 加入精準 `DROP_RE`，靜默丟棄 Expect-CT 安全回報遙測。
 - V46.53 (2026-07-23): BugFix — `id.atlassian.com/login` 加入 `PATH_EXEMPTIONS`，避免 Trello OAuth 登入網址的必要 `audience` 參數被誤封。
 - V46.52 (2026-07-16): BugFix — `pbs.twimg.com/media/` 加入 `PATH_EXEMPTIONS`，避免隨機圖片 ID 中的 `fbq` 子字串被誤封。
@@ -54,10 +55,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.60"
-RELEASE_DATE = "2026-08-31"
+VERSION = "46.61"
+RELEASE_DATE = "2026-09-01"
 
 CURRENT_RELEASE_NOTES = """
+- [BugFix] CommandCode `commandcode.ai/assets/` 精準路徑豁免
+  - 認證 client bundle `auth-client-BmzwGTsP.js` 小寫後檔名結尾含 `sp.js`，撞上 L1 CRITICAL_PATH 全域樣式導致登入頁面資源 403
+  - 豁免只限該 host 的 `/assets/` 建置目錄（同 chatgpt.com `/cdn/assets/` V46.50 先例）；全域 `sp.js` token 與其他路徑維持原規則
 - [Privacy] BusinessToday `www.businesstoday.com.tw/api/article/ad_text` 精確端點封鎖
   - 該 GET API 實際回傳 `article_adtext` 訂閱促銷內容，不是文章核心資料或遙測回報
   - 使用 host-scoped 邊界規則，只處理 `/api/article/ad_text`；`ad_text-extra` 與其他路徑維持原規則
@@ -69,9 +73,6 @@ CURRENT_RELEASE_NOTES = """
 - [BugFix] Patreon `www.patreon.com/api/tracking` 精準路徑豁免
   - Patreon 主頁文章串流下拉更新會呼叫此 POST-only 端點；全域 `/api/track` 前綴規則誤封會使更新提示失敗
   - 豁免只限 `/api/tracking` 路徑家族，`/api/tracking-extra` 與其他 `/track` 路徑維持原規則
-- [BugFix] momo 購物網 `cart.momoshop.com.tw/api/shoppingcart/` 精準路徑豁免
-  - 避免購物車 API 路徑 `/trackandhistory` 撞上全域 CRITICAL_PATH `/track` 關鍵字誤封（e.g. `checkWishItem`）
-  - 豁免只限該 host 的 `/api/shoppingcart/` 路徑，其他含 `/track` 的 telemetry 路徑維持原規則
 """
 
 
@@ -739,6 +740,7 @@ RULES_DB = {
         "abs.twimg.com": ["RE:^/responsive-web/client-web/ondemand\\.inlineplayeranalytics(?:[./?]|$)"],
         "pbs.twimg.com": ["/media/"],
         "chatgpt.com": ["/cdn/assets/", "/codex/cloud/sett", "/backend-api/o11y/v1/traces"],
+        "commandcode.ai": ["/assets/"],
         "www.youtube.com": ["/redirect"],
         "api.production.hushed.com": ["/v1/maelstrom/events"],
         "x.com": ["/i/api/graphql/", "/account/authenticate_web_view", "RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$", "RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+$"]
@@ -3008,6 +3010,13 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("AdBlock: BusinessToday Article Ad Text", "https://www.businesstoday.com.tw/api/article/ad_text?ver=1", RES_BLOCK_403, "V46.60 BusinessToday 文章內訂閱促銷文案 API 精確 403 封鎖，不封鎖整個站台"))
     cases.append(TestCase("AdBlock: BusinessToday Article Ad Text Without Query", "https://www.businesstoday.com.tw/api/article/ad_text", RES_BLOCK_403, "V46.60 精確端點規則不依賴 ver query 仍應封鎖"))
     cases.append(TestCase("Regression: BusinessToday Article Ad Text Boundary", "https://www.businesstoday.com.tw/api/article/ad_text-extra?ver=1", RES_ALLOW, "V46.60 邊界錨定避免相鄰 ad_text-extra 路徑被連帶封鎖"))
+
+    # --- V46.61 CommandCode assets hash filename sp.js false-positive fix ---
+    cases.append(TestCase("BugFix: CommandCode Auth Client Asset Pass", "https://commandcode.ai/assets/auth-client-BmzwGTsP.js", RES_ALLOW, "V46.61 commandcode.ai 認證 client bundle 檔名小寫後含 sp.js 子字串；host-scoped PATH_EXEMPTIONS /assets/ 精準放行，登入功能恢復"))
+    cases.append(TestCase("BugFix: CommandCode Asset Hash sp.js Pass", "https://commandcode.ai/assets/app-x7k9sp.js", RES_ALLOW, "V46.61 未來任意 hash 檔名結尾含 sp.js 亦由 /assets/ 目錄豁免放行；chatgpt.com V46.50 同型先例"))
+    cases.append(TestCase("Regression: CommandCode Non-Asset sp.js Still Block", "https://commandcode.ai/telemetry/x7k9sp.js", RES_BLOCK_403, "V46.61 豁免僅限 /assets/；同 host 其他含 sp.js 的路徑仍由 L1 攔截"))
+    cases.append(TestCase("Regression: CommandCode Asset Boundary Still Block", "https://commandcode.ai/assets-extra/x7k9sp.js", RES_BLOCK_403, "V46.61 目錄前綴不含 /assets-extra/；相鄰路徑不得被連帶放行"))
+    cases.append(TestCase("Regression: Other Host sp.js Asset Still Block", "https://example.com/assets/x7k9sp.js", RES_BLOCK_403, "V46.61 豁免限於 commandcode.ai；其他網域相同 sp.js 檔名仍由 L1 封鎖"))
 
     # --- V46.59 Patreon launcher feed query false-positive fix ---
     cases.append(TestCase("BugFix: Patreon Launcher Feed Collection Query Pass", "https://www.patreon.com/api/launcher_feed/v1?fields%5Bcollection%5D=num_posts,title&include-tree=items%7Bcard_collection%7Bcollection%7D%7D", RES_ALLOW, "V46.59 Patreon 首頁文章串流 API 的 collection query 欄位撞上全域 PATH_BLOCK collect；以 host-scoped PATH_EXEMPTIONS 精準放行"))

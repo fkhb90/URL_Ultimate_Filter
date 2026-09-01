@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.60
+// @name         URL Ultimate Filter V46.61
 // @namespace    http://tampermonkey.net/
-// @version      46.60
-// @date         2026-08-31
-// @description  SSOT 前端防護盾牌 V46.60 (2026-08-31) | 1536 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @version      46.61
+// @date         2026-09-01
+// @description  SSOT 前端防護盾牌 V46.61 (2026-09-01) | 1536 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
 // @rules        1536 total (312 domains · 440 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.60
- * @date    2026-08-31
+ * @version 46.61
+ * @date    2026-09-01
  * @rules   1536 total (312 domains, 440 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.60';
-const SCRIPT_BUILD = 'V46.60 (2026-08-31) | 1536 rules | 3244 tests';
+const SCRIPT_VERSION = '46.61';
+const SCRIPT_BUILD = 'V46.61 (2026-09-01) | 1536 rules | 3250 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1114,6 +1114,9 @@ const RULES = {
       ])],
     ['chatgpt.com', new Set([
         '/cdn/assets/', '/codex/cloud/sett', '/backend-api/o11y/v1/traces'
+      ])],
+    ['commandcode.ai', new Set([
+        '/assets/'
       ])],
     ['www.youtube.com', new Set([
         '/redirect'
