@@ -1,5 +1,24 @@
 # URL Ultimate Filter - Changelog
 
+## V46.62 - 2026-09-02
+- [BugFix] Shopee `dem.shopee.com/dem/janus/v1/app-auth/login` 精確 P0 路徑豁免
+  - `dem.shopee.com` 原為整個主機的 P0 封鎖；Janus `app-auth/login` 是功能性登入端點，需在 P0 前提供精確 host/path 例外
+  - 例外只命中精確 `dem.shopee.com` 與 `/dem/janus/v1/app-auth/login`（含選擇性尾斜線）；相鄰路徑與子域仍維持 P0，且通過後續安全掃描鏈
+- [BugFix] CommandCode `commandcode.ai/assets/` 精準路徑豁免
+  - 認證 client bundle `auth-client-BmzwGTsP.js` 小寫後檔名結尾含 `sp.js`，撞上 L1 CRITICAL_PATH 全域樣式導致登入頁面資源 403
+  - 豁免只限該 host 的 `/assets/` 建置目錄（同 chatgpt.com `/cdn/assets/` V46.50 先例）；全域 `sp.js` token 與其他路徑維持原規則
+- [Privacy] BusinessToday `www.businesstoday.com.tw/api/article/ad_text` 精確端點封鎖
+  - 該 GET API 實際回傳 `article_adtext` 訂閱促銷內容，不是文章核心資料或遙測回報
+  - 使用 host-scoped 邊界規則，只處理 `/api/article/ad_text`；`ad_text-extra` 與其他路徑維持原規則
+- [BugFix] Patreon `www.patreon.com/api/launcher_feed/v1` 精準路徑豁免
+  - 首頁文章串流 API 的 query 會包含 `collection` 欄位；全域 `collect` 關鍵字誤封會使下拉更新失敗
+  - 豁免只限 `/api/launcher_feed/v1` 路徑家族，其他 Patreon 路徑與相鄰版本仍維持原規則
+- [BugFix] Google `lh3.googleusercontent.com/a-/` 精準路徑豁免
+  - 使用者圖片的隨機 opaque ID 可能偶然包含全域 `dfp` 關鍵字；豁免僅限 Google 圖片 `/a-/` 路徑，其他路徑仍維持掃描
+- [BugFix] Patreon `www.patreon.com/api/tracking` 精準路徑豁免
+  - Patreon 主頁文章串流下拉更新會呼叫此 POST-only 端點；全域 `/api/track` 前綴規則誤封會使更新提示失敗
+  - 豁免只限 `/api/tracking` 路徑家族，`/api/tracking-extra` 與其他 `/track` 路徑維持原規則
+
 ## V46.61 - 2026-09-01
 - [BugFix] CommandCode `commandcode.ai/assets/` 精準路徑豁免
   - 認證 client bundle `auth-client-BmzwGTsP.js` 小寫後檔名結尾含 `sp.js`，撞上 L1 CRITICAL_PATH 全域樣式導致登入頁面資源 403

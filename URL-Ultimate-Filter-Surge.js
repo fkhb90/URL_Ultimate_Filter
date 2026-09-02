@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.61
- * @date    2026-09-01
+ * @version 46.62
+ * @date    2026-09-02
  * @rules   1536 total (312 domains, 440 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.61';
-const SCRIPT_BUILD = 'V46.61 (2026-09-01) | 1536 rules | 3250 tests';
+const SCRIPT_VERSION = '46.62';
+const SCRIPT_BUILD = 'V46.62 (2026-09-02) | 1536 rules | 3254 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1112,6 +1112,11 @@ const RULES = {
     ['x.com', new Set([
         '/i/api/graphql/', '/account/authenticate_web_view', 'RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$', 'RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+$'
       ])]
+  ]),
+    PRIORITY_PATH_EXEMPTIONS: new Map([
+    ['dem.shopee.com', new Set([
+        'RE:^/dem/janus/v1/app-auth/login/?$'
+      ])]
   ])
   }
 };
@@ -1211,6 +1216,11 @@ function resolvePathExemptions(hostname) {
   return matches;
 }
 
+function resolvePriorityPathExemptions(hostname) {
+  const exemptedPaths = RULES.EXCEPTIONS.PRIORITY_PATH_EXEMPTIONS.get(hostname);
+  return exemptedPaths ? [exemptedPaths] : null;
+}
+
 function resolveScopedParamExemptions(hostname) {
   let domainExemptions = RULES.PARAMS.SCOPED_EXEMPTIONS.get(hostname);
   if (domainExemptions) return domainExemptions;
@@ -1236,6 +1246,7 @@ function getHostProfile(hostname) {
     isHardWhitelisted: isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname),
     isBlockedDomain: isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || matchesAnyRegex(BLOCK_DOMAINS_REGEX, hostname),
     pathExemptions: resolvePathExemptions(hostname),
+    priorityPathExemptions: resolvePriorityPathExemptions(hostname),
     scopedParamExemptions: resolveScopedParamExemptions(hostname)
   };
 
@@ -1461,7 +1472,9 @@ function processRequest(request) {
       return { response: { status: 204 } };
     }
 
-    if (hostProfile.isPriorityBlocked) {
+    const isPriorityPathExempted = HELPERS.isPathExemptedForDomain(
+      hostProfile.priorityPathExemptions, pathLower, rawPathOnlyLower);
+    if (hostProfile.isPriorityBlocked && !isPriorityPathExempted) {
       const _earlyMap = getCriticalBlockedPaths(hostname);
       if (_earlyMap) {
         for (const bp of _earlyMap) {

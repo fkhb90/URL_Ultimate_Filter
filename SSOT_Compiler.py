@@ -3,8 +3,9 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.61 (2026-09-01)
+當前版本：V46.62 (2026-09-02)
 最新架構更新：
+- [BugFix] Shopee `dem.shopee.com/dem/janus/v1/app-auth/login` 加入精確 P0 路徑豁免，避免 Janus app-auth login 功能端點被主機層 P0 誤封；其他 dem 路徑與子域仍維持 P0 封鎖。
 - [BugFix] CommandCode `commandcode.ai/assets/` 前端認證 bundle 加入精準路徑豁免，避免隨機 hash 檔名（auth-client-BmzwGTsP.js）撞上 `sp.js` 關鍵路徑樣式誤封。
 - [Privacy] BusinessToday `www.businesstoday.com.tw/api/article/ad_text` 加入精確端點封鎖，避免站內訂閱促銷文案注入。
 - [BugFix] Patreon `www.patreon.com/api/launcher_feed/v1` 首頁文章串流 API 加入精準路徑豁免，避免 query 欄位 `collection` 被全域 `collect` 關鍵字誤封。
@@ -19,6 +20,7 @@ URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 - [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源加入精準路徑豁免，避免檔名中的 `sp.js` 子字串被 L1 誤封。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.62 (2026-09-02): BugFix — `dem.shopee.com/dem/janus/v1/app-auth/login` 加入精確 P0 路徑豁免，其他 dem 路徑與子域維持 P0 封鎖。
 - V46.61 (2026-09-01): BugFix — `commandcode.ai/assets/` 加入 `PATH_EXEMPTIONS`，避免前端 bundle 隨機 hash 檔名撞上 `sp.js` 關鍵路徑樣式誤封。
 - V46.60 (2026-08-31): Privacy — `www.businesstoday.com.tw/api/article/ad_text` 精確封鎖站內訂閱促銷文案端點。
 - V46.59 (2026-08-21): BugFix — `www.patreon.com/api/launcher_feed/v1` 加入 `PATH_EXEMPTIONS`，避免首頁 feed API query 內的 `collection` 欄位被全域 `collect` 誤封。
@@ -55,10 +57,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.61"
-RELEASE_DATE = "2026-09-01"
+VERSION = "46.62"
+RELEASE_DATE = "2026-09-02"
 
 CURRENT_RELEASE_NOTES = """
+- [BugFix] Shopee `dem.shopee.com/dem/janus/v1/app-auth/login` 精確 P0 路徑豁免
+  - `dem.shopee.com` 原為整個主機的 P0 封鎖；Janus `app-auth/login` 是功能性登入端點，需在 P0 前提供精確 host/path 例外
+  - 例外只命中精確 `dem.shopee.com` 與 `/dem/janus/v1/app-auth/login`（含選擇性尾斜線）；相鄰路徑與子域仍維持 P0，且通過後續安全掃描鏈
 - [BugFix] CommandCode `commandcode.ai/assets/` 精準路徑豁免
   - 認證 client bundle `auth-client-BmzwGTsP.js` 小寫後檔名結尾含 `sp.js`，撞上 L1 CRITICAL_PATH 全域樣式導致登入頁面資源 403
   - 豁免只限該 host 的 `/assets/` 建置目錄（同 chatgpt.com `/cdn/assets/` V46.50 先例）；全域 `sp.js` token 與其他路徑維持原規則
@@ -186,6 +191,9 @@ RULES_DB = {
         'cdn.rudderlabs.com', 'segmentapis.com',
         'tr.line.me', 'onevision.com.tw', 'pixanalytics.com', 'pixplug.in'
     ],
+    "PRIORITY_PATH_EXEMPTIONS": {
+        'dem.shopee.com': ['RE:^/dem/janus/v1/app-auth/login/?$']
+    },
     "REDIRECTOR_HOSTS": [
         'adf.ly', 'ay.gy', 'gloyah.net', 'j.gs', 'q.gs', 'zo.ee',
         'direct-link.net', 'file-link.net', 'filemedia.net', 'link-center.net',
@@ -918,7 +926,8 @@ const RULES = {{
     PREFIXES: new Set(['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/']),
     SUBSTRINGS: new Set(['cdn-cgi']),
     SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js']),
-    PATH_EXEMPTIONS: {format_js_map(RULES_DB['PATH_EXEMPTIONS'])}
+    PATH_EXEMPTIONS: {format_js_map(RULES_DB['PATH_EXEMPTIONS'])},
+    PRIORITY_PATH_EXEMPTIONS: {format_js_map(RULES_DB['PRIORITY_PATH_EXEMPTIONS'])}
   }}
 }};
 
@@ -1020,6 +1029,11 @@ function resolvePathExemptions(hostname) {
   return matches;
 }
 
+function resolvePriorityPathExemptions(hostname) {
+  const exemptedPaths = RULES.EXCEPTIONS.PRIORITY_PATH_EXEMPTIONS.get(hostname);
+  return exemptedPaths ? [exemptedPaths] : null;
+}
+
 function resolveScopedParamExemptions(hostname) {
   let domainExemptions = RULES.PARAMS.SCOPED_EXEMPTIONS.get(hostname);
   if (domainExemptions) return domainExemptions;
@@ -1045,6 +1059,7 @@ function getHostProfile(hostname) {
     isHardWhitelisted: isDomainMatch(RULES.HARD_WHITELIST.EXACT, RULES.HARD_WHITELIST.WILDCARDS, hostname),
     isBlockedDomain: isDomainMatch(RULES.BLOCK_DOMAINS, RULES.BLOCK_DOMAINS_WILDCARDS, hostname) || matchesAnyRegex(BLOCK_DOMAINS_REGEX, hostname),
     pathExemptions: resolvePathExemptions(hostname),
+    priorityPathExemptions: resolvePriorityPathExemptions(hostname),
     scopedParamExemptions: resolveScopedParamExemptions(hostname)
   };
 
@@ -1270,7 +1285,9 @@ function processRequest(request) {
       return { response: { status: 204 } };
     }
 
-    if (hostProfile.isPriorityBlocked) {
+    const isPriorityPathExempted = HELPERS.isPathExemptedForDomain(
+      hostProfile.priorityPathExemptions, pathLower, rawPathOnlyLower);
+    if (hostProfile.isPriorityBlocked && !isPriorityPathExempted) {
       const _earlyMap = getCriticalBlockedPaths(hostname);
       if (_earlyMap) {
         for (const bp of _earlyMap) {
@@ -3005,6 +3022,12 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V46.58 Google user avatar opaque ID false-positive fix ---
     cases.append(TestCase("BugFix: Google User Avatar Opaque ID Allow", "https://lh3.googleusercontent.com/a-/ALV-UjWVY3lyMc6NVp-MsO6JLNkeaQ1_2Wo-Q_p6PXg6PdYr10S1WzTPPRZja89VO__1dQuUaJeyOxnamKGQtmmjVeOe5UiyC2rCldiK8sEVYz0FNNzIe0V1rpFHzsT0yD_Vdz_LrPnpxhMR7JdJKdPbJrFOhQ_7Vs3kEy3TnOWsvtK5D6l8WTX-AWYQis8LuxOB6M1-X3edK_lLkh50_aauCAjY4sutb5siyGTYWDKioGwVvB2gqq9qIbPU907_qb6z3NXB2c5d00y85ZuW1HQxWFDEjgh5A_owM3pfn04rLRcdaaSrBSdk-NuQff4OOWgEQbGRxTHKKUBGyIRXunr66-fTVxX6g7kVhI9frGgb_kwmaD2osNaDifblZQGWS-9CMXu29umxCXB59nfSFd9L7rmDgBq8Z9HJjhq0ndFpOg-101zmQPhtu74Gg7Pa5tpce3zQayaqJaBl6Nhv4wV5Hg5LW9_5PzTXXTVynkZRt9DUkPyYoo8Bamm9oHL2AKhHQeB4RQowtsiuf-PVuQ0MZcmzTFonpTXvm8jGX0eAwftxEvDW7T_hMl1Eb08qKaUkF1NijPV63cf0NVNcjoOViZ7v7nhiT5ymXLw3rX7dt49X3e7D2cd3oDWeeWWZ1HHbGaRFWls6-Y8wuco7rFIDoBtvpeV1GFBoYNujHjgtfsyFoq8HsOuL3QwLrkLsHk72CoMzI558t8-kMus8LJyTTJxvsR0mwYeQac3ZykRxhMTkcthXlLGx8GIcP4MoaKdGgaH-IObhwldaMgpyt7o-kfW-I34SM4MZH3Fl_G5m_GAt8jQwpMwYxEZkRhopFgg_BrzKAsnqiY06OEafHUzDkNZS7Fkcns4XGBzIirxQK3GMYaX5pCAq1aK9HPlGmwPUOMpqAkezH5aGvuwDAnc2qTjh93lwS_jJyqVq-b7-qgoWeeXqIwY_Ri6LPO1OO8Lu70GROA5EW3hF9wJ3YDP4KrOpqOnOZCB2XNIkB0m5qYqOAc1EJCwII0_ysU5GuSLXPwJA52D14E0qss68Cn2uphUuzbHqx5RxERANcz7S=s192-p", RES_ALLOW, "V46.58 Google 使用者圖片 `/a-/` 路徑的 opaque ID 含 `dFp`；路徑正規化後撞上全域 PATH_BLOCK `dfp`，由 host-scoped PATH_EXEMPTIONS 精準放行"))
     cases.append(TestCase("Regression: Google User Avatar Exemption Boundary", "https://lh3.googleusercontent.com/dfp/test", RES_BLOCK_403, "V46.58 豁免僅限 `/a-/`；同 host 其他路徑仍應由全域 `dfp` 關鍵字封鎖"))
+
+    # --- V46.62 Shopee Janus app-auth login P0 false-positive fix ---
+    cases.append(TestCase("BugFix: Shopee Janus App Auth Login Pass", "https://dem.shopee.com/dem/janus/v1/app-auth/login", RES_ALLOW, "V46.62 dem.shopee.com Janus app-auth login 功能性端點；host-level P0 不應攔截必要登入路徑"))
+    cases.append(TestCase("BugFix: Shopee Janus App Auth Login Query Pass", "https://dem.shopee.com/dem/janus/v1/app-auth/login?state=fixture&token=fixture", RES_ALLOW, "V46.62 登入端點帶必要 state/token 參數時仍應放行；P0 路徑豁免後保留功能性參數"))
+    cases.append(TestCase("Regression: Shopee Janus Login Boundary Still Blocked", "https://dem.shopee.com/dem/janus/v1/app-auth/login-extra", RES_BLOCK_403, "V46.62 精確 endpoint 邊界；相鄰 login-extra 路徑仍維持 dem.shopee.com P0 封鎖"))
+    cases.append(TestCase("Regression: Shopee Janus Login Subdomain Still Blocked", "https://sub.dem.shopee.com/dem/janus/v1/app-auth/login", RES_BLOCK_403, "V46.62 豁免限於 dem.shopee.com 精確主機；子域名仍維持 P0 封鎖"))
 
     # --- V46.60 BusinessToday article ad text endpoint block ---
     cases.append(TestCase("AdBlock: BusinessToday Article Ad Text", "https://www.businesstoday.com.tw/api/article/ad_text?ver=1", RES_BLOCK_403, "V46.60 BusinessToday 文章內訂閱促銷文案 API 精確 403 封鎖，不封鎖整個站台"))
