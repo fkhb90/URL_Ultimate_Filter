@@ -199,37 +199,39 @@ python3 SSOT_Compiler.py
 
 只有在編譯器測試全部通過後，才依下列順序執行。
 
-### 標準流程
+### 標準流程（source-only commit，由 GitHub Actions 產出）
+
+本 repo 的 `.github/workflows/build-and-test.yml` 只在 `main` 收到 `SSOT_Compiler.py` 變更時觸發。預設只提交規則來源；Surge、Tampermonkey、`CHANGELOG.md` 由 GitHub Actions 重新編譯後自動提交，`public/index.html` 只上傳至 GitHub Pages，不進 Git。
 
 ```powershell
-# A. 丟棄不追蹤的測試報告（由 .gitignore 管理）
-git restore public/index.html
+# A. 確認修改內容
+git diff -- SSOT_Compiler.py
 
-# B. 暫存四個產出檔案
-git add SSOT_Compiler.py `
-        URL-Ultimate-Filter-Surge.js `
-        URL-Ultimate-Filter-Tampermonkey.user.js `
-        CHANGELOG.md
+# B. 只暫存規則來源，不暫存 generated files
+git add SSOT_Compiler.py
 
-# C. 建立 commit
+# C. 建立 source-only commit
 git commit -m "feat(V46.XX): 簡短說明"
 
 # D. 拉取最新 main 並變基整合
 git fetch origin main
 git rebase origin/main
 
-# E. 推送
-git push -u origin claude/review-version-updates-2NEC0
+# E. 推送到 main（或推送功能分支後在合併時觸發 CI）
+git push -u origin <branch>
 ```
+
+推送到 `main` 後，GitHub Actions 會：
+
+1. 執行 `python SSOT_Compiler.py` 與完整測試。
+2. 自動提交 `URL-Ultimate-Filter-Surge.js`、`URL-Ultimate-Filter-Tampermonkey.user.js`、`CHANGELOG.md`。
+3. 將 `public/index.html` 作為 Pages artifact 部署。
+
+自動產出 commit 使用 `[skip ci]`，避免重複觸發。只有在 CI 不可用、且明確採離線交付時，才可在本機執行編譯器後暫存上述三個 generated files 與 `SSOT_Compiler.py`；`public/index.html` 仍不進 Git。
 
 ### 遇到 `public/index.html` 衝突時
 
-```powershell
-# CI auto-build 又把此檔案提交到 main，與分支的刪除記錄衝突
-git rm public/index.html      # 保留刪除意圖，解決衝突
-git rebase --continue
-git push --force-with-lease   # 功能分支可安全強制推送
-```
+`public/index.html` 是 Pages artifact，不應作為正常 tracked 檔案提交。先確認衝突是否來自歷史遺留追蹤，再採最小範圍解決；`main` 不使用 force push。若確實在功能分支需要重整本機 commit，先保留可回復點並使用一般 rebase／push 流程。
 
 ### Commit 訊息格式
 
@@ -268,7 +270,7 @@ feat(V46.XX): Privacy/BugFix — 一句話說明
 
 ## 6、後台 CI 自動機制
 
-PR 合併後，CI 自動執行以下既定流程：
+PR 合併到 `main`，或直接將包含 `SSOT_Compiler.py` 變更的提交推送到 `main` 後，CI 自動執行以下既定流程：
 
 ```text
 PR 合併到 main

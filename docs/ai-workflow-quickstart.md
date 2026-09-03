@@ -60,14 +60,19 @@ python3 SSOT_Compiler.py
 
 ## 6. 驗證通過後才進 Git／PR 流程
 
+本 repo 預設採用 **source-only commit**：只提交 `SSOT_Compiler.py`，由 GitHub Actions 重新編譯並提交生成檔案；`public/index.html` 只作為 GitHub Pages artifact，不進 Git。
+
 順序如下：
 
 1. 確認變更內容
-2. 暫存必要檔案
+2. 只暫存 `SSOT_Compiler.py`
 3. commit
 4. fetch / rebase 最新 `main`
-5. push
-6. PR / review / merge
+5. push 到 `main`（功能分支則在合併到 `main` 後觸發 CI）
+6. 等待 GitHub Actions 產出 Surge、Tampermonkey 與 `CHANGELOG.md`
+7. 確認 Actions 與 Pages 部署結果，再進行 PR / review / merge
+
+只有在 CI 不可用且明確採離線交付時，才可在本機一併提交生成檔案；`public/index.html` 仍不進 Git。
 
 ## 7. 一頁版最短流程
 
@@ -79,5 +84,7 @@ python3 SSOT_Compiler.py
 5. 補測試、版本號、日期與摘要
 6. 執行 python3 SSOT_Compiler.py
 7. 確認 failed = 0
-8. 才做 git / push / PR
+8. 只 commit SSOT_Compiler.py
+9. push 到 main，等待 GitHub Actions 產出其他檔案
+10. 確認 Actions / Pages 結果後再進 PR / review / merge
 ```
