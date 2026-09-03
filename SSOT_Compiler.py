@@ -3,8 +3,9 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.62 (2026-09-02)
+當前版本：V46.63 (2026-09-03)
 最新架構更新：
+- [BugFix] Shopee `shopee.tw/verify/traffic` 加入精確路徑豁免，避免反機器人驗證 query opaque token 中的 `fbq` 被全域關鍵字誤封；相鄰路徑與其他網域維持原規則。
 - [BugFix] Shopee `dem.shopee.com/dem/janus/v1/app-auth/login` 加入精確 P0 路徑豁免，避免 Janus app-auth login 功能端點被主機層 P0 誤封；其他 dem 路徑與子域仍維持 P0 封鎖。
 - [BugFix] CommandCode `commandcode.ai/assets/` 前端認證 bundle 加入精準路徑豁免，避免隨機 hash 檔名（auth-client-BmzwGTsP.js）撞上 `sp.js` 關鍵路徑樣式誤封。
 - [Privacy] BusinessToday `www.businesstoday.com.tw/api/article/ad_text` 加入精確端點封鎖，避免站內訂閱促銷文案注入。
@@ -20,6 +21,7 @@ URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 - [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源加入精準路徑豁免，避免檔名中的 `sp.js` 子字串被 L1 誤封。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.63 (2026-09-03): BugFix — `shopee.tw/verify/traffic` 加入精確路徑豁免，避免驗證 query opaque token 中的 `fbq` 被全域關鍵字誤封；相鄰路徑與其他網域維持原規則。
 - V46.62 (2026-09-02): BugFix — `dem.shopee.com/dem/janus/v1/app-auth/login` 加入精確 P0 路徑豁免，其他 dem 路徑與子域維持 P0 封鎖。
 - V46.61 (2026-09-01): BugFix — `commandcode.ai/assets/` 加入 `PATH_EXEMPTIONS`，避免前端 bundle 隨機 hash 檔名撞上 `sp.js` 關鍵路徑樣式誤封。
 - V46.60 (2026-08-31): Privacy — `www.businesstoday.com.tw/api/article/ad_text` 精確封鎖站內訂閱促銷文案端點。
@@ -57,10 +59,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.62"
-RELEASE_DATE = "2026-09-02"
+VERSION = "46.63"
+RELEASE_DATE = "2026-09-03"
 
 CURRENT_RELEASE_NOTES = """
+- [BugFix] Shopee `shopee.tw/verify/traffic` 精確路徑豁免
+  - 反機器人流量驗證 query 的 opaque token 偶然包含 `fbq`，被全域 PATH_BLOCK 誤封
+  - 例外只限 `shopee.tw` 的 `/verify/traffic`（含選擇性尾斜線）；`traffic-extra` 與其他網域維持原規則
 - [BugFix] Shopee `dem.shopee.com/dem/janus/v1/app-auth/login` 精確 P0 路徑豁免
   - `dem.shopee.com` 原為整個主機的 P0 封鎖；Janus `app-auth/login` 是功能性登入端點，需在 P0 前提供精確 host/path 例外
   - 例外只命中精確 `dem.shopee.com` 與 `/dem/janus/v1/app-auth/login`（含選擇性尾斜線）；相鄰路徑與子域仍維持 P0，且通過後續安全掃描鏈
@@ -727,7 +732,7 @@ RULES_DB = {
         "storm.mg": ["/_nuxt/track"],
         "pxbox.es.pxmart.com.tw": ["/_nuxt3/"],
         "cart.momoshop.com.tw": ["/api/shoppingcart/"],
-        "shopee.tw": ["/api/v4/search/search_items", "/api/v4/pdp/get"],
+        "shopee.tw": ["/api/v4/search/search_items", "/api/v4/pdp/get", "RE:^/verify/traffic/?$"],
         "uber.com": ["/go/_events"],
         "payments.uber.com": ["/api/gettransactions", "/api/walletcyclingconfigget", "/_events", "/events"],
         "cmapi.tw.coupang.com": ["/vendor-items/", "/option-list", "/add-to-cart", "/v3/events/types/pushonoff/"],
@@ -3022,6 +3027,12 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V46.58 Google user avatar opaque ID false-positive fix ---
     cases.append(TestCase("BugFix: Google User Avatar Opaque ID Allow", "https://lh3.googleusercontent.com/a-/ALV-UjWVY3lyMc6NVp-MsO6JLNkeaQ1_2Wo-Q_p6PXg6PdYr10S1WzTPPRZja89VO__1dQuUaJeyOxnamKGQtmmjVeOe5UiyC2rCldiK8sEVYz0FNNzIe0V1rpFHzsT0yD_Vdz_LrPnpxhMR7JdJKdPbJrFOhQ_7Vs3kEy3TnOWsvtK5D6l8WTX-AWYQis8LuxOB6M1-X3edK_lLkh50_aauCAjY4sutb5siyGTYWDKioGwVvB2gqq9qIbPU907_qb6z3NXB2c5d00y85ZuW1HQxWFDEjgh5A_owM3pfn04rLRcdaaSrBSdk-NuQff4OOWgEQbGRxTHKKUBGyIRXunr66-fTVxX6g7kVhI9frGgb_kwmaD2osNaDifblZQGWS-9CMXu29umxCXB59nfSFd9L7rmDgBq8Z9HJjhq0ndFpOg-101zmQPhtu74Gg7Pa5tpce3zQayaqJaBl6Nhv4wV5Hg5LW9_5PzTXXTVynkZRt9DUkPyYoo8Bamm9oHL2AKhHQeB4RQowtsiuf-PVuQ0MZcmzTFonpTXvm8jGX0eAwftxEvDW7T_hMl1Eb08qKaUkF1NijPV63cf0NVNcjoOViZ7v7nhiT5ymXLw3rX7dt49X3e7D2cd3oDWeeWWZ1HHbGaRFWls6-Y8wuco7rFIDoBtvpeV1GFBoYNujHjgtfsyFoq8HsOuL3QwLrkLsHk72CoMzI558t8-kMus8LJyTTJxvsR0mwYeQac3ZykRxhMTkcthXlLGx8GIcP4MoaKdGgaH-IObhwldaMgpyt7o-kfW-I34SM4MZH3Fl_G5m_GAt8jQwpMwYxEZkRhopFgg_BrzKAsnqiY06OEafHUzDkNZS7Fkcns4XGBzIirxQK3GMYaX5pCAq1aK9HPlGmwPUOMpqAkezH5aGvuwDAnc2qTjh93lwS_jJyqVq-b7-qgoWeeXqIwY_Ri6LPO1OO8Lu70GROA5EW3hF9wJ3YDP4KrOpqOnOZCB2XNIkB0m5qYqOAc1EJCwII0_ysU5GuSLXPwJA52D14E0qss68Cn2uphUuzbHqx5RxERANcz7S=s192-p", RES_ALLOW, "V46.58 Google 使用者圖片 `/a-/` 路徑的 opaque ID 含 `dFp`；路徑正規化後撞上全域 PATH_BLOCK `dfp`，由 host-scoped PATH_EXEMPTIONS 精準放行"))
     cases.append(TestCase("Regression: Google User Avatar Exemption Boundary", "https://lh3.googleusercontent.com/dfp/test", RES_BLOCK_403, "V46.58 豁免僅限 `/a-/`；同 host 其他路徑仍應由全域 `dfp` 關鍵字封鎖"))
+
+    # --- V46.63 Shopee traffic verification query fbq false-positive fix ---
+    cases.append(TestCase("BugFix: Shopee Traffic Verification fbq Query Pass", "https://shopee.tw/verify/traffic?scene=crawler_item&anti_bot_tracking_id=opaque-fbq-token", RES_ALLOW, "V46.63 shopee.tw 流量驗證 query 的 opaque token 含 `fbq`；host-scoped PATH_EXEMPTIONS 精準放行功能性驗證端點"))
+    cases.append(TestCase("BugFix: Shopee Traffic Verification Encoded fbq Pass", "https://shopee.tw/verify/traffic?is_initial=true&anti_bot_tracking_id=opaque-%66%62%71-token", RES_ALLOW, "V46.63 URL-decoded query token 含 `fbq` 時仍由 `/verify/traffic` 邊界豁免放行"))
+    cases.append(TestCase("Regression: Shopee Traffic Verification Boundary Still Blocked", "https://shopee.tw/verify/traffic-extra?anti_bot_tracking_id=opaque-fbq-token", RES_BLOCK_403, "V46.63 豁免僅限 `/verify/traffic`；相鄰 `traffic-extra` 路徑仍由 PATH_BLOCK `fbq` 封鎖"))
+    cases.append(TestCase("Regression: Other Host Traffic Verification fbq Still Blocked", "https://example.com/verify/traffic?anti_bot_tracking_id=opaque-fbq-token", RES_BLOCK_403, "V46.63 豁免限於 shopee.tw；其他網域相同 query token 仍由 PATH_BLOCK `fbq` 封鎖"))
 
     # --- V46.62 Shopee Janus app-auth login P0 false-positive fix ---
     cases.append(TestCase("BugFix: Shopee Janus App Auth Login Pass", "https://dem.shopee.com/dem/janus/v1/app-auth/login", RES_ALLOW, "V46.62 dem.shopee.com Janus app-auth login 功能性端點；host-level P0 不應攔截必要登入路徑"))
