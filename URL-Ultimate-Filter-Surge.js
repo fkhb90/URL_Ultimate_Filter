@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.62
- * @date    2026-09-02
+ * @version 46.63
+ * @date    2026-09-03
  * @rules   1536 total (312 domains, 440 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.62';
-const SCRIPT_BUILD = 'V46.62 (2026-09-02) | 1536 rules | 3254 tests';
+const SCRIPT_VERSION = '46.63';
+const SCRIPT_BUILD = 'V46.63 (2026-09-03) | 1536 rules | 3258 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1038,7 +1038,7 @@ const RULES = {
         '/api/shoppingcart/'
       ])],
     ['shopee.tw', new Set([
-        '/api/v4/search/search_items', '/api/v4/pdp/get'
+        '/api/v4/search/search_items', '/api/v4/pdp/get', 'RE:^/verify/traffic/?$'
       ])],
     ['uber.com', new Set([
         '/go/_events'
