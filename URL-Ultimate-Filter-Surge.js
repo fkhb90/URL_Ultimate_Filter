@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.63
- * @date    2026-09-03
- * @rules   1536 total (312 domains, 440 critical paths, 401 path keywords, 109 param rules)
+ * @version 46.64
+ * @date    2026-09-05
+ * @rules   1537 total (312 domains, 441 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.63';
-const SCRIPT_BUILD = 'V46.63 (2026-09-03) | 1536 rules | 3258 tests';
+const SCRIPT_VERSION = '46.64';
+const SCRIPT_BUILD = 'V46.64 (2026-09-05) | 1537 rules | 3262 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -272,6 +272,9 @@ const RULES = {
       ])],
     ['www.businesstoday.com.tw', new Set([
         'RE:^/api/article/ad_text(?:[?]|$)'
+      ])],
+    ['api.askmiso.com', new Set([
+        'RE:^/v1/interactions/?(?:[?]|$)'
       ])],
     ['x.com', new Set([
         'DROP_RE:^/(?:i|1)/csp_reports?(?:\\?|$)', 'RE:^/i/api/1\\.1/promoted_content/log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/graphql/error_log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/videoads/v2/prerolls\\.json(?:\\?|$)'
