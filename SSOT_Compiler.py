@@ -3,8 +3,9 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.63 (2026-09-03)
+當前版本：V46.64 (2026-09-05)
 最新架構更新：
+- [Rule] AskMiso `api.askmiso.com/v1/interactions` 加入精確端點封鎖；僅涵蓋該 host/path 的 query／尾斜線變體，相鄰路徑與其他 API 維持原規則。
 - [BugFix] Shopee `shopee.tw/verify/traffic` 加入精確路徑豁免，避免反機器人驗證 query opaque token 中的 `fbq` 被全域關鍵字誤封；相鄰路徑與其他網域維持原規則。
 - [BugFix] Shopee `dem.shopee.com/dem/janus/v1/app-auth/login` 加入精確 P0 路徑豁免，避免 Janus app-auth login 功能端點被主機層 P0 誤封；其他 dem 路徑與子域仍維持 P0 封鎖。
 - [BugFix] CommandCode `commandcode.ai/assets/` 前端認證 bundle 加入精準路徑豁免，避免隨機 hash 檔名（auth-client-BmzwGTsP.js）撞上 `sp.js` 關鍵路徑樣式誤封。
@@ -21,6 +22,7 @@ URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 - [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源加入精準路徑豁免，避免檔名中的 `sp.js` 子字串被 L1 誤封。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.64 (2026-09-05): Rule — `api.askmiso.com/v1/interactions` 精確端點封鎖；query／尾斜線版本一併封鎖，相鄰路徑與其他 API 維持原規則。
 - V46.63 (2026-09-03): BugFix — `shopee.tw/verify/traffic` 加入精確路徑豁免，避免驗證 query opaque token 中的 `fbq` 被全域關鍵字誤封；相鄰路徑與其他網域維持原規則。
 - V46.62 (2026-09-02): BugFix — `dem.shopee.com/dem/janus/v1/app-auth/login` 加入精確 P0 路徑豁免，其他 dem 路徑與子域維持 P0 封鎖。
 - V46.61 (2026-09-01): BugFix — `commandcode.ai/assets/` 加入 `PATH_EXEMPTIONS`，避免前端 bundle 隨機 hash 檔名撞上 `sp.js` 關鍵路徑樣式誤封。
@@ -59,10 +61,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.63"
-RELEASE_DATE = "2026-09-03"
+VERSION = "46.64"
+RELEASE_DATE = "2026-09-05"
 
 CURRENT_RELEASE_NOTES = """
+- [Rule] AskMiso `api.askmiso.com/v1/interactions` 精確端點封鎖
+  - 依需求封鎖 interaction API，僅處理精確 host/path 邊界
+  - `/v1/interactions` 的 query／尾斜線版本一併封鎖；`/v1/interactions-extra` 與其他路徑維持原規則
 - [BugFix] Shopee `shopee.tw/verify/traffic` 精確路徑豁免
   - 反機器人流量驗證 query 的 opaque token 偶然包含 `fbq`，被全域 PATH_BLOCK 誤封
   - 例外只限 `shopee.tw` 的 `/verify/traffic`（含選擇性尾斜線）；`traffic-extra` 與其他網域維持原規則
@@ -454,6 +459,7 @@ RULES_DB = {
         'health.tvbs.com.tw': ['/health-frontend-js/ad-read-page.js'],
         'static.ctee.com.tw': ['/js/ad2019.min.js', '/js/third-party-sticky-ad-callback.min.js'],
         'www.businesstoday.com.tw': ['RE:^/api/article/ad_text(?:[?]|$)'],
+        'api.askmiso.com': ['RE:^/v1/interactions/?(?:[?]|$)'],
         'x.com': ['DROP_RE:^/(?:i|1)/csp_reports?(?:\\?|$)', 'RE:^/i/api/1\\.1/promoted_content/log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/graphql/error_log\\.json(?:\\?|$)', 'RE:^/i/api/1\\.1/videoads/v2/prerolls\\.json(?:\\?|$)'],
         'w3-reporting.reddit.com': ['DROP_RE:^/reports(?:\\?|$)'],
         'web-security-reports.services.atlassian.com': ['DROP_RE:^/expect-ct-report(?:/|\\?|$)'],
@@ -3027,6 +3033,12 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V46.58 Google user avatar opaque ID false-positive fix ---
     cases.append(TestCase("BugFix: Google User Avatar Opaque ID Allow", "https://lh3.googleusercontent.com/a-/ALV-UjWVY3lyMc6NVp-MsO6JLNkeaQ1_2Wo-Q_p6PXg6PdYr10S1WzTPPRZja89VO__1dQuUaJeyOxnamKGQtmmjVeOe5UiyC2rCldiK8sEVYz0FNNzIe0V1rpFHzsT0yD_Vdz_LrPnpxhMR7JdJKdPbJrFOhQ_7Vs3kEy3TnOWsvtK5D6l8WTX-AWYQis8LuxOB6M1-X3edK_lLkh50_aauCAjY4sutb5siyGTYWDKioGwVvB2gqq9qIbPU907_qb6z3NXB2c5d00y85ZuW1HQxWFDEjgh5A_owM3pfn04rLRcdaaSrBSdk-NuQff4OOWgEQbGRxTHKKUBGyIRXunr66-fTVxX6g7kVhI9frGgb_kwmaD2osNaDifblZQGWS-9CMXu29umxCXB59nfSFd9L7rmDgBq8Z9HJjhq0ndFpOg-101zmQPhtu74Gg7Pa5tpce3zQayaqJaBl6Nhv4wV5Hg5LW9_5PzTXXTVynkZRt9DUkPyYoo8Bamm9oHL2AKhHQeB4RQowtsiuf-PVuQ0MZcmzTFonpTXvm8jGX0eAwftxEvDW7T_hMl1Eb08qKaUkF1NijPV63cf0NVNcjoOViZ7v7nhiT5ymXLw3rX7dt49X3e7D2cd3oDWeeWWZ1HHbGaRFWls6-Y8wuco7rFIDoBtvpeV1GFBoYNujHjgtfsyFoq8HsOuL3QwLrkLsHk72CoMzI558t8-kMus8LJyTTJxvsR0mwYeQac3ZykRxhMTkcthXlLGx8GIcP4MoaKdGgaH-IObhwldaMgpyt7o-kfW-I34SM4MZH3Fl_G5m_GAt8jQwpMwYxEZkRhopFgg_BrzKAsnqiY06OEafHUzDkNZS7Fkcns4XGBzIirxQK3GMYaX5pCAq1aK9HPlGmwPUOMpqAkezH5aGvuwDAnc2qTjh93lwS_jJyqVq-b7-qgoWeeXqIwY_Ri6LPO1OO8Lu70GROA5EW3hF9wJ3YDP4KrOpqOnOZCB2XNIkB0m5qYqOAc1EJCwII0_ysU5GuSLXPwJA52D14E0qss68Cn2uphUuzbHqx5RxERANcz7S=s192-p", RES_ALLOW, "V46.58 Google 使用者圖片 `/a-/` 路徑的 opaque ID 含 `dFp`；路徑正規化後撞上全域 PATH_BLOCK `dfp`，由 host-scoped PATH_EXEMPTIONS 精準放行"))
     cases.append(TestCase("Regression: Google User Avatar Exemption Boundary", "https://lh3.googleusercontent.com/dfp/test", RES_BLOCK_403, "V46.58 豁免僅限 `/a-/`；同 host 其他路徑仍應由全域 `dfp` 關鍵字封鎖"))
+
+    # --- V46.64 AskMiso interactions endpoint precise block ---
+    cases.append(TestCase("Privacy: AskMiso Interactions Endpoint Block", "https://api.askmiso.com/v1/interactions?api_key=fixture", RES_BLOCK_403, "V46.64 api.askmiso.com `/v1/interactions` 精確端點封鎖；query 版本命中 host-scoped CRITICAL_PATH_MAP，回傳 403"))
+    cases.append(TestCase("Privacy: AskMiso Interactions Endpoint Without Query Block", "https://api.askmiso.com/v1/interactions", RES_BLOCK_403, "V46.64 精確端點規則不依賴 query 參數，無 query 版本同樣回傳 403"))
+    cases.append(TestCase("Privacy: AskMiso Interactions Trailing Slash Block", "https://api.askmiso.com/v1/interactions/?api_key=fixture", RES_BLOCK_403, "V46.64 精確端點規則涵蓋選擇性尾斜線與 query 版本"))
+    cases.append(TestCase("Regression: AskMiso Interactions Boundary Pass", "https://api.askmiso.com/v1/interactions-extra?api_key=fixture", RES_ALLOW, "V46.64 路徑邊界保護；相鄰 `/v1/interactions-extra` 不得被連帶封鎖"))
 
     # --- V46.63 Shopee traffic verification query fbq false-positive fix ---
     cases.append(TestCase("BugFix: Shopee Traffic Verification fbq Query Pass", "https://shopee.tw/verify/traffic?scene=crawler_item&anti_bot_tracking_id=opaque-fbq-token", RES_ALLOW, "V46.63 shopee.tw 流量驗證 query 的 opaque token 含 `fbq`；host-scoped PATH_EXEMPTIONS 精準放行功能性驗證端點"))
