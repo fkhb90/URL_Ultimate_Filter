@@ -3,8 +3,9 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.64 (2026-09-05)
+當前版本：V46.65 (2026-09-07)
 最新架構更新：
+- [BugFix] pCloud `eapisgp1.pcloud.com/eventslast` 加入精確路徑豁免，避免登入後功能性 API 路徑中的 `events` 被全域關鍵路徑誤封。
 - [Rule] AskMiso `api.askmiso.com/v1/interactions` 加入精確端點封鎖；僅涵蓋該 host/path 的 query／尾斜線變體，相鄰路徑與其他 API 維持原規則。
 - [BugFix] Shopee `shopee.tw/verify/traffic` 加入精確路徑豁免，避免反機器人驗證 query opaque token 中的 `fbq` 被全域關鍵字誤封；相鄰路徑與其他網域維持原規則。
 - [BugFix] Shopee `dem.shopee.com/dem/janus/v1/app-auth/login` 加入精確 P0 路徑豁免，避免 Janus app-auth login 功能端點被主機層 P0 誤封；其他 dem 路徑與子域仍維持 P0 封鎖。
@@ -22,6 +23,7 @@ URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 - [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源加入精準路徑豁免，避免檔名中的 `sp.js` 子字串被 L1 誤封。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.65 (2026-09-07): BugFix — `eapisgp1.pcloud.com/eventslast` 加入 host-scoped `PATH_EXEMPTIONS`，避免 pCloud 登入後功能性 API 路徑撞上全域 `/events` 關鍵字；相鄰路徑與其他網域維持原規則。
 - V46.64 (2026-09-05): Rule — `api.askmiso.com/v1/interactions` 精確端點封鎖；query／尾斜線版本一併封鎖，相鄰路徑與其他 API 維持原規則。
 - V46.63 (2026-09-03): BugFix — `shopee.tw/verify/traffic` 加入精確路徑豁免，避免驗證 query opaque token 中的 `fbq` 被全域關鍵字誤封；相鄰路徑與其他網域維持原規則。
 - V46.62 (2026-09-02): BugFix — `dem.shopee.com/dem/janus/v1/app-auth/login` 加入精確 P0 路徑豁免，其他 dem 路徑與子域維持 P0 封鎖。
@@ -61,10 +63,13 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.64"
-RELEASE_DATE = "2026-09-05"
+VERSION = "46.65"
+RELEASE_DATE = "2026-09-07"
 
 CURRENT_RELEASE_NOTES = """
+- [BugFix] pCloud `eapisgp1.pcloud.com/eventslast` 精確路徑豁免
+  - pCloud 登入後會呼叫此功能性 API；路徑中的 `events` 被全域 CRITICAL_PATH `/events` 誤封，可能阻斷檔案管理器／Link Stats 初始化。
+  - 只豁免精確 `eapisgp1.pcloud.com` 的 `/eventslast`（含選擇性尾斜線與 query）；相鄰路徑與其他網域維持原規則。
 - [Rule] AskMiso `api.askmiso.com/v1/interactions` 精確端點封鎖
   - 依需求封鎖 interaction API，僅處理精確 host/path 邊界
   - `/v1/interactions` 的 query／尾斜線版本一併封鎖；`/v1/interactions-extra` 與其他路徑維持原規則
@@ -733,6 +738,7 @@ RULES_DB = {
         '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar'
     ],
     "PATH_EXEMPTIONS": {
+        "eapisgp1.pcloud.com": ["RE:^/eventslast/?$"],
         "id.atlassian.com": ["RE:^/login(?:/|$)"],
         "www.patreon.com": ["RE:^/api/launcher_feed/v1(?:/|$)", "RE:^/api/tracking(?:/|$)"],
         "storm.mg": ["/_nuxt/track"],
@@ -3033,6 +3039,13 @@ def generate_full_coverage_cases() -> List[TestCase]:
     # --- V46.58 Google user avatar opaque ID false-positive fix ---
     cases.append(TestCase("BugFix: Google User Avatar Opaque ID Allow", "https://lh3.googleusercontent.com/a-/ALV-UjWVY3lyMc6NVp-MsO6JLNkeaQ1_2Wo-Q_p6PXg6PdYr10S1WzTPPRZja89VO__1dQuUaJeyOxnamKGQtmmjVeOe5UiyC2rCldiK8sEVYz0FNNzIe0V1rpFHzsT0yD_Vdz_LrPnpxhMR7JdJKdPbJrFOhQ_7Vs3kEy3TnOWsvtK5D6l8WTX-AWYQis8LuxOB6M1-X3edK_lLkh50_aauCAjY4sutb5siyGTYWDKioGwVvB2gqq9qIbPU907_qb6z3NXB2c5d00y85ZuW1HQxWFDEjgh5A_owM3pfn04rLRcdaaSrBSdk-NuQff4OOWgEQbGRxTHKKUBGyIRXunr66-fTVxX6g7kVhI9frGgb_kwmaD2osNaDifblZQGWS-9CMXu29umxCXB59nfSFd9L7rmDgBq8Z9HJjhq0ndFpOg-101zmQPhtu74Gg7Pa5tpce3zQayaqJaBl6Nhv4wV5Hg5LW9_5PzTXXTVynkZRt9DUkPyYoo8Bamm9oHL2AKhHQeB4RQowtsiuf-PVuQ0MZcmzTFonpTXvm8jGX0eAwftxEvDW7T_hMl1Eb08qKaUkF1NijPV63cf0NVNcjoOViZ7v7nhiT5ymXLw3rX7dt49X3e7D2cd3oDWeeWWZ1HHbGaRFWls6-Y8wuco7rFIDoBtvpeV1GFBoYNujHjgtfsyFoq8HsOuL3QwLrkLsHk72CoMzI558t8-kMus8LJyTTJxvsR0mwYeQac3ZykRxhMTkcthXlLGx8GIcP4MoaKdGgaH-IObhwldaMgpyt7o-kfW-I34SM4MZH3Fl_G5m_GAt8jQwpMwYxEZkRhopFgg_BrzKAsnqiY06OEafHUzDkNZS7Fkcns4XGBzIirxQK3GMYaX5pCAq1aK9HPlGmwPUOMpqAkezH5aGvuwDAnc2qTjh93lwS_jJyqVq-b7-qgoWeeXqIwY_Ri6LPO1OO8Lu70GROA5EW3hF9wJ3YDP4KrOpqOnOZCB2XNIkB0m5qYqOAc1EJCwII0_ysU5GuSLXPwJA52D14E0qss68Cn2uphUuzbHqx5RxERANcz7S=s192-p", RES_ALLOW, "V46.58 Google 使用者圖片 `/a-/` 路徑的 opaque ID 含 `dFp`；路徑正規化後撞上全域 PATH_BLOCK `dfp`，由 host-scoped PATH_EXEMPTIONS 精準放行"))
     cases.append(TestCase("Regression: Google User Avatar Exemption Boundary", "https://lh3.googleusercontent.com/dfp/test", RES_BLOCK_403, "V46.58 豁免僅限 `/a-/`；同 host 其他路徑仍應由全域 `dfp` 關鍵字封鎖"))
+
+    # --- V46.65 pCloud eventslast functional API false-positive fix ---
+    cases.append(TestCase("BugFix: pCloud Eventslast API Pass", "https://eapisgp1.pcloud.com/eventslast", RES_ALLOW, "V46.65 pCloud 登入後的 eventslast 功能性 API 被全域 `/events` L1 誤封；host-scoped PATH_EXEMPTIONS 精準放行"))
+    cases.append(TestCase("BugFix: pCloud Eventslast Query Pass", "https://eapisgp1.pcloud.com/eventslast?auth=fixture&limit=20", RES_ALLOW, "V46.65 eventslast 帶 query 時仍由 raw pathname 精準豁免，不改動必要參數"))
+    cases.append(TestCase("BugFix: pCloud Eventslast Trailing Slash Pass", "https://eapisgp1.pcloud.com/eventslast/?auth=fixture", RES_ALLOW, "V46.65 精準規則涵蓋選擇性尾斜線版本"))
+    cases.append(TestCase("Regression: pCloud Eventslast Boundary Still Blocked", "https://eapisgp1.pcloud.com/eventslast-extra", RES_BLOCK_403, "V46.65 `^/eventslast/?$` 邊界保護；相鄰 eventslast-extra 仍由全域 `/events` L1 封鎖"))
+    cases.append(TestCase("Regression: Other Host Eventslast Still Blocked", "https://example.com/eventslast", RES_BLOCK_403, "V46.65 豁免限於 eapisgp1.pcloud.com；其他網域相同路徑仍由 `/events` L1 封鎖"))
 
     # --- V46.64 AskMiso interactions endpoint precise block ---
     cases.append(TestCase("Privacy: AskMiso Interactions Endpoint Block", "https://api.askmiso.com/v1/interactions?api_key=fixture", RES_BLOCK_403, "V46.64 api.askmiso.com `/v1/interactions` 精確端點封鎖；query 版本命中 host-scoped CRITICAL_PATH_MAP，回傳 403"))
