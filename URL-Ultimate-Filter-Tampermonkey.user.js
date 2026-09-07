@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.64
+// @name         URL Ultimate Filter V46.65
 // @namespace    http://tampermonkey.net/
-// @version      46.64
-// @date         2026-09-05
-// @description  SSOT 前端防護盾牌 V46.64 (2026-09-05) | 1537 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @version      46.65
+// @date         2026-09-07
+// @description  SSOT 前端防護盾牌 V46.65 (2026-09-07) | 1537 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
 // @rules        1537 total (312 domains · 441 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.64
- * @date    2026-09-05
+ * @version 46.65
+ * @date    2026-09-07
  * @rules   1537 total (312 domains, 441 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.64';
-const SCRIPT_BUILD = 'V46.64 (2026-09-05) | 1537 rules | 3262 tests';
+const SCRIPT_VERSION = '46.65';
+const SCRIPT_BUILD = 'V46.65 (2026-09-07) | 1537 rules | 3267 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1040,6 +1040,9 @@ const RULES = {
     SUBSTRINGS: new Set(['cdn-cgi']),
     SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js']),
     PATH_EXEMPTIONS: new Map([
+    ['eapisgp1.pcloud.com', new Set([
+        'RE:^/eventslast/?$'
+      ])],
     ['id.atlassian.com', new Set([
         'RE:^/login(?:/|$)'
       ])],
