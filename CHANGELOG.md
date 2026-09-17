@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V46.66 - 2026-09-17
+- [BugFix] 路徑豁免與 OAuth／簽章清理判斷隔離 query，解碼追蹤參數名稱，修正 hostname 邊界解析。
+- [BugFix] 三個關鍵字掃描器完整掃描長路徑；Google／X／Threads 豁免使用路徑邊界。
+- [Test] 快取包含生成引擎、runner 與案例指紋，驗證結果完整性；失敗退出非零，清理結果檢查目標 URL。
+- [SSOT] 可變規則集中 RULES_DB、完整計數；產物定位 compiler 目錄，報表跳脫、changelog 使用發布日期。
+
 ## V46.65 - 2026-09-07
 - [BugFix] pCloud `eapisgp1.pcloud.com/eventslast` 精確路徑豁免
   - pCloud 登入後會呼叫此功能性 API；路徑中的 `events` 被全域 CRITICAL_PATH `/events` 誤封，可能阻斷檔案管理器／Link Stats 初始化。

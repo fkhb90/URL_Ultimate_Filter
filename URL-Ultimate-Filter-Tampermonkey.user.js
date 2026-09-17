@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.65
+// @name         URL Ultimate Filter V46.66
 // @namespace    http://tampermonkey.net/
-// @version      46.65
-// @date         2026-09-07
-// @description  SSOT 前端防護盾牌 V46.65 (2026-09-07) | 1537 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        1537 total (312 domains · 441 critical · 109 param)
+// @version      46.66
+// @date         2026-09-17
+// @description  SSOT 前端防護盾牌 V46.66 (2026-09-17) | 2182 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        2182 total (312 domains · 441 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.65
- * @date    2026-09-07
- * @rules   1537 total (312 domains, 441 critical paths, 401 path keywords, 109 param rules)
+ * @version 46.66
+ * @date    2026-09-17
+ * @rules   2182 total (312 domains, 441 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
-const CONFIG = { DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 };
-const SCRIPT_VERSION = '46.65';
-const SCRIPT_BUILD = 'V46.65 (2026-09-07) | 1537 rules | 3267 tests';
+const CONFIG = { DEBUG_MODE: false };
+const SCRIPT_VERSION = '46.66';
+const SCRIPT_BUILD = 'V46.66 (2026-09-17) | 2182 rules | 3392 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -32,7 +32,7 @@ const OAUTH_SAFE_HARBOR = {
     'www.facebook.com', 'm.facebook.com', 'login.microsoftonline.com', 'login.live.com', 'github.com', 'api.twitter.com',
     'api.x.com', 'member.tw.coupang.com'
   ]),
-    PATHS_REGEX: [ /\/(login|oauth|oauth2|authorize|signin|session)(\/|\?|$)/i ]
+    PATHS_REGEX: [new RegExp("/(login|oauth|oauth2|authorize|signin|session)(/|$)", "i")],
 };
 
 const PARAM_CLEANING_EXEMPTED_DOMAINS = {
@@ -933,7 +933,15 @@ const RULES = {
   ])
   },
 
+  LATE_EXACT_PATH_BLOCK_REGEX: new Map([
+    ['cmapi.tw.coupang.com', new Set([
+        '/.*-ads/'
+      ])]
+  ]),
   PARAMS: {
+    SIGNATURE_NAMES: new Set([
+    'signature', 'sig', 'hmac'
+  ]),
     GLOBAL: new Set([
     'dev_id', 'device_id', 'gclid', 'fbclid', 'ttclid', 'utm_source',
     'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'yclid', 'mc_cid',
@@ -946,7 +954,7 @@ const RULES = {
     'vero_id', 'wbraid', 'wt_mc', 'xtor', 'ysclid', 'zanpid',
     'yt_src', 'yt_ad', 's_kwcid', 'sc_cid', 'log_level'
   ]),
-    GLOBAL_REGEX: [/^utm_\w+/i, /^ig_[\w_]+/i, /^asa_\w+/i, /^tt_[\w_]+/i, /^li_[\w_]+/i],
+    GLOBAL_REGEX: [new RegExp("^utm_\\w+", "i"), new RegExp("^ig_[\\w_]+", "i"), new RegExp("^asa_\\w+", "i"), new RegExp("^tt_[\\w_]+", "i"), new RegExp("^li_[\\w_]+", "i")],
     PREFIX_BUCKETS: new Map([
     ['_', [
         '__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs',
@@ -996,9 +1004,15 @@ const RULES = {
         'vsm_'
       ]]
   ]),
-    PREFIXES_REGEX: [/_ga_/i, /^tt_[\w_]+/i, /^li_[\w_]+/i],
-    COSMETIC: new Set(['fb_ref', 'fb_source', 'from', 'ref', 'share_id']),
-    WHITELIST: new Set(['code', 'id', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 'token', 'format', 'lang', 'locale', 'salt', 's']),
+    PREFIXES_REGEX: [new RegExp("_ga_", "i"), new RegExp("^tt_[\\w_]+", "i"), new RegExp("^li_[\\w_]+", "i")],
+    COSMETIC: new Set([
+    'fb_ref', 'fb_source', 'from', 'ref', 'share_id'
+  ]),
+    WHITELIST: new Set([
+    'code', 'id', 'p', 'page', 'product_id', 'q',
+    'query', 'search', 'session_id', 'state', 'token', 'format',
+    'lang', 'locale', 'salt', 's'
+  ]),
     EXEMPTIONS: new Map(),
     SCOPED_EXEMPTIONS: new Map([
     ['104.com.tw', new Map([
@@ -1022,9 +1036,9 @@ const RULES = {
   },
 
   REGEX: {
-    PATH_BLOCK: [ /^\/(\w+\/)?ads?\//i, /\/(ad|banner|tracker)\.(js|gif|png)(\?|$)/i ],
-    HEURISTIC: [ /[?&](ad|ads|campaign|tracker)_[a-z]+=/i ],
-    API_SIGNATURE_BYPASS: [ /\/(api|graphql|trpc|rest)\//i, /\.(json|xml)(\?|$)/i ]
+    PATH_BLOCK: [new RegExp("^/(\\w+/)?ads?/", "i"), new RegExp("/(ad|banner|tracker)\\.(js|gif|png)(\\?|$)", "i")],
+    HEURISTIC: [new RegExp("[?&](ad|ads|campaign|tracker)_[a-z]+=", "i")],
+    API_SIGNATURE_BYPASS: [new RegExp("/(api|graphql|trpc|rest)/", "i"), new RegExp("\\.(json|xml)$", "i")],
   },
 
   EXCEPTIONS: {
@@ -1036,9 +1050,16 @@ const RULES = {
     '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
     '.zip', '.rar'
   ]),
-    PREFIXES: new Set(['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/']),
-    SUBSTRINGS: new Set(['cdn-cgi']),
-    SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js']),
+    PREFIXES: new Set([
+    '/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/',
+    '/css/'
+  ]),
+    SUBSTRINGS: new Set([
+    'cdn-cgi'
+  ]),
+    SEGMENTS: new Set([
+    'assets', 'static', 'images', 'img', 'css', 'js'
+  ]),
     PATH_EXEMPTIONS: new Map([
     ['eapisgp1.pcloud.com', new Set([
         'RE:^/eventslast/?$'
@@ -1080,7 +1101,7 @@ const RULES = {
         '/images/g/01/amazonexports/events/'
       ])],
     ['www.google.com', new Set([
-        '/url', '/search', '/s2/favicons'
+        'RE:^/url/?$', 'RE:^/search/?$', 'RE:^/s2/favicons(?:/|$)'
       ])],
     ['lh3.googleusercontent.com', new Set([
         '/a-/'
@@ -1089,10 +1110,10 @@ const RULES = {
         '/log/batch'
       ])],
     ['threads.com', new Set([
-        '/post/'
+        'RE:^/(?:@[^/]+/)?post/[^/]+(?:/|$)'
       ])],
     ['threads.net', new Set([
-        '/post/'
+        'RE:^/(?:@[^/]+/)?post/[^/]+(?:/|$)'
       ])],
     ['citiesocial.com', new Set([
         '/collection/'
@@ -1131,7 +1152,7 @@ const RULES = {
         '/v1/maelstrom/events'
       ])],
     ['x.com', new Set([
-        '/i/api/graphql/', '/account/authenticate_web_view', 'RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$', 'RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+$'
+        'RE:^/i/api/graphql/', '/account/authenticate_web_view', 'RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$', 'RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+$'
       ])]
   ]),
     PRIORITY_PATH_EXEMPTIONS: new Map([
@@ -1152,8 +1173,7 @@ class CompiledScanner {
   constructor(regex) { this.regex = regex; }
   matches(text) {
     if (!text) return false;
-    const target = text.length > CONFIG.AC_SCAN_MAX_LENGTH ? text.substring(0, CONFIG.AC_SCAN_MAX_LENGTH) : text;
-    return this.regex.test(target);
+    return this.regex.test(text);
   }
 }
 
@@ -1188,6 +1208,9 @@ const COMBINED_PATH_REGEX = [...RULES.REGEX.PATH_BLOCK, ...RULES.REGEX.HEURISTIC
 const COMBINED_PATH_SCANNER = new RegExp(COMBINED_PATH_REGEX.map(r => r.source).join('|'), 'i');
 const OAUTH_PATHS_REGEX = OAUTH_SAFE_HARBOR.PATHS_REGEX;
 const API_SIGNATURE_BYPASS_REGEX = RULES.REGEX.API_SIGNATURE_BYPASS;
+const LATE_EXACT_PATH_BLOCK_REGEX = new Map(
+  Array.from(RULES.LATE_EXACT_PATH_BLOCK_REGEX, ([host, patterns]) =>
+    [host, Array.from(patterns, p => new RegExp(p, 'i'))]));
 const BLOCK_DOMAINS_REGEX = RULES.BLOCK_DOMAINS_REGEX;
 
 const STATIC_EXTENSIONS = new Set();
@@ -1207,6 +1230,44 @@ function matchesAnyRegex(regexList, text) {
     if (regexList[i].test(text)) return true;
   }
   return false;
+}
+
+// No URL/URLSearchParams dependency: Surge's JS host need not expose web APIs.
+function parseRequestUrl(url) {
+  const match = /^https?:\/\/([^/?#]*)([^#]*)/i.exec(url);
+  if (!match) return null;
+  let authority = match[1];
+  authority = authority.substring(authority.lastIndexOf('@') + 1);
+  let hostname;
+  if (authority.startsWith('[')) {
+    const end = authority.indexOf(']');
+    if (end < 0) return null;
+    hostname = authority.substring(0, end + 1);
+  } else {
+    hostname = authority.replace(/:\d*$/, '');
+    try { hostname = decodeURIComponent(hostname); } catch (_) { return null; }
+    hostname = hostname.replace(/\.$/, '');
+  }
+  hostname = hostname.toLowerCase();
+  if (!hostname) return null;
+  const rawPath = match[2].startsWith('/') ? match[2] : '/' + match[2];
+  const qi = rawPath.indexOf('?');
+  return { hostname, rawPath, rawPathOnly: qi < 0 ? rawPath : rawPath.substring(0, qi) };
+}
+
+function decodePath(text) {
+  try {
+    let decoded = decodeURIComponent(text);
+    if (decoded.includes('%')) {
+      try { decoded = decodeURIComponent(decoded); } catch (_) {}
+    }
+    return decoded.toLowerCase();
+  } catch (_) { return text.toLowerCase(); }
+}
+
+function decodeParamName(key) {
+  try { return decodeURIComponent(key.replace(/\+/g, ' ')).toLowerCase(); }
+  catch (_) { return key.toLowerCase(); }
 }
 
 function isDomainMatch(setExact, wildcardsSet, hostname) {
@@ -1345,13 +1406,15 @@ const HELPERS = {
 
   cleanTrackingParams: (urlStr, hostname, pathLower, hostProfile) => {
     if (!urlStr.includes('?')) return null;
-    if (/[?&](signature|sig|hmac)=/i.test(pathLower)) return null;
+    const parsed = parseRequestUrl(urlStr);
+    if (!parsed) return null;
+    const pathOnly = decodePath(parsed.rawPathOnly);
     if (hostProfile.isOAuthSafeHarbor) return null;
-    if (matchesAnyRegex(OAUTH_PATHS_REGEX, pathLower)) return null;
+    if (matchesAnyRegex(OAUTH_PATHS_REGEX, pathOnly)) return null;
     if (hostProfile.isParamCleaningExempted) return null;
 
     let rewriteType = '302';
-    if (matchesAnyRegex(API_SIGNATURE_BYPASS_REGEX, pathLower) ||
+    if (matchesAnyRegex(API_SIGNATURE_BYPASS_REGEX, pathOnly) ||
         hostname.startsWith('api.') || hostname.startsWith('appapi.') ||
         hostProfile.isSilentRewriteDomain) {
       rewriteType = 'REWRITE';
@@ -1369,6 +1432,11 @@ const HELPERS = {
       if (qs.indexOf(';') >= 0) qs = qs.replace(/;/g, '&');
 
       const pairs = qs.split('&');
+      // Check real raw query keys, never decoded values containing a fake '&sig='.
+      if (pairs.some(pair => {
+        const eq = pair.indexOf('=');
+        return eq >= 0 && RULES.PARAMS.SIGNATURE_NAMES.has(decodeParamName(pair.substring(0, eq)));
+      })) return null;
       const kept = [];
       const scopedParamExemptions = hostProfile.scopedParamExemptions;
       let changed = false;
@@ -1378,9 +1446,9 @@ const HELPERS = {
         if (!pair) { kept.push(pair); continue; }
         const eqIdx = pair.indexOf('=');
         const key = eqIdx >= 0 ? pair.substring(0, eqIdx) : pair;
-        const lowerKey = key.toLowerCase();
+        const lowerKey = decodeParamName(key);
 
-        if (RULES.PARAMS.WHITELIST.has(lowerKey) || HELPERS.isScopedParamAllowed(scopedParamExemptions, pathLower, lowerKey)) {
+        if (RULES.PARAMS.WHITELIST.has(lowerKey) || HELPERS.isScopedParamAllowed(scopedParamExemptions, pathOnly, lowerKey)) {
           kept.push(pair); continue;
         }
 
@@ -1463,31 +1531,13 @@ function processRequest(request) {
   if (!url) return null;
 
   try {
-    const _pe = url.indexOf('://');
-    const _hs = _pe >= 0 ? _pe + 3 : 0;
-    const _ps = url.indexOf('/', _hs);
-    const _hp = _ps >= 0 ? url.substring(_hs, _ps) : url.substring(_hs);
-    const _port = _hp.indexOf(':');
-    const hostname = (_port >= 0 ? _hp.substring(0, _port) : _hp).toLowerCase();
+    const parsed = parseRequestUrl(url);
+    if (!parsed) return null;
+    const { hostname, rawPath, rawPathOnly } = parsed;
     const hostProfile = getHostProfile(hostname);
-
-    let rawPath = _ps >= 0 ? url.substring(_ps) : '/';
-    const _fi = rawPath.indexOf('#');
-    if (_fi >= 0) rawPath = rawPath.substring(0, _fi);
-    const rawQueryIndex = rawPath.indexOf('?');
-    const rawPathOnly = rawQueryIndex >= 0 ? rawPath.substring(0, rawQueryIndex) : rawPath;
     const rawPathOnlyLower = rawPathOnly.toLowerCase();
-
-    let pathLower;
-    try {
-      let decoded = decodeURIComponent(rawPath);
-      if (decoded.includes('%')) {
-        try { decoded = decodeURIComponent(decoded); } catch (e) {}
-      }
-      pathLower = decoded.toLowerCase();
-    } catch (e) {
-      pathLower = rawPath.toLowerCase();
-    }
+    const pathOnly = decodePath(rawPathOnly);
+    const pathLower = decodePath(rawPath);
 
     if (pathLower.includes('/accounts/checkconnection')) {
       return { response: { status: 204 } };
@@ -1588,8 +1638,8 @@ function processRequest(request) {
     }
 
     const isSoftWhitelisted = hostProfile.isSoftWhitelisted;
-    const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathLower);
-    const isStatic = HELPERS.isStaticFile(pathLower);
+    const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathOnly);
+    const isStatic = HELPERS.isStaticFile(pathOnly);
 
     if (!isExplicitlyAllowed && !isStatic) {
       for (const k of RULES.KEYWORDS.PRIORITY_DROP) {
@@ -1610,9 +1660,10 @@ function processRequest(request) {
       return { response: { status: 403, body: 'Blocked by L1 (Script/Path)' } };
     }
 
-    if (hostname === 'cmapi.tw.coupang.com' && /\/.*-ads\//.test(pathLower)) {
+    const lateHostPatterns = LATE_EXACT_PATH_BLOCK_REGEX.get(hostname);
+    if (lateHostPatterns && matchesAnyRegex(lateHostPatterns, pathOnly)) {
       stats.blocks++;
-      return { response: { status: 403, body: 'Blocked by Coupang Omni-Block' } };
+      return { response: { status: 403, body: 'Blocked by Exact Host Path' } };
     }
 
     if (!(isSoftWhitelisted && isStatic) && !isExplicitlyAllowed && !isStatic) {
@@ -2270,7 +2321,6 @@ function runBenchmarkSuite() {
 
         if (!isLocked) {
             try {
-                navigator.sendBeacon = navigator.sendBeacon;
                 navigator.sendBeacon = beaconInterceptor;
             } catch(e) {}
         }
