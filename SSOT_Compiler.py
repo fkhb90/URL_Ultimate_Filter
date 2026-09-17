@@ -3,46 +3,24 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.65 (2026-09-07)
+當前版本：V46.66 (2026-09-17)
 最新架構更新：
-- [BugFix] pCloud `eapisgp1.pcloud.com/eventslast` 加入精確路徑豁免，避免登入後功能性 API 路徑中的 `events` 被全域關鍵路徑誤封。
-- [Rule] AskMiso `api.askmiso.com/v1/interactions` 加入精確端點封鎖；僅涵蓋該 host/path 的 query／尾斜線變體，相鄰路徑與其他 API 維持原規則。
-- [BugFix] Shopee `shopee.tw/verify/traffic` 加入精確路徑豁免，避免反機器人驗證 query opaque token 中的 `fbq` 被全域關鍵字誤封；相鄰路徑與其他網域維持原規則。
-- [BugFix] Shopee `dem.shopee.com/dem/janus/v1/app-auth/login` 加入精確 P0 路徑豁免，避免 Janus app-auth login 功能端點被主機層 P0 誤封；其他 dem 路徑與子域仍維持 P0 封鎖。
-- [BugFix] CommandCode `commandcode.ai/assets/` 前端認證 bundle 加入精準路徑豁免，避免隨機 hash 檔名（auth-client-BmzwGTsP.js）撞上 `sp.js` 關鍵路徑樣式誤封。
-- [Privacy] BusinessToday `www.businesstoday.com.tw/api/article/ad_text` 加入精確端點封鎖，避免站內訂閱促銷文案注入。
-- [BugFix] Patreon `www.patreon.com/api/launcher_feed/v1` 首頁文章串流 API 加入精準路徑豁免，避免 query 欄位 `collection` 被全域 `collect` 關鍵字誤封。
-- [BugFix] Google `lh3.googleusercontent.com/a-/` 使用者圖片資源加入精準路徑豁免，避免隨機圖片 ID 撞上 `dfp` 關鍵字誤封。
-- [BugFix] Patreon `www.patreon.com/api/tracking` 文章串流更新端點加入精準路徑豁免，避免全域 `/api/track` 關鍵字誤封導致主頁下拉更新失敗。
-- [BugFix] momo 購物網 `cart.momoshop.com.tw/api/shoppingcart/` 加入精準路徑豁免，避免購物車 API 路徑 `/trackandhistory` 撞上全域 `/track` 關鍵字誤封。
-- [BugFix] 全聯電商 `pxbox.es.pxmart.com.tw/_nuxt3/` Nuxt 3 建置資源加入精準路徑豁免，避免 hash 檔名（`BK-`、`ActivityTag.`）撞上 `\\/bk` 與 `ytag\\.` 關鍵路徑樣式誤封。
-- [Privacy] Atlassian `web-security-reports.services.atlassian.com/expect-ct-report/` 加入精準靜默丟棄，避免 Expect-CT 安全回報遙測外送。
-- [BugFix] Atlassian `id.atlassian.com/login` OAuth 登入路徑加入精準豁免，避免必要 `audience` 參數被全域關鍵字誤封。
-- [BugFix] X/Twitter `pbs.twimg.com/media/` 圖片路徑加入精準豁免，避免隨機媒體 ID 誤撞 `fbq`。
-- [Privacy] Reddit `w3-reporting` 回報端點加入精準靜默丟棄，避免診斷遙測外送。
-- [BugFix] ChatGPT `/cdn/assets/` 功能性 JavaScript 資源加入精準路徑豁免，避免檔名中的 `sp.js` 子字串被 L1 誤封。
+- [BugFix] 路徑豁免與 OAuth／簽章清理判斷隔離 query，解碼追蹤參數名稱，修正 hostname 邊界解析。
+- [BugFix] 三個關鍵字掃描器完整掃描長路徑；Google／X／Threads 豁免使用路徑邊界。
+- [Test] 快取包含生成引擎、runner 與案例指紋，驗證結果完整性；失敗退出非零，清理結果檢查目標 URL。
+- [SSOT] 可變規則集中 RULES_DB、完整計數；產物定位 compiler 目錄，報表跳脫、changelog 使用發布日期。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.66 (2026-09-17): BugFix — query 豁免、長路徑、hostname 與清理判斷修正；可信測試快取、URL 斷言及非零失敗退出。
 - V46.65 (2026-09-07): BugFix — `eapisgp1.pcloud.com/eventslast` 加入 host-scoped `PATH_EXEMPTIONS`，避免 pCloud 登入後功能性 API 路徑撞上全域 `/events` 關鍵字；相鄰路徑與其他網域維持原規則。
 - V46.64 (2026-09-05): Rule — `api.askmiso.com/v1/interactions` 精確端點封鎖；query／尾斜線版本一併封鎖，相鄰路徑與其他 API 維持原規則。
 - V46.63 (2026-09-03): BugFix — `shopee.tw/verify/traffic` 加入精確路徑豁免，避免驗證 query opaque token 中的 `fbq` 被全域關鍵字誤封；相鄰路徑與其他網域維持原規則。
 - V46.62 (2026-09-02): BugFix — `dem.shopee.com/dem/janus/v1/app-auth/login` 加入精確 P0 路徑豁免，其他 dem 路徑與子域維持 P0 封鎖。
-- V46.61 (2026-09-01): BugFix — `commandcode.ai/assets/` 加入 `PATH_EXEMPTIONS`，避免前端 bundle 隨機 hash 檔名撞上 `sp.js` 關鍵路徑樣式誤封。
-- V46.60 (2026-08-31): Privacy — `www.businesstoday.com.tw/api/article/ad_text` 精確封鎖站內訂閱促銷文案端點。
-- V46.59 (2026-08-21): BugFix — `www.patreon.com/api/launcher_feed/v1` 加入 `PATH_EXEMPTIONS`，避免首頁 feed API query 內的 `collection` 欄位被全域 `collect` 誤封。
-- V46.58 (2026-08-21): BugFix — `lh3.googleusercontent.com/a-/` 加入 `PATH_EXEMPTIONS`，避免 Google 使用者圖片隨機 ID 中的 `dfp` 子字串造成誤封。
-- V46.57 (2026-08-21): BugFix — `www.patreon.com/api/tracking` 加入邊界錨定的 `PATH_EXEMPTIONS`，避免 Patreon 文章串流下拉更新被全域 `/api/track` 誤封。
-- V46.56 (2026-08-20): BugFix — `cart.momoshop.com.tw/api/shoppingcart/` 加入 `PATH_EXEMPTIONS`，避免購物車 API 路徑 `/trackandhistory` 撞上全域 `/track` 關鍵字誤封。
-- V46.54 (2026-07-23): Privacy — `web-security-reports.services.atlassian.com/expect-ct-report/` 加入精準 `DROP_RE`，靜默丟棄 Expect-CT 安全回報遙測。
-- V46.53 (2026-07-23): BugFix — `id.atlassian.com/login` 加入 `PATH_EXEMPTIONS`，避免 Trello OAuth 登入網址的必要 `audience` 參數被誤封。
-- V46.52 (2026-07-16): BugFix — `pbs.twimg.com/media/` 加入 `PATH_EXEMPTIONS`，避免隨機圖片 ID 中的 `fbq` 子字串被誤封。
-- V46.51 (2026-07-12): Privacy — `w3-reporting.reddit.com/reports` 加入精準 `DROP_RE`，靜默丟棄診斷回報遙測。
-- V46.50 (2026-07-11): BugFix — `chatgpt.com/cdn/assets/` 加入 `PATH_EXEMPTIONS`，避免正常 CDN JavaScript 檔名中的 `sp.js` 子字串被 L1 誤封。
-- V46.49 (2026-07-10): Privacy — X CSP 回報規則擴及 `/i/csp_report`、`/i/csp_reports` 與 `/1/csp_reports`，全部精準 `DROP_RE`。
-- V46.48 (2026-07-10): Privacy — `x.com/i/csp_report` 加入精準 `DROP_RE`，靜默丟棄 CSP 違規回報遙測。
 """
 
 import hashlib
+import argparse
+import html as html_lib
 import json
 import os
 import sys
@@ -51,9 +29,9 @@ import textwrap
 import re
 from datetime import datetime
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict, replace
 from pathlib import Path
-from subprocess import PIPE, Popen
+from subprocess import PIPE, Popen, TimeoutExpired
 from typing import Any, Dict, List, Optional, Tuple
 
 if sys.platform == "win32":
@@ -63,36 +41,15 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-VERSION = "46.65"
-RELEASE_DATE = "2026-09-07"
+BASE_DIR = Path(__file__).resolve().parent
+VERSION = "46.66"
+RELEASE_DATE = "2026-09-17"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] pCloud `eapisgp1.pcloud.com/eventslast` 精確路徑豁免
-  - pCloud 登入後會呼叫此功能性 API；路徑中的 `events` 被全域 CRITICAL_PATH `/events` 誤封，可能阻斷檔案管理器／Link Stats 初始化。
-  - 只豁免精確 `eapisgp1.pcloud.com` 的 `/eventslast`（含選擇性尾斜線與 query）；相鄰路徑與其他網域維持原規則。
-- [Rule] AskMiso `api.askmiso.com/v1/interactions` 精確端點封鎖
-  - 依需求封鎖 interaction API，僅處理精確 host/path 邊界
-  - `/v1/interactions` 的 query／尾斜線版本一併封鎖；`/v1/interactions-extra` 與其他路徑維持原規則
-- [BugFix] Shopee `shopee.tw/verify/traffic` 精確路徑豁免
-  - 反機器人流量驗證 query 的 opaque token 偶然包含 `fbq`，被全域 PATH_BLOCK 誤封
-  - 例外只限 `shopee.tw` 的 `/verify/traffic`（含選擇性尾斜線）；`traffic-extra` 與其他網域維持原規則
-- [BugFix] Shopee `dem.shopee.com/dem/janus/v1/app-auth/login` 精確 P0 路徑豁免
-  - `dem.shopee.com` 原為整個主機的 P0 封鎖；Janus `app-auth/login` 是功能性登入端點，需在 P0 前提供精確 host/path 例外
-  - 例外只命中精確 `dem.shopee.com` 與 `/dem/janus/v1/app-auth/login`（含選擇性尾斜線）；相鄰路徑與子域仍維持 P0，且通過後續安全掃描鏈
-- [BugFix] CommandCode `commandcode.ai/assets/` 精準路徑豁免
-  - 認證 client bundle `auth-client-BmzwGTsP.js` 小寫後檔名結尾含 `sp.js`，撞上 L1 CRITICAL_PATH 全域樣式導致登入頁面資源 403
-  - 豁免只限該 host 的 `/assets/` 建置目錄（同 chatgpt.com `/cdn/assets/` V46.50 先例）；全域 `sp.js` token 與其他路徑維持原規則
-- [Privacy] BusinessToday `www.businesstoday.com.tw/api/article/ad_text` 精確端點封鎖
-  - 該 GET API 實際回傳 `article_adtext` 訂閱促銷內容，不是文章核心資料或遙測回報
-  - 使用 host-scoped 邊界規則，只處理 `/api/article/ad_text`；`ad_text-extra` 與其他路徑維持原規則
-- [BugFix] Patreon `www.patreon.com/api/launcher_feed/v1` 精準路徑豁免
-  - 首頁文章串流 API 的 query 會包含 `collection` 欄位；全域 `collect` 關鍵字誤封會使下拉更新失敗
-  - 豁免只限 `/api/launcher_feed/v1` 路徑家族，其他 Patreon 路徑與相鄰版本仍維持原規則
-- [BugFix] Google `lh3.googleusercontent.com/a-/` 精準路徑豁免
-  - 使用者圖片的隨機 opaque ID 可能偶然包含全域 `dfp` 關鍵字；豁免僅限 Google 圖片 `/a-/` 路徑，其他路徑仍維持掃描
-- [BugFix] Patreon `www.patreon.com/api/tracking` 精準路徑豁免
-  - Patreon 主頁文章串流下拉更新會呼叫此 POST-only 端點；全域 `/api/track` 前綴規則誤封會使更新提示失敗
-  - 豁免只限 `/api/tracking` 路徑家族，`/api/tracking-extra` 與其他 `/track` 路徑維持原規則
+- [BugFix] 路徑豁免與 OAuth／簽章清理判斷隔離 query，解碼追蹤參數名稱，修正 hostname 邊界解析。
+- [BugFix] 三個關鍵字掃描器完整掃描長路徑；Google／X／Threads 豁免使用路徑邊界。
+- [Test] 快取包含生成引擎、runner 與案例指紋，驗證結果完整性；失敗退出非零，清理結果檢查目標 URL。
+- [SSOT] 可變規則集中 RULES_DB、完整計數；產物定位 compiler 目錄，報表跳脫、changelog 使用發布日期。
 """
 
 
@@ -101,6 +58,21 @@ CURRENT_RELEASE_NOTES = """
 # ==========================================
 
 RULES_DB = {
+    # Mutable policy collections: keep these in the cache fingerprint and rule counts.
+    'OAUTH_PATH_REGEX': ['/(login|oauth|oauth2|authorize|signin|session)(/|$)'],
+    'PARAMS_GLOBAL_REGEX': ['^utm_\\w+', '^ig_[\\w_]+', '^asa_\\w+', '^tt_[\\w_]+', '^li_[\\w_]+'],
+    'PARAMS_PREFIXES_REGEX': ['_ga_', '^tt_[\\w_]+', '^li_[\\w_]+'],
+    'PARAMS_COSMETIC': ['fb_ref', 'fb_source', 'from', 'ref', 'share_id'],
+    'PARAMS_WHITELIST': ['code', 'id', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 'token', 'format', 'lang', 'locale', 'salt', 's'],
+    'PATH_BLOCK_REGEX': ['^/(\\w+/)?ads?/', '/(ad|banner|tracker)\\.(js|gif|png)(\\?|$)'],
+    'PATH_HEURISTIC_REGEX': ['[?&](ad|ads|campaign|tracker)_[a-z]+='],
+    'API_SIGNATURE_BYPASS_REGEX': ['/(api|graphql|trpc|rest)/', '\\.(json|xml)$'],
+    'EXCEPTIONS_PREFIXES': ['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/'],
+    'EXCEPTIONS_SUBSTRINGS': ['cdn-cgi'],
+    'EXCEPTIONS_SEGMENTS': ['assets', 'static', 'images', 'img', 'css', 'js'],
+    'SIGNATURE_PARAMS': ['signature', 'sig', 'hmac'],
+    'LATE_EXACT_PATH_BLOCK_REGEX': {'cmapi.tw.coupang.com': ['/.*-ads/']},
+
     "OAUTH_SAFE_HARBOR_DOMAINS": [
         'accounts.google.com', 'accounts.google.com.tw', 'accounts.youtube.com',
         'appleid.apple.com', 'idmsa.apple.com',
@@ -751,11 +723,11 @@ RULES_DB = {
         "coupangcdn.com": ["/image/ccm/banner/", "/image/cmg/oms/banner/"],
         "loyalty.tw.coupang.com": ["/m/loyalty/withdraw-request/popup/benefit"],
         "m.media-amazon.com": ["/images/g/01/amazonexports/events/"],
-        "www.google.com": ["/url", "/search", "/s2/favicons"],
+        "www.google.com": ["RE:^/url/?$", "RE:^/search/?$", "RE:^/s2/favicons(?:/|$)"],
         "lh3.googleusercontent.com": ["/a-/"],
         "play.googleapis.com": ["/log/batch"],
-        "threads.com": ["/post/"],
-        "threads.net": ["/post/"],
+        "threads.com": ["RE:^/(?:@[^/]+/)?post/[^/]+(?:/|$)"],
+        "threads.net": ["RE:^/(?:@[^/]+/)?post/[^/]+(?:/|$)"],
         "citiesocial.com": ["/collection/"],
         "ghostery.com": ["/adblocker/"],
         "volccdn.com": ["/data-static/log-sdk/"],
@@ -768,7 +740,7 @@ RULES_DB = {
         "commandcode.ai": ["/assets/"],
         "www.youtube.com": ["/redirect"],
         "api.production.hushed.com": ["/v1/maelstrom/events"],
-        "x.com": ["/i/api/graphql/", "/account/authenticate_web_view", "RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$", "RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+$"]
+        "x.com": ["RE:^/i/api/graphql/", "/account/authenticate_web_view", "RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$", "RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+$"]
     }
 }
 
@@ -782,7 +754,17 @@ RULES_STATS = {
     "whitelist":        len(RULES_DB["SOFT_WHITELIST"]["EXACT"]) + len(RULES_DB["SOFT_WHITELIST"]["WILDCARDS"])
                         + len(RULES_DB["HARD_WHITELIST"]["EXACT"]) + len(RULES_DB["HARD_WHITELIST"]["WILDCARDS"]),
 }
-TOTAL_RULE_COUNT = sum(RULES_STATS.values())
+def _count_rule_entries(value: Any) -> int:
+    """Count stored leaf rules, including scoped rules; not unique match outcomes."""
+    if isinstance(value, dict):
+        return sum(_count_rule_entries(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return sum(_count_rule_entries(v) for v in value)
+    return 1
+
+
+TOTAL_RULE_COUNT = _count_rule_entries(RULES_DB)
+RULES_STATS['other'] = TOTAL_RULE_COUNT - sum(RULES_STATS.values())
 
 # ==========================================
 #  2. JS COMPILER & FORMATTER (SHARED)
@@ -801,6 +783,10 @@ def format_js_array(lst: List[str], indent: int = 4, items_per_line: int = 6) ->
 def format_js_set(lst: List[str], indent: int = 4, items_per_line: int = 6) -> str:
     if not lst: return "new Set([])"
     return f"new Set({format_js_array(lst, indent, items_per_line)})"
+
+
+def format_js_regex_array(patterns: List[str]) -> str:
+    return '[' + ', '.join(f'new RegExp({json.dumps(p)}, "i")' for p in patterns) + ']'
 
 def format_js_map(dct: Dict[str, List[str]], indent: int = 4) -> str:
     if not dct: return "new Map([])"
@@ -863,14 +849,14 @@ def get_js_rules_definition(platform_desc: str) -> str:
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
-const CONFIG = {{ DEBUG_MODE: false, AC_SCAN_MAX_LENGTH: 600 }};
+const CONFIG = {{ DEBUG_MODE: false }};
 const SCRIPT_VERSION = '{VERSION}';
 const SCRIPT_BUILD = 'V{VERSION} ({RELEASE_DATE}) | {TOTAL_RULE_COUNT} rules | __SSOT_TEST_COUNT__ tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {{
     DOMAINS: {format_js_set(RULES_DB['OAUTH_SAFE_HARBOR_DOMAINS'])},
-    PATHS_REGEX: [ /\\/(login|oauth|oauth2|authorize|signin|session)(\\/|\\?|$)/i ]
+    PATHS_REGEX: {format_js_regex_array(RULES_DB['OAUTH_PATH_REGEX'])},
 }};
 
 const PARAM_CLEANING_EXEMPTED_DOMAINS = {{
@@ -921,28 +907,30 @@ const RULES = {{
     DROP: {format_js_set(RULES_DB['DROP'])}
   }},
 
+  LATE_EXACT_PATH_BLOCK_REGEX: {format_js_map(RULES_DB['LATE_EXACT_PATH_BLOCK_REGEX'])},
   PARAMS: {{
+    SIGNATURE_NAMES: {format_js_set(RULES_DB['SIGNATURE_PARAMS'])},
     GLOBAL: {format_js_set(RULES_DB['PARAMS_GLOBAL'])},
-    GLOBAL_REGEX: [/^utm_\\w+/i, /^ig_[\\w_]+/i, /^asa_\\w+/i, /^tt_[\\w_]+/i, /^li_[\\w_]+/i],
+    GLOBAL_REGEX: {format_js_regex_array(RULES_DB['PARAMS_GLOBAL_REGEX'])},
     PREFIX_BUCKETS: {format_js_prefix_buckets(RULES_DB['PARAMS_PREFIXES'])},
-    PREFIXES_REGEX: [/_ga_/i, /^tt_[\\w_]+/i, /^li_[\\w_]+/i],
-    COSMETIC: new Set(['fb_ref', 'fb_source', 'from', 'ref', 'share_id']),
-    WHITELIST: new Set(['code', 'id', 'p', 'page', 'product_id', 'q', 'query', 'search', 'session_id', 'state', 'token', 'format', 'lang', 'locale', 'salt', 's']),
+    PREFIXES_REGEX: {format_js_regex_array(RULES_DB['PARAMS_PREFIXES_REGEX'])},
+    COSMETIC: {format_js_set(RULES_DB['PARAMS_COSMETIC'])},
+    WHITELIST: {format_js_set(RULES_DB['PARAMS_WHITELIST'])},
     EXEMPTIONS: new Map(),
     SCOPED_EXEMPTIONS: {format_scoped_exemptions(RULES_DB['SCOPED_PARAM_EXEMPTIONS'])}
   }},
 
   REGEX: {{
-    PATH_BLOCK: [ /^\\/(\\w+\\/)?ads?\\//i, /\\/(ad|banner|tracker)\\.(js|gif|png)(\\?|$)/i ],
-    HEURISTIC: [ /[?&](ad|ads|campaign|tracker)_[a-z]+=/i ],
-    API_SIGNATURE_BYPASS: [ /\\/(api|graphql|trpc|rest)\\//i, /\\.(json|xml)(\\?|$)/i ]
+    PATH_BLOCK: {format_js_regex_array(RULES_DB['PATH_BLOCK_REGEX'])},
+    HEURISTIC: {format_js_regex_array(RULES_DB['PATH_HEURISTIC_REGEX'])},
+    API_SIGNATURE_BYPASS: {format_js_regex_array(RULES_DB['API_SIGNATURE_BYPASS_REGEX'])},
   }},
 
   EXCEPTIONS: {{
     SUFFIXES: {format_js_set(RULES_DB['EXCEPTIONS_SUFFIXES'])},
-    PREFIXES: new Set(['/favicon', '/assets/', '/static/', '/images/', '/img/', '/js/', '/css/']),
-    SUBSTRINGS: new Set(['cdn-cgi']),
-    SEGMENTS: new Set(['assets', 'static', 'images', 'img', 'css', 'js']),
+    PREFIXES: {format_js_set(RULES_DB['EXCEPTIONS_PREFIXES'])},
+    SUBSTRINGS: {format_js_set(RULES_DB['EXCEPTIONS_SUBSTRINGS'])},
+    SEGMENTS: {format_js_set(RULES_DB['EXCEPTIONS_SEGMENTS'])},
     PATH_EXEMPTIONS: {format_js_map(RULES_DB['PATH_EXEMPTIONS'])},
     PRIORITY_PATH_EXEMPTIONS: {format_js_map(RULES_DB['PRIORITY_PATH_EXEMPTIONS'])}
   }}
@@ -961,8 +949,7 @@ class CompiledScanner {
   constructor(regex) { this.regex = regex; }
   matches(text) {
     if (!text) return false;
-    const target = text.length > CONFIG.AC_SCAN_MAX_LENGTH ? text.substring(0, CONFIG.AC_SCAN_MAX_LENGTH) : text;
-    return this.regex.test(target);
+    return this.regex.test(text);
   }
 }
 
@@ -997,6 +984,9 @@ const COMBINED_PATH_REGEX = [...RULES.REGEX.PATH_BLOCK, ...RULES.REGEX.HEURISTIC
 const COMBINED_PATH_SCANNER = new RegExp(COMBINED_PATH_REGEX.map(r => r.source).join('|'), 'i');
 const OAUTH_PATHS_REGEX = OAUTH_SAFE_HARBOR.PATHS_REGEX;
 const API_SIGNATURE_BYPASS_REGEX = RULES.REGEX.API_SIGNATURE_BYPASS;
+const LATE_EXACT_PATH_BLOCK_REGEX = new Map(
+  Array.from(RULES.LATE_EXACT_PATH_BLOCK_REGEX, ([host, patterns]) =>
+    [host, Array.from(patterns, p => new RegExp(p, 'i'))]));
 const BLOCK_DOMAINS_REGEX = RULES.BLOCK_DOMAINS_REGEX;
 
 const STATIC_EXTENSIONS = new Set();
@@ -1016,6 +1006,44 @@ function matchesAnyRegex(regexList, text) {
     if (regexList[i].test(text)) return true;
   }
   return false;
+}
+
+// No URL/URLSearchParams dependency: Surge's JS host need not expose web APIs.
+function parseRequestUrl(url) {
+  const match = /^https?:\/\/([^/?#]*)([^#]*)/i.exec(url);
+  if (!match) return null;
+  let authority = match[1];
+  authority = authority.substring(authority.lastIndexOf('@') + 1);
+  let hostname;
+  if (authority.startsWith('[')) {
+    const end = authority.indexOf(']');
+    if (end < 0) return null;
+    hostname = authority.substring(0, end + 1);
+  } else {
+    hostname = authority.replace(/:\d*$/, '');
+    try { hostname = decodeURIComponent(hostname); } catch (_) { return null; }
+    hostname = hostname.replace(/\.$/, '');
+  }
+  hostname = hostname.toLowerCase();
+  if (!hostname) return null;
+  const rawPath = match[2].startsWith('/') ? match[2] : '/' + match[2];
+  const qi = rawPath.indexOf('?');
+  return { hostname, rawPath, rawPathOnly: qi < 0 ? rawPath : rawPath.substring(0, qi) };
+}
+
+function decodePath(text) {
+  try {
+    let decoded = decodeURIComponent(text);
+    if (decoded.includes('%')) {
+      try { decoded = decodeURIComponent(decoded); } catch (_) {}
+    }
+    return decoded.toLowerCase();
+  } catch (_) { return text.toLowerCase(); }
+}
+
+function decodeParamName(key) {
+  try { return decodeURIComponent(key.replace(/\+/g, ' ')).toLowerCase(); }
+  catch (_) { return key.toLowerCase(); }
 }
 
 function isDomainMatch(setExact, wildcardsSet, hostname) {
@@ -1154,13 +1182,15 @@ const HELPERS = {
 
   cleanTrackingParams: (urlStr, hostname, pathLower, hostProfile) => {
     if (!urlStr.includes('?')) return null;
-    if (/[?&](signature|sig|hmac)=/i.test(pathLower)) return null;
+    const parsed = parseRequestUrl(urlStr);
+    if (!parsed) return null;
+    const pathOnly = decodePath(parsed.rawPathOnly);
     if (hostProfile.isOAuthSafeHarbor) return null;
-    if (matchesAnyRegex(OAUTH_PATHS_REGEX, pathLower)) return null;
+    if (matchesAnyRegex(OAUTH_PATHS_REGEX, pathOnly)) return null;
     if (hostProfile.isParamCleaningExempted) return null;
 
     let rewriteType = '302';
-    if (matchesAnyRegex(API_SIGNATURE_BYPASS_REGEX, pathLower) ||
+    if (matchesAnyRegex(API_SIGNATURE_BYPASS_REGEX, pathOnly) ||
         hostname.startsWith('api.') || hostname.startsWith('appapi.') ||
         hostProfile.isSilentRewriteDomain) {
       rewriteType = 'REWRITE';
@@ -1178,6 +1208,11 @@ const HELPERS = {
       if (qs.indexOf(';') >= 0) qs = qs.replace(/;/g, '&');
 
       const pairs = qs.split('&');
+      // Check real raw query keys, never decoded values containing a fake '&sig='.
+      if (pairs.some(pair => {
+        const eq = pair.indexOf('=');
+        return eq >= 0 && RULES.PARAMS.SIGNATURE_NAMES.has(decodeParamName(pair.substring(0, eq)));
+      })) return null;
       const kept = [];
       const scopedParamExemptions = hostProfile.scopedParamExemptions;
       let changed = false;
@@ -1187,9 +1222,9 @@ const HELPERS = {
         if (!pair) { kept.push(pair); continue; }
         const eqIdx = pair.indexOf('=');
         const key = eqIdx >= 0 ? pair.substring(0, eqIdx) : pair;
-        const lowerKey = key.toLowerCase();
+        const lowerKey = decodeParamName(key);
 
-        if (RULES.PARAMS.WHITELIST.has(lowerKey) || HELPERS.isScopedParamAllowed(scopedParamExemptions, pathLower, lowerKey)) {
+        if (RULES.PARAMS.WHITELIST.has(lowerKey) || HELPERS.isScopedParamAllowed(scopedParamExemptions, pathOnly, lowerKey)) {
           kept.push(pair); continue;
         }
 
@@ -1272,31 +1307,13 @@ function processRequest(request) {
   if (!url) return null;
 
   try {
-    const _pe = url.indexOf('://');
-    const _hs = _pe >= 0 ? _pe + 3 : 0;
-    const _ps = url.indexOf('/', _hs);
-    const _hp = _ps >= 0 ? url.substring(_hs, _ps) : url.substring(_hs);
-    const _port = _hp.indexOf(':');
-    const hostname = (_port >= 0 ? _hp.substring(0, _port) : _hp).toLowerCase();
+    const parsed = parseRequestUrl(url);
+    if (!parsed) return null;
+    const { hostname, rawPath, rawPathOnly } = parsed;
     const hostProfile = getHostProfile(hostname);
-
-    let rawPath = _ps >= 0 ? url.substring(_ps) : '/';
-    const _fi = rawPath.indexOf('#');
-    if (_fi >= 0) rawPath = rawPath.substring(0, _fi);
-    const rawQueryIndex = rawPath.indexOf('?');
-    const rawPathOnly = rawQueryIndex >= 0 ? rawPath.substring(0, rawQueryIndex) : rawPath;
     const rawPathOnlyLower = rawPathOnly.toLowerCase();
-
-    let pathLower;
-    try {
-      let decoded = decodeURIComponent(rawPath);
-      if (decoded.includes('%')) {
-        try { decoded = decodeURIComponent(decoded); } catch (e) {}
-      }
-      pathLower = decoded.toLowerCase();
-    } catch (e) {
-      pathLower = rawPath.toLowerCase();
-    }
+    const pathOnly = decodePath(rawPathOnly);
+    const pathLower = decodePath(rawPath);
 
     if (pathLower.includes('/accounts/checkconnection')) {
       return { response: { status: 204 } };
@@ -1397,8 +1414,8 @@ function processRequest(request) {
     }
 
     const isSoftWhitelisted = hostProfile.isSoftWhitelisted;
-    const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathLower);
-    const isStatic = HELPERS.isStaticFile(pathLower);
+    const isExplicitlyAllowed = HELPERS.isPathExplicitlyAllowed(pathOnly);
+    const isStatic = HELPERS.isStaticFile(pathOnly);
 
     if (!isExplicitlyAllowed && !isStatic) {
       for (const k of RULES.KEYWORDS.PRIORITY_DROP) {
@@ -1419,9 +1436,10 @@ function processRequest(request) {
       return { response: { status: 403, body: 'Blocked by L1 (Script/Path)' } };
     }
 
-    if (hostname === 'cmapi.tw.coupang.com' && /\/.*-ads\//.test(pathLower)) {
+    const lateHostPatterns = LATE_EXACT_PATH_BLOCK_REGEX.get(hostname);
+    if (lateHostPatterns && matchesAnyRegex(lateHostPatterns, pathOnly)) {
       stats.blocks++;
-      return { response: { status: 403, body: 'Blocked by Coupang Omni-Block' } };
+      return { response: { status: 403, body: 'Blocked by Exact Host Path' } };
     }
 
     if (!(isSoftWhitelisted && isStatic) && !isExplicitlyAllowed && !isStatic) {
@@ -2114,7 +2132,6 @@ def compile_tampermonkey() -> str:
 
         if (!isLocked) {
             try {
-                navigator.sendBeacon = navigator.sendBeacon;
                 navigator.sendBeacon = beaconInterceptor;
             } catch(e) {}
         }
@@ -2307,7 +2324,6 @@ def compile_tampermonkey() -> str:
 #  3. TEST SUITE & HTML REPORTS
 # ==========================================
 
-PRIORITY_MAP = { "ALLOW (Null)": 0, "CLEAN (302)": 1, "REWRITE (URL)": 2, "DROP (204)": 3, "BLOCK (403)": 4 }
 RES_ALLOW = "ALLOW (Null)"
 RES_CLEAN_302 = "CLEAN (302)"
 RES_REWRITE = "REWRITE (URL)"
@@ -2322,6 +2338,7 @@ class TestCase:
     expected_feature: Optional[str] = None
     is_e2e: bool = False
     e2e_target_url: Optional[str] = None
+    expected_url: Optional[str] = None
 
 @dataclass
 class TestOutcome:
@@ -2492,6 +2509,10 @@ HTML_TEMPLATE = """
 </html>
 """
 
+# Bulk smoke-test helpers only: wildcard whitelist and literal keyword precedence.
+# They do NOT model exact allowlists, OAuth/absolute bypass, path exemptions,
+# static/explicit-allow flags, or raw regexes. Never use as the decision-chain oracle.
+# Every behavior change also needs independent, explicitly expected golden cases.
 def is_domain_whitelisted(domain: str) -> bool:
     for pd in RULES_DB["PRIORITY_BLOCK_DOMAINS"]:
         if domain == pd or domain.endswith('.' + pd):
@@ -3333,7 +3354,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
 
     cases.append(TestCase("Edge: Single Encoded /ad/", "https://example.com/%61%64/banner.webp", RES_BLOCK_403, "單次 URL 編碼 /ad/ 解碼後命中 HIGH_CONFIDENCE"))
     cases.append(TestCase("Edge: Mixed Case Path", "https://example.com/ADS/Banner/pixel.gif", RES_BLOCK_403, "路徑大小寫不敏感，/ADS/ 應命中 HIGH_CONFIDENCE"))
-    cases.append(TestCase("Edge: Encoded Query Param", "https://example.com/page?utm%5Fsource=test", RES_ALLOW, "編碼的查詢參數鍵不觸發淨化 (原始鍵未匹配)"))
+    cases.append(TestCase("Edge: Encoded Query Param", "https://example.com/page?utm%5Fsource=test", RES_CLEAN_302, "V46.66 解碼參數名稱後清理 utm_source"))
     cases.append(TestCase("Edge: Triple Nested Path", "https://example.com/a/b/c/d/e/f/ads/banner/pixel.gif", RES_BLOCK_403, "深層巢狀路徑中的 /ads/ 仍應被掃描到"))
 
     cases.append(TestCase("Edge: URL with Port", "https://example.com:8443/tracker/event", RES_BLOCK_403, "含端口號的 URL 正確解析 hostname 後命中關鍵字"))
@@ -3419,42 +3440,127 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Edge: DROP keyword in static file", "https://example.com/lib/heartbeat.min.css", RES_ALLOW, "靜態副檔名 .css 豁免 DROP 關鍵字 'heartbeat' 掃描"))
     cases.append(TestCase("Edge: DROP keyword in /js/ prefix", "https://example.com/js/live-log.config.json", RES_ALLOW, "/js/ 前綴 + .json 靜態副檔名豁免 DROP 掃描"))
 
+    # Fixture expectations, not a second implementation of the cleaning rules.
+    # These existing fixtures contain only removable parameters unless retained below.
+    retained = {
+        "Privacy: Universal Link Silent Rewrite": "salt=STrc0&s=al",
+        "Fix: 104 App internal /ad/ path": "device_type=0",
+        "BugFix: 104 App /apis/ Unauthorized Param": "device_id=TEST_ID",
+        "Matrix: Scoped Exemption (Cross Mixed)": "device_id=A1B2",
+        "Mix: Clean only tracking": "q=search&page=2",
+        "Mix: Prefix + Global combo": "q=test",
+    }
+    for i, case in enumerate(cases):
+        if case.expected not in (RES_CLEAN_302, RES_REWRITE) or case.expected_url is not None:
+            continue
+        source = case.e2e_target_url if case.is_e2e else case.url
+        base_query, mark, fragment = source.partition('#')
+        base, _, query = base_query.partition('?')
+        keep = retained.get(case.category, '')
+        if case.category == "Auto: Param Whitelist Survive":
+            keep = query.split('&')[0]  # The first pair is the explicit whitelist fixture.
+        target = base + ('?' + keep if keep else '') + (mark + fragment)
+        if case.category.startswith("Auto: Redirect Extract"):
+            target = "https://www.example.com/page"
+        cases[i] = replace(case, expected_url=target)
+
+    # V46.66: fixed expectations, including both sides of every query pair.
+    query_variants = ['', '?x=/js/', '?x=/css/', '?x=/img/', '?x=/assets/',
+                      '?x=/static/', '?x=/images/', '?x=cdn-cgi',
+                      '?x=%2Fjs%2F', '?x=%252Fjs%252F']
+    for path, expected in [('/promo/ad/view', RES_BLOCK_403),
+                           ('/log/heartbeat', RES_DROP_204),
+                           ('/v1/telemetry', RES_DROP_204),
+                           ('/path/fbq/file', RES_BLOCK_403),
+                           ('/pixel.gif', RES_BLOCK_403),
+                           ('/ordinary/page', RES_ALLOW)]:
+        for query in query_variants:
+            cases.append(TestCase('V46.66: Query invariance', 'https://example.com' + path + query, expected))
+    for n in [100, 599, 600, 601, 700, 4096]:
+        for token in ['interstitial/x', 'pixel.gif', 'fbq']:
+            cases.append(TestCase('V46.66: Full-length scan', 'https://example.com/' + 'a' * n + '/' + token, RES_BLOCK_403))
+        cases.append(TestCase('V46.66: Long harmless path', 'https://example.com/' + 'a' * n + '/ordinary', RES_ALLOW))
+    for host in ['cdn-path.com', 'anymind360.com']:
+        for authority, tail in [(host, '/'), (host, '?x=1'), (host, '#x'),
+                                (host + '.', '/'), ('user@' + host, '/safe'),
+                                (host.upper() + ':443', '/safe')]:
+            cases.append(TestCase('V46.66: Host parsing', 'https://' + authority + tail, RES_BLOCK_403))
+        cases.append(TestCase('V46.66: Userinfo is not host', 'https://' + host + '@example.com/safe', RES_ALLOW))
+    for url, expected in [
+        ('https://shop.example.com/v1/telemetry?device=1', RES_DROP_204),
+        ('https://shop.example.com/v1/telemetry?device=1&z=/css/', RES_DROP_204),
+        ('https://www.google.com/url', RES_ALLOW),
+        ('https://www.google.com/url?x=/js/', RES_ALLOW),
+        ('https://www.google.com/search?q=ordinary', RES_ALLOW),
+        ('https://www.google.com/s2/favicons?domain=example.com', RES_ALLOW),
+        ('https://www.google.com/urlmap/pixel.gif', RES_BLOCK_403),
+        ('https://www.google.com/searching/pixel.gif', RES_BLOCK_403),
+        ('https://x.com/i/api/graphql/hash/HomeTimeline?x=fbq', RES_ALLOW),
+        ('https://x.com/other/i/api/graphql/hash/pixel.gif', RES_BLOCK_403),
+        ('https://www.threads.com/@name/post/123?x=fbq', RES_ALLOW),
+        ('https://threads.com/post/123?x=fbq', RES_ALLOW),
+        ('https://threads.com/other/post/123/pixel.gif', RES_BLOCK_403),
+        ('https://www.threads.net/@name/post/123?x=fbq', RES_ALLOW),
+        ('https://threads.net/other/post/123/pixel.gif', RES_BLOCK_403),
+        ('https://example.com/' + 'a' * 700 + '/resource?ad_test=1', RES_BLOCK_403),
+        ('https://cmapi.tw.coupang.com/arbitrary-ads/item', RES_BLOCK_403),
+        ('https://cmapi.tw.coupang.com/ordinary?x=/arbitrary-ads/', RES_ALLOW),
+        ('https://sub.cmapi.tw.coupang.com/arbitrary-ads/item', RES_ALLOW),
+        ('https://example.com/login/?utm_source=x', RES_ALLOW),
+        ('https://example.com/?utm_source=x&%73ig=valid', RES_ALLOW),
+        ('https://example.com/?utm_source=x&sig=valid', RES_ALLOW),
+    ]:
+        cases.append(TestCase('V46.66: Scoped boundaries', url, expected))
+    for source, target, action in [
+        ('https://example.com/?utm_source=x', 'https://example.com/', RES_CLEAN_302),
+        ('https://example.com/?utm_source=x&next=/login/', 'https://example.com/?next=/login/', RES_CLEAN_302),
+        ('https://example.com/?utm_source=x&next=%26sig%3D1', 'https://example.com/?next=%26sig%3D1', RES_CLEAN_302),
+        ('https://example.com/?%75tm_source=x', 'https://example.com/', RES_CLEAN_302),
+        ('https://example.com/?utm%5Fsource=x', 'https://example.com/', RES_CLEAN_302),
+        ('https://example.com/?q=a%26b&utm_source=x#section', 'https://example.com/?q=a%26b#section', RES_CLEAN_302),
+        ('https://example.com/?q=first&q=second&utm_source=x', 'https://example.com/?q=first&q=second', RES_CLEAN_302),
+        ('https://example.com/?q=%ZZ&utm_source=x', 'https://example.com/?q=%ZZ', RES_CLEAN_302),
+        ('https://example.com/?utm_source=x&next=/api/', 'https://example.com/?next=/api/', RES_CLEAN_302),
+        ('https://example.com/api/data?%75tm_source=x&q=keep', 'https://example.com/api/data?q=keep', RES_REWRITE),
+        ('https://appapi.104.com.tw/ordinary?device_id=x&next=/api/', 'https://appapi.104.com.tw/ordinary?next=/api/', RES_REWRITE),
+    ]:
+        cases.append(TestCase('V46.66: Exact cleaned URL', source, action, expected_url=target))
     return cases
 
-def evaluate_result(actual: Any, expected_type: str) -> Tuple[bool, str, str]:
-    if isinstance(actual, dict) and "error" in actual: return False, "EXEC_ERR", f"{actual.get('error')}: {str(actual.get('details', ''))[:100]}"
+def evaluate_result(actual: Any, expected_type: str, expected_url: Optional[str] = None) -> Tuple[bool, str, str]:
+    if isinstance(actual, dict) and "error" in actual:
+        return False, "EXEC_ERR", f"{actual.get('error')}: {str(actual.get('details', ''))[:300]}"
     if actual is None:
-        if expected_type == RES_ALLOW: return True, RES_ALLOW, ""
-        return False, RES_ALLOW, f"Expected {expected_type} but got Null"
-
+        return (expected_type == RES_ALLOW), RES_ALLOW, '' if expected_type == RES_ALLOW else f"Expected {expected_type}, got Null"
     if isinstance(actual, dict):
-        if "response" in actual:
-            resp = actual["response"]
-            code = resp.get("status")
-            body = resp.get("body", "")
-            if code == 403:
-                if expected_type == RES_BLOCK_403: return True, RES_BLOCK_403, str(body)
-                return False, RES_BLOCK_403, str(body)
-            if code == 204:
-                if expected_type == RES_DROP_204: return True, RES_DROP_204, ""
-                return False, f"HTTP (204)", ""
-            if code == 302: return (expected_type == RES_CLEAN_302), RES_CLEAN_302, ""
-            return False, f"HTTP ({code})", str(body)[:200]
-        elif "url" in actual:
-            if expected_type == RES_REWRITE: 
-                return True, RES_REWRITE, ""
-            return False, "REWRITE", str(actual["url"])[:200]
-            
-    return False, "INVALID", str(actual)[:200]
+        if isinstance(actual.get('response'), dict):
+            resp = actual['response']
+            code = resp.get('status')
+            status = {403: RES_BLOCK_403, 204: RES_DROP_204, 302: RES_CLEAN_302}.get(code, f'HTTP ({code})')
+            if code != 302:
+                return expected_type == status, status, str(resp.get('body', ''))[:300]
+            headers = resp.get('headers')
+            target = headers.get('Location') if isinstance(headers, dict) else None
+        elif 'url' in actual:
+            status, target = RES_REWRITE, actual['url']
+        else:
+            return False, 'INVALID', str(actual)[:300]
+        if status != expected_type:
+            return False, status, f'Expected {expected_type}; target={target!r}'
+        if expected_url is None:
+            return False, status, 'Missing explicit expected_url for cleaning/redirect case'
+        return target == expected_url, status, f'Expected URL={expected_url!r}; actual URL={target!r}'
+    return False, 'INVALID', str(actual)[:300]
+
 
 def update_changelog():
-    changelog_path = Path("CHANGELOG.md")
-    today = datetime.now().strftime("%Y-%m-%d")
+    changelog_path = BASE_DIR / "CHANGELOG.md"
+    today = RELEASE_DATE
     new_entry = f"## V{VERSION} - {today}\n{CURRENT_RELEASE_NOTES.strip()}\n\n"
 
     if changelog_path.exists():
         content = changelog_path.read_text(encoding="utf-8")
-        if f"## V{VERSION}" not in content:
+        if not re.search(rf"^## V{re.escape(VERSION)}(?:[ \t]+-|[ \t]*$)", content, re.MULTILINE):
             header = "# URL Ultimate Filter - Changelog\n\n"
             if content.startswith(header):
                 content = content.replace(header, header + new_entry, 1)
@@ -3471,35 +3577,112 @@ def update_changelog():
 #  INCREMENTAL NODE.JS TEST CACHE HELPERS
 # ==========================================
 
-def _compute_node_cache_key() -> str:
-    """Compute a 16-char MD5 fingerprint of VERSION + RULES_DB.
-    Any rule edit or version bump produces a different key, invalidating the cache."""
-    raw = VERSION + json.dumps(RULES_DB, sort_keys=True, ensure_ascii=False)
-    return hashlib.md5(raw.encode("utf-8")).hexdigest()[:16]
+CACHE_SCHEMA = 2
+
+
+def _compute_node_cache_key(runner_code: str, cases: List[TestCase], tm_code: str = '') -> str:
+    payload = {'schema': CACHE_SCHEMA, 'version': VERSION,
+               'source': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+               'runner': runner_code, 'tampermonkey': tm_code,
+               'cases': [asdict(c) for c in cases]}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, ensure_ascii=False).encode('utf-8')).hexdigest()
+
 
 def _node_cache_path(key: str) -> Path:
-    return Path(f"_node_cache_{key}.json")
+    return BASE_DIR / f"_node_cache_{key}.json"
 
-def _load_node_cache(key: str) -> Optional[List[dict]]:
-    """Return cached Node.js results list if a valid cache file exists, else None."""
-    p = _node_cache_path(key)
-    if p.exists():
-        try:
-            return json.loads(p.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+
+def _validate_results(results: Any, count: int) -> bool:
+    if not isinstance(results, list) or len(results) != count:
+        return False
+    ids = set()
+    for item in results:
+        if not isinstance(item, dict) or type(item.get('id')) is not int or 'output' not in item:
+            return False
+        if item['id'] in ids or not 0 <= item['id'] < count:
+            return False
+        if item['output'] is not None and not isinstance(item['output'], dict):
+            return False
+        ids.add(item['id'])
+    return len(ids) == count
+
+
+def _results_digest(results: List[dict]) -> str:
+    return hashlib.sha256(json.dumps(results, sort_keys=True).encode('utf-8')).hexdigest()
+
+
+def _load_node_cache(key: str, count: int) -> Optional[List[dict]]:
+    try:
+        entry = json.loads(_node_cache_path(key).read_text(encoding='utf-8'))
+        if (isinstance(entry, dict) and entry.get('schema') == CACHE_SCHEMA
+                and entry.get('key') == key and _validate_results(entry.get('results'), count)
+                and entry.get('digest') == _results_digest(entry['results'])):
+            return entry['results']
+    except (OSError, ValueError, TypeError):
+        pass
     return None
 
-def _save_node_cache(key: str, results: List[dict]) -> None:
-    """Persist Node.js results and purge any stale cache files from previous builds."""
-    for old in Path(".").glob("_node_cache_*.json"):
-        try:
-            old.unlink()
-        except Exception:
-            pass
-    _node_cache_path(key).write_text(json.dumps(results), encoding="utf-8")
 
-def run_tests():
+def _save_node_cache(key: str, results: List[dict]) -> None:
+    entry = {'schema': CACHE_SCHEMA, 'key': key, 'results': results, 'digest': _results_digest(results)}
+    fd, name = tempfile.mkstemp(prefix='_node_cache_write_', suffix='.tmp', dir=BASE_DIR)
+    os.close(fd)
+    temp = Path(name)
+    try:
+        temp.write_text(json.dumps(entry), encoding='utf-8')
+        temp.replace(_node_cache_path(key))
+    finally:
+        temp.unlink(missing_ok=True)
+
+
+def _execute_node(runner_code: str, cases: List[TestCase]) -> List[dict]:
+    with tempfile.TemporaryDirectory(prefix='_ssot_runner_', dir=BASE_DIR) as directory:
+        runner_path = Path(directory) / 'runner.js'
+        payload_path = Path(directory) / 'cases.json'
+        runner_path.write_text(runner_code, encoding='utf-8')
+        payload = [{'id': i, 'url': c.url, 'is_e2e': c.is_e2e, 'e2e_target_url': c.e2e_target_url}
+                   for i, c in enumerate(cases)]
+        payload_path.write_text(json.dumps(payload), encoding='utf-8')
+        try:
+            process = Popen(['node', str(runner_path), str(payload_path)], stdout=PIPE, stderr=PIPE,
+                            text=True, encoding='utf-8')
+        except FileNotFoundError as exc:
+            raise RuntimeError('Node.js executable not found; install Node.js and ensure node is on PATH.') from exc
+        try:
+            stdout, stderr = process.communicate(timeout=120)
+        except TimeoutExpired as exc:
+            process.kill()
+            _, stderr = process.communicate()
+            raise RuntimeError(f'Node.js timed out after 120s. stderr: {stderr[:1000]}') from exc
+        if process.returncode != 0:
+            raise RuntimeError(f'Node.js exited {process.returncode}. stderr: {stderr[:1000]}')
+        try:
+            results = json.loads(stdout)
+        except (ValueError, TypeError) as exc:
+            raise RuntimeError(f'Invalid Node.js JSON output. stdout: {stdout[:300]!r}; stderr: {stderr[:1000]}') from exc
+        if not _validate_results(results, len(cases)):
+            raise RuntimeError(f'Incomplete or malformed Node.js results. stderr: {stderr[:1000]}')
+        return results
+
+
+def _render_report_row(o: TestOutcome) -> str:
+    esc = lambda value: html_lib.escape(str(value), quote=True)
+    cat, url = esc(o.case.category), esc(o.case.url)
+    href = url if re.match(r'^https?://', o.case.url, re.I) else '#'
+    cls, txt, color = ('bg-pass', 'PASS', '#10B981') if o.is_pass else ('bg-fail', 'FAIL', '#EF4444')
+    return (f"<tr data-category='{cat}' data-status='{txt}'><td><span class='category-tag'>{cat}</span></td>"
+            f"<td class='url-cell'><a href='{href}' target='_blank' rel='noopener noreferrer'>{url}</a></td>"
+            f"<td><span class='badge {cls}'>{txt}</span></td>"
+            f"<td style='font-size:13px; color:var(--text-sub);'>{esc(o.case.expected)}</td>"
+            f"<td style='font-size:13px; font-weight:600; color:{color};'>{esc(o.actual)}</td>"
+            f"<td style='font-size:12px; color:var(--text-sub);'>{esc(o.details)}</td></tr>")
+
+
+def _report_json(value: Any) -> str:
+    return json.dumps(value).replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e')
+
+
+def run_tests(use_cache: bool = True) -> int:
     print(f"1. [SSOT COMPILER] Compiling Python RULES_DB to Dual-Target JavaScript (V{VERSION} · {RELEASE_DATE})")
     print(f"   📦 Rules Stats: "
           f"domains={RULES_STATS['block_domains']} | "
@@ -3507,7 +3690,7 @@ def run_tests():
           f"path_kw={RULES_STATS['path_keywords']} | "
           f"drop_kw={RULES_STATS['drop_keywords']} | "
           f"params={RULES_STATS['param_rules']} | "
-          f"whitelist={RULES_STATS['whitelist']} | "
+          f"whitelist={RULES_STATS['whitelist']} | other={RULES_STATS['other']} | "
           f"TOTAL={TOTAL_RULE_COUNT}")
     js_surge_content = compile_surge()
     js_tampermonkey_content = compile_tampermonkey()
@@ -3515,7 +3698,7 @@ def run_tests():
     js_tm_filename = "URL-Ultimate-Filter-Tampermonkey.user.js"
 
     cases = generate_full_coverage_cases()
-    unique_cases = {c.category + c.url + c.expected: c for c in cases}.values()
+    unique_cases = dict.fromkeys(cases)
     final_cases = sorted(list(unique_cases), key=lambda c: c.category)
 
     runner_code = textwrap.dedent("""
@@ -3548,49 +3731,29 @@ def run_tests():
     }
     """)
 
-    _cache_key = _compute_node_cache_key()
-    _cached = _load_node_cache(_cache_key)
+    _cache_key = _compute_node_cache_key(runner_code, final_cases, js_tampermonkey_content)
+    _cached = _load_node_cache(_cache_key, len(final_cases)) if use_cache else None
 
     if _cached is not None:
         print(f"2. [BATCH ENGINE] Cache HIT ({_cache_key}) — skipping Node.js ({len(final_cases)} cases loaded from cache).")
         results = _cached
     else:
-        fd_runner, runner_path = tempfile.mkstemp(suffix=".js")
-        os.close(fd_runner)
-        fd_payload, payload_path = tempfile.mkstemp(suffix=".json")
-        os.close(fd_payload)
-
+        print(f"2. [BATCH ENGINE] Testing {len(final_cases)} SSOT Generated Cases via Node.js...")
         try:
-            Path(runner_path).write_text(runner_code, encoding="utf-8")
-            payload_data = [{"id": i, "url": c.url, "is_e2e": c.is_e2e, "e2e_target_url": c.e2e_target_url} for i, c in enumerate(final_cases)]
-            with open(payload_path, 'w', encoding='utf-8') as f: json.dump(payload_data, f)
-
-            print(f"2. [BATCH ENGINE] Testing {len(final_cases)} SSOT Generated Cases via Node.js...")
-            p = Popen(["node", runner_path, payload_path], stdout=PIPE, stderr=PIPE, text=True, encoding="utf-8")
-            try:
-                stdout, stderr = p.communicate(timeout=120)
-            except Exception:
-                p.kill()
-                p.communicate()
-                print("[FATAL ERROR] Node.js runner timed out after 120s — process killed.")
-                sys.exit(1)
-
-            if p.returncode != 0:
-                print(f"[FATAL ERROR] Node Execution Failed:\n{stderr}")
-                sys.exit(1)
-
-            results = json.loads(stdout)
+            results = _execute_node(runner_code, final_cases)
             _save_node_cache(_cache_key, results)
-        finally:
-            Path(runner_path).unlink(missing_ok=True)
-            Path(payload_path).unlink(missing_ok=True)
+        except (RuntimeError, OSError) as exc:
+            print(f"[FATAL ERROR] {exc}")
+            return 1
 
+    if not _validate_results(results, len(final_cases)):
+        print('[FATAL ERROR] Test result IDs/count/output fields are inconsistent.')
+        return 1
     result_map = {r['id']: r for r in results}
     outcomes = []
     for i, c in enumerate(final_cases):
-        res = result_map.get(i, {})
-        actual_output = res.get('output')
-        is_pass, status, details = evaluate_result(actual_output, c.expected)
+        actual_output = result_map[i]['output']
+        is_pass, status, details = evaluate_result(actual_output, c.expected, c.expected_url)
         if c.is_e2e and is_pass:
             details = f"[E2E Passed] {c.expected_feature}"
         outcomes.append(TestOutcome(c, status, details, is_pass))
@@ -3606,13 +3769,10 @@ def run_tests():
         cat = o.case.category
         if o.is_pass: category_stats[cat]["pass"] += 1
         else: category_stats[cat]["fail"] += 1
-        cls = "bg-pass" if o.is_pass else "bg-fail"
-        txt = "PASS" if o.is_pass else "FAIL"
-        color = "#10B981" if o.is_pass else "#EF4444"
-        rows_html += f"<tr data-category='{cat}' data-status='{txt}'><td><span class='category-tag'>{cat}</span></td><td class='url-cell'><a href='{o.case.url}' target='_blank'>{o.case.url}</a></td><td><span class='badge {cls}'>{txt}</span></td><td style='font-size:13px; color:var(--text-sub);'>{o.case.expected}</td><td style='font-size:13px; font-weight:600; color:{color};'>{o.actual}</td><td style='font-size:12px; color:var(--text-sub);'>{o.details}</td></tr>"
+        rows_html += _render_report_row(o)
 
     sorted_cats = sorted(category_stats.keys())
-    cat_options_html = "".join([f'<option value="{cat}">{cat}</option>' for cat in sorted_cats])
+    cat_options_html = "".join([f'<option value="{html_lib.escape(cat, quote=True)}">{html_lib.escape(cat)}</option>' for cat in sorted_cats])
     chart_data = {"passed": passed, "failed": failed, "categories": sorted_cats, "cat_passed": [category_stats[c]["pass"] for c in sorted_cats], "cat_failed": [category_stats[c]["fail"] for c in sorted_cats]}
 
     initial_status_filter = "FAIL" if failed > 0 else "all"
@@ -3620,7 +3780,7 @@ def run_tests():
     overall_status_text = "ALL SYSTEMS GO" if failed == 0 else f"{failed} ISSUES FOUND"
     rate_color_class = "text-success" if rate == 100 else ("text-warning" if rate > 90 else "text-danger")
 
-    public_dir = Path("public")
+    public_dir = BASE_DIR / "public"
     public_dir.mkdir(exist_ok=True)
     report_name = public_dir / "index.html"
 
@@ -3629,7 +3789,7 @@ def run_tests():
         rate=rate, total=total, passed=passed, failed=failed, table_rows=rows_html,
         initial_status_filter=initial_status_filter, overall_status_class=overall_status_class,
         overall_status_text=overall_status_text, rate_color_class=rate_color_class,
-        category_options=cat_options_html, json_chart_data=json.dumps(chart_data)
+        category_options=cat_options_html, json_chart_data=_report_json(chart_data)
     )
     with open(report_name, "w", encoding="utf-8") as f: f.write(html)
 
@@ -3644,8 +3804,8 @@ def run_tests():
         # 測試通過後，將實際測試案例數回填至 SCRIPT_BUILD 常數
         js_surge_content = js_surge_content.replace('__SSOT_TEST_COUNT__', str(total))
         js_tampermonkey_content = js_tampermonkey_content.replace('__SSOT_TEST_COUNT__', str(total))
-        with open(js_surge_filename, "w", encoding="utf-8") as f: f.write(js_surge_content)
-        with open(js_tm_filename, "w", encoding="utf-8") as f: f.write(js_tampermonkey_content)
+        with open(BASE_DIR / js_surge_filename, "w", encoding="utf-8") as f: f.write(js_surge_content)
+        with open(BASE_DIR / js_tm_filename, "w", encoding="utf-8") as f: f.write(js_tampermonkey_content)
 
         update_changelog()
 
@@ -3657,6 +3817,187 @@ def run_tests():
         print(f"\n❌  SSOT TEST FAILED")
         print(f"⚠️  JavaScript Generation SKIPPED due to test failures.")
     print("="*55 + "\n")
+    return 0 if failed == 0 else 1
+
+def run_self_tests() -> int:
+    """Infrastructure regressions stay in the SSOT; all writes use isolated directories."""
+    import contextlib
+    import io
+    import unittest
+    from unittest.mock import patch, Mock
+
+    class CompilerRegressionTests(unittest.TestCase):
+        def setUp(self):
+            self.directory = tempfile.TemporaryDirectory(prefix='_ssot_selftest_', dir=BASE_DIR)
+            self.addCleanup(self.directory.cleanup)
+            self.root = Path(self.directory.name)
+            self.scope = patch.dict(globals(), {'BASE_DIR': self.root})
+            self.scope.start()
+            self.addCleanup(self.scope.stop)
+            self.cases = [TestCase('Golden', 'https://example.com/', RES_ALLOW)]
+            self.results = [{'id': 0, 'output': None}]
+
+        def test_cache_fingerprints_engine_cases_expectations_and_e2e(self):
+            key = _compute_node_cache_key('engine-A', self.cases, 'tm-A')
+            variants = [
+                ('engine-B', self.cases, 'tm-A'),
+                ('engine-A', self.cases, 'tm-B'),
+                ('engine-A', [replace(self.cases[0], url='https://example.com/pixel.gif')], 'tm-A'),
+                ('engine-A', [replace(self.cases[0], expected=RES_BLOCK_403)], 'tm-A'),
+                ('engine-A', [replace(self.cases[0], expected_url='https://example.com/new')], 'tm-A'),
+                ('engine-A', [replace(self.cases[0], is_e2e=True, e2e_target_url='https://example.com/new')], 'tm-A'),
+                ('engine-A', self.cases * 2, 'tm-A'),
+            ]
+            for args in variants:
+                with self.subTest(args=args):
+                    self.assertNotEqual(key, _compute_node_cache_key(*args))
+            pair = self.cases + [replace(self.cases[0], url='https://example.com/other')]
+            self.assertNotEqual(_compute_node_cache_key('engine', pair),
+                                _compute_node_cache_key('engine', list(reversed(pair))))
+
+        def test_cache_rejects_old_truncated_duplicate_missing_and_tampered_results(self):
+            key = _compute_node_cache_key('engine', self.cases)
+            _save_node_cache(key, self.results)
+            self.assertEqual(_load_node_cache(key, 1), self.results)
+            self.assertIsNone(_load_node_cache(key, 2))
+            for invalid in [[], [{'id': 0}], [{'id': 1, 'output': None}],
+                            [{'id': True, 'output': None}], [{'id': 0, 'output': 42}],
+                            [{'id': 0, 'output': None}] * 2]:
+                with self.subTest(invalid=invalid):
+                    self.assertFalse(_validate_results(invalid, 1))
+                    _save_node_cache(key, invalid)
+                    self.assertIsNone(_load_node_cache(key, 1))
+            _save_node_cache(key, self.results)
+            entry = json.loads(_node_cache_path(key).read_text(encoding='utf-8'))
+            entry['results'][0]['output'] = {'response': {'status': 403}}
+            _node_cache_path(key).write_text(json.dumps(entry), encoding='utf-8')
+            self.assertIsNone(_load_node_cache(key, 1))
+            for text in [json.dumps(self.results), '{broken', '{}', 'null']:
+                _node_cache_path(key).write_text(text, encoding='utf-8')
+                self.assertIsNone(_load_node_cache(key, 1))
+
+        def test_wrong_redirect_and_unchanged_rewrite_fail(self):
+            target = 'https://example.com/'
+            for actual, kind in [({'response': {'status': 302, 'headers': {'Location': 'https://wrong.invalid/'}}}, RES_CLEAN_302),
+                                 ({'response': {'status': 302}}, RES_CLEAN_302),
+                                 ({'url': 'https://example.com/?utm_source=x'}, RES_REWRITE)]:
+                self.assertFalse(evaluate_result(actual, kind, target)[0])
+            self.assertFalse(evaluate_result({'url': target}, RES_REWRITE)[0])
+            self.assertTrue(evaluate_result({'url': target}, RES_REWRITE, target)[0])
+            self.assertTrue(evaluate_result({'response': {'status': 302, 'headers': {'Location': target}}}, RES_CLEAN_302, target)[0])
+
+        def test_clean_mismatch_reports_actual_target(self):
+            result = evaluate_result({'response': {'status': 302, 'headers': {'Location': 'https://example.com/'}}}, RES_ALLOW)
+            self.assertFalse(result[0])
+            self.assertIn('Expected ALLOW', result[2])
+            self.assertIn('https://example.com/', result[2])
+
+        def test_missing_node_diagnostic(self):
+            with patch.dict(globals(), {'Popen': Mock(side_effect=FileNotFoundError())}):
+                with self.assertRaisesRegex(RuntimeError, 'Node.js executable not found'):
+                    _execute_node('', self.cases)
+
+        def test_invalid_node_output_includes_stderr(self):
+            for stdout in ['debug message\n[]', '[{"error":"Batch Failure"}]', '[{"id":0}]']:
+                process = Mock(returncode=0)
+                process.communicate.return_value = (stdout, 'diagnostic-marker')
+                with patch.dict(globals(), {'Popen': Mock(return_value=process)}):
+                    with self.assertRaisesRegex(RuntimeError, 'diagnostic-marker'):
+                        _execute_node('', self.cases)
+
+        def test_node_failure_and_timeout(self):
+            process = Mock(returncode=2)
+            process.communicate.return_value = ('', 'failed-marker')
+            with patch.dict(globals(), {'Popen': Mock(return_value=process)}):
+                with self.assertRaisesRegex(RuntimeError, 'exited 2.*failed-marker'):
+                    _execute_node('', self.cases)
+            process.communicate.side_effect = [TimeoutExpired('node', 120), ('', 'timeout-marker')]
+            with patch.dict(globals(), {'Popen': Mock(return_value=process)}):
+                with self.assertRaisesRegex(RuntimeError, 'timed out.*timeout-marker'):
+                    _execute_node('', self.cases)
+            process.kill.assert_called_once()
+
+        def test_failed_build_returns_nonzero_and_preserves_artifacts(self):
+            artifact = self.root / 'URL-Ultimate-Filter-Surge.js'
+            artifact.write_text('previous valid build', encoding='utf-8')
+            with patch.dict(globals(), {
+                'generate_full_coverage_cases': lambda: self.cases,
+                '_execute_node': lambda *args: [{'id': 0, 'output': {'response': {'status': 403}}}],
+            }), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(run_tests(use_cache=False), 1)
+            self.assertEqual(artifact.read_text(encoding='utf-8'), 'previous valid build')
+            self.assertIn('1 ISSUES FOUND', (self.root / 'public/index.html').read_text(encoding='utf-8'))
+
+        def test_missing_output_cannot_be_an_allow_pass(self):
+            with patch.dict(globals(), {
+                'generate_full_coverage_cases': lambda: self.cases,
+                '_load_node_cache': lambda *args: [{'id': 0}],
+            }), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(run_tests(), 1)
+
+        def test_output_and_cache_paths_ignore_cwd(self):
+            elsewhere = self.root / 'elsewhere'
+            elsewhere.mkdir()
+            previous = Path.cwd()
+            try:
+                os.chdir(elsewhere)
+                with patch.dict(globals(), {
+                    'generate_full_coverage_cases': lambda: self.cases,
+                    '_execute_node': lambda *args: self.results,
+                }), contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(run_tests(use_cache=False), 0)
+                self.assertEqual(list(elsewhere.iterdir()), [])
+                for name in ['CHANGELOG.md', 'URL-Ultimate-Filter-Surge.js',
+                             'URL-Ultimate-Filter-Tampermonkey.user.js', 'public/index.html']:
+                    self.assertTrue((self.root / name).exists())
+                self.assertEqual(len(list(self.root.glob('_node_cache_*.json'))), 1)
+            finally:
+                os.chdir(previous)
+
+        def test_changelog_exact_version_release_date_and_idempotence(self):
+            path = self.root / 'CHANGELOG.md'
+            path.write_text('# URL Ultimate Filter - Changelog\n\n## V46.65 - old\n', encoding='utf-8')
+            with patch.dict(globals(), {'VERSION': '46.6', 'RELEASE_DATE': '2001-02-03'}), contextlib.redirect_stdout(io.StringIO()):
+                update_changelog()
+                update_changelog()
+            text = path.read_text(encoding='utf-8')
+            self.assertEqual(text.count('## V46.6 - 2001-02-03'), 1)
+            self.assertIn('## V46.65 - old', text)
+
+        def test_report_escapes_text_attributes_and_script_data(self):
+            hostile = "'\"<script>alert(1)</script>&"
+            case = TestCase(hostile, 'https://example.com/?q=' + hostile, RES_ALLOW)
+            row = _render_report_row(TestOutcome(case, hostile, hostile, True))
+            self.assertNotIn('<script>', row)
+            self.assertIn('&#x27;', row)
+            self.assertIn('&amp;', row)
+            unsafe = replace(case, url='javascript:alert(1)')
+            self.assertIn("href='#'", _render_report_row(TestOutcome(unsafe, '', '', True)))
+            self.assertNotIn('<', _report_json({'category': hostile}))
+            self.assertEqual(json.loads(_report_json({'category': hostile}))['category'], hostile)
+
+        def test_all_clean_cases_have_url_expectations(self):
+            with contextlib.redirect_stdout(io.StringIO()):
+                cases = generate_full_coverage_cases()
+            for case in cases:
+                if case.expected in (RES_CLEAN_302, RES_REWRITE):
+                    self.assertIsNotNone(case.expected_url, case.category)
+
+        def test_rule_count_and_five_release_summaries(self):
+            self.assertEqual(TOTAL_RULE_COUNT, sum(_count_rule_entries(v) for v in RULES_DB.values()))
+            self.assertEqual(TOTAL_RULE_COUNT, sum(RULES_STATS.values()))
+            self.assertEqual(len(re.findall(r'^- V[0-9]', __doc__, re.MULTILINE)), 5)
+
+    suite = unittest.defaultTestLoader.loadTestsFromTestCase(CompilerRegressionTests)
+    result = unittest.TextTestRunner(verbosity=2).run(suite)
+    return 0 if result.wasSuccessful() else 1
+
 
 if __name__ == "__main__":
-    run_tests()
+    parser = argparse.ArgumentParser(description="Build filters and validate the complete SSOT suite")
+    parser.add_argument("--no-cache", action="store_true", help="Always execute Node.js")
+    parser.add_argument("--self-test", action="store_true", help="Run compiler infrastructure regressions")
+    args = parser.parse_args()
+    infrastructure_status = run_self_tests()
+    sys.exit(infrastructure_status if infrastructure_status or args.self_test
+             else run_tests(use_cache=not args.no_cache))
