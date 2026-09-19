@@ -3,19 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.66 (2026-09-17)
+當前版本：V46.67 (2026-09-19)
 最新架構更新：
-- [BugFix] 路徑豁免與 OAuth／簽章清理判斷隔離 query，解碼追蹤參數名稱，修正 hostname 邊界解析。
-- [BugFix] 三個關鍵字掃描器完整掃描長路徑；Google／X／Threads 豁免使用路徑邊界。
-- [Test] 快取包含生成引擎、runner 與案例指紋，驗證結果完整性；失敗退出非零，清理結果檢查目標 URL。
-- [SSOT] 可變規則集中 RULES_DB、完整計數；產物定位 compiler 目錄，報表跳脫、changelog 使用發布日期。
+- [Privacy] `api3.cursor.sh/tev1/v1/rgstr` 精確端點 204 靜默拋棄；Statsig SDK 事件登記端點與 statsig.anthropic.com、prodregistryv2.org 同屬 `/v1/rgstr` 上報家族，不封鎖整個 host。
+- [Test] V46.67 迴歸：query 與裸路徑皆 204 DROP；相鄰 `/tev1/v1/rgstr-extra`、同樹 `/tev1/v1/initialize` 與其他 host 維持原行為。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.67 (2026-09-19): Privacy — Cursor 遙測 `api3.cursor.sh/tev1/v1/rgstr` 精準 204 拋棄；只鎖精確路徑，同樹 `initialize` 與其他 host 維持原行為。
 - V46.66 (2026-09-17): BugFix — query 豁免、長路徑、hostname 與清理判斷修正；可信測試快取、URL 斷言及非零失敗退出。
 - V46.65 (2026-09-07): BugFix — `eapisgp1.pcloud.com/eventslast` 加入 host-scoped `PATH_EXEMPTIONS`，避免 pCloud 登入後功能性 API 路徑撞上全域 `/events` 關鍵字；相鄰路徑與其他網域維持原規則。
 - V46.64 (2026-09-05): Rule — `api.askmiso.com/v1/interactions` 精確端點封鎖；query／尾斜線版本一併封鎖，相鄰路徑與其他 API 維持原規則。
 - V46.63 (2026-09-03): BugFix — `shopee.tw/verify/traffic` 加入精確路徑豁免，避免驗證 query opaque token 中的 `fbq` 被全域關鍵字誤封；相鄰路徑與其他網域維持原規則。
-- V46.62 (2026-09-02): BugFix — `dem.shopee.com/dem/janus/v1/app-auth/login` 加入精確 P0 路徑豁免，其他 dem 路徑與子域維持 P0 封鎖。
 """
 
 import hashlib
@@ -42,14 +40,12 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.66"
-RELEASE_DATE = "2026-09-17"
+VERSION = "46.67"
+RELEASE_DATE = "2026-09-19"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] 路徑豁免與 OAuth／簽章清理判斷隔離 query，解碼追蹤參數名稱，修正 hostname 邊界解析。
-- [BugFix] 三個關鍵字掃描器完整掃描長路徑；Google／X／Threads 豁免使用路徑邊界。
-- [Test] 快取包含生成引擎、runner 與案例指紋，驗證結果完整性；失敗退出非零，清理結果檢查目標 URL。
-- [SSOT] 可變規則集中 RULES_DB、完整計數；產物定位 compiler 目錄，報表跳脫、changelog 使用發布日期。
+- [Privacy] `api3.cursor.sh/tev1/v1/rgstr` 精確端點 204 靜默拋棄；Statsig SDK 事件登記端點與 statsig.anthropic.com、prodregistryv2.org 同屬 `/v1/rgstr` 上報家族，不封鎖整個 host。
+- [Test] V46.67 迴歸：query 與裸路徑皆 204 DROP；相鄰 `/tev1/v1/rgstr-extra`、同樹 `/tev1/v1/initialize` 與其他 host 維持原行為。
 """
 
 
@@ -618,6 +614,7 @@ RULES_DB = {
         't1.daumcdn.net': ['/tessera/s.gif'],
         '139.95.0.151': ['DROP:/amdc/mobiledispatch'],
         'mail.aol.com': ['DROP_RE:^/m/log(\\?|$)'],
+        'api3.cursor.sh': ['DROP_RE:^/tev1/v1/rgstr(?:\\?|$)'],
     },
     "HIGH_CONFIDENCE": [
         '/ad/', '/ads/', '/adv/', '/advert/', '/banner/', '/pixel/', '/tracker/', '/interstitial/', '/midroll/', '/popads/', '/preroll/', '/postroll/'
@@ -3061,6 +3058,12 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: Google User Avatar Opaque ID Allow", "https://lh3.googleusercontent.com/a-/ALV-UjWVY3lyMc6NVp-MsO6JLNkeaQ1_2Wo-Q_p6PXg6PdYr10S1WzTPPRZja89VO__1dQuUaJeyOxnamKGQtmmjVeOe5UiyC2rCldiK8sEVYz0FNNzIe0V1rpFHzsT0yD_Vdz_LrPnpxhMR7JdJKdPbJrFOhQ_7Vs3kEy3TnOWsvtK5D6l8WTX-AWYQis8LuxOB6M1-X3edK_lLkh50_aauCAjY4sutb5siyGTYWDKioGwVvB2gqq9qIbPU907_qb6z3NXB2c5d00y85ZuW1HQxWFDEjgh5A_owM3pfn04rLRcdaaSrBSdk-NuQff4OOWgEQbGRxTHKKUBGyIRXunr66-fTVxX6g7kVhI9frGgb_kwmaD2osNaDifblZQGWS-9CMXu29umxCXB59nfSFd9L7rmDgBq8Z9HJjhq0ndFpOg-101zmQPhtu74Gg7Pa5tpce3zQayaqJaBl6Nhv4wV5Hg5LW9_5PzTXXTVynkZRt9DUkPyYoo8Bamm9oHL2AKhHQeB4RQowtsiuf-PVuQ0MZcmzTFonpTXvm8jGX0eAwftxEvDW7T_hMl1Eb08qKaUkF1NijPV63cf0NVNcjoOViZ7v7nhiT5ymXLw3rX7dt49X3e7D2cd3oDWeeWWZ1HHbGaRFWls6-Y8wuco7rFIDoBtvpeV1GFBoYNujHjgtfsyFoq8HsOuL3QwLrkLsHk72CoMzI558t8-kMus8LJyTTJxvsR0mwYeQac3ZykRxhMTkcthXlLGx8GIcP4MoaKdGgaH-IObhwldaMgpyt7o-kfW-I34SM4MZH3Fl_G5m_GAt8jQwpMwYxEZkRhopFgg_BrzKAsnqiY06OEafHUzDkNZS7Fkcns4XGBzIirxQK3GMYaX5pCAq1aK9HPlGmwPUOMpqAkezH5aGvuwDAnc2qTjh93lwS_jJyqVq-b7-qgoWeeXqIwY_Ri6LPO1OO8Lu70GROA5EW3hF9wJ3YDP4KrOpqOnOZCB2XNIkB0m5qYqOAc1EJCwII0_ysU5GuSLXPwJA52D14E0qss68Cn2uphUuzbHqx5RxERANcz7S=s192-p", RES_ALLOW, "V46.58 Google 使用者圖片 `/a-/` 路徑的 opaque ID 含 `dFp`；路徑正規化後撞上全域 PATH_BLOCK `dfp`，由 host-scoped PATH_EXEMPTIONS 精準放行"))
     cases.append(TestCase("Regression: Google User Avatar Exemption Boundary", "https://lh3.googleusercontent.com/dfp/test", RES_BLOCK_403, "V46.58 豁免僅限 `/a-/`；同 host 其他路徑仍應由全域 `dfp` 關鍵字封鎖"))
 
+    # --- V46.67 Cursor Statsig event-registration telemetry precise drop ---
+    cases.append(TestCase("Privacy: Cursor Statsig Event Registration Drop", "https://api3.cursor.sh/tev1/v1/rgstr?k=client-fixture&st=javascript-client&sv=3.33.3&t=1789779230985&sid=1e54ae98-38be-4640-bbba-58185a4b4107&ec=4", RES_DROP_204, "V46.67 Cursor Statsig SDK 事件登記端點（POST 202／GET 403 RBAC）確認為遙測性質；host-scoped CRITICAL_PATH_MAP DROP_RE 精準 204，與 statsig.anthropic.com、prodregistryv2.org 的 `/v1/rgstr` 同家族"))
+    cases.append(TestCase("Privacy: Cursor Statsig Event Registration Bare Drop", "https://api3.cursor.sh/tev1/v1/rgstr", RES_DROP_204, "V46.67 精確端點規則不依賴 query 參數，裸路徑同樣 204 DROP"))
+    cases.append(TestCase("Regression: Cursor Statsig Sibling Pass", "https://api3.cursor.sh/tev1/v1/rgstr-extra", RES_ALLOW, "V46.67 路徑邊界保護；相鄰 `/tev1/v1/rgstr-extra` 不得被連帶拋棄"))
+    cases.append(TestCase("Regression: Cursor Telemetry Initialize Pass", "https://api3.cursor.sh/tev1/v1/initialize", RES_ALLOW, "V46.67 僅鎖事件登記端點；同樹 `/tev1/v1/initialize`（SDK 取設定）維持原行為"))
+    cases.append(TestCase("Regression: Other Host Rgstr Pass", "https://api2.cursor.sh/tev1/v1/rgstr", RES_ALLOW, "V46.67 規則限 api3.cursor.sh；其他 Cursor host 相同路徑維持原行為"))
     # --- V46.65 pCloud eventslast functional API false-positive fix ---
     cases.append(TestCase("BugFix: pCloud Eventslast API Pass", "https://eapisgp1.pcloud.com/eventslast", RES_ALLOW, "V46.65 pCloud 登入後的 eventslast 功能性 API 被全域 `/events` L1 誤封；host-scoped PATH_EXEMPTIONS 精準放行"))
     cases.append(TestCase("BugFix: pCloud Eventslast Query Pass", "https://eapisgp1.pcloud.com/eventslast?auth=fixture&limit=20", RES_ALLOW, "V46.65 eventslast 帶 query 時仍由 raw pathname 精準豁免，不改動必要參數"))
