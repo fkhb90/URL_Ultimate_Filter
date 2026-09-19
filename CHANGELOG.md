@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.67 - 2026-09-19
+- [Privacy] `api3.cursor.sh/tev1/v1/rgstr` 精確端點 204 靜默拋棄；Statsig SDK 事件登記端點與 statsig.anthropic.com、prodregistryv2.org 同屬 `/v1/rgstr` 上報家族，不封鎖整個 host。
+- [Test] V46.67 迴歸：query 與裸路徑皆 204 DROP；相鄰 `/tev1/v1/rgstr-extra`、同樹 `/tev1/v1/initialize` 與其他 host 維持原行為。
+
 ## V46.66 - 2026-09-17
 - [BugFix] 路徑豁免與 OAuth／簽章清理判斷隔離 query，解碼追蹤參數名稱，修正 hostname 邊界解析。
 - [BugFix] 三個關鍵字掃描器完整掃描長路徑；Google／X／Threads 豁免使用路徑邊界。
