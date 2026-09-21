@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.67 (2026-09-19)
+當前版本：V46.68 (2026-09-21)
 最新架構更新：
-- [Privacy] `api3.cursor.sh/tev1/v1/rgstr` 精確端點 204 靜默拋棄；Statsig SDK 事件登記端點與 statsig.anthropic.com、prodregistryv2.org 同屬 `/v1/rgstr` 上報家族，不封鎖整個 host。
-- [Test] V46.67 迴歸：query 與裸路徑皆 204 DROP；相鄰 `/tev1/v1/rgstr-extra`、同樹 `/tev1/v1/initialize` 與其他 host 維持原行為。
+- [Privacy] PostHog 瀏覽器 SDK 預設事件攝取端點 `/e/`（`us.i.posthog.com`、`eu.i.posthog.com`）與 Microsoft App Center 中央攝取端點 `in.appcenter.ms/logs` 以 host-scoped `DROP_RE` 精準 204 靜默拋棄；不擴大到整個 host，也不動既有 `/batch`、`/decide`、`/i/v0/e`、`/capture` 規則。
+- [Test] V46.68 迴歸：兩個端點的 query 與裸路徑版本皆 204 DROP；相鄰 `/e-extra`、`/logs-extra`、同樹 `/events`、`/decide` 與其他 host 維持原行為。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.68 (2026-09-21): Privacy — PostHog `/e/` 與 App Center `/logs` 事件攝取端點補漏；host-scoped `DROP_RE` 只鎖精確路徑，相鄰路徑與其他網域維持原規則。
 - V46.67 (2026-09-19): Privacy — Cursor 遙測 `api3.cursor.sh/tev1/v1/rgstr` 精準 204 拋棄；只鎖精確路徑，同樹 `initialize` 與其他 host 維持原行為。
 - V46.66 (2026-09-17): BugFix — query 豁免、長路徑、hostname 與清理判斷修正；可信測試快取、URL 斷言及非零失敗退出。
 - V46.65 (2026-09-07): BugFix — `eapisgp1.pcloud.com/eventslast` 加入 host-scoped `PATH_EXEMPTIONS`，避免 pCloud 登入後功能性 API 路徑撞上全域 `/events` 關鍵字；相鄰路徑與其他網域維持原規則。
 - V46.64 (2026-09-05): Rule — `api.askmiso.com/v1/interactions` 精確端點封鎖；query／尾斜線版本一併封鎖，相鄰路徑與其他 API 維持原規則。
-- V46.63 (2026-09-03): BugFix — `shopee.tw/verify/traffic` 加入精確路徑豁免，避免驗證 query opaque token 中的 `fbq` 被全域關鍵字誤封；相鄰路徑與其他網域維持原規則。
 """
 
 import hashlib
@@ -40,12 +40,12 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.67"
-RELEASE_DATE = "2026-09-19"
+VERSION = "46.68"
+RELEASE_DATE = "2026-09-21"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] `api3.cursor.sh/tev1/v1/rgstr` 精確端點 204 靜默拋棄；Statsig SDK 事件登記端點與 statsig.anthropic.com、prodregistryv2.org 同屬 `/v1/rgstr` 上報家族，不封鎖整個 host。
-- [Test] V46.67 迴歸：query 與裸路徑皆 204 DROP；相鄰 `/tev1/v1/rgstr-extra`、同樹 `/tev1/v1/initialize` 與其他 host 維持原行為。
+- [Privacy] PostHog 瀏覽器 SDK 預設事件攝取端點 `/e/`（us./eu.i.posthog.com）與 App Center 中央攝取端點 `in.appcenter.ms/logs` 以 host-scoped `DROP_RE` 精準 204 靜默拋棄；不封鎖整個 host，也不動既有 `/batch`、`/decide`、`/i/v0/e`、`/capture` 規則。
+- [Test] V46.68 迴歸：`/e/`、`/e`、`/logs`、`/logs?...` 皆 204 DROP；相鄰 `/e-extra`、`/logs-extra`、同樹 `/events`、`/decide` 與其他 host 維持原行為。
 """
 
 
@@ -528,10 +528,11 @@ RULES_DB = {
         'va.vercel-scripts.com': ['/v1/script.js', '/v1/script.debug.js', '/v1/speed-insights/script.js', '/v1/speed-insights/script.debug.js'],
         'cdn.vercel-insights.com': ['/v1/script.js', '/v1/script.debug.js'],
         'vitals.vercel-analytics.com': ['/v1/vitals'],
-        'us.i.posthog.com': ['/batch', '/decide', '/i/v0/e', '/capture'],
-        'eu.i.posthog.com': ['/batch', '/decide', '/i/v0/e', '/capture'],
+        'us.i.posthog.com': ['/batch', '/decide', '/i/v0/e', '/capture', 'DROP_RE:^/e(?:/|\\?|$)'],
+        'eu.i.posthog.com': ['/batch', '/decide', '/i/v0/e', '/capture', 'DROP_RE:^/e(?:/|\\?|$)'],
         'us-assets.i.posthog.com': ['/static/array.js'],
         'eu-assets.i.posthog.com': ['/static/array.js'],
+        'in.appcenter.ms': ['DROP_RE:^/logs(?:/|\\?|$)'],
         'scripts.simpleanalyticscdn.com': ['/latest.js', '/proxy.js', '/auto-events.js'],
         'queue.simpleanalyticscdn.com': ['/noscript.gif', '/events'],
         'simpleanalyticsexternal.com': ['/proxy.js'],
@@ -3058,6 +3059,19 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("BugFix: Google User Avatar Opaque ID Allow", "https://lh3.googleusercontent.com/a-/ALV-UjWVY3lyMc6NVp-MsO6JLNkeaQ1_2Wo-Q_p6PXg6PdYr10S1WzTPPRZja89VO__1dQuUaJeyOxnamKGQtmmjVeOe5UiyC2rCldiK8sEVYz0FNNzIe0V1rpFHzsT0yD_Vdz_LrPnpxhMR7JdJKdPbJrFOhQ_7Vs3kEy3TnOWsvtK5D6l8WTX-AWYQis8LuxOB6M1-X3edK_lLkh50_aauCAjY4sutb5siyGTYWDKioGwVvB2gqq9qIbPU907_qb6z3NXB2c5d00y85ZuW1HQxWFDEjgh5A_owM3pfn04rLRcdaaSrBSdk-NuQff4OOWgEQbGRxTHKKUBGyIRXunr66-fTVxX6g7kVhI9frGgb_kwmaD2osNaDifblZQGWS-9CMXu29umxCXB59nfSFd9L7rmDgBq8Z9HJjhq0ndFpOg-101zmQPhtu74Gg7Pa5tpce3zQayaqJaBl6Nhv4wV5Hg5LW9_5PzTXXTVynkZRt9DUkPyYoo8Bamm9oHL2AKhHQeB4RQowtsiuf-PVuQ0MZcmzTFonpTXvm8jGX0eAwftxEvDW7T_hMl1Eb08qKaUkF1NijPV63cf0NVNcjoOViZ7v7nhiT5ymXLw3rX7dt49X3e7D2cd3oDWeeWWZ1HHbGaRFWls6-Y8wuco7rFIDoBtvpeV1GFBoYNujHjgtfsyFoq8HsOuL3QwLrkLsHk72CoMzI558t8-kMus8LJyTTJxvsR0mwYeQac3ZykRxhMTkcthXlLGx8GIcP4MoaKdGgaH-IObhwldaMgpyt7o-kfW-I34SM4MZH3Fl_G5m_GAt8jQwpMwYxEZkRhopFgg_BrzKAsnqiY06OEafHUzDkNZS7Fkcns4XGBzIirxQK3GMYaX5pCAq1aK9HPlGmwPUOMpqAkezH5aGvuwDAnc2qTjh93lwS_jJyqVq-b7-qgoWeeXqIwY_Ri6LPO1OO8Lu70GROA5EW3hF9wJ3YDP4KrOpqOnOZCB2XNIkB0m5qYqOAc1EJCwII0_ysU5GuSLXPwJA52D14E0qss68Cn2uphUuzbHqx5RxERANcz7S=s192-p", RES_ALLOW, "V46.58 Google 使用者圖片 `/a-/` 路徑的 opaque ID 含 `dFp`；路徑正規化後撞上全域 PATH_BLOCK `dfp`，由 host-scoped PATH_EXEMPTIONS 精準放行"))
     cases.append(TestCase("Regression: Google User Avatar Exemption Boundary", "https://lh3.googleusercontent.com/dfp/test", RES_BLOCK_403, "V46.58 豁免僅限 `/a-/`；同 host 其他路徑仍應由全域 `dfp` 關鍵字封鎖"))
 
+    # --- V46.68 PostHog /e/ 與 App Center /logs 事件攝取端點補漏 ---
+    cases.append(TestCase("Privacy: PostHog Capture /e/ Query Drop", "https://us.i.posthog.com/e/?ip=1&_=1", RES_DROP_204, "V46.68 posthog-js 預設 `analyticsDefaultEndpoint` 為 `/e/`，但 CRITICAL_PATH_MAP 原本只列 `/batch`、`/decide`、`/i/v0/e`、`/capture`；補 host-scoped `DROP_RE:^/e(?:/|\\?|$)` 精準 204 靜默拋棄"))
+    cases.append(TestCase("Privacy: PostHog Capture /e/ Bare Drop", "https://us.i.posthog.com/e", RES_DROP_204, "V46.68 精確端點規則不依賴 query；裸 `/e` 同樣 204 DROP"))
+    cases.append(TestCase("Privacy: PostHog EU Capture /e/ Query Drop", "https://eu.i.posthog.com/e/?t=1", RES_DROP_204, "V46.68 歐區 host 同步補上同一條 `/e` 規則"))
+    cases.append(TestCase("Regression: PostHog /e-extra Boundary Pass", "https://us.i.posthog.com/e-extra", RES_ALLOW, "V46.68 路徑邊界保護；`^/e(?:/|\\?|$)` 不得連帶影響相鄰 `/e-extra`"))
+    cases.append(TestCase("Regression: PostHog /events Still Blocked", "https://us.i.posthog.com/events", RES_BLOCK_403, "V46.68 未動全域 `/events` L1 關鍵字；同 host 的 `/events` 維持 403"))
+    cases.append(TestCase("Regression: PostHog /decide Still Blocked", "https://us.i.posthog.com/decide/?v=3", RES_BLOCK_403, "V46.68 既有 `/decide` CRITICAL_PATH_MAP 規則維持原行為；未改動 SDK 取設定的必要路徑判定"))
+    cases.append(TestCase("Privacy: AppCenter /logs Query Drop", "https://in.appcenter.ms/logs?Api-Version=1.0.0", RES_DROP_204, "V46.68 Microsoft App Center SDK 中央攝取端點（POST-only，帶 App-Secret／Install-ID／裝置資訊）原本全數放行；以 host-scoped `DROP_RE:^/logs(?:/|\\?|$)` 精準 204"))
+    cases.append(TestCase("Privacy: AppCenter /logs Bare Drop", "https://in.appcenter.ms/logs", RES_DROP_204, "V46.68 全域 DROP 關鍵字僅有 `/logs/`（帶斜線），裸 `/logs` 先前為 ALLOW；補上精確端點規則"))
+    cases.append(TestCase("Regression: AppCenter /logs-extra Boundary Pass", "https://in.appcenter.ms/logs-extra", RES_ALLOW, "V46.68 路徑邊界保護；相鄰 `/logs-extra` 不得被連帶 DROP"))
+    cases.append(TestCase("Safe: AppCenter Root Pass", "https://in.appcenter.ms/", RES_ALLOW, "V46.68 規則只鎖 `/logs` 端點；host 根路徑維持原行為"))
+    cases.append(TestCase("Regression: Other Host /e/ Pass", "https://example.com/e/", RES_ALLOW, "V46.68 規則限 us./eu.i.posthog.com；其他網域同一路徑維持原行為"))
+    cases.append(TestCase("Regression: Other Host /logs Pass", "https://example.com/logs", RES_ALLOW, "V46.68 規則限 in.appcenter.ms；其他網域 `/logs` 維持原行為"))
     # --- V46.67 Cursor Statsig event-registration telemetry precise drop ---
     cases.append(TestCase("Privacy: Cursor Statsig Event Registration Drop", "https://api3.cursor.sh/tev1/v1/rgstr?k=client-fixture&st=javascript-client&sv=3.33.3&t=1789779230985&sid=1e54ae98-38be-4640-bbba-58185a4b4107&ec=4", RES_DROP_204, "V46.67 Cursor Statsig SDK 事件登記端點（POST 202／GET 403 RBAC）確認為遙測性質；host-scoped CRITICAL_PATH_MAP DROP_RE 精準 204，與 statsig.anthropic.com、prodregistryv2.org 的 `/v1/rgstr` 同家族"))
     cases.append(TestCase("Privacy: Cursor Statsig Event Registration Bare Drop", "https://api3.cursor.sh/tev1/v1/rgstr", RES_DROP_204, "V46.67 精確端點規則不依賴 query 參數，裸路徑同樣 204 DROP"))
