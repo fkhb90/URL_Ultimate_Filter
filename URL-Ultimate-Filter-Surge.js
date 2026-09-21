@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.67
- * @date    2026-09-19
- * @rules   2183 total (312 domains, 442 critical paths, 401 path keywords, 109 param rules)
+ * @version 46.68
+ * @date    2026-09-21
+ * @rules   2186 total (312 domains, 445 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.67';
-const SCRIPT_BUILD = 'V46.67 (2026-09-19) | 2183 rules | 3397 tests';
+const SCRIPT_VERSION = '46.68';
+const SCRIPT_BUILD = 'V46.68 (2026-09-21) | 2186 rules | 3409 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -565,16 +565,21 @@ const RULES = {
         '/v1/vitals'
       ])],
     ['us.i.posthog.com', new Set([
-        '/batch', '/decide', '/i/v0/e', '/capture'
+        '/batch', '/decide', '/i/v0/e', '/capture',
+        'DROP_RE:^/e(?:/|\\?|$)'
       ])],
     ['eu.i.posthog.com', new Set([
-        '/batch', '/decide', '/i/v0/e', '/capture'
+        '/batch', '/decide', '/i/v0/e', '/capture',
+        'DROP_RE:^/e(?:/|\\?|$)'
       ])],
     ['us-assets.i.posthog.com', new Set([
         '/static/array.js'
       ])],
     ['eu-assets.i.posthog.com', new Set([
         '/static/array.js'
+      ])],
+    ['in.appcenter.ms', new Set([
+        'DROP_RE:^/logs(?:/|\\?|$)'
       ])],
     ['scripts.simpleanalyticscdn.com', new Set([
         '/latest.js', '/proxy.js', '/auto-events.js'

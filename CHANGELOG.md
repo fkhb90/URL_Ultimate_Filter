@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.68 - 2026-09-21
+- [Privacy] PostHog 瀏覽器 SDK 預設事件攝取端點 `/e/`（us./eu.i.posthog.com）與 App Center 中央攝取端點 `in.appcenter.ms/logs` 以 host-scoped `DROP_RE` 精準 204 靜默拋棄；不封鎖整個 host，也不動既有 `/batch`、`/decide`、`/i/v0/e`、`/capture` 規則。
+- [Test] V46.68 迴歸：`/e/`、`/e`、`/logs`、`/logs?...` 皆 204 DROP；相鄰 `/e-extra`、`/logs-extra`、同樹 `/events`、`/decide` 與其他 host 維持原行為。
+
 ## V46.67 - 2026-09-19
 - [Privacy] `api3.cursor.sh/tev1/v1/rgstr` 精確端點 204 靜默拋棄；Statsig SDK 事件登記端點與 statsig.anthropic.com、prodregistryv2.org 同屬 `/v1/rgstr` 上報家族，不封鎖整個 host。
 - [Test] V46.67 迴歸：query 與裸路徑皆 204 DROP；相鄰 `/tev1/v1/rgstr-extra`、同樹 `/tev1/v1/initialize` 與其他 host 維持原行為。
