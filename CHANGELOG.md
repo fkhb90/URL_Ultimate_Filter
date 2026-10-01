@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.69 - 2026-10-02
+- [BugFix] `api2.cursor.sh` 的 Background Composer 推播登記方法以 host-scoped `PATH_EXEMPTIONS` 精準放行；不刪全域 `pushnotification`，也不放行整個 `cursor.sh`。
+- [Test] V46.69 迴歸：原路徑、query、尾斜線放行；相鄰路徑、其他 host、同 host 其他 `pushnotification` 路徑維持 403；`api3` `/tev1/v1/rgstr` 維持 204。
+
 ## V46.68 - 2026-09-21
 - [Privacy] PostHog 瀏覽器 SDK 預設事件攝取端點 `/e/`（us./eu.i.posthog.com）與 App Center 中央攝取端點 `in.appcenter.ms/logs` 以 host-scoped `DROP_RE` 精準 204 靜默拋棄；不封鎖整個 host，也不動既有 `/batch`、`/decide`、`/i/v0/e`、`/capture` 規則。
 - [Test] V46.68 迴歸：`/e/`、`/e`、`/logs`、`/logs?...` 皆 204 DROP；相鄰 `/e-extra`、`/logs-extra`、同樹 `/events`、`/decide` 與其他 host 維持原行為。

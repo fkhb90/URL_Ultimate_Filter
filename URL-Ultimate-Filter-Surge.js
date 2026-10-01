@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.68
- * @date    2026-09-21
- * @rules   2186 total (312 domains, 445 critical paths, 401 path keywords, 109 param rules)
+ * @version 46.69
+ * @date    2026-10-02
+ * @rules   2187 total (312 domains, 445 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.68';
-const SCRIPT_BUILD = 'V46.68 (2026-09-21) | 2186 rules | 3409 tests';
+const SCRIPT_VERSION = '46.69';
+const SCRIPT_BUILD = 'V46.69 (2026-10-02) | 2187 rules | 3422 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1054,6 +1054,9 @@ const RULES = {
     'assets', 'static', 'images', 'img', 'css', 'js'
   ]),
     PATH_EXEMPTIONS: new Map([
+    ['api2.cursor.sh', new Set([
+        'RE:^/aiserver\\.v1\\.backgroundcomposerservice/registerpushnotificationtoken/?$'
+      ])],
     ['eapisgp1.pcloud.com', new Set([
         'RE:^/eventslast/?$'
       ])],
