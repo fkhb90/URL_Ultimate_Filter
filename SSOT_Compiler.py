@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.68 (2026-09-21)
+當前版本：V46.69 (2026-10-02)
 最新架構更新：
-- [Privacy] PostHog 瀏覽器 SDK 預設事件攝取端點 `/e/`（`us.i.posthog.com`、`eu.i.posthog.com`）與 Microsoft App Center 中央攝取端點 `in.appcenter.ms/logs` 以 host-scoped `DROP_RE` 精準 204 靜默拋棄；不擴大到整個 host，也不動既有 `/batch`、`/decide`、`/i/v0/e`、`/capture` 規則。
-- [Test] V46.68 迴歸：兩個端點的 query 與裸路徑版本皆 204 DROP；相鄰 `/e-extra`、`/logs-extra`、同樹 `/events`、`/decide` 與其他 host 維持原行為。
+- [BugFix] `api2.cursor.sh` 的 `BackgroundComposerService/RegisterPushNotificationToken` 以 host-scoped `PATH_EXEMPTIONS` 精準放行；方法名含全域 `pushnotification`，不刪該關鍵字，也不放行整個 `cursor.sh`。
+- [Test] V46.69 迴歸：原路徑、query、尾斜線放行；`-extra`、下一層路徑、其他 host、同 host 其他 `pushnotification` 路徑維持 403；`api3` 的 `/tev1/v1/rgstr` 維持 204。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.69 (2026-10-02): BugFix — `api2.cursor.sh` Background Composer 推播登記方法加入路徑豁免；全域 `pushnotification` 與 `api3` 遙測規則維持原行為。
 - V46.68 (2026-09-21): Privacy — PostHog `/e/` 與 App Center `/logs` 事件攝取端點補漏；host-scoped `DROP_RE` 只鎖精確路徑，相鄰路徑與其他網域維持原規則。
 - V46.67 (2026-09-19): Privacy — Cursor 遙測 `api3.cursor.sh/tev1/v1/rgstr` 精準 204 拋棄；只鎖精確路徑，同樹 `initialize` 與其他 host 維持原行為。
 - V46.66 (2026-09-17): BugFix — query 豁免、長路徑、hostname 與清理判斷修正；可信測試快取、URL 斷言及非零失敗退出。
 - V46.65 (2026-09-07): BugFix — `eapisgp1.pcloud.com/eventslast` 加入 host-scoped `PATH_EXEMPTIONS`，避免 pCloud 登入後功能性 API 路徑撞上全域 `/events` 關鍵字；相鄰路徑與其他網域維持原規則。
-- V46.64 (2026-09-05): Rule — `api.askmiso.com/v1/interactions` 精確端點封鎖；query／尾斜線版本一併封鎖，相鄰路徑與其他 API 維持原規則。
 """
 
 import hashlib
@@ -40,12 +40,12 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.68"
-RELEASE_DATE = "2026-09-21"
+VERSION = "46.69"
+RELEASE_DATE = "2026-10-02"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] PostHog 瀏覽器 SDK 預設事件攝取端點 `/e/`（us./eu.i.posthog.com）與 App Center 中央攝取端點 `in.appcenter.ms/logs` 以 host-scoped `DROP_RE` 精準 204 靜默拋棄；不封鎖整個 host，也不動既有 `/batch`、`/decide`、`/i/v0/e`、`/capture` 規則。
-- [Test] V46.68 迴歸：`/e/`、`/e`、`/logs`、`/logs?...` 皆 204 DROP；相鄰 `/e-extra`、`/logs-extra`、同樹 `/events`、`/decide` 與其他 host 維持原行為。
+- [BugFix] `api2.cursor.sh` 的 Background Composer 推播登記方法以 host-scoped `PATH_EXEMPTIONS` 精準放行；不刪全域 `pushnotification`，也不放行整個 `cursor.sh`。
+- [Test] V46.69 迴歸：原路徑、query、尾斜線放行；相鄰路徑、其他 host、同 host 其他 `pushnotification` 路徑維持 403；`api3` `/tev1/v1/rgstr` 維持 204。
 """
 
 
@@ -708,6 +708,7 @@ RULES_DB = {
         '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar'
     ],
     "PATH_EXEMPTIONS": {
+        "api2.cursor.sh": ["RE:^/aiserver\\.v1\\.backgroundcomposerservice/registerpushnotificationtoken/?$"],
         "eapisgp1.pcloud.com": ["RE:^/eventslast/?$"],
         "id.atlassian.com": ["RE:^/login(?:/|$)"],
         "www.patreon.com": ["RE:^/api/launcher_feed/v1(?:/|$)", "RE:^/api/tracking(?:/|$)"],
@@ -3072,6 +3073,20 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Safe: AppCenter Root Pass", "https://in.appcenter.ms/", RES_ALLOW, "V46.68 規則只鎖 `/logs` 端點；host 根路徑維持原行為"))
     cases.append(TestCase("Regression: Other Host /e/ Pass", "https://example.com/e/", RES_ALLOW, "V46.68 規則限 us./eu.i.posthog.com；其他網域同一路徑維持原行為"))
     cases.append(TestCase("Regression: Other Host /logs Pass", "https://example.com/logs", RES_ALLOW, "V46.68 規則限 in.appcenter.ms；其他網域 `/logs` 維持原行為"))
+    # --- V46.69 Cursor Background Composer push registration keyword collision ---
+    cases.append(TestCase("BugFix: Cursor Background Composer Push Token Pass", "https://api2.cursor.sh/aiserver.v1.BackgroundComposerService/RegisterPushNotificationToken", RES_ALLOW, "V46.69 方法名含全域 PATH_BLOCK pushnotification；host-scoped PATH_EXEMPTIONS 只放行 api2 這一個方法"))
+    cases.append(TestCase("BugFix: Cursor Background Composer Push Token Query Pass", "https://api2.cursor.sh/aiserver.v1.BackgroundComposerService/RegisterPushNotificationToken?x=1", RES_ALLOW, "V46.69 RE 比對已移除 query 的 raw pathname；普通 query 仍放行"))
+    cases.append(TestCase("BugFix: Cursor Background Composer Push Token Slash Pass", "https://api2.cursor.sh/aiserver.v1.BackgroundComposerService/RegisterPushNotificationToken/", RES_ALLOW, "V46.69 尾斜線仍屬同一方法"))
+    cases.append(TestCase("Regression: Cursor Push Token Sibling Extra Still Blocked", "https://api2.cursor.sh/aiserver.v1.BackgroundComposerService/RegisterPushNotificationToken-extra", RES_BLOCK_403, "V46.69 相鄰 -extra 不得被豁免"))
+    cases.append(TestCase("Regression: Cursor Push Token Subpath Still Blocked", "https://api2.cursor.sh/aiserver.v1.BackgroundComposerService/RegisterPushNotificationToken/extra", RES_BLOCK_403, "V46.69 下一層路徑不得被豁免"))
+    cases.append(TestCase("Regression: Cursor Push Token Other Host Still Blocked", "https://api3.cursor.sh/aiserver.v1.BackgroundComposerService/RegisterPushNotificationToken", RES_BLOCK_403, "V46.69 豁免限 api2.cursor.sh；api3 同路徑仍由關鍵字封鎖"))
+    cases.append(TestCase("Regression: Cursor Push Token Example Host Still Blocked", "https://example.com/aiserver.v1.BackgroundComposerService/RegisterPushNotificationToken", RES_BLOCK_403, "V46.69 其他網域同路徑仍由全域 pushnotification 封鎖"))
+    cases.append(TestCase("Regression: api2 Bare Pushnotification Still Blocked", "https://api2.cursor.sh/pushnotification", RES_BLOCK_403, "V46.69 同 host 其他 pushnotification 路徑維持封鎖"))
+    cases.append(TestCase("Regression: api2 SDK Pushnotification Still Blocked", "https://api2.cursor.sh/sdk/pushnotification/register", RES_BLOCK_403, "V46.69 同 host SDK 風格路徑維持封鎖"))
+    cases.append(TestCase("Regression: Cursor Statsig Rgstr Still Drop", "https://api3.cursor.sh/tev1/v1/rgstr", RES_DROP_204, "V46.69 未動 api3 遙測 DROP"))
+    cases.append(TestCase("Regression: Cursor List Background Composers Still Pass", "https://api2.cursor.sh/aiserver.v1.BackgroundComposerService/ListBackgroundComposers", RES_ALLOW, "V46.69 同服務其他方法原本就放行，維持原行為"))
+    cases.append(TestCase("Regression: api2 Subdomain Same Method Also Exempt", "https://foo.api2.cursor.sh/aiserver.v1.BackgroundComposerService/RegisterPushNotificationToken", RES_ALLOW, "V46.69 PATH_EXEMPTIONS 網域鍵會命中子網域；只放行這一條方法"))
+    cases.append(TestCase("Regression: api2 Subdomain Other Push Path Still Blocked", "https://foo.api2.cursor.sh/sdk/pushnotification/register", RES_BLOCK_403, "V46.69 子網域不是整站放行"))
     # --- V46.67 Cursor Statsig event-registration telemetry precise drop ---
     cases.append(TestCase("Privacy: Cursor Statsig Event Registration Drop", "https://api3.cursor.sh/tev1/v1/rgstr?k=client-fixture&st=javascript-client&sv=3.33.3&t=1789779230985&sid=1e54ae98-38be-4640-bbba-58185a4b4107&ec=4", RES_DROP_204, "V46.67 Cursor Statsig SDK 事件登記端點（POST 202／GET 403 RBAC）確認為遙測性質；host-scoped CRITICAL_PATH_MAP DROP_RE 精準 204，與 statsig.anthropic.com、prodregistryv2.org 的 `/v1/rgstr` 同家族"))
     cases.append(TestCase("Privacy: Cursor Statsig Event Registration Bare Drop", "https://api3.cursor.sh/tev1/v1/rgstr", RES_DROP_204, "V46.67 精確端點規則不依賴 query 參數，裸路徑同樣 204 DROP"))
