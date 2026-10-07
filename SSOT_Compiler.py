@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.69 (2026-10-02)
+當前版本：V46.70 (2026-10-07)
 最新架構更新：
-- [BugFix] `api2.cursor.sh` 的 `BackgroundComposerService/RegisterPushNotificationToken` 以 host-scoped `PATH_EXEMPTIONS` 精準放行；方法名含全域 `pushnotification`，不刪該關鍵字，也不放行整個 `cursor.sh`。
-- [Test] V46.69 迴歸：原路徑、query、尾斜線放行；`-extra`、下一層路徑、其他 host、同 host 其他 `pushnotification` 路徑維持 403；`api3` 的 `/tev1/v1/rgstr` 維持 204。
+- [Privacy] Bazaarvoice 遙測補漏：`network-a.bazaarvoice.com` 的錯誤回報 beacon `/a.gif` 與 `apps.bazaarvoice.com` 的 analytics 指令碼 `/analytics/`，以 host-scoped `DROP_RE` 精準 204；不碰 `bazaarvoice.com` 其他主機，評論內容 API 維持原行為。
+- [Test] V46.70 迴歸：兩個精確端點 204；相鄰 `/analytics-extra`、`a.gif2`、同 host 根路徑、其他網域同路徑與 `api.bazaarvoice.com` 評論 API 維持 ALLOW。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.70 (2026-10-07): Privacy — Bazaarvoice 錯誤回報 beacon 與 analytics 指令碼補漏；host-scoped `DROP_RE` 只鎖精確路徑，同 host 其他路徑與其他網域維持原規則。
 - V46.69 (2026-10-02): BugFix — `api2.cursor.sh` Background Composer 推播登記方法加入路徑豁免；全域 `pushnotification` 與 `api3` 遙測規則維持原行為。
 - V46.68 (2026-09-21): Privacy — PostHog `/e/` 與 App Center `/logs` 事件攝取端點補漏；host-scoped `DROP_RE` 只鎖精確路徑，相鄰路徑與其他網域維持原規則。
 - V46.67 (2026-09-19): Privacy — Cursor 遙測 `api3.cursor.sh/tev1/v1/rgstr` 精準 204 拋棄；只鎖精確路徑，同樹 `initialize` 與其他 host 維持原行為。
 - V46.66 (2026-09-17): BugFix — query 豁免、長路徑、hostname 與清理判斷修正；可信測試快取、URL 斷言及非零失敗退出。
-- V46.65 (2026-09-07): BugFix — `eapisgp1.pcloud.com/eventslast` 加入 host-scoped `PATH_EXEMPTIONS`，避免 pCloud 登入後功能性 API 路徑撞上全域 `/events` 關鍵字；相鄰路徑與其他網域維持原規則。
 """
 
 import hashlib
@@ -40,12 +40,12 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.69"
-RELEASE_DATE = "2026-10-02"
+VERSION = "46.70"
+RELEASE_DATE = "2026-10-07"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] `api2.cursor.sh` 的 Background Composer 推播登記方法以 host-scoped `PATH_EXEMPTIONS` 精準放行；不刪全域 `pushnotification`，也不放行整個 `cursor.sh`。
-- [Test] V46.69 迴歸：原路徑、query、尾斜線放行；相鄰路徑、其他 host、同 host 其他 `pushnotification` 路徑維持 403；`api3` `/tev1/v1/rgstr` 維持 204。
+- [Privacy] Bazaarvoice 錯誤回報 beacon（`network-a.bazaarvoice.com/a.gif`，cl=Error）與 analytics 指令碼（`apps.bazaarvoice.com/analytics/`）以 host-scoped `DROP_RE` 精準 204 靜默拋棄；不封鎖整個 `bazaarvoice.com`，評論內容 API 維持原行為。
+- [Test] V46.70 迴歸：兩個精確端點 204；相鄰 `/analytics-extra`、`a.gif2`、同 host 根路徑、其他網域同路徑與 `api.bazaarvoice.com` 評論 API 維持 ALLOW。
 """
 
 
@@ -615,6 +615,8 @@ RULES_DB = {
         't1.daumcdn.net': ['/tessera/s.gif'],
         '139.95.0.151': ['DROP:/amdc/mobiledispatch'],
         'mail.aol.com': ['DROP_RE:^/m/log(\\?|$)'],
+        'network-a.bazaarvoice.com': ['DROP_RE:^/a[.]gif(?:/|[?]|$)'],
+        'apps.bazaarvoice.com': ['DROP_RE:^/analytics(?:/|[?]|$)'],
         'api3.cursor.sh': ['DROP_RE:^/tev1/v1/rgstr(?:\\?|$)'],
     },
     "HIGH_CONFIDENCE": [
@@ -3087,6 +3089,16 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Regression: Cursor List Background Composers Still Pass", "https://api2.cursor.sh/aiserver.v1.BackgroundComposerService/ListBackgroundComposers", RES_ALLOW, "V46.69 同服務其他方法原本就放行，維持原行為"))
     cases.append(TestCase("Regression: api2 Subdomain Same Method Also Exempt", "https://foo.api2.cursor.sh/aiserver.v1.BackgroundComposerService/RegisterPushNotificationToken", RES_ALLOW, "V46.69 PATH_EXEMPTIONS 網域鍵會命中子網域；只放行這一條方法"))
     cases.append(TestCase("Regression: api2 Subdomain Other Push Path Still Blocked", "https://foo.api2.cursor.sh/sdk/pushnotification/register", RES_BLOCK_403, "V46.69 子網域不是整站放行"))
+    # --- V46.70 Bazaarvoice telemetry: error beacon and analytics script ---
+    cases.append(TestCase("Privacy: Bazaarvoice Error Beacon Query Drop", "https://network-a.bazaarvoice.com/a.gif?cl=Error&loadId=fc26fd24e1e2be775bf&BVBRANDID=bece516b-7a51-446c-95cd-59732d0817bc&tz=-480&client=costcotaiwan&host=www.costco.com.tw&locale=zh_TW&productId=8825400&name=Int:+Format+error&detail2=Format+error+for+key+negativeFeedback+-+SyntaxError:+MISSING_OTHER_CLAUSE&_=jtrfoa", RES_DROP_204, "V46.70 Costco TW 商品頁載入的 Bazaarvoice 1x1 GIF 錯誤回報信標（cl=Error）為前端例外遙測，非功能請求；host-scoped CRITICAL_PATH_MAP DROP_RE 精準 204 靜默拋棄"))
+    cases.append(TestCase("Privacy: Bazaarvoice Error Beacon Bare Drop", "https://network-a.bazaarvoice.com/a.gif", RES_DROP_204, "V46.70 精確端點規則不依賴 query；裸路徑同樣 204"))
+    cases.append(TestCase("Privacy: Bazaarvoice Analytics Script Drop", "https://apps.bazaarvoice.com/analytics/bv-analytics.js", RES_DROP_204, "V46.70 Bazaarvoice 評論 widget 的第三方用量分析指令碼；以 host-scoped DROP_RE 精準 204，不封鎖整個 apps.bazaarvoice.com"))
+    cases.append(TestCase("Regression: Bazaarvoice Analytics Sibling Pass", "https://apps.bazaarvoice.com/analytics-extra/bv-analytics.js", RES_ALLOW, "V46.70 路徑邊界保護；相鄰 /analytics-extra 不得被連帶 DROP"))
+    cases.append(TestCase("Regression: Bazaarvoice Beacon Extension Pass", "https://network-a.bazaarvoice.com/a.gif2", RES_ALLOW, "V46.70 路徑邊界保護；相鄰 a.gif2 不得被連帶 DROP"))
+    cases.append(TestCase("Regression: Bazaarvoice Beacon Other Path Pass", "https://network-a.bazaarvoice.com/other.gif", RES_ALLOW, "V46.70 規則只鎖 /a.gif 端點；同 host 其他路徑維持原行為"))
+    cases.append(TestCase("Regression: Other Host Analytics Path Pass", "https://example.com/analytics/bv-analytics.js", RES_ALLOW, "V46.70 規則限 apps.bazaarvoice.com；其他網域同一路徑維持原行為"))
+    cases.append(TestCase("Safe: Bazaarvoice Apps Root Pass", "https://apps.bazaarvoice.com/", RES_ALLOW, "V46.70 規則只鎖 /analytics 端點；host 根路徑維持原行為"))
+    cases.append(TestCase("Safe: Bazaarvoice Reviews API Pass", "https://api.bazaarvoice.com/data/reviews.json?passkey=fixture", RES_ALLOW, "V46.70 未動 bazaarvoice.com 其他主機；商品評論內容 API 維持原行為"))
     # --- V46.67 Cursor Statsig event-registration telemetry precise drop ---
     cases.append(TestCase("Privacy: Cursor Statsig Event Registration Drop", "https://api3.cursor.sh/tev1/v1/rgstr?k=client-fixture&st=javascript-client&sv=3.33.3&t=1789779230985&sid=1e54ae98-38be-4640-bbba-58185a4b4107&ec=4", RES_DROP_204, "V46.67 Cursor Statsig SDK 事件登記端點（POST 202／GET 403 RBAC）確認為遙測性質；host-scoped CRITICAL_PATH_MAP DROP_RE 精準 204，與 statsig.anthropic.com、prodregistryv2.org 的 `/v1/rgstr` 同家族"))
     cases.append(TestCase("Privacy: Cursor Statsig Event Registration Bare Drop", "https://api3.cursor.sh/tev1/v1/rgstr", RES_DROP_204, "V46.67 精確端點規則不依賴 query 參數，裸路徑同樣 204 DROP"))
