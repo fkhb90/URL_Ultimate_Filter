@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.76 (2026-10-07)
+當前版本：V46.77 (2026-10-07)
 最新架構更新：
-- [BugFix] `setAttributeNS(null, 'src')` 也會取消阻斷 src 的過期合成事件；賦值世代只在原生寫入成功後遞增，被瀏覽器拒絕的賦值不再誤取消事件。
-- [Test] 新增 setAttributeNS、外部命名空間與 Trusted Types 拒絕寫入回歸。
+- [BugFix] `setAttributeNS` 依 DOM 規範區分大小寫，只有名稱完全等於 `src` 才取消阻斷 src 的過期合成事件。
+- [Test] 新增 `setAttributeNS(null, 'SRC')` 不取消事件回歸。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.77 (2026-10-07): BugFix — `setAttributeNS` 名稱區分大小寫，`SRC` 不再誤取消阻斷 src 的合成事件。
 - V46.76 (2026-10-07): BugFix — `setAttributeNS(null, 'src')` 也取消過期合成事件；被瀏覽器拒絕的 src 寫入不再誤取消事件。
 - V46.75 (2026-10-07): BugFix — `setAttribute('src')` 寫入相同值也會同步取消阻斷 src 的過期合成事件。
 - V46.74 (2026-10-07): BugFix — 阻斷 src 的合成事件也會被 `setAttribute('src')` 取消；賦值世代改存 WeakMap，不再寫入頁面可見屬性。
 - V46.73 (2026-10-07): BugFix — Tampermonkey 阻斷 src 的合成事件在元素改設新 src 後取消，避免 fallback 被誤判。
-- V46.72 (2026-10-07): BugFix/Security — URL 解析及轉址邊界、Tampermonkey 清理與生命週期修復；加入雙平台與瀏覽器介面回歸。
 
 """
 
@@ -41,13 +41,12 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.76"
+VERSION = "46.77"
 RELEASE_DATE = "2026-10-07"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] Tampermonkey 同步 hook `Element.prototype.setAttributeNS`：無命名空間的 `src` 寫入（即使寫入相同值）也會取消阻斷 src 的過期合成事件。
-- [BugFix] 賦值世代改在原生 setter / setAttribute 寫入成功後才遞增；被瀏覽器拒絕的寫入（如 Trusted Types）不再誤取消前一次阻斷的合成事件。被過濾器刻意攔下的賦值仍先遞增再排程事件。
-- [Test] 新增 setAttributeNS、外部命名空間 src 屬性與拒絕寫入回歸。
+- [BugFix] Tampermonkey `setAttributeNS` hook 依 DOM 規範區分大小寫：只有無命名空間且名稱完全等於 `src` 的寫入才取消阻斷 src 的過期合成事件；`SRC` 屬於另一個屬性，不再誤吞事件。
+- [Test] 新增 `setAttributeNS(null, 'SRC')` 保留待送事件回歸。
 """
 
 
@@ -2066,8 +2065,9 @@ def compile_tampermonkey() -> str:
         } catch (_) {} // Locked prototype: the attribute snapshot still covers value changes.
     }
     hookSrcAttributeWriter('setAttribute', args => String(args[0]).toLowerCase() === 'src');
+    // setAttributeNS keeps the qualified name's case, so 'SRC' is a different attribute than src.
     hookSrcAttributeWriter('setAttributeNS', args =>
-        (args[0] === null || args[0] === undefined || args[0] === '') && String(args[1]).toLowerCase() === 'src');
+        (args[0] === null || args[0] === undefined || args[0] === '') && String(args[1]) === 'src');
     // --- Property Setter Hook 結束 ---
 
     let _pendingDrops = 0;
@@ -4514,13 +4514,15 @@ viaNamespace.src = 'https://ads.google.com/ad'; viaNamespace.setAttributeNS(null
 const foreignNamespace = watch(new HTMLImageElement('img'), 'foreignNamespace');
 foreignNamespace.src = 'https://ads.google.com/ad';
 foreignNamespace.setAttributeNS('http://www.w3.org/1999/xlink', 'src', 'https://example.com/x.png');
+const upperNamespace = watch(new HTMLImageElement('img'), 'upperNamespace');
+upperNamespace.src = 'https://ads.google.com/ad'; upperNamespace.setAttributeNS(null, 'SRC', 'https://example.com/u.png');
 const rejected = watch(new HTMLScriptElement('script'), 'rejected');
 rejected.src = 'https://ads.google.com/ad.js';
 rejected.rejectWrites = true;
 assert.throws(() => { rejected.src = 'https://example.com/raw.js'; }, TypeError);
 assert.throws(() => rejected.setAttribute('src', 'https://example.com/raw.js'), TypeError);
 await new Promise(resolve => setTimeout(resolve, 0));
-assert.deepEqual(fired, ['frozen:error', 'otherAttribute:error', 'foreignNamespace:error', 'rejected:error']);
+assert.deepEqual(fired, ['frozen:error', 'otherAttribute:error', 'foreignNamespace:error', 'upperNamespace:error', 'rejected:error']);
 assert.equal(Object.keys(frozen).some(key => key.startsWith('_ssot')), false);
 """)
 

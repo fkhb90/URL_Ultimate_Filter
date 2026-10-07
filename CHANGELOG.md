@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.77 - 2026-10-07
+- [BugFix] Tampermonkey `setAttributeNS` hook 依 DOM 規範區分大小寫：只有無命名空間且名稱完全等於 `src` 的寫入才取消阻斷 src 的過期合成事件；`SRC` 屬於另一個屬性，不再誤吞事件。
+- [Test] 新增 `setAttributeNS(null, 'SRC')` 保留待送事件回歸。
+
 ## V46.76 - 2026-10-07
 - [BugFix] Tampermonkey 同步 hook `Element.prototype.setAttributeNS`：無命名空間的 `src` 寫入（即使寫入相同值）也會取消阻斷 src 的過期合成事件。
 - [BugFix] 賦值世代改在原生 setter / setAttribute 寫入成功後才遞增；被瀏覽器拒絕的寫入（如 Trusted Types）不再誤取消前一次阻斷的合成事件。被過濾器刻意攔下的賦值仍先遞增再排程事件。
