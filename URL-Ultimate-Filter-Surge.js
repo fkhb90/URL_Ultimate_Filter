@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.70
+ * @version 46.71
  * @date    2026-10-07
- * @rules   2189 total (312 domains, 447 critical paths, 401 path keywords, 109 param rules)
+ * @rules   2190 total (312 domains, 448 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.70';
-const SCRIPT_BUILD = 'V46.70 (2026-10-07) | 2189 rules | 3431 tests';
+const SCRIPT_VERSION = '46.71';
+const SCRIPT_BUILD = 'V46.71 (2026-10-07) | 2190 rules | 3436 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -837,6 +837,9 @@ const RULES = {
       ])],
     ['apps.bazaarvoice.com', new Set([
         'DROP_RE:^/analytics(?:/|[?]|$)'
+      ])],
+    ['www.costco.com.tw', new Set([
+        'DROP_RE:^/storefront-logs(?:[/?]|$)'
       ])],
     ['api3.cursor.sh', new Set([
         'DROP_RE:^/tev1/v1/rgstr(?:\\?|$)'

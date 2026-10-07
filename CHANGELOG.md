@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.71 - 2026-10-07
+- [Privacy] Costco TW 前台日誌上報端點 `www.costco.com.tw/storefront-logs` 以 host-scoped `DROP_RE` 精準 204 靜默拋棄；不碰 costco.com.tw 其他路徑與其他主機。
+- [Test] V46.71 迴歸：精確端點與帶 query 版本 204；相鄰 `/storefront-logs-extra`、同 host 根路徑、其他網域同路徑維持 ALLOW。
+
 ## V46.70 - 2026-10-07
 - [Privacy] Bazaarvoice 錯誤回報 beacon（`network-a.bazaarvoice.com/a.gif`，cl=Error）與 analytics 指令碼（`apps.bazaarvoice.com/analytics/`）以 host-scoped `DROP_RE` 精準 204 靜默拋棄；不封鎖整個 `bazaarvoice.com`，評論內容 API 維持原行為。
 - [Test] V46.70 迴歸：兩個精確端點 204；相鄰 `/analytics-extra`、`a.gif2`、同 host 根路徑、其他網域同路徑與 `api.bazaarvoice.com` 評論 API 維持 ALLOW。
