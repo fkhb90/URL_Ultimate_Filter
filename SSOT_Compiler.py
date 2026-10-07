@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.74 (2026-10-07)
+當前版本：V46.75 (2026-10-07)
 最新架構更新：
-- [BugFix] 阻斷 src 的合成事件也會被 `setAttribute('src')` 取消；賦值世代改存 WeakMap，凍結元素不再因寫入屬性而丟例外。
-- [Test] 新增 setAttribute fallback、凍結/封存元素賦值回歸。
+- [BugFix] `setAttribute('src')` 即使寫入相同值，也會同步取消阻斷 src 的過期合成事件。
+- [Test] 新增相同值 setAttribute、非 src 屬性不影響事件回歸。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.75 (2026-10-07): BugFix — `setAttribute('src')` 寫入相同值也會同步取消阻斷 src 的過期合成事件。
 - V46.74 (2026-10-07): BugFix — 阻斷 src 的合成事件也會被 `setAttribute('src')` 取消；賦值世代改存 WeakMap，不再寫入頁面可見屬性。
 - V46.73 (2026-10-07): BugFix — Tampermonkey 阻斷 src 的合成事件在元素改設新 src 後取消，避免 fallback 被誤判。
 - V46.72 (2026-10-07): BugFix/Security — URL 解析及轉址邊界、Tampermonkey 清理與生命週期修復；加入雙平台與瀏覽器介面回歸。
 - V46.71 (2026-10-07): Privacy — Costco TW `/storefront-logs` 日誌上報端點補漏；host-scoped `DROP_RE` 只鎖精確路徑邊界。
-- V46.70 (2026-10-07): Privacy — Bazaarvoice 錯誤回報 beacon 與 analytics 指令碼補漏；host-scoped `DROP_RE` 只鎖精確路徑，同 host 其他路徑與其他網域維持原規則。
 
 """
 
@@ -41,13 +41,12 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.74"
+VERSION = "46.75"
 RELEASE_DATE = "2026-10-07"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] Tampermonkey 阻斷 src 後補發的合成事件，也會在元素改用 `setAttribute('src')` 設定 fallback 時取消，避免安全資源被誤判。
-- [BugFix] src 賦值世代改存於 userscript 私有 WeakMap；凍結/封存元素或頁面已占用同名屬性時，賦值不再丟 `TypeError`。
-- [Test] 新增 setAttribute fallback、凍結與封存元素賦值回歸，並確認不寫入頁面可見屬性。
+- [BugFix] Tampermonkey hook `Element.prototype.setAttribute`：寫入 `src` 時同步遞增賦值世代，即使寫入與原本相同的值，也會取消阻斷 src 的過期合成事件（不依賴非同步 MutationObserver 紀錄，避免誤取消較晚的阻斷事件）。
+- [Test] 新增相同值 setAttribute、移除後重設 src、非 src 屬性寫入不影響事件的回歸。
 """
 
 
@@ -1984,9 +1983,9 @@ def compile_tampermonkey() -> str:
     // Loaders waiting on onload/onerror must settle even though the assignment is suppressed.
     // A dropped script mimics an empty 204 load; an empty image body still fails to decode.
     // A later src change supersedes the queued event, so fallbacks are not misreported.
-    // Property assignments advance a private generation (WeakMap: works on frozen elements and
-    // never touches page-visible state); setAttribute('src') bypasses the setter but changes the
-    // reflected attribute, which a blocked assignment never does.
+    // Property assignments and setAttribute('src') advance a private generation synchronously
+    // (WeakMap: works on frozen elements and never touches page-visible state); the attribute
+    // snapshot also catches other attribute paths, which a blocked assignment never changes.
     const srcGenerations = new WeakMap();
     function bumpSrcGeneration(element) {
         try { srcGenerations.set(element, (srcGenerations.get(element) || 0) + 1); } catch (_) {}
@@ -2047,6 +2046,17 @@ def compile_tampermonkey() -> str:
     hookProperty(HTMLScriptElement, 'src');
     hookProperty(HTMLImageElement, 'src');
     hookProperty(HTMLIFrameElement, 'src');
+    // setAttribute('src', ...) bypasses the property setter; even a write of the same value supersedes
+    // a queued synthetic event. Synchronous, unlike MutationObserver records that may predate it.
+    if (typeof Element !== 'undefined' && typeof Element.prototype.setAttribute === 'function') {
+        const origSetAttribute = Element.prototype.setAttribute;
+        try {
+            Element.prototype.setAttribute = function(name) {
+                if (typeof name === 'string' && name.toLowerCase() === 'src') bumpSrcGeneration(this);
+                return origSetAttribute.apply(this, arguments);
+            };
+        } catch (_) {} // Locked prototype: the attribute snapshot still covers value changes.
+    }
     // --- Property Setter Hook 結束 ---
 
     let _pendingDrops = 0;
@@ -4110,7 +4120,11 @@ def _tampermonkey_test_runner(test_body: str) -> str:
 const assert = require('node:assert/strict');
 const elements = new Map(), documentEvents = new Map();
 const fetchCalls = [], beaconCalls = [], observers = [];
-class TestElement extends EventTarget {
+class Element extends EventTarget {
+    getAttribute(key) { return this.attrs.has(key) ? this.attrs.get(key) : null; }
+    setAttribute(key, value) { this.attrs.set(key, String(value)); }
+}
+class TestElement extends Element {
     constructor(tag = 'div') {
         super(); this.tagName = tag.toUpperCase(); this.nodeType = 1;
         this.style = {}; this.attrs = new Map(); this.children = [];
@@ -4133,8 +4147,6 @@ class TestElement extends EventTarget {
         });
     }
     hasAttribute(key) { return this.attrs.has(key); }
-    getAttribute(key) { return this.attrs.has(key) ? this.attrs.get(key) : null; }
-    setAttribute(key, value) { this.attrs.set(key, String(value)); }
     removeAttribute(key) { this.attrs.delete(key); }
     remove() { this.removed = true; }
     closest() { return null; }
@@ -4466,8 +4478,16 @@ frozen.src = 'https://ads.google.com/ad.js';
 const sealedSafe = Object.seal(new HTMLImageElement('img'));
 sealedSafe.src = 'https://example.com/a.png?utm_source=x';
 assert.equal(sealedSafe.src, 'https://example.com/a.png');
+const sameValue = watch(new HTMLImageElement('img'), 'sameValue');
+sameValue.src = 'https://example.com/a.png';
+sameValue.src = 'https://ads.google.com/ad'; sameValue.setAttribute('SRC', 'https://example.com/a.png');
+const restored = watch(new HTMLImageElement('img'), 'restored');
+restored.src = 'https://example.com/b.png';
+restored.src = 'https://ads.google.com/ad'; restored.removeAttribute('src'); restored.setAttribute('src', 'https://example.com/b.png');
+const otherAttribute = watch(new HTMLImageElement('img'), 'otherAttribute');
+otherAttribute.src = 'https://ads.google.com/ad'; otherAttribute.setAttribute('alt', 'x');
 await new Promise(resolve => setTimeout(resolve, 0));
-assert.deepEqual(fired, ['frozen:error']);
+assert.deepEqual(fired, ['frozen:error', 'otherAttribute:error']);
 assert.equal(Object.keys(frozen).some(key => key.startsWith('_ssot')), false);
 """)
 

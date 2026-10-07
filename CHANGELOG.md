@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.75 - 2026-10-07
+- [BugFix] Tampermonkey hook `Element.prototype.setAttribute`：寫入 `src` 時同步遞增賦值世代，即使寫入與原本相同的值，也會取消阻斷 src 的過期合成事件（不依賴非同步 MutationObserver 紀錄，避免誤取消較晚的阻斷事件）。
+- [Test] 新增相同值 setAttribute、移除後重設 src、非 src 屬性寫入不影響事件的回歸。
+
 ## V46.74 - 2026-10-07
 - [BugFix] Tampermonkey 阻斷 src 後補發的合成事件，也會在元素改用 `setAttribute('src')` 設定 fallback 時取消，避免安全資源被誤判。
 - [BugFix] src 賦值世代改存於 userscript 私有 WeakMap；凍結/封存元素或頁面已占用同名屬性時，賦值不再丟 `TypeError`。
