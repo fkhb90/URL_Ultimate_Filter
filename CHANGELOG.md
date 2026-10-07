@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.70 - 2026-10-07
+- [Privacy] Bazaarvoice 錯誤回報 beacon（`network-a.bazaarvoice.com/a.gif`，cl=Error）與 analytics 指令碼（`apps.bazaarvoice.com/analytics/`）以 host-scoped `DROP_RE` 精準 204 靜默拋棄；不封鎖整個 `bazaarvoice.com`，評論內容 API 維持原行為。
+- [Test] V46.70 迴歸：兩個精確端點 204；相鄰 `/analytics-extra`、`a.gif2`、同 host 根路徑、其他網域同路徑與 `api.bazaarvoice.com` 評論 API 維持 ALLOW。
+
 ## V46.69 - 2026-10-02
 - [BugFix] `api2.cursor.sh` 的 Background Composer 推播登記方法以 host-scoped `PATH_EXEMPTIONS` 精準放行；不刪全域 `pushnotification`，也不放行整個 `cursor.sh`。
 - [Test] V46.69 迴歸：原路徑、query、尾斜線放行；相鄰路徑、其他 host、同 host 其他 `pushnotification` 路徑維持 403；`api3` `/tev1/v1/rgstr` 維持 204。
