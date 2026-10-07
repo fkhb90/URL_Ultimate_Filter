@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.72
+// @name         URL Ultimate Filter V46.77
 // @namespace    http://tampermonkey.net/
-// @version      46.72
+// @version      46.77
 // @date         2026-10-07
-// @description  SSOT 前端防護盾牌 V46.72 (2026-10-07) | 2190 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @description  SSOT 前端防護盾牌 V46.77 (2026-10-07) | 2190 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
 // @rules        2190 total (312 domains · 448 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.72
+ * @version 46.77
  * @date    2026-10-07
  * @rules   2190 total (312 domains, 448 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.72';
-const SCRIPT_BUILD = 'V46.72 (2026-10-07) | 2190 rules | 3457 tests';
+const SCRIPT_VERSION = '46.77';
+const SCRIPT_BUILD = 'V46.77 (2026-10-07) | 2190 rules | 3457 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -2188,10 +2188,26 @@ function runBenchmarkSuite() {
     // --- Property Setter Hook (動態腳本屬性攔截器) ---
     // Loaders waiting on onload/onerror must settle even though the assignment is suppressed.
     // A dropped script mimics an empty 204 load; an empty image body still fails to decode.
+    // A later src change supersedes the queued event, so fallbacks are not misreported.
+    // Property assignments and setAttribute('src') advance a private generation synchronously
+    // (WeakMap: works on frozen elements and never touches page-visible state); the attribute
+    // snapshot also catches other attribute paths, which a blocked assignment never changes.
+    const srcGenerations = new WeakMap();
+    function bumpSrcGeneration(element) {
+        try { srcGenerations.set(element, (srcGenerations.get(element) || 0) + 1); } catch (_) {}
+    }
+    function readSrcAttribute(element) {
+        try { return element.getAttribute('src'); } catch (_) { return null; }
+    }
     function signalBlockedLoad(element, isDrop) {
         if (element.tagName === 'IFRAME') return;
         const type = isDrop && element.tagName === 'SCRIPT' ? 'load' : 'error';
-        setTimeout(() => { try { element.dispatchEvent(new Event(type)); } catch (_) {} }, 0);
+        const generation = srcGenerations.get(element);
+        const attribute = readSrcAttribute(element);
+        setTimeout(() => {
+            if (srcGenerations.get(element) !== generation || readSrcAttribute(element) !== attribute) return;
+            try { element.dispatchEvent(new Event(type)); } catch (_) {}
+        }, 0);
     }
 
     function hookProperty(elementClass, propertyName) {
@@ -2207,11 +2223,13 @@ function runBenchmarkSuite() {
                                 if (action.response.status === 403) {
                                     tmStats.recordBlock(absoluteUrl);
                                     if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Property Hook Blocked: ${absoluteUrl}`);
+                                    bumpSrcGeneration(this);
                                     signalBlockedLoad(this, false);
                                     return; // 物理阻斷賦值，瀏覽器完全不發送請求
                                 } else if (action.response.status === 204) {
                                     tmStats.recordDrop(absoluteUrl);
                                     if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Property Hook Dropped: ${absoluteUrl}`);
+                                    bumpSrcGeneration(this);
                                     signalBlockedLoad(this, true);
                                     return; // 物理阻斷賦值，瀏覽器完全不發送請求
                                 }
@@ -2223,7 +2241,10 @@ function runBenchmarkSuite() {
                             }
                         } catch(e) {}
                     }
-                    return origDesc.set.call(this, val);
+                    // Only a write the browser accepted (e.g. not rejected by Trusted Types) supersedes a queued event.
+                    const result = origDesc.set.call(this, val);
+                    bumpSrcGeneration(this);
+                    return result;
                 },
                 get: origDesc.get,
                 configurable: origDesc.configurable,
@@ -2235,6 +2256,24 @@ function runBenchmarkSuite() {
     hookProperty(HTMLScriptElement, 'src');
     hookProperty(HTMLImageElement, 'src');
     hookProperty(HTMLIFrameElement, 'src');
+    // setAttribute/setAttributeNS('src', ...) bypass the property setter; even a write of the same value
+    // supersedes a queued synthetic event. Synchronous, unlike MutationObserver records that may predate
+    // it, and only after the native write succeeds.
+    function hookSrcAttributeWriter(methodName, isSrcWrite) {
+        if (typeof Element === 'undefined' || typeof Element.prototype[methodName] !== 'function') return;
+        const original = Element.prototype[methodName];
+        try {
+            Element.prototype[methodName] = function() {
+                const result = original.apply(this, arguments);
+                if (isSrcWrite(arguments)) bumpSrcGeneration(this);
+                return result;
+            };
+        } catch (_) {} // Locked prototype: the attribute snapshot still covers value changes.
+    }
+    hookSrcAttributeWriter('setAttribute', args => String(args[0]).toLowerCase() === 'src');
+    // setAttributeNS keeps the qualified name's case, so 'SRC' is a different attribute than src.
+    hookSrcAttributeWriter('setAttributeNS', args =>
+        (args[0] === null || args[0] === undefined || args[0] === '') && String(args[1]) === 'src');
     // --- Property Setter Hook 結束 ---
 
     let _pendingDrops = 0;

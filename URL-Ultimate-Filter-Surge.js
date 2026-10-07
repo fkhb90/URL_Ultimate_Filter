@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.72
+ * @version 46.77
  * @date    2026-10-07
  * @rules   2190 total (312 domains, 448 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.72';
-const SCRIPT_BUILD = 'V46.72 (2026-10-07) | 2190 rules | 3457 tests';
+const SCRIPT_VERSION = '46.77';
+const SCRIPT_BUILD = 'V46.77 (2026-10-07) | 2190 rules | 3457 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
