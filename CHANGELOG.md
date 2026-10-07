@@ -1,5 +1,10 @@
 # URL Ultimate Filter - Changelog
 
+## V46.76 - 2026-10-07
+- [BugFix] Tampermonkey 同步 hook `Element.prototype.setAttributeNS`：無命名空間的 `src` 寫入（即使寫入相同值）也會取消阻斷 src 的過期合成事件。
+- [BugFix] 賦值世代改在原生 setter / setAttribute 寫入成功後才遞增；被瀏覽器拒絕的寫入（如 Trusted Types）不再誤取消前一次阻斷的合成事件。被過濾器刻意攔下的賦值仍先遞增再排程事件。
+- [Test] 新增 setAttributeNS、外部命名空間 src 屬性與拒絕寫入回歸。
+
 ## V46.75 - 2026-10-07
 - [BugFix] Tampermonkey hook `Element.prototype.setAttribute`：寫入 `src` 時同步遞增賦值世代，即使寫入與原本相同的值，也會取消阻斷 src 的過期合成事件（不依賴非同步 MutationObserver 紀錄，避免誤取消較晚的阻斷事件）。
 - [Test] 新增相同值 setAttribute、移除後重設 src、非 src 屬性寫入不影響事件的回歸。

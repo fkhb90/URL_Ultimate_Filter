@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.75 (2026-10-07)
+當前版本：V46.76 (2026-10-07)
 最新架構更新：
-- [BugFix] `setAttribute('src')` 即使寫入相同值，也會同步取消阻斷 src 的過期合成事件。
-- [Test] 新增相同值 setAttribute、非 src 屬性不影響事件回歸。
+- [BugFix] `setAttributeNS(null, 'src')` 也會取消阻斷 src 的過期合成事件；賦值世代只在原生寫入成功後遞增，被瀏覽器拒絕的賦值不再誤取消事件。
+- [Test] 新增 setAttributeNS、外部命名空間與 Trusted Types 拒絕寫入回歸。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.76 (2026-10-07): BugFix — `setAttributeNS(null, 'src')` 也取消過期合成事件；被瀏覽器拒絕的 src 寫入不再誤取消事件。
 - V46.75 (2026-10-07): BugFix — `setAttribute('src')` 寫入相同值也會同步取消阻斷 src 的過期合成事件。
 - V46.74 (2026-10-07): BugFix — 阻斷 src 的合成事件也會被 `setAttribute('src')` 取消；賦值世代改存 WeakMap，不再寫入頁面可見屬性。
 - V46.73 (2026-10-07): BugFix — Tampermonkey 阻斷 src 的合成事件在元素改設新 src 後取消，避免 fallback 被誤判。
 - V46.72 (2026-10-07): BugFix/Security — URL 解析及轉址邊界、Tampermonkey 清理與生命週期修復；加入雙平台與瀏覽器介面回歸。
-- V46.71 (2026-10-07): Privacy — Costco TW `/storefront-logs` 日誌上報端點補漏；host-scoped `DROP_RE` 只鎖精確路徑邊界。
 
 """
 
@@ -41,12 +41,13 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.75"
+VERSION = "46.76"
 RELEASE_DATE = "2026-10-07"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] Tampermonkey hook `Element.prototype.setAttribute`：寫入 `src` 時同步遞增賦值世代，即使寫入與原本相同的值，也會取消阻斷 src 的過期合成事件（不依賴非同步 MutationObserver 紀錄，避免誤取消較晚的阻斷事件）。
-- [Test] 新增相同值 setAttribute、移除後重設 src、非 src 屬性寫入不影響事件的回歸。
+- [BugFix] Tampermonkey 同步 hook `Element.prototype.setAttributeNS`：無命名空間的 `src` 寫入（即使寫入相同值）也會取消阻斷 src 的過期合成事件。
+- [BugFix] 賦值世代改在原生 setter / setAttribute 寫入成功後才遞增；被瀏覽器拒絕的寫入（如 Trusted Types）不再誤取消前一次阻斷的合成事件。被過濾器刻意攔下的賦值仍先遞增再排程事件。
+- [Test] 新增 setAttributeNS、外部命名空間 src 屬性與拒絕寫入回歸。
 """
 
 
@@ -2009,7 +2010,6 @@ def compile_tampermonkey() -> str:
         if (origDesc && origDesc.set && origDesc.configurable) {
             Object.defineProperty(elementClass.prototype, propertyName, {
                 set: function(val) {
-                    bumpSrcGeneration(this);
                     if (val && typeof val === 'string') {
                         try {
                             const absoluteUrl = resolveInputUrl(val);
@@ -2018,11 +2018,13 @@ def compile_tampermonkey() -> str:
                                 if (action.response.status === 403) {
                                     tmStats.recordBlock(absoluteUrl);
                                     if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Property Hook Blocked: ${absoluteUrl}`);
+                                    bumpSrcGeneration(this);
                                     signalBlockedLoad(this, false);
                                     return; // 物理阻斷賦值，瀏覽器完全不發送請求
                                 } else if (action.response.status === 204) {
                                     tmStats.recordDrop(absoluteUrl);
                                     if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Property Hook Dropped: ${absoluteUrl}`);
+                                    bumpSrcGeneration(this);
                                     signalBlockedLoad(this, true);
                                     return; // 物理阻斷賦值，瀏覽器完全不發送請求
                                 }
@@ -2034,7 +2036,10 @@ def compile_tampermonkey() -> str:
                             }
                         } catch(e) {}
                     }
-                    return origDesc.set.call(this, val);
+                    // Only a write the browser accepted (e.g. not rejected by Trusted Types) supersedes a queued event.
+                    const result = origDesc.set.call(this, val);
+                    bumpSrcGeneration(this);
+                    return result;
                 },
                 get: origDesc.get,
                 configurable: origDesc.configurable,
@@ -2046,17 +2051,23 @@ def compile_tampermonkey() -> str:
     hookProperty(HTMLScriptElement, 'src');
     hookProperty(HTMLImageElement, 'src');
     hookProperty(HTMLIFrameElement, 'src');
-    // setAttribute('src', ...) bypasses the property setter; even a write of the same value supersedes
-    // a queued synthetic event. Synchronous, unlike MutationObserver records that may predate it.
-    if (typeof Element !== 'undefined' && typeof Element.prototype.setAttribute === 'function') {
-        const origSetAttribute = Element.prototype.setAttribute;
+    // setAttribute/setAttributeNS('src', ...) bypass the property setter; even a write of the same value
+    // supersedes a queued synthetic event. Synchronous, unlike MutationObserver records that may predate
+    // it, and only after the native write succeeds.
+    function hookSrcAttributeWriter(methodName, isSrcWrite) {
+        if (typeof Element === 'undefined' || typeof Element.prototype[methodName] !== 'function') return;
+        const original = Element.prototype[methodName];
         try {
-            Element.prototype.setAttribute = function(name) {
-                if (typeof name === 'string' && name.toLowerCase() === 'src') bumpSrcGeneration(this);
-                return origSetAttribute.apply(this, arguments);
+            Element.prototype[methodName] = function() {
+                const result = original.apply(this, arguments);
+                if (isSrcWrite(arguments)) bumpSrcGeneration(this);
+                return result;
             };
         } catch (_) {} // Locked prototype: the attribute snapshot still covers value changes.
     }
+    hookSrcAttributeWriter('setAttribute', args => String(args[0]).toLowerCase() === 'src');
+    hookSrcAttributeWriter('setAttributeNS', args =>
+        (args[0] === null || args[0] === undefined || args[0] === '') && String(args[1]).toLowerCase() === 'src');
     // --- Property Setter Hook 結束 ---
 
     let _pendingDrops = 0;
@@ -4122,7 +4133,14 @@ const elements = new Map(), documentEvents = new Map();
 const fetchCalls = [], beaconCalls = [], observers = [];
 class Element extends EventTarget {
     getAttribute(key) { return this.attrs.has(key) ? this.attrs.get(key) : null; }
-    setAttribute(key, value) { this.attrs.set(key, String(value)); }
+    setAttribute(key, value) {
+        if (this.rejectWrites) throw new TypeError('TrustedScriptURL required');
+        this.attrs.set(String(key).toLowerCase(), String(value));
+    }
+    setAttributeNS(namespace, key, value) {
+        if (this.rejectWrites) throw new TypeError('TrustedScriptURL required');
+        this.attrs.set(namespace ? namespace + '|' + key : String(key), String(value));
+    }
 }
 class TestElement extends Element {
     constructor(tag = 'div') {
@@ -4156,7 +4174,11 @@ class HTMLImageElement extends TestElement {}
 class HTMLIFrameElement extends TestElement {}
 for (const cls of [HTMLScriptElement, HTMLImageElement, HTMLIFrameElement]) {
     Object.defineProperty(cls.prototype, 'src', {
-        get() { return this.attrs.get('src') || ''; }, set(value) { this.attrs.set('src', String(value)); },
+        get() { return this.attrs.get('src') || ''; },
+        set(value) {
+            if (this.rejectWrites) throw new TypeError('TrustedScriptURL required');
+            this.attrs.set('src', String(value));
+        },
         configurable: true, enumerable: true
     });
 }
@@ -4486,8 +4508,19 @@ restored.src = 'https://example.com/b.png';
 restored.src = 'https://ads.google.com/ad'; restored.removeAttribute('src'); restored.setAttribute('src', 'https://example.com/b.png');
 const otherAttribute = watch(new HTMLImageElement('img'), 'otherAttribute');
 otherAttribute.src = 'https://ads.google.com/ad'; otherAttribute.setAttribute('alt', 'x');
+const viaNamespace = watch(new HTMLImageElement('img'), 'viaNamespace');
+viaNamespace.src = 'https://example.com/c.png';
+viaNamespace.src = 'https://ads.google.com/ad'; viaNamespace.setAttributeNS(null, 'src', 'https://example.com/c.png');
+const foreignNamespace = watch(new HTMLImageElement('img'), 'foreignNamespace');
+foreignNamespace.src = 'https://ads.google.com/ad';
+foreignNamespace.setAttributeNS('http://www.w3.org/1999/xlink', 'src', 'https://example.com/x.png');
+const rejected = watch(new HTMLScriptElement('script'), 'rejected');
+rejected.src = 'https://ads.google.com/ad.js';
+rejected.rejectWrites = true;
+assert.throws(() => { rejected.src = 'https://example.com/raw.js'; }, TypeError);
+assert.throws(() => rejected.setAttribute('src', 'https://example.com/raw.js'), TypeError);
 await new Promise(resolve => setTimeout(resolve, 0));
-assert.deepEqual(fired, ['frozen:error', 'otherAttribute:error']);
+assert.deepEqual(fired, ['frozen:error', 'otherAttribute:error', 'foreignNamespace:error', 'rejected:error']);
 assert.equal(Object.keys(frozen).some(key => key.startsWith('_ssot')), false);
 """)
 
