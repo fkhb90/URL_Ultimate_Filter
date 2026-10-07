@@ -3,17 +3,18 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.71 (2026-10-07)
+當前版本：V46.72 (2026-10-07)
 最新架構更新：
-- [Privacy] Costco TW 前台日誌上報端點 `www.costco.com.tw/storefront-logs` 以 host-scoped `DROP_RE` 精準 204 靜默拋棄；不碰 costco.com.tw 其他路徑與其他主機。
-- [Test] V46.71 迴歸：精確端點與帶 query 版本 204；相鄰 `/storefront-logs-extra`、同 host 根路徑、其他網域同路徑維持 ALLOW。
+- [BugFix] 修正 fragment/query 邊界、保留參數分隔符、簽章 key 與安全轉址驗證。
+- [Security] Tampermonkey 紀錄 HTML 跳脫；補齊 302 清理、URL/baseURI、XHR 重用與 DOM/iframe 攔截。
+- [Test] 新增解析邊界與完整 Tampermonkey 模板回歸，驗證雙平台完整矩陣。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.72 (2026-10-07): BugFix/Security — URL 解析及轉址邊界、Tampermonkey 清理與生命週期修復；加入雙平台與瀏覽器介面回歸。
 - V46.71 (2026-10-07): Privacy — Costco TW `/storefront-logs` 日誌上報端點補漏；host-scoped `DROP_RE` 只鎖精確路徑邊界。
 - V46.70 (2026-10-07): Privacy — Bazaarvoice 錯誤回報 beacon 與 analytics 指令碼補漏；host-scoped `DROP_RE` 只鎖精確路徑，同 host 其他路徑與其他網域維持原規則。
 - V46.69 (2026-10-02): BugFix — `api2.cursor.sh` Background Composer 推播登記方法加入路徑豁免；全域 `pushnotification` 與 `api3` 遙測規則維持原行為。
 - V46.68 (2026-09-21): Privacy — PostHog `/e/` 與 App Center `/logs` 事件攝取端點補漏；host-scoped `DROP_RE` 只鎖精確路徑，相鄰路徑與其他網域維持原規則。
-- V46.67 (2026-09-19): Privacy — Cursor 遙測 `api3.cursor.sh/tev1/v1/rgstr` 精準 204 拋棄；只鎖精確路徑，同樹 `initialize` 與其他 host 維持原行為。
 
 """
 
@@ -41,12 +42,14 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.71"
+VERSION = "46.72"
 RELEASE_DATE = "2026-10-07"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] Costco TW 前台日誌上報端點 `www.costco.com.tw/storefront-logs` 以 host-scoped `DROP_RE` 精準 204 靜默拋棄；不碰 costco.com.tw 其他路徑與其他主機。
-- [Test] V46.71 迴歸：精確端點與帶 query 版本 204；相鄰 `/storefront-logs-extra`、同 host 根路徑、其他網域同路徑維持 ALLOW。
+- [BugFix] query 清理忽略 fragment 內的問號、保留未移除參數的原分隔符並移除空參數段，並保護無等號簽章 key；CheckConnection 僅匹配 path。
+- [Security] 轉址抽取排除 fragment 與含控制字元的目標；JS 字串與 Tampermonkey 紀錄 HTML 完整跳脫。
+- [BugFix] Tampermonkey 統一處理 302/REWRITE、URL 物件與文件 baseURI；修復 XHR DROP 重用、DOM 屬性/子樹與 iframe 重複 hook；XHR 403 改為非同步 network error、abort 後不再外洩請求、fetch mock 遵守 AbortSignal、阻斷 script/img 依結果補發 load/error 事件、UI 初始化失敗不外拋。
+- [Test] 新增解析邊界、完整 Tampermonkey 模板與雙平台完整矩陣回歸；CRITICAL_PATH_MAP 正則規則必須有對應案例。
 """
 
 
@@ -774,8 +777,8 @@ RULES_STATS['other'] = TOTAL_RULE_COUNT - sum(RULES_STATS.values())
 # ==========================================
 
 def _js_str_escape(s: str) -> str:
-    """Escape backslashes and single quotes for safe embedding in JS single-quoted string literals."""
-    return s.replace('\\', '\\\\').replace("'", "\\'")
+    """Escape string contents, including JS line terminators and control characters."""
+    return json.dumps(s, ensure_ascii=True)[1:-1].replace("'", "\\'")
 
 def format_js_array(lst: List[str], indent: int = 4, items_per_line: int = 6) -> str:
     if not lst: return "[]"
@@ -808,7 +811,7 @@ def format_js_prefix_buckets(lst: List[str], indent: int = 4) -> str:
     entries = []
     for k in sorted(buckets.keys()):
         val_str = format_js_array(buckets[k], indent + 4, items_per_line=6)
-        entries.append(f"{' ' * indent}['{k}', {val_str}]")
+        entries.append(f"{' ' * indent}['{_js_str_escape(k)}', {val_str}]")
     joined_entries = ",\n".join(entries)
     return f"new Map([\n{joined_entries}\n{' ' * (indent - 2)}])"
 
@@ -1202,19 +1205,20 @@ const HELPERS = {
     try {
       const _qi = urlStr.indexOf('?');
       if (_qi < 0) return null;
-      const _hi = urlStr.indexOf('#', _qi);
+      const _hi = urlStr.indexOf('#');
+      if (_hi >= 0 && _hi < _qi) return null;
       const base = urlStr.substring(0, _qi);
       let qs = _hi >= 0 ? urlStr.substring(_qi + 1, _hi) : urlStr.substring(_qi + 1);
       const hash = _hi >= 0 ? urlStr.substring(_hi) : '';
 
       if (!qs) return null;
-      if (qs.indexOf(';') >= 0) qs = qs.replace(/;/g, '&');
-
-      const pairs = qs.split('&');
+      // Support legacy semicolon separators without changing retained query bytes.
+      const pairs = qs.split(/[&;]/);
+      const separators = qs.match(/[&;]/g) || [];
       // Check real raw query keys, never decoded values containing a fake '&sig='.
       if (pairs.some(pair => {
         const eq = pair.indexOf('=');
-        return eq >= 0 && RULES.PARAMS.SIGNATURE_NAMES.has(decodeParamName(pair.substring(0, eq)));
+        return RULES.PARAMS.SIGNATURE_NAMES.has(decodeParamName(eq >= 0 ? pair.substring(0, eq) : pair));
       })) return null;
       const kept = [];
       const scopedParamExemptions = hostProfile.scopedParamExemptions;
@@ -1222,13 +1226,14 @@ const HELPERS = {
 
       for (let i = 0; i < pairs.length; i++) {
         const pair = pairs[i];
-        if (!pair) { kept.push(pair); continue; }
+        const entry = { pair, separator: i > 0 ? separators[i - 1] : '' };
+        if (!pair) { kept.push(entry); continue; }
         const eqIdx = pair.indexOf('=');
         const key = eqIdx >= 0 ? pair.substring(0, eqIdx) : pair;
         const lowerKey = decodeParamName(key);
 
         if (RULES.PARAMS.WHITELIST.has(lowerKey) || HELPERS.isScopedParamAllowed(scopedParamExemptions, pathOnly, lowerKey)) {
-          kept.push(pair); continue;
+          kept.push(entry); continue;
         }
 
         if (RULES.PARAMS.GLOBAL.has(lowerKey) || RULES.PARAMS.COSMETIC.has(lowerKey)) { changed = true; continue; }
@@ -1248,11 +1253,12 @@ const HELPERS = {
           changed = true; continue;
         }
 
-        kept.push(pair);
+        kept.push(entry);
       }
 
       if (!changed) return null;
-      const newQs = kept.join('&');
+      // Rewrites already change the URL, so drop empty pairs instead of leaving '?&a' or 'a&'.
+      const newQs = kept.filter(entry => entry.pair).map((entry, i) => (i ? entry.separator : '') + entry.pair).join('');
       return { url: newQs ? base + '?' + newQs + hash : base + hash, type: rewriteType };
     } catch (_) { return null; }
   }
@@ -1318,7 +1324,7 @@ function processRequest(request) {
     const pathOnly = decodePath(rawPathOnly);
     const pathLower = decodePath(rawPath);
 
-    if (pathLower.includes('/accounts/checkconnection')) {
+    if (pathOnly.includes('/accounts/checkconnection')) {
       return { response: { status: 204 } };
     }
 
@@ -1341,22 +1347,23 @@ function processRequest(request) {
 
     if (hostProfile.isRedirectExtract) {
       let extractedUrl = null;
-      const rawPath = url.substring(url.indexOf('/', url.indexOf('://') + 3) + 1);
-      if (rawPath) {
+      const redirectPath = parsed.rawPath.substring(1);
+      const isSafeTarget = target => !/[\u0000-\u0020\u007f]/.test(target) && parseRequestUrl(target) !== null;
+      if (redirectPath) {
         try {
-          const decoded = decodeURIComponent(rawPath);
-          if (decoded.startsWith('http://') || decoded.startsWith('https://')) extractedUrl = decoded;
+          const decoded = decodeURIComponent(redirectPath);
+          if (isSafeTarget(decoded)) extractedUrl = decoded;
         } catch (_) {}
       }
-      if (!extractedUrl && url.includes('?')) {
-        const qs = url.substring(url.indexOf('?') + 1);
+      if (!extractedUrl && parsed.rawPath.includes('?')) {
+        const qs = parsed.rawPath.substring(parsed.rawPath.indexOf('?') + 1);
         const pairs = qs.split('&');
         for (let i = 0; i < pairs.length; i++) {
           const pair = pairs[i];
           if (pair.startsWith('url=')) {
             try {
               const val = decodeURIComponent(pair.substring(4));
-              if (val.startsWith('http://') || val.startsWith('https://')) { extractedUrl = val; break; }
+              if (isSafeTarget(val)) { extractedUrl = val; break; }
             } catch (_) {}
           }
         }
@@ -1725,6 +1732,28 @@ def compile_tampermonkey() -> str:
     let shieldVisible = true;
     let updatePending = false;
 
+    function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, ch => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[ch]));
+    }
+
+    function getActionUrl(action) {
+        if (!action) return null;
+        if (action.url) return action.url;
+        const response = action.response;
+        return response && response.status === 302 && response.headers ? response.headers.Location : null;
+    }
+
+    function resolveInputUrl(input, base = document.baseURI || location.href) {
+        return new URL(input && typeof input.url === 'string' ? input.url : String(input), base).href;
+    }
+
+    function isRequestInput(input) {
+        // instanceof rejects valid Request objects created in another iframe realm.
+        return input && typeof input.url === 'string' && typeof input.clone === 'function';
+    }
+
     if (typeof GM_registerMenuCommand !== 'undefined') {
         GM_registerMenuCommand("🛡️ 切換 URL 盾牌顯示/隱藏", () => {
             shieldVisible = !shieldVisible;
@@ -1863,7 +1892,7 @@ def compile_tampermonkey() -> str:
                 if (tmStats.blocked.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無攔截紀錄</div>`;
                 else listHtml = Array.from(tmStats.blocked.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#fca5a5;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <span>${u}</span>
+                        <span>${escapeHtml(u)}</span>
                         ${c > 1 ? `<span style="${badgeStyle} background:#7f1d1d; color:#fecaca;">x${c}</span>` : ''}
                     </div>
                 </div>`).join('');
@@ -1871,7 +1900,7 @@ def compile_tampermonkey() -> str:
                 if (tmStats.dropped.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無拋棄紀錄</div>`;
                 else listHtml = Array.from(tmStats.dropped.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#c4b5fd;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <span>${u}</span>
+                        <span>${escapeHtml(u)}</span>
                         ${c > 1 ? `<span style="${badgeStyle} background:#4c1d95; color:#ddd6fe;">x${c}</span>` : ''}
                     </div>
                 </div>`).join('');
@@ -1879,16 +1908,16 @@ def compile_tampermonkey() -> str:
                 if (tmStats.cleaned.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無淨化紀錄</div>`;
                 else listHtml = Array.from(tmStats.cleaned.entries()).reverse().map(([o, data]) => `<div style="${itemStyle}">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
-                        <div style="text-decoration:line-through; color:#475569;">${o}</div>
+                        <div style="text-decoration:line-through; color:#475569;">${escapeHtml(o)}</div>
                         ${data.count > 1 ? `<span style="${badgeStyle} background:#064e3b; color:#a7f3d0;">x${data.count}</span>` : ''}
                     </div>
-                    <div style="color:#6ee7b7;">➔ ${data.newUrl}</div>
+                    <div style="color:#6ee7b7;">➔ ${escapeHtml(data.newUrl)}</div>
                 </div>`).join('');
             } else if (activeTab === 'allowed') {
                 if (tmStats.allowed.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無放行紀錄</div>`;
                 else listHtml = Array.from(tmStats.allowed.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#94a3b8;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <span>${u}</span>
+                        <span>${escapeHtml(u)}</span>
                         ${c > 1 ? `<span style="${badgeStyle} background:#334155; color:#cbd5e1;">x${c}</span>` : ''}
                     </div>
                 </div>`).join('');
@@ -1898,7 +1927,7 @@ def compile_tampermonkey() -> str:
     }
 
     function applyFilter(url) {
-        if (!url || typeof url !== 'string' || !url.startsWith('http')) return null;
+        if (!url || typeof url !== 'string' || !/^https?:\/\//i.test(url)) return null;
         return processRequest({ url: url });
     }
 
@@ -1915,13 +1944,14 @@ def compile_tampermonkey() -> str:
                 url = url.slice(0, -1);
             }
             try {
-                const absoluteUrl = new URL(url, location.origin).href;
+                const absoluteUrl = resolveInputUrl(url);
                 const action = applyFilter(absoluteUrl);
-                if (action && action.url && absoluteUrl !== action.url) {
-                    tmStats.recordClean(absoluteUrl, action.url);
-                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 📋 Clipboard Cleaned: ${absoluteUrl} -> ${action.url}`);
+                const cleanedUrl = getActionUrl(action);
+                if (cleanedUrl && absoluteUrl !== cleanedUrl) {
+                    tmStats.recordClean(absoluteUrl, cleanedUrl);
+                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 📋 Clipboard Cleaned: ${absoluteUrl} -> ${cleanedUrl}`);
                     modified = true;
-                    return action.url + trailing;
+                    return cleanedUrl + trailing;
                 }
             } catch(e) {}
             return match; 
@@ -1931,10 +1961,12 @@ def compile_tampermonkey() -> str:
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
         const origWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
-        navigator.clipboard.writeText = function(text) {
-            const result = cleanTextUrls(text);
-            return origWriteText(result.text);
-        };
+        try {
+            navigator.clipboard.writeText = function(text) {
+                const result = cleanTextUrls(text);
+                return origWriteText(result.text);
+            };
+        } catch (_) {} // An optional locked clipboard hook must not stop network protection.
     }
 
     document.addEventListener('copy', (e) => {
@@ -1943,7 +1975,7 @@ def compile_tampermonkey() -> str:
         if (!selection || selection.isCollapsed) return;
         const selectedText = selection.toString();
         const result = cleanTextUrls(selectedText);
-        if (result.modified) {
+        if (result.modified && e.clipboardData) {
             e.preventDefault();
             e.clipboardData.setData('text/plain', result.text);
         }
@@ -1951,34 +1983,48 @@ def compile_tampermonkey() -> str:
     // --- Clipboard Interceptor 模組結束 ---
 
     // --- Property Setter Hook (動態腳本屬性攔截器) ---
+    // Loaders waiting on onload/onerror must settle even though the assignment is suppressed.
+    // A dropped script mimics an empty 204 load; an empty image body still fails to decode.
+    function signalBlockedLoad(element, isDrop) {
+        if (element.tagName === 'IFRAME') return;
+        const type = isDrop && element.tagName === 'SCRIPT' ? 'load' : 'error';
+        setTimeout(() => { try { element.dispatchEvent(new Event(type)); } catch (_) {} }, 0);
+    }
+
     function hookProperty(elementClass, propertyName) {
         const origDesc = Object.getOwnPropertyDescriptor(elementClass.prototype, propertyName);
-        if (origDesc && origDesc.set) {
+        if (origDesc && origDesc.set && origDesc.configurable) {
             Object.defineProperty(elementClass.prototype, propertyName, {
                 set: function(val) {
                     if (val && typeof val === 'string') {
                         try {
-                            const absoluteUrl = new URL(val, location.origin).href;
+                            const absoluteUrl = resolveInputUrl(val);
                             const action = applyFilter(absoluteUrl);
                             if (action && action.response) {
                                 if (action.response.status === 403) {
                                     tmStats.recordBlock(absoluteUrl);
                                     if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Property Hook Blocked: ${absoluteUrl}`);
+                                    signalBlockedLoad(this, false);
                                     return; // 物理阻斷賦值，瀏覽器完全不發送請求
                                 } else if (action.response.status === 204) {
                                     tmStats.recordDrop(absoluteUrl);
                                     if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Property Hook Dropped: ${absoluteUrl}`);
+                                    signalBlockedLoad(this, true);
                                     return; // 物理阻斷賦值，瀏覽器完全不發送請求
                                 }
-                            } else if (action && action.url && val !== action.url) {
-                                tmStats.recordClean(absoluteUrl, action.url);
-                                val = action.url;
+                            }
+                            const cleanedUrl = getActionUrl(action);
+                            if (cleanedUrl && absoluteUrl !== cleanedUrl) {
+                                tmStats.recordClean(absoluteUrl, cleanedUrl);
+                                val = cleanedUrl;
                             }
                         } catch(e) {}
                     }
                     return origDesc.set.call(this, val);
                 },
-                get: origDesc.get
+                get: origDesc.get,
+                configurable: origDesc.configurable,
+                enumerable: origDesc.enumerable
             });
         }
     }
@@ -1991,42 +2037,64 @@ def compile_tampermonkey() -> str:
     let _pendingDrops = 0;
     const MAX_PENDING_DROPS = 64; 
     const origFetch = window.fetch;
+    // Mocked responses must honour AbortSignal like a native fetch.
+    function getFetchSignal(args) {
+        try {
+            if (args[1] && args[1].signal) return args[1].signal;
+            if (isRequestInput(args[0]) && args[0].signal) return args[0].signal;
+        } catch (_) {}
+        return null;
+    }
+    function abortReason(signal) {
+        return signal.reason !== undefined ? signal.reason : new DOMException('The operation was aborted.', 'AbortError');
+    }
     window.fetch = async function(...args) {
-        let url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+        let url = '';
+        try { url = resolveInputUrl(args[0]); } catch (_) {}
         if (url) {
-            try { url = new URL(url, location.origin).href; } catch(e){}
             const action = applyFilter(url);
             if (action) {
                 if (action.response) {
                     if (action.response.status === 403) {
                         tmStats.recordBlock(url);
                         if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Blocked: ${url}`);
+                        const signal = getFetchSignal(args);
+                        if (signal && signal.aborted) return Promise.reject(abortReason(signal));
                         return Promise.reject(new Error("Blocked by URL Ultimate Filter SSOT"));
                     } else if (action.response.status === 204) {
                         tmStats.recordDrop(url);
                         if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Dropped (Delayed Mock): ${url}`);
+                        const signal = getFetchSignal(args);
+                        if (signal && signal.aborted) return Promise.reject(abortReason(signal));
                         const mock204 = () => new Response(null, { status: 204, statusText: 'No Content' });
                         if (_pendingDrops >= MAX_PENDING_DROPS) return Promise.resolve(mock204());
                         const delay = Math.floor(Math.random() * 100) + 50;
                         _pendingDrops++;
-                        return new Promise(resolve => {
-                            setTimeout(() => {
+                        return new Promise((resolve, reject) => {
+                            const onAbort = () => {
+                                clearTimeout(timer);
+                                _pendingDrops--;
+                                reject(abortReason(signal));
+                            };
+                            const timer = setTimeout(() => {
+                                if (signal) signal.removeEventListener('abort', onAbort);
                                 _pendingDrops--;
                                 resolve(mock204());
                             }, delay);
+                            if (signal) signal.addEventListener('abort', onAbort, { once: true });
                         });
                     } else if (action.response.status === 302 && action.response.headers && action.response.headers.Location) {
                         const cleanedUrl = action.response.headers.Location;
                         tmStats.recordClean(url, cleanedUrl);
                         if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] ✏️ Fetch Cleaned (302): ${url} -> ${cleanedUrl}`);
-                        if (typeof args[0] === 'string') args[0] = cleanedUrl;
-                        else args[0] = new Request(cleanedUrl, args[0]);
+                        if (isRequestInput(args[0])) args[0] = new Request(cleanedUrl, args[0]);
+                        else args[0] = cleanedUrl;
                     }
                 } else if (action.url) {
                     tmStats.recordClean(url, action.url);
                     if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] ✏️ Rewrote: ${url} -> ${action.url}`);
-                    if (typeof args[0] === 'string') args[0] = action.url;
-                    else args[0] = new Request(action.url, args[0]);
+                    if (isRequestInput(args[0])) args[0] = new Request(action.url, args[0]);
+                    else args[0] = action.url;
                 } else {
                     tmStats.recordAllow(url);
                 }
@@ -2038,12 +2106,20 @@ def compile_tampermonkey() -> str:
     };
 
     const origOpen = XMLHttpRequest.prototype.open;
+    const xhrMockProperties = ['readyState', 'status', 'statusText', 'response', 'responseText',
+        'responseURL', 'getAllResponseHeaders', 'getResponseHeader'];
     XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+        if (this._ssotMocked) {
+            for (const key of xhrMockProperties) delete this[key];
+            this._ssotMocked = false;
+        }
+        this._ssotGeneration = (this._ssotGeneration || 0) + 1;
+        this._ssotAsync = rest[0] !== false;
         this._ssotAction = null;
         this._ssotUrl = '';
         if (url) {
             try {
-                let absoluteUrl = new URL(url, location.origin).href;
+                let absoluteUrl = resolveInputUrl(url);
                 this._ssotUrl = absoluteUrl;
                 const action = applyFilter(absoluteUrl);
                 if (action) {
@@ -2074,28 +2150,81 @@ def compile_tampermonkey() -> str:
     };
 
     const origSend = XMLHttpRequest.prototype.send;
+    const origAbort = XMLHttpRequest.prototype.abort;
+    XMLHttpRequest.prototype.abort = function(...args) {
+        const abortPendingMock = this._ssotMocked && this._ssotPending ? this._ssotAbortMock : null;
+        this._ssotGeneration = (this._ssotGeneration || 0) + 1;
+        this._ssotPending = false;
+        // Keep _ssotAction: the native request is still opened with the filtered URL,
+        // so a later send() on this instance must stay blocked/dropped instead of leaking.
+        // Mock properties stay until open(), so send() after abort() throws like native UNSENT.
+        const result = origAbort.apply(this, args);
+        if (abortPendingMock) abortPendingMock();
+        else if (this._ssotMocked) this._ssotResetMock();
+        return result;
+    };
     XMLHttpRequest.prototype.send = function(...args) {
-        if (this._ssotAction === 403) {
-            this.dispatchEvent(new Event('error'));
-            return;
-        } else if (this._ssotAction === 204) {
+        if (this._ssotAction === 403 || this._ssotAction === 204) {
+            if (this._ssotMocked) throw new DOMException('Request already sent', 'InvalidStateError');
+            const isDrop = this._ssotAction === 204;
             const mockUrl = this._ssotUrl;
-            Object.defineProperties(this, {
-                readyState: { get: () => 4 },
-                status: { get: () => 204 },
-                statusText: { get: () => 'No Content' },
-                response: { get: () => '' },
-                responseText: { get: () => '' },
-                responseURL: { get: () => mockUrl },
-                getAllResponseHeaders: { value: () => 'content-length: 0\r\n' },
+            let completed = false;
+            let mockState = 1;
+            let responseObject = null;
+            const descriptors = {
+                readyState: { get: () => mockState },
+                status: { get: () => completed && isDrop ? 204 : 0 },
+                statusText: { get: () => completed && isDrop ? 'No Content' : '' },
+                response: { get: () => {
+                    const type = this.responseType || 'text';
+                    if (type === 'text') return '';
+                    if (!completed || !isDrop || type === 'json' || type === 'document') return null;
+                    if (responseObject === null) {
+                        if (type === 'arraybuffer') responseObject = new ArrayBuffer(0);
+                        else if (type === 'blob') responseObject = new Blob([]);
+                    }
+                    return responseObject;
+                } },
+                responseText: { get: () => {
+                    if (this.responseType && this.responseType !== 'text') throw new DOMException('Invalid responseType', 'InvalidStateError');
+                    return '';
+                } },
+                responseURL: { get: () => completed && isDrop ? mockUrl : '' },
+                getAllResponseHeaders: { value: () => completed && isDrop ? 'content-length: 0\r\n' : '' },
                 getResponseHeader: { value: (name) => null }
-            });
-            const fireXhrEvents = () => {
+            };
+            for (const descriptor of Object.values(descriptors)) descriptor.configurable = true;
+            Object.defineProperties(this, descriptors);
+            this._ssotMocked = true;
+            this._ssotResetMock = () => { completed = false; mockState = 0; };
+            // A blocked synchronous request behaves like a native network error.
+            if (!isDrop && !this._ssotAsync) {
+                mockState = 4;
+                this._ssotPending = false;
+                throw new DOMException('Blocked by URL Ultimate Filter SSOT', 'NetworkError');
+            }
+            this._ssotPending = true;
+            // Spec abort sequence for a pending mock: DONE + events, then UNSENT.
+            this._ssotAbortMock = () => {
+                mockState = 4;
                 this.dispatchEvent(new Event('readystatechange'));
-                this.dispatchEvent(new Event('load'));
+                this.dispatchEvent(new Event('abort'));
+                this.dispatchEvent(new Event('loadend'));
+                mockState = 0;
+            };
+            const generation = this._ssotGeneration;
+            const fireXhrEvents = () => {
+                if (generation !== this._ssotGeneration) return;
+                completed = true;
+                mockState = 4;
+                this._ssotPending = false;
+                this.dispatchEvent(new Event('readystatechange'));
+                this.dispatchEvent(new Event(isDrop ? 'load' : 'error'));
                 this.dispatchEvent(new Event('loadend'));
             };
-            if (_pendingDrops >= MAX_PENDING_DROPS) { fireXhrEvents(); return; }
+            // Like a native network error, a blocked async request completes after send() returns.
+            if (!isDrop) { setTimeout(fireXhrEvents, 0); return; }
+            if (!this._ssotAsync || _pendingDrops >= MAX_PENDING_DROPS) { fireXhrEvents(); return; }
             const delay = Math.floor(Math.random() * 100) + 50;
             _pendingDrops++;
             setTimeout(() => {
@@ -2112,7 +2241,7 @@ def compile_tampermonkey() -> str:
         const beaconInterceptor = function(url, data) {
             if (url) {
                 try {
-                    let absoluteUrl = new URL(url, location.origin).href;
+                    let absoluteUrl = resolveInputUrl(url);
                     const action = applyFilter(absoluteUrl);
                     if (action && action.response) {
                         if (action.response.status === 403) {
@@ -2124,6 +2253,11 @@ def compile_tampermonkey() -> str:
                             if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Beacon Dropped (Fake Success): ${absoluteUrl}`);
                             return true;
                         }
+                    }
+                    const cleanedUrl = getActionUrl(action);
+                    if (cleanedUrl && cleanedUrl !== absoluteUrl) {
+                        tmStats.recordClean(absoluteUrl, cleanedUrl);
+                        url = cleanedUrl;
                     }
                 } catch(e){}
             }
@@ -2141,11 +2275,13 @@ def compile_tampermonkey() -> str:
 
         if (navigator.sendBeacon !== beaconInterceptor && typeof Proxy !== 'undefined') {
             try {
-                const navProxy = new Proxy(navigator, {
-                    get(target, prop, receiver) {
+                const originalNavigator = navigator;
+                // A locked own property cannot be replaced by a Proxy get trap on that same target.
+                const navProxy = new Proxy(Object.create(Object.getPrototypeOf(originalNavigator)), {
+                    get(target, prop) {
                         if (prop === 'sendBeacon') return beaconInterceptor;
-                        const val = Reflect.get(target, prop, receiver);
-                        return typeof val === 'function' ? val.bind(target) : val;
+                        const val = Reflect.get(originalNavigator, prop, originalNavigator);
+                        return typeof val === 'function' ? val.bind(originalNavigator) : val;
                     }
                 });
                 Object.defineProperty(window, 'navigator', {
@@ -2159,37 +2295,51 @@ def compile_tampermonkey() -> str:
         }
     }
     
+    const patchedIframeWindows = new WeakMap();
     function patchIframeBeacon(iframe) {
         try {
             const iframeWin = iframe.contentWindow;
-            if (!iframeWin || !iframeWin.navigator || !iframeWin.navigator.sendBeacon) return;
-            const iframeOrigBeacon = iframeWin.navigator.sendBeacon.bind(iframeWin.navigator);
-            iframeWin.navigator.sendBeacon = function(url, data) {
-                if (url) {
-                    try {
-                        let absoluteUrl = new URL(url, location.origin).href;
-                        const action = applyFilter(absoluteUrl);
-                        if (action && action.response) {
-                            if (action.response.status === 403) {
-                                tmStats.recordBlock(absoluteUrl);
-                                if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 iframe Beacon Blocked: ${absoluteUrl}`);
-                                return false;
-                            } else if (action.response.status === 204) {
-                                tmStats.recordDrop(absoluteUrl);
-                                if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 iframe Beacon Dropped: ${absoluteUrl}`);
-                                return true;
-                            }
+            if (!iframeWin || !iframeWin.navigator) return;
+            const iframeDocument = iframeWin.document;
+            if (patchedIframeWindows.get(iframeWin) === iframeDocument) return;
+            patchedIframeWindows.set(iframeWin, iframeDocument);
+            const iframeBase = () => iframeWin.document.baseURI || iframeWin.location.href;
+            if (iframeWin.navigator.sendBeacon) {
+                const iframeOrigBeacon = iframeWin.navigator.sendBeacon.bind(iframeWin.navigator);
+                try {
+                    iframeWin.navigator.sendBeacon = function(url, data) {
+                        if (url) {
+                            try {
+                                let absoluteUrl = resolveInputUrl(url, iframeBase());
+                                const action = applyFilter(absoluteUrl);
+                                if (action && action.response) {
+                                    if (action.response.status === 403) {
+                                        tmStats.recordBlock(absoluteUrl);
+                                        if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 iframe Beacon Blocked: ${absoluteUrl}`);
+                                        return false;
+                                    } else if (action.response.status === 204) {
+                                        tmStats.recordDrop(absoluteUrl);
+                                        if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 iframe Beacon Dropped: ${absoluteUrl}`);
+                                        return true;
+                                    }
+                                }
+                                const cleanedUrl = getActionUrl(action);
+                                if (cleanedUrl && cleanedUrl !== absoluteUrl) {
+                                    tmStats.recordClean(absoluteUrl, cleanedUrl);
+                                    url = cleanedUrl;
+                                }
+                            } catch(e){}
                         }
-                    } catch(e){}
-                }
-                return iframeOrigBeacon(url, data);
-            };
+                        return iframeOrigBeacon(url, data);
+                    };
+                } catch (_) {} // Keep the fetch hook available when this optional property is locked.
+            }
             if (iframeWin.fetch) {
                 const iframeOrigFetch = iframeWin.fetch;
                 iframeWin.fetch = function(...args) {
-                    let url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+                    let url = '';
+                    try { url = resolveInputUrl(args[0], iframeBase()); } catch (_) {}
                     if (url) {
-                        try { url = new URL(url, location.origin).href; } catch(e){}
                         const action = applyFilter(url);
                         if (action && action.response) {
                             if (action.response.status === 403) {
@@ -2200,6 +2350,12 @@ def compile_tampermonkey() -> str:
                                 return Promise.resolve(new Response(null, { status: 204, statusText: 'No Content' }));
                             }
                         }
+                        const cleanedUrl = getActionUrl(action);
+                        if (cleanedUrl && cleanedUrl !== url) {
+                            tmStats.recordClean(url, cleanedUrl);
+                            if (isRequestInput(args[0])) args[0] = new iframeWin.Request(cleanedUrl, args[0]);
+                            else args[0] = cleanedUrl;
+                        }
                     }
                     return iframeOrigFetch.apply(this, args);
                 };
@@ -2207,21 +2363,31 @@ def compile_tampermonkey() -> str:
         } catch(e) {}
     }
 
+    const watchedIframes = new WeakSet();
+    function watchIframe(iframe) {
+        if (watchedIframes.has(iframe)) return;
+        watchedIframes.add(iframe);
+        iframe.addEventListener('load', () => patchIframeBeacon(iframe));
+    }
+
     const origCreateElement = document.createElement.bind(document);
     document.createElement = function(tagName, options) {
         const el = origCreateElement(tagName, options);
         if (tagName && tagName.toLowerCase() === 'iframe') {
-            el.addEventListener('load', () => patchIframeBeacon(el), { once: false });
+            watchIframe(el);
         }
         return el;
     };
     try {
         const existingIframes = document.querySelectorAll('iframe');
-        for (const iframe of existingIframes) patchIframeBeacon(iframe);
+        for (const iframe of existingIframes) {
+            watchIframe(iframe);
+            patchIframeBeacon(iframe);
+        }
     } catch(e) {}
 
     document.addEventListener('click', (e) => {
-        const target = e.target.closest('a[ping]');
+        const target = e.target && typeof e.target.closest === 'function' ? e.target.closest('a[ping]') : null;
         if (target) {
             target.removeAttribute('ping');
             if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🔪 Ping Attribute Defused on click`);
@@ -2242,81 +2408,97 @@ def compile_tampermonkey() -> str:
         try {
             if (!node || !node.style || !node.style.backgroundImage) return;
             const bgVal = node.style.backgroundImage;
-            let match;
-            CSS_BG_URL_RE.lastIndex = 0;
-            while ((match = CSS_BG_URL_RE.exec(bgVal)) !== null) {
-                const action = applyFilter(match[1]);
-                if (action && action.response) {
-                    node.style.backgroundImage = 'none';
-                    if (action.response.status === 403) tmStats.recordBlock(match[1]);
-                    else if (action.response.status === 204) tmStats.recordDrop(match[1]);
-                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🎨 CSS bg-image tracker defused: ${match[1]}`);
-                    break;
+            const cleanedBg = bgVal.replace(CSS_BG_URL_RE, (match, url) => {
+                const action = applyFilter(url);
+                if (action && action.response && (action.response.status === 403 || action.response.status === 204)) {
+                    if (action.response.status === 403) tmStats.recordBlock(url);
+                    else tmStats.recordDrop(url);
+                    return 'none';
                 }
-            }
+                const cleanedUrl = getActionUrl(action);
+                if (cleanedUrl && cleanedUrl !== url) {
+                    tmStats.recordClean(url, cleanedUrl);
+                    return 'url(' + JSON.stringify(cleanedUrl) + ')';
+                }
+                return match;
+            });
+            if (cleanedBg !== bgVal) node.style.backgroundImage = cleanedBg;
         } catch(e) {}
     }
 
     const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
-            for (const node of mutation.addedNodes) {
-                if (node.nodeType !== 1) continue; 
+            const isAttributes = mutation.type === 'attributes';
+            const roots = isAttributes ? [mutation.target] : Array.from(mutation.addedNodes);
+            for (const root of roots) {
+                const nodes = [root];
+                if (!isAttributes && root.querySelectorAll) nodes.push(...root.querySelectorAll('script[src], img[src], iframe[src]'));
+                for (const node of nodes) {
+                    if (node.nodeType !== 1) continue;
 
-                if (node.tagName === 'A' && node.hasAttribute('ping')) {
-                    node.removeAttribute('ping');
-                } else if (node.querySelectorAll) {
-                    defuseAllPingAttributes(node);
-                }
+                    if (node.tagName === 'A' && node.hasAttribute('ping')) {
+                        node.removeAttribute('ping');
+                    } else if (!isAttributes && node.querySelectorAll) {
+                        defuseAllPingAttributes(node);
+                    }
 
-                defuseCssBgTrackers(node);
-                if (node.querySelectorAll) {
-                    try {
-                        const styled = node.querySelectorAll('[style*="background"]');
-                        for (const el of styled) defuseCssBgTrackers(el);
-                    } catch(e) {}
-                }
-
-                if (node.tagName === 'IFRAME') {
-                    node.addEventListener('load', () => patchIframeBeacon(node), { once: false });
-                    patchIframeBeacon(node); 
-                }
-                
-                // 保留 MutationObserver 作為安全網 (針對不支援 property hook 的邊界情況)
-                if (node.tagName === 'SCRIPT' || node.tagName === 'IMG' || node.tagName === 'IFRAME') {
-                    if (node.src) {
+                    defuseCssBgTrackers(node);
+                    if (!isAttributes && node.querySelectorAll) {
                         try {
-                            const action = applyFilter(node.src);
-                            if (action && action.response) {
-                                if (action.response.status === 403) {
-                                    tmStats.recordBlock(node.src);
-                                    node.remove();
-                                } else if (action.response.status === 204) {
-                                    tmStats.recordDrop(node.src);
-                                    node.remove();
+                            const styled = node.querySelectorAll('[style*="background"]');
+                            for (const el of styled) defuseCssBgTrackers(el);
+                        } catch(e) {}
+                    }
+
+                    if (node.tagName === 'IFRAME') {
+                        watchIframe(node);
+                        patchIframeBeacon(node);
+                    }
+                
+                    // 保留 MutationObserver 作為安全網 (針對不支援 property hook 的邊界情況)
+                    if (node.tagName === 'SCRIPT' || node.tagName === 'IMG' || node.tagName === 'IFRAME') {
+                        if (node.src) {
+                            try {
+                                const action = applyFilter(node.src);
+                                if (action && action.response) {
+                                    if (action.response.status === 403) {
+                                        tmStats.recordBlock(node.src);
+                                        node.remove();
+                                    } else if (action.response.status === 204) {
+                                        tmStats.recordDrop(node.src);
+                                        node.remove();
+                                    }
                                 }
-                            } else if (action && action.url && node.src !== action.url) {
-                                tmStats.recordClean(node.src, action.url);
-                                node.src = action.url;
-                            } else if (!action) {
-                                tmStats.recordAllow(node.src);
-                            }
-                        } catch(e){}
+                                const cleanedUrl = getActionUrl(action);
+                                if (cleanedUrl && node.src !== cleanedUrl) {
+                                    tmStats.recordClean(node.src, cleanedUrl);
+                                    node.src = cleanedUrl;
+                                } else if (!action) {
+                                    tmStats.recordAllow(node.src);
+                                }
+                            } catch(e){}
+                        }
                     }
                 }
             }
         }
     });
     
+    function startObserver() {
+        defuseAllPingAttributes(document);
+        observer.observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style', 'src'] });
+    }
+    startObserver();
+    function safeInitUI() {
+        try { initUI(); } catch (e) { console.warn('[SSOT-TM] UI init failed; filtering remains active.', e); }
+    }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
-            defuseAllPingAttributes(document); 
-            observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style', 'src'] });
-            initUI();
+            startObserver();
+            safeInitUI();
         });
     } else {
-        defuseAllPingAttributes(document); 
-        observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style', 'src'] });
-        initUI();
+        safeInitUI();
     }
 })();
 """
@@ -2379,6 +2561,7 @@ HTML_TEMPLATE = """
         .kpi-icon {{ float: right; font-size: 24px; opacity: 0.2; }}
         .text-success {{ color: var(--success); }}
         .text-danger {{ color: var(--danger); }}
+        .text-warning {{ color: var(--warning); }}
         
         .charts-container {{ display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 20px; margin-bottom: 24px; }}
         .chart-wrapper {{ position: relative; height: 300px; width: 100%; min-width: 0; overflow: hidden; }}
@@ -3577,6 +3760,38 @@ def generate_full_coverage_cases() -> List[TestCase]:
         ('https://appapi.104.com.tw/ordinary?device_id=x&next=/api/', 'https://appapi.104.com.tw/ordinary?next=/api/', RES_REWRITE),
     ]:
         cases.append(TestCase('V46.66: Exact cleaned URL', source, action, expected_url=target))
+    # V46.72: fixed URL boundaries, retained bytes, signature keys and redirect safety.
+    for url in ['https://example.com/#?utm_source=x',
+                'https://example.com/?utm_source=x&sig',
+                'https://example.com/?utm_source=x&%73ig']:
+        cases.append(TestCase('V46.72: Fragment/signature allow', url, RES_ALLOW))
+    for source, target in [
+        ('https://example.com/?q=a;b&utm_source=x', 'https://example.com/?q=a;b'),
+        ('https://example.com/?utm_source=x&q=a;b', 'https://example.com/?q=a;b'),
+        ('https://example.com/?q=a;utm_source=x;id=2', 'https://example.com/?q=a;id=2'),
+        ('https://www.apple.com/?next=/accounts/checkconnection&utm_source=x', 'https://www.apple.com/?next=/accounts/checkconnection'),
+        ('https://example.com/?utm_source=x#?fbclid=y', 'https://example.com/#?fbclid=y'),
+        ('https://example.com/p?a=1&&utm_source=x', 'https://example.com/p?a=1'),
+        ('https://example.com/p?utm_source=x&&a=1', 'https://example.com/p?a=1'),
+        ('https://example.com/p?&utm_source=x&a=1#f', 'https://example.com/p?a=1#f'),
+        ('https://example.com/p?a=1&&b=2&utm_source=x&', 'https://example.com/p?a=1&b=2'),
+    ]:
+        cases.append(TestCase('V46.72: Exact query cleaning', source, RES_CLEAN_302, expected_url=target))
+    cases.append(TestCase('V46.72: Query is not CheckConnection',
+                          'https://example.com/?next=/accounts/checkconnection', RES_BLOCK_403,
+                          'Query does not trigger 204; the existing L1 scanner still blocks its keyword'))
+    cases.append(TestCase('V46.72: Query respects hard whitelist',
+                          'https://www.apple.com/?next=/accounts/checkconnection', RES_ALLOW))
+    for host in RULES_DB['REDIRECT_EXTRACT_HOSTS']:
+        for tail in ['/#?url=https%3A%2F%2Fexample.com%2F',
+                     '/?url=https%3A%2F%2Fexample.com%2F%0D%0AX-Test%3Ayes',
+                     '/https%3A%2F%2Fexample.com%2F%0Ainjected',
+                     '/?url=https%3A%2F%2F', '/?url=javascript%3Aalert(1)']:
+            cases.append(TestCase('V46.72: Unsafe redirect blocked', 'https://' + host + tail, RES_BLOCK_403))
+        for tail in ['/?url=https%3A%2F%2Fexample.com%2F%3Fq%3Da%26id%3D2#outer',
+                     '/https%3A%2F%2Fexample.com%2F%3Fq%3Da%26id%3D2#outer']:
+            cases.append(TestCase('V46.72: Redirect query/fragment boundary', 'https://' + host + tail,
+                                  RES_CLEAN_302, expected_url='https://example.com/?q=a&id=2'))
     return cases
 
 def evaluate_result(actual: Any, expected_type: str, expected_url: Optional[str] = None) -> Tuple[bool, str, str]:
@@ -3713,7 +3928,7 @@ def _execute_node(runner_code: str, cases: List[TestCase]) -> List[dict]:
         except (ValueError, TypeError) as exc:
             raise RuntimeError(f'Invalid Node.js JSON output. stdout: {stdout[:300]!r}; stderr: {stderr[:1000]}') from exc
         if not _validate_results(results, len(cases)):
-            raise RuntimeError(f'Incomplete or malformed Node.js results. stderr: {stderr[:1000]}')
+            raise RuntimeError(f'Incomplete or malformed Node.js results. stdout: {stdout[:300]!r}; stderr: {stderr[:1000]}')
         return results
 
 
@@ -3793,10 +4008,13 @@ def run_tests(use_cache: bool = True) -> int:
         print(f"2. [BATCH ENGINE] Testing {len(final_cases)} SSOT Generated Cases via Node.js...")
         try:
             results = _execute_node(runner_code, final_cases)
-            _save_node_cache(_cache_key, results)
         except (RuntimeError, OSError) as exc:
             print(f"[FATAL ERROR] {exc}")
             return 1
+        try:
+            _save_node_cache(_cache_key, results)
+        except OSError as exc:
+            print(f"[CACHE WARNING] Cannot save optional cache; validating fresh Node.js results: {exc}")
 
     if not _validate_results(results, len(final_cases)):
         print('[FATAL ERROR] Test result IDs/count/output fields are inconsistent.')
@@ -3871,6 +4089,94 @@ def run_tests(use_cache: bool = True) -> int:
     print("="*55 + "\n")
     return 0 if failed == 0 else 1
 
+def _tampermonkey_test_runner(test_body: str) -> str:
+    """Execute the complete generated userscript with isolated browser API doubles."""
+    prelude = r"""
+const assert = require('node:assert/strict');
+const elements = new Map(), documentEvents = new Map();
+const fetchCalls = [], beaconCalls = [], observers = [];
+class TestElement extends EventTarget {
+    constructor(tag = 'div') {
+        super(); this.tagName = tag.toUpperCase(); this.nodeType = 1;
+        this.style = {}; this.attrs = new Map(); this.children = []; this._src = '';
+    }
+    set id(value) { this._id = value; elements.set(value, this); }
+    get id() { return this._id; }
+    set innerHTML(value) {
+        this._html = value;
+        for (const match of value.matchAll(/id="([^"]+)"/g)) {
+            if (!elements.has(match[1])) { const el = new TestElement(); el.id = match[1]; }
+        }
+    }
+    get innerHTML() { return this._html || ''; }
+    appendChild(el) { this.children.push(el); return el; }
+    contains(el) { return this === el || this.children.some(child => child.contains(el)); }
+    querySelectorAll(selector) {
+        return this.children.flatMap(child => {
+            const found = selector.includes('script[src]') && ['SCRIPT', 'IMG', 'IFRAME'].includes(child.tagName) && child.src;
+            return [...(found ? [child] : []), ...child.querySelectorAll(selector)];
+        });
+    }
+    hasAttribute(key) { return this.attrs.has(key); }
+    removeAttribute(key) { this.attrs.delete(key); }
+    remove() { this.removed = true; }
+    closest() { return null; }
+}
+class HTMLScriptElement extends TestElement {}
+class HTMLImageElement extends TestElement {}
+class HTMLIFrameElement extends TestElement {}
+for (const cls of [HTMLScriptElement, HTMLImageElement, HTMLIFrameElement]) {
+    Object.defineProperty(cls.prototype, 'src', {
+        get() { return this._src; }, set(value) { this._src = value; }, configurable: true, enumerable: true
+    });
+}
+class XMLHttpRequest extends EventTarget {
+    open(method, url) { this.nativeUrl = url; this.nativeState = 1; }
+    send() { this.nativeSent = true; this.nativeState = 4; this.nativeStatus = 200; }
+    abort() { this.nativeState = 0; this.nativeStatus = 0; }
+    get readyState() { return this.nativeState || 0; }
+    get status() { return this.nativeStatus || 0; }
+    get statusText() { return ''; }
+    get response() { return ''; }
+    get responseText() { return ''; }
+    get responseURL() { return this.nativeUrl || ''; }
+    getAllResponseHeaders() { return 'native-header: yes'; }
+    getResponseHeader() { return 'native'; }
+}
+const document = {
+    baseURI: 'https://example.com/docs/page', readyState: 'loading',
+    documentElement: new TestElement('html'), body: null,
+    createElement(tag) { return new TestElement(tag); },
+    querySelectorAll() { return []; },
+    getElementById(id) { return elements.get(id) || null; },
+    addEventListener(type, fn) {
+        if (!documentEvents.has(type)) documentEvents.set(type, []);
+        documentEvents.get(type).push(fn);
+    },
+    getSelection() { return {isCollapsed: true}; }
+};
+const location = { origin: 'https://example.com', href: document.baseURI };
+const navigator = {
+    sendBeacon(url, body) { beaconCalls.push({url, body}); return true; },
+    clipboard: { async writeText(text) { return text; } }
+};
+const window = {
+    navigator,
+    async fetch(...args) { fetchCalls.push(args); return new Response('native'); }
+};
+class MutationObserver {
+    constructor(callback) { this.callback = callback; observers.push(this); }
+    observe() { this.started = true; }
+}
+function requestAnimationFrame(fn) { setTimeout(fn, 0); }
+"""
+    prefix, ending = compile_tampermonkey().rsplit('})();', 1)
+    checks = ("\n(async () => {\n" + test_body +
+              "\n})().then(results => console.log(JSON.stringify(results || [{id: 0, output: null}])))"
+              ".catch(error => { console.error(error.stack); process.exitCode = 1; });\n})();" + ending)
+    return prelude + prefix + checks
+
+
 def run_self_tests() -> int:
     """Infrastructure regressions stay in the SSOT; all writes use isolated directories."""
     import contextlib
@@ -3888,6 +4194,337 @@ def run_self_tests() -> int:
             self.addCleanup(self.scope.stop)
             self.cases = [TestCase('Golden', 'https://example.com/', RES_ALLOW)]
             self.results = [{'id': 0, 'output': None}]
+
+        def run_tm(self, body):
+            self.assertEqual(_execute_node(_tampermonkey_test_runner(body), self.cases), self.results)
+
+        def test_tampermonkey_full_matrix(self):
+            with contextlib.redirect_stdout(io.StringIO()):
+                cases = sorted(dict.fromkeys(generate_full_coverage_cases()), key=lambda c: c.category)
+            body = r"""
+const cases = JSON.parse(require('fs').readFileSync(process.argv[2], 'utf8'));
+return cases.map(c => {
+    let output = applyFilter(c.url);
+    if (c.is_e2e) {
+        output = output === null ? applyFilter(c.e2e_target_url.split('#')[0]) : {error: 'E2E phase 1 blocked'};
+    }
+    return {id: c.id, output};
+});
+"""
+            results = _execute_node(_tampermonkey_test_runner(body), cases)
+            failures = []
+            for case, result in zip(cases, results):
+                passed, _, details = evaluate_result(result['output'], case.expected, case.expected_url)
+                if not passed:
+                    failures.append(f'{case.category}: {case.url}: {details}')
+            self.assertEqual(failures, [], '\n'.join(failures[:15]))
+
+        def test_tampermonkey_clipboard_property_and_html_safety(self):
+            self.run_tm(r"""
+const source = 'https://example.com/page?q=keep&utm_source=x';
+assert.equal(cleanTextUrls('See ' + source + '.').text, 'See https://example.com/page?q=keep.');
+assert.equal(await navigator.clipboard.writeText(source), 'https://example.com/page?q=keep');
+const image = new HTMLImageElement('img');
+image.src = 'asset.png?utm_source=x';
+assert.equal(image.src, 'https://example.com/docs/asset.png');
+assert.equal(Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src').configurable, true);
+image.src = 'https://ads.google.com/ad';
+assert.equal(image.src, 'https://example.com/docs/asset.png');
+initUI();
+const hostile = 'https://example.com/<img src=x onerror=alert(1)>&"';
+tmStats.recordAllow(hostile);
+fab.onclick(); elements.get('ssot-tab-allowed').onclick();
+assert.ok(listContainer.innerHTML.includes('&lt;img'));
+assert.ok(!listContainer.innerHTML.includes('<img'));
+tmStats.recordClean(hostile, hostile);
+elements.get('ssot-tab-cleaned').onclick();
+assert.ok(!listContainer.innerHTML.includes('<img'));
+""")
+
+        def test_tampermonkey_fetch_url_objects_base_and_request_options(self):
+            self.run_tm(r"""
+await window.fetch(new URL('https://example.com/page?utm_source=x'));
+assert.equal(fetchCalls.pop()[0], 'https://example.com/page');
+await assert.rejects(window.fetch(new URL('https://ads.google.com/page')));
+assert.equal(fetchCalls.length, 0);
+await window.fetch('item?utm_source=x', {method: 'POST', body: 'payload'});
+let args = fetchCalls.pop();
+assert.equal(args[0], 'https://example.com/docs/item');
+assert.equal(args[1].body, 'payload');
+const controller = new AbortController();
+const request = new Request('https://example.com/api/data?utm_source=x', {
+    method: 'POST', body: 'kept body', headers: {'X-Test': 'kept'}, credentials: 'include', signal: controller.signal
+});
+await window.fetch(request);
+const forwarded = fetchCalls.pop()[0];
+assert.equal(forwarded.url, 'https://example.com/api/data');
+assert.equal(forwarded.method, 'POST');
+assert.equal(forwarded.headers.get('X-Test'), 'kept');
+assert.equal(forwarded.credentials, 'include');
+assert.equal(await forwarded.text(), 'kept body');
+controller.abort(); assert.equal(forwarded.signal.aborted, true);
+""")
+
+        def test_tampermonkey_xhr_reuse_sync_and_stale_events(self):
+            self.run_tm(r"""
+const xhr = new XMLHttpRequest(), events = [];
+for (const event of ['readystatechange', 'load', 'loadend', 'error']) xhr.addEventListener(event, () => events.push(event));
+xhr.open('GET', 'https://slackb.com/test', false); xhr.send();
+assert.equal(xhr.status, 204);
+assert.deepEqual(events, ['readystatechange', 'load', 'loadend']);
+xhr.open('GET', 'https://example.com/safe'); xhr.send();
+assert.equal(xhr.status, 200); assert.equal(xhr.nativeSent, true);
+assert.equal(xhr.getResponseHeader('x'), 'native');
+xhr.open('GET', 'https://slackb.com/other', false); xhr.send();
+assert.equal(xhr.status, 204);
+events.length = 0;
+xhr.open('GET', 'https://slackb.com/delayed'); xhr.send();
+xhr.open('GET', 'https://example.com/safe');
+await new Promise(resolve => setTimeout(resolve, 180));
+assert.deepEqual(events, []); assert.equal(xhr.readyState, 1);
+xhr.open('GET', 'https://ads.google.com/ad'); xhr.send();
+assert.deepEqual(events, []); assert.equal(xhr.readyState, 1);
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.deepEqual(events, ['readystatechange', 'error', 'loadend']);
+assert.equal(xhr.readyState, 4); assert.equal(xhr.status, 0); assert.equal(xhr.responseURL, '');
+assert.throws(() => xhr.send(), {name: 'InvalidStateError'});
+const syncBlocked = new XMLHttpRequest();
+syncBlocked.open('GET', 'https://ads.google.com/ad', false);
+assert.throws(() => syncBlocked.send(), {name: 'NetworkError'});
+assert.equal(syncBlocked.nativeSent, undefined); assert.equal(syncBlocked.readyState, 4);
+assert.throws(() => syncBlocked.send(), {name: 'InvalidStateError'});
+""")
+
+        def test_tampermonkey_beacon_iframe_base_and_idempotence(self):
+            self.run_tm(r"""
+assert.equal(navigator.sendBeacon('item?utm_source=x', 'data'), true);
+assert.equal(beaconCalls.pop().url, 'https://example.com/docs/item');
+const frameFetchCalls = [], frameBeaconCalls = [];
+const frame = {contentWindow: {
+    document: {baseURI: 'https://example.com/frames/page'}, location: {href: 'https://example.com/frames/page'}, Request,
+    navigator: {sendBeacon(url) {frameBeaconCalls.push(url); return true;}},
+    async fetch(...args) {frameFetchCalls.push(args); return new Response('frame');}
+}};
+patchIframeBeacon(frame);
+const patchedFetch = frame.contentWindow.fetch;
+patchIframeBeacon(frame); assert.equal(frame.contentWindow.fetch, patchedFetch);
+await frame.contentWindow.fetch(new URL('https://example.com/page?utm_source=x'));
+assert.equal(frameFetchCalls.pop()[0], 'https://example.com/page');
+await frame.contentWindow.fetch('item?utm_source=x');
+assert.equal(frameFetchCalls.pop()[0], 'https://example.com/frames/item');
+frame.contentWindow.navigator.sendBeacon('item?utm_source=x');
+assert.equal(frameBeaconCalls.pop(), 'https://example.com/frames/item');
+frame.contentWindow.Request = class FrameRequest extends Request {};
+await frame.contentWindow.fetch(new Request('https://example.com/api/data?utm_source=x', {method: 'POST', body: 'parent request body'}));
+const crossRealmRequest = frameFetchCalls.pop()[0];
+assert.equal(crossRealmRequest.method, 'POST');
+assert.equal(await crossRealmRequest.text(), 'parent request body');
+await assert.rejects(frame.contentWindow.fetch(new URL('https://ads.google.com/ad')));
+assert.equal(frameFetchCalls.length, 0);
+const noBeacon = {contentWindow: {document: {baseURI: 'https://example.com/'}, navigator: {}, Request,
+    async fetch() {throw new Error('network should be blocked');}}};
+patchIframeBeacon(noBeacon);
+await assert.rejects(noBeacon.contentWindow.fetch('https://ads.google.com/ad'), /Blocked by SSOT/);
+const lockedFrame = {contentWindow: {document: {baseURI: 'https://example.com/'}, Request,
+    navigator: {sendBeacon() {return true;}}, async fetch() {throw new Error('network should be blocked');}}};
+Object.defineProperty(lockedFrame.contentWindow.navigator, 'sendBeacon', {writable: false});
+patchIframeBeacon(lockedFrame);
+await assert.rejects(lockedFrame.contentWindow.fetch('https://ads.google.com/ad'), /Blocked by SSOT/);
+const watched = new TestElement('iframe'); let listenerCount = 0;
+watched.addEventListener = () => listenerCount++;
+watchIframe(watched); watchIframe(watched); assert.equal(listenerCount, 1);
+""")
+
+        def test_tampermonkey_locked_beacon_proxy(self):
+            runner = _tampermonkey_test_runner(r"""
+assert.equal(window.navigator.sendBeacon('https://slackb.com/test'), true);
+assert.equal(beaconCalls.length, 0);
+assert.equal(window.navigator.sendBeacon('https://example.com/page?utm_source=x'), true);
+assert.equal(beaconCalls.pop().url, 'https://example.com/page');
+""").replace('const window = {',
+                "Object.defineProperty(navigator, 'sendBeacon', {writable: false, configurable: false});\nconst window = {", 1)
+            self.assertEqual(_execute_node(runner, self.cases), self.results)
+
+        def test_tampermonkey_optional_locked_hooks_do_not_stop_fetch(self):
+            runner = _tampermonkey_test_runner(r"""
+await assert.rejects(window.fetch('https://ads.google.com/ad'), /Blocked by URL Ultimate Filter/);
+assert.equal(fetchCalls.length, 0);
+""").replace('const window = {',
+                "Object.defineProperty(navigator.clipboard, 'writeText', {writable: false});\n"
+                "Object.defineProperty(HTMLImageElement.prototype, 'src', {configurable: false});\nconst window = {", 1)
+            self.assertEqual(_execute_node(runner, self.cases), self.results)
+
+        def test_tampermonkey_xhr_abort_and_json_response(self):
+            self.run_tm(r"""
+const xhr = new XMLHttpRequest(); let loads = 0;
+xhr.addEventListener('load', () => loads++);
+xhr.open('GET', 'https://slackb.com/test'); xhr.send();
+assert.equal(xhr.readyState, 1); assert.equal(xhr.status, 0);
+xhr.abort();
+await new Promise(resolve => setTimeout(resolve, 180));
+assert.equal(loads, 0); assert.equal(xhr.readyState, 0); assert.equal(xhr.status, 0);
+xhr.responseType = 'json';
+xhr.open('GET', 'https://slackb.com/test', false); xhr.send();
+assert.equal(xhr.status, 204); assert.equal(xhr.response, null);
+assert.throws(() => xhr.responseText, {name: 'InvalidStateError'});
+assert.throws(() => xhr.send(), {name: 'InvalidStateError'});
+for (const type of ['arraybuffer', 'blob', 'document']) {
+    xhr.open('GET', 'https://slackb.com/test', false); xhr.responseType = type; xhr.send();
+    if (type === 'arraybuffer') assert.equal(xhr.response.byteLength, 0);
+    else if (type === 'blob') assert.equal(xhr.response.size, 0);
+    else assert.equal(xhr.response, null);
+    assert.equal(xhr.response, xhr.response);
+}
+""")
+
+        def test_tampermonkey_abort_keeps_filter_and_signals_events(self):
+            self.run_tm(r"""
+const reopened = new XMLHttpRequest();
+reopened.open('GET', 'https://ads.google.com/ad'); reopened.abort(); reopened.send();
+assert.equal(reopened.nativeSent, undefined);
+const dropped = new XMLHttpRequest();
+dropped.open('GET', 'https://slackb.com/test'); dropped.abort(); dropped.send();
+assert.equal(dropped.nativeSent, undefined);
+const pending = new XMLHttpRequest(), events = [];
+for (const event of ['readystatechange', 'load', 'error', 'abort', 'loadend']) pending.addEventListener(event, () => events.push(event));
+const states = [];
+pending.addEventListener('abort', () => states.push(pending.readyState));
+pending.open('GET', 'https://slackb.com/test'); pending.send(); pending.abort();
+assert.deepEqual(events, ['readystatechange', 'abort', 'loadend']);
+assert.deepEqual(states, [4]); assert.equal(pending.readyState, 0); assert.equal(pending.status, 0);
+await new Promise(resolve => setTimeout(resolve, 180));
+assert.deepEqual(events, ['readystatechange', 'abort', 'loadend']);
+assert.throws(() => pending.send(), {name: 'InvalidStateError'});
+pending.abort(); assert.throws(() => pending.send(), {name: 'InvalidStateError'});
+const done = new XMLHttpRequest(), doneEvents = [];
+for (const event of ['load', 'error', 'abort', 'loadend']) done.addEventListener(event, () => doneEvents.push(event));
+done.open('GET', 'https://slackb.com/test', false); done.send(); done.abort();
+assert.equal(done.readyState, 0); assert.equal(done.status, 0);
+assert.throws(() => done.send(), {name: 'InvalidStateError'});
+assert.deepEqual(doneEvents, ['load', 'loadend']);
+done.open('GET', 'https://slackb.com/test', false); done.send(); assert.equal(done.status, 204);
+assert.equal(done.nativeSent, undefined);
+const idle = new XMLHttpRequest(); let idleEvents = 0;
+idle.addEventListener('abort', () => idleEvents++);
+idle.open('GET', 'https://example.com/safe'); idle.abort();
+assert.equal(idleEvents, 0);
+""")
+
+        def test_tampermonkey_fetch_abort_signal_and_blocked_element_events(self):
+            self.run_tm(r"""
+const early = new AbortController(); early.abort();
+await assert.rejects(window.fetch('https://slackb.com/test', {signal: early.signal}), {name: 'AbortError'});
+await assert.rejects(window.fetch('https://ads.google.com/ad', {signal: early.signal}), {name: 'AbortError'});
+const late = new AbortController();
+const lateFetch = window.fetch('https://slackb.com/test', {signal: late.signal});
+late.abort();
+await assert.rejects(lateFetch, {name: 'AbortError'});
+const ok = await window.fetch('https://slackb.com/test', {signal: new AbortController().signal});
+assert.equal(ok.status, 204);
+assert.equal(fetchCalls.length, 0);
+const fired = [];
+const watch = (el, name) => { for (const t of ['load', 'error']) el.addEventListener(t, () => fired.push(name + ':' + t)); return el; };
+watch(new HTMLScriptElement('script'), 'script403').src = 'https://ads.google.com/ad.js';
+watch(new HTMLScriptElement('script'), 'script204').src = 'https://slackb.com/test';
+watch(new HTMLImageElement('img'), 'img204').src = 'https://slackb.com/test';
+watch(new HTMLIFrameElement('iframe'), 'frame403').src = 'https://ads.google.com/ad';
+assert.deepEqual(fired, []);
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.deepEqual(fired, ['script403:error', 'script204:load', 'img204:error']);
+""")
+
+        def test_tampermonkey_ui_failure_does_not_escape(self):
+            runner = _tampermonkey_test_runner(r"""
+const warn = console.warn; let warned = 0; console.warn = () => warned++;
+try { for (const fn of documentEvents.get('DOMContentLoaded')) fn(); } finally { console.warn = warn; }
+assert.equal(warned, 1);
+await assert.rejects(window.fetch('https://ads.google.com/ad'), /Blocked by URL Ultimate Filter/);
+assert.ok(observers[0].target === document);
+""").replace("    observe() { this.started = true; }", "    observe(target) { this.started = true; this.target = target; }", 1).replace(
+                "    set innerHTML(value) {",
+                "    set innerHTML(value) { throw new TypeError('TrustedHTML required'); }\n    set _unusedInnerHTML(value) {", 1)
+            self.assertEqual(_execute_node(runner, self.cases), self.results)
+
+        def test_every_critical_map_regex_has_a_matching_case(self):
+            with contextlib.redirect_stdout(io.StringIO()):
+                cases = generate_full_coverage_cases()
+            from urllib.parse import urlsplit
+            parsed = [urlsplit(c.url) for c in cases]
+            for host, paths in RULES_DB['CRITICAL_PATH_MAP'].items():
+                for rule in paths:
+                    if not rule.startswith(('RE:', 'DROP_RE:')):
+                        continue
+                    pattern = re.compile(rule.split(':', 1)[1], re.IGNORECASE)
+                    self.assertTrue(any(
+                        ((u.hostname or '') == host or (u.hostname or '').endswith('.' + host))
+                        and (pattern.search(u.path) or pattern.search(u.path + '?' + u.query))
+                        for u in parsed), f'{host} {rule}')
+
+        def test_tampermonkey_dom_attributes_subtrees_and_css_cleaning(self):
+            self.run_tm(r"""
+assert.equal(observer.started, true);
+const anchor = new TestElement('a'); anchor.attrs.set('ping', 'https://example.com');
+observer.callback([{type: 'attributes', target: anchor}]);
+assert.equal(anchor.hasAttribute('ping'), false);
+const script = new TestElement('script'); script.src = 'https://ads.google.com/ad';
+const wrapper = new TestElement(); wrapper.appendChild(script);
+observer.callback([{type: 'childList', addedNodes: [wrapper]}]);
+assert.equal(script.removed, true);
+const changed = new TestElement('img'); changed.src = 'https://ads.google.com/ad';
+observer.callback([{type: 'attributes', target: changed}]); assert.equal(changed.removed, true);
+const attrRoot = new TestElement();
+attrRoot.querySelectorAll = () => {throw new Error('Attributes must not scan unrelated descendants');};
+observer.callback([{type: 'attributes', target: attrRoot}]);
+const styled = new TestElement(); styled.style.backgroundImage = 'url("https://example.com/image.png?utm_source=x")';
+observer.callback([{type: 'attributes', target: styled}]);
+assert.equal(styled.style.backgroundImage, 'url("https://example.com/image.png")');
+styled.style.backgroundImage = 'url("https://ads.google.com/ad.png")';
+observer.callback([{type: 'attributes', target: styled}]); assert.equal(styled.style.backgroundImage, 'none');
+""")
+
+        def test_js_string_and_prefix_bucket_roundtrip(self):
+            values = ["quote'\\", 'line\nreturn\r\t\x00', '\u2028\u2029', '繁體中文']
+            runner = ('const values = ' + format_js_array(values) + ';\n' +
+                      'const buckets = ' + format_js_prefix_buckets(["'prefix", '\\prefix']) + ';\n' +
+                      'console.log(JSON.stringify([{id:0, output:{values, keys:Array.from(buckets.keys())}}]));')
+            output = _execute_node(runner, self.cases)[0]['output']
+            self.assertEqual(output['values'], values)
+            self.assertEqual(output['keys'], ["'", '\\'])
+
+        def test_database_patterns_compile_and_literal_keys_are_unique(self):
+            import ast
+            tree = ast.parse(Path(__file__).read_text(encoding='utf-8'))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Dict):
+                    keys = [key.value for key in node.keys if isinstance(key, ast.Constant) and isinstance(key.value, str)]
+                    self.assertEqual(len(keys), len(set(keys)), f'Duplicate dictionary key at line {node.lineno}')
+            patterns = []
+            for key, value in RULES_DB.items():
+                if 'REGEX' in key and isinstance(value, list):
+                    patterns.extend(value)
+                if isinstance(value, dict):
+                    for entries in value.values():
+                        if isinstance(entries, list):
+                            for entry in entries:
+                                if entry.startswith('DROP_RE:'):
+                                    patterns.append(entry[8:])
+                                elif entry.startswith('RE:'):
+                                    patterns.append(entry[3:])
+                    if key == 'LATE_EXACT_PATH_BLOCK_REGEX':
+                        patterns.extend(pattern for entries in value.values() for pattern in entries)
+            runner = ('for (const pattern of ' + json.dumps(patterns) + ') new RegExp(pattern, "i");\n' +
+                      'console.log(JSON.stringify([{id:0, output:null}]));')
+            self.assertEqual(_execute_node(runner, self.cases), self.results)
+
+        def test_cache_write_failure_does_not_discard_fresh_results(self):
+            with patch.dict(globals(), {
+                'generate_full_coverage_cases': lambda: self.cases,
+                '_execute_node': lambda *args: self.results,
+                '_save_node_cache': Mock(side_effect=PermissionError('locked cache')),
+            }), contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(run_tests(use_cache=False), 0)
+            self.assertIn('[CACHE WARNING]', output.getvalue())
+            self.assertTrue((self.root / 'URL-Ultimate-Filter-Surge.js').exists())
 
         def test_cache_fingerprints_engine_cases_expectations_and_e2e(self):
             key = _compute_node_cache_key('engine-A', self.cases, 'tm-A')
