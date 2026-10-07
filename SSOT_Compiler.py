@@ -3,17 +3,18 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.70 (2026-10-07)
+當前版本：V46.71 (2026-10-07)
 最新架構更新：
-- [Privacy] Bazaarvoice 遙測補漏：`network-a.bazaarvoice.com` 的錯誤回報 beacon `/a.gif` 與 `apps.bazaarvoice.com` 的 analytics 指令碼 `/analytics/`，以 host-scoped `DROP_RE` 精準 204；不碰 `bazaarvoice.com` 其他主機，評論內容 API 維持原行為。
-- [Test] V46.70 迴歸：兩個精確端點 204；相鄰 `/analytics-extra`、`a.gif2`、同 host 根路徑、其他網域同路徑與 `api.bazaarvoice.com` 評論 API 維持 ALLOW。
+- [Privacy] Costco TW 前台日誌上報端點 `www.costco.com.tw/storefront-logs` 以 host-scoped `DROP_RE` 精準 204 靜默拋棄；不碰 costco.com.tw 其他路徑與其他主機。
+- [Test] V46.71 迴歸：精確端點與帶 query 版本 204；相鄰 `/storefront-logs-extra`、同 host 根路徑、其他網域同路徑維持 ALLOW。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.71 (2026-10-07): Privacy — Costco TW `/storefront-logs` 日誌上報端點補漏；host-scoped `DROP_RE` 只鎖精確路徑邊界。
 - V46.70 (2026-10-07): Privacy — Bazaarvoice 錯誤回報 beacon 與 analytics 指令碼補漏；host-scoped `DROP_RE` 只鎖精確路徑，同 host 其他路徑與其他網域維持原規則。
 - V46.69 (2026-10-02): BugFix — `api2.cursor.sh` Background Composer 推播登記方法加入路徑豁免；全域 `pushnotification` 與 `api3` 遙測規則維持原行為。
 - V46.68 (2026-09-21): Privacy — PostHog `/e/` 與 App Center `/logs` 事件攝取端點補漏；host-scoped `DROP_RE` 只鎖精確路徑，相鄰路徑與其他網域維持原規則。
 - V46.67 (2026-09-19): Privacy — Cursor 遙測 `api3.cursor.sh/tev1/v1/rgstr` 精準 204 拋棄；只鎖精確路徑，同樹 `initialize` 與其他 host 維持原行為。
-- V46.66 (2026-09-17): BugFix — query 豁免、長路徑、hostname 與清理判斷修正；可信測試快取、URL 斷言及非零失敗退出。
+
 """
 
 import hashlib
@@ -40,12 +41,12 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.70"
+VERSION = "46.71"
 RELEASE_DATE = "2026-10-07"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] Bazaarvoice 錯誤回報 beacon（`network-a.bazaarvoice.com/a.gif`，cl=Error）與 analytics 指令碼（`apps.bazaarvoice.com/analytics/`）以 host-scoped `DROP_RE` 精準 204 靜默拋棄；不封鎖整個 `bazaarvoice.com`，評論內容 API 維持原行為。
-- [Test] V46.70 迴歸：兩個精確端點 204；相鄰 `/analytics-extra`、`a.gif2`、同 host 根路徑、其他網域同路徑與 `api.bazaarvoice.com` 評論 API 維持 ALLOW。
+- [Privacy] Costco TW 前台日誌上報端點 `www.costco.com.tw/storefront-logs` 以 host-scoped `DROP_RE` 精準 204 靜默拋棄；不碰 costco.com.tw 其他路徑與其他主機。
+- [Test] V46.71 迴歸：精確端點與帶 query 版本 204；相鄰 `/storefront-logs-extra`、同 host 根路徑、其他網域同路徑維持 ALLOW。
 """
 
 
@@ -617,6 +618,7 @@ RULES_DB = {
         'mail.aol.com': ['DROP_RE:^/m/log(\\?|$)'],
         'network-a.bazaarvoice.com': ['DROP_RE:^/a[.]gif(?:/|[?]|$)'],
         'apps.bazaarvoice.com': ['DROP_RE:^/analytics(?:/|[?]|$)'],
+        'www.costco.com.tw': ['DROP_RE:^/storefront-logs(?:[/?]|$)'],
         'api3.cursor.sh': ['DROP_RE:^/tev1/v1/rgstr(?:\\?|$)'],
     },
     "HIGH_CONFIDENCE": [
@@ -3099,6 +3101,12 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Regression: Other Host Analytics Path Pass", "https://example.com/analytics/bv-analytics.js", RES_ALLOW, "V46.70 規則限 apps.bazaarvoice.com；其他網域同一路徑維持原行為"))
     cases.append(TestCase("Safe: Bazaarvoice Apps Root Pass", "https://apps.bazaarvoice.com/", RES_ALLOW, "V46.70 規則只鎖 /analytics 端點；host 根路徑維持原行為"))
     cases.append(TestCase("Safe: Bazaarvoice Reviews API Pass", "https://api.bazaarvoice.com/data/reviews.json?passkey=fixture", RES_ALLOW, "V46.70 未動 bazaarvoice.com 其他主機；商品評論內容 API 維持原行為"))
+    # --- V46.71 Costco TW storefront log ingestion ---
+    cases.append(TestCase("Privacy: Costco Storefront Logs Drop", "https://www.costco.com.tw/storefront-logs", RES_DROP_204, "V46.71 Costco TW 前台日誌上報端點；host-scoped CRITICAL_PATH_MAP DROP_RE 精準 204，不封鎖 costco.com.tw 其他路徑"))
+    cases.append(TestCase("Privacy: Costco Storefront Logs Query Drop", "https://www.costco.com.tw/storefront-logs?ts=1", RES_DROP_204, "V46.71 精確端點規則不依賴 query；帶 query 版本同樣 204"))
+    cases.append(TestCase("Regression: Costco Storefront Logs Sibling Pass", "https://www.costco.com.tw/storefront-logs-extra", RES_ALLOW, "V46.71 路徑邊界保護；相鄰 /storefront-logs-extra 不得被連帶 DROP"))
+    cases.append(TestCase("Regression: Other Host Storefront Logs Path Pass", "https://example.com/storefront-logs", RES_ALLOW, "V46.71 規則限 www.costco.com.tw；其他網域同一路徑維持原行為"))
+    cases.append(TestCase("Safe: Costco Root Pass", "https://www.costco.com.tw/", RES_ALLOW, "V46.71 規則只鎖 /storefront-logs 端點；host 根路徑維持原行為"))
     # --- V46.67 Cursor Statsig event-registration telemetry precise drop ---
     cases.append(TestCase("Privacy: Cursor Statsig Event Registration Drop", "https://api3.cursor.sh/tev1/v1/rgstr?k=client-fixture&st=javascript-client&sv=3.33.3&t=1789779230985&sid=1e54ae98-38be-4640-bbba-58185a4b4107&ec=4", RES_DROP_204, "V46.67 Cursor Statsig SDK 事件登記端點（POST 202／GET 403 RBAC）確認為遙測性質；host-scoped CRITICAL_PATH_MAP DROP_RE 精準 204，與 statsig.anthropic.com、prodregistryv2.org 的 `/v1/rgstr` 同家族"))
     cases.append(TestCase("Privacy: Cursor Statsig Event Registration Bare Drop", "https://api3.cursor.sh/tev1/v1/rgstr", RES_DROP_204, "V46.67 精確端點規則不依賴 query 參數，裸路徑同樣 204 DROP"))
