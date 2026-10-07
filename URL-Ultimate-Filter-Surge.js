@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.71
+ * @version 46.72
  * @date    2026-10-07
  * @rules   2190 total (312 domains, 448 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.71';
-const SCRIPT_BUILD = 'V46.71 (2026-10-07) | 2190 rules | 3436 tests';
+const SCRIPT_VERSION = '46.72';
+const SCRIPT_BUILD = 'V46.72 (2026-10-07) | 2190 rules | 3457 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1428,19 +1428,20 @@ const HELPERS = {
     try {
       const _qi = urlStr.indexOf('?');
       if (_qi < 0) return null;
-      const _hi = urlStr.indexOf('#', _qi);
+      const _hi = urlStr.indexOf('#');
+      if (_hi >= 0 && _hi < _qi) return null;
       const base = urlStr.substring(0, _qi);
       let qs = _hi >= 0 ? urlStr.substring(_qi + 1, _hi) : urlStr.substring(_qi + 1);
       const hash = _hi >= 0 ? urlStr.substring(_hi) : '';
 
       if (!qs) return null;
-      if (qs.indexOf(';') >= 0) qs = qs.replace(/;/g, '&');
-
-      const pairs = qs.split('&');
+      // Support legacy semicolon separators without changing retained query bytes.
+      const pairs = qs.split(/[&;]/);
+      const separators = qs.match(/[&;]/g) || [];
       // Check real raw query keys, never decoded values containing a fake '&sig='.
       if (pairs.some(pair => {
         const eq = pair.indexOf('=');
-        return eq >= 0 && RULES.PARAMS.SIGNATURE_NAMES.has(decodeParamName(pair.substring(0, eq)));
+        return RULES.PARAMS.SIGNATURE_NAMES.has(decodeParamName(eq >= 0 ? pair.substring(0, eq) : pair));
       })) return null;
       const kept = [];
       const scopedParamExemptions = hostProfile.scopedParamExemptions;
@@ -1448,13 +1449,14 @@ const HELPERS = {
 
       for (let i = 0; i < pairs.length; i++) {
         const pair = pairs[i];
-        if (!pair) { kept.push(pair); continue; }
+        const entry = { pair, separator: i > 0 ? separators[i - 1] : '' };
+        if (!pair) { kept.push(entry); continue; }
         const eqIdx = pair.indexOf('=');
         const key = eqIdx >= 0 ? pair.substring(0, eqIdx) : pair;
         const lowerKey = decodeParamName(key);
 
         if (RULES.PARAMS.WHITELIST.has(lowerKey) || HELPERS.isScopedParamAllowed(scopedParamExemptions, pathOnly, lowerKey)) {
-          kept.push(pair); continue;
+          kept.push(entry); continue;
         }
 
         if (RULES.PARAMS.GLOBAL.has(lowerKey) || RULES.PARAMS.COSMETIC.has(lowerKey)) { changed = true; continue; }
@@ -1474,11 +1476,12 @@ const HELPERS = {
           changed = true; continue;
         }
 
-        kept.push(pair);
+        kept.push(entry);
       }
 
       if (!changed) return null;
-      const newQs = kept.join('&');
+      // Rewrites already change the URL, so drop empty pairs instead of leaving '?&a' or 'a&'.
+      const newQs = kept.filter(entry => entry.pair).map((entry, i) => (i ? entry.separator : '') + entry.pair).join('');
       return { url: newQs ? base + '?' + newQs + hash : base + hash, type: rewriteType };
     } catch (_) { return null; }
   }
@@ -1544,7 +1547,7 @@ function processRequest(request) {
     const pathOnly = decodePath(rawPathOnly);
     const pathLower = decodePath(rawPath);
 
-    if (pathLower.includes('/accounts/checkconnection')) {
+    if (pathOnly.includes('/accounts/checkconnection')) {
       return { response: { status: 204 } };
     }
 
@@ -1567,22 +1570,23 @@ function processRequest(request) {
 
     if (hostProfile.isRedirectExtract) {
       let extractedUrl = null;
-      const rawPath = url.substring(url.indexOf('/', url.indexOf('://') + 3) + 1);
-      if (rawPath) {
+      const redirectPath = parsed.rawPath.substring(1);
+      const isSafeTarget = target => !/[\u0000-\u0020\u007f]/.test(target) && parseRequestUrl(target) !== null;
+      if (redirectPath) {
         try {
-          const decoded = decodeURIComponent(rawPath);
-          if (decoded.startsWith('http://') || decoded.startsWith('https://')) extractedUrl = decoded;
+          const decoded = decodeURIComponent(redirectPath);
+          if (isSafeTarget(decoded)) extractedUrl = decoded;
         } catch (_) {}
       }
-      if (!extractedUrl && url.includes('?')) {
-        const qs = url.substring(url.indexOf('?') + 1);
+      if (!extractedUrl && parsed.rawPath.includes('?')) {
+        const qs = parsed.rawPath.substring(parsed.rawPath.indexOf('?') + 1);
         const pairs = qs.split('&');
         for (let i = 0; i < pairs.length; i++) {
           const pair = pairs[i];
           if (pair.startsWith('url=')) {
             try {
               const val = decodeURIComponent(pair.substring(4));
-              if (val.startsWith('http://') || val.startsWith('https://')) { extractedUrl = val; break; }
+              if (isSafeTarget(val)) { extractedUrl = val; break; }
             } catch (_) {}
           }
         }

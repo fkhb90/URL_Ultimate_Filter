@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.71
+// @name         URL Ultimate Filter V46.72
 // @namespace    http://tampermonkey.net/
-// @version      46.71
+// @version      46.72
 // @date         2026-10-07
-// @description  SSOT 前端防護盾牌 V46.71 (2026-10-07) | 2190 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @description  SSOT 前端防護盾牌 V46.72 (2026-10-07) | 2190 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
 // @rules        2190 total (312 domains · 448 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.71
+ * @version 46.72
  * @date    2026-10-07
  * @rules   2190 total (312 domains, 448 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.71';
-const SCRIPT_BUILD = 'V46.71 (2026-10-07) | 2190 rules | 3436 tests';
+const SCRIPT_VERSION = '46.72';
+const SCRIPT_BUILD = 'V46.72 (2026-10-07) | 2190 rules | 3457 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1443,19 +1443,20 @@ const HELPERS = {
     try {
       const _qi = urlStr.indexOf('?');
       if (_qi < 0) return null;
-      const _hi = urlStr.indexOf('#', _qi);
+      const _hi = urlStr.indexOf('#');
+      if (_hi >= 0 && _hi < _qi) return null;
       const base = urlStr.substring(0, _qi);
       let qs = _hi >= 0 ? urlStr.substring(_qi + 1, _hi) : urlStr.substring(_qi + 1);
       const hash = _hi >= 0 ? urlStr.substring(_hi) : '';
 
       if (!qs) return null;
-      if (qs.indexOf(';') >= 0) qs = qs.replace(/;/g, '&');
-
-      const pairs = qs.split('&');
+      // Support legacy semicolon separators without changing retained query bytes.
+      const pairs = qs.split(/[&;]/);
+      const separators = qs.match(/[&;]/g) || [];
       // Check real raw query keys, never decoded values containing a fake '&sig='.
       if (pairs.some(pair => {
         const eq = pair.indexOf('=');
-        return eq >= 0 && RULES.PARAMS.SIGNATURE_NAMES.has(decodeParamName(pair.substring(0, eq)));
+        return RULES.PARAMS.SIGNATURE_NAMES.has(decodeParamName(eq >= 0 ? pair.substring(0, eq) : pair));
       })) return null;
       const kept = [];
       const scopedParamExemptions = hostProfile.scopedParamExemptions;
@@ -1463,13 +1464,14 @@ const HELPERS = {
 
       for (let i = 0; i < pairs.length; i++) {
         const pair = pairs[i];
-        if (!pair) { kept.push(pair); continue; }
+        const entry = { pair, separator: i > 0 ? separators[i - 1] : '' };
+        if (!pair) { kept.push(entry); continue; }
         const eqIdx = pair.indexOf('=');
         const key = eqIdx >= 0 ? pair.substring(0, eqIdx) : pair;
         const lowerKey = decodeParamName(key);
 
         if (RULES.PARAMS.WHITELIST.has(lowerKey) || HELPERS.isScopedParamAllowed(scopedParamExemptions, pathOnly, lowerKey)) {
-          kept.push(pair); continue;
+          kept.push(entry); continue;
         }
 
         if (RULES.PARAMS.GLOBAL.has(lowerKey) || RULES.PARAMS.COSMETIC.has(lowerKey)) { changed = true; continue; }
@@ -1489,11 +1491,12 @@ const HELPERS = {
           changed = true; continue;
         }
 
-        kept.push(pair);
+        kept.push(entry);
       }
 
       if (!changed) return null;
-      const newQs = kept.join('&');
+      // Rewrites already change the URL, so drop empty pairs instead of leaving '?&a' or 'a&'.
+      const newQs = kept.filter(entry => entry.pair).map((entry, i) => (i ? entry.separator : '') + entry.pair).join('');
       return { url: newQs ? base + '?' + newQs + hash : base + hash, type: rewriteType };
     } catch (_) { return null; }
   }
@@ -1559,7 +1562,7 @@ function processRequest(request) {
     const pathOnly = decodePath(rawPathOnly);
     const pathLower = decodePath(rawPath);
 
-    if (pathLower.includes('/accounts/checkconnection')) {
+    if (pathOnly.includes('/accounts/checkconnection')) {
       return { response: { status: 204 } };
     }
 
@@ -1582,22 +1585,23 @@ function processRequest(request) {
 
     if (hostProfile.isRedirectExtract) {
       let extractedUrl = null;
-      const rawPath = url.substring(url.indexOf('/', url.indexOf('://') + 3) + 1);
-      if (rawPath) {
+      const redirectPath = parsed.rawPath.substring(1);
+      const isSafeTarget = target => !/[\u0000-\u0020\u007f]/.test(target) && parseRequestUrl(target) !== null;
+      if (redirectPath) {
         try {
-          const decoded = decodeURIComponent(rawPath);
-          if (decoded.startsWith('http://') || decoded.startsWith('https://')) extractedUrl = decoded;
+          const decoded = decodeURIComponent(redirectPath);
+          if (isSafeTarget(decoded)) extractedUrl = decoded;
         } catch (_) {}
       }
-      if (!extractedUrl && url.includes('?')) {
-        const qs = url.substring(url.indexOf('?') + 1);
+      if (!extractedUrl && parsed.rawPath.includes('?')) {
+        const qs = parsed.rawPath.substring(parsed.rawPath.indexOf('?') + 1);
         const pairs = qs.split('&');
         for (let i = 0; i < pairs.length; i++) {
           const pair = pairs[i];
           if (pair.startsWith('url=')) {
             try {
               const val = decodeURIComponent(pair.substring(4));
-              if (val.startsWith('http://') || val.startsWith('https://')) { extractedUrl = val; break; }
+              if (isSafeTarget(val)) { extractedUrl = val; break; }
             } catch (_) {}
           }
         }
@@ -1931,6 +1935,28 @@ function runBenchmarkSuite() {
     let shieldVisible = true;
     let updatePending = false;
 
+    function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, ch => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[ch]));
+    }
+
+    function getActionUrl(action) {
+        if (!action) return null;
+        if (action.url) return action.url;
+        const response = action.response;
+        return response && response.status === 302 && response.headers ? response.headers.Location : null;
+    }
+
+    function resolveInputUrl(input, base = document.baseURI || location.href) {
+        return new URL(input && typeof input.url === 'string' ? input.url : String(input), base).href;
+    }
+
+    function isRequestInput(input) {
+        // instanceof rejects valid Request objects created in another iframe realm.
+        return input && typeof input.url === 'string' && typeof input.clone === 'function';
+    }
+
     if (typeof GM_registerMenuCommand !== 'undefined') {
         GM_registerMenuCommand("🛡️ 切換 URL 盾牌顯示/隱藏", () => {
             shieldVisible = !shieldVisible;
@@ -2069,7 +2095,7 @@ function runBenchmarkSuite() {
                 if (tmStats.blocked.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無攔截紀錄</div>`;
                 else listHtml = Array.from(tmStats.blocked.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#fca5a5;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <span>${u}</span>
+                        <span>${escapeHtml(u)}</span>
                         ${c > 1 ? `<span style="${badgeStyle} background:#7f1d1d; color:#fecaca;">x${c}</span>` : ''}
                     </div>
                 </div>`).join('');
@@ -2077,7 +2103,7 @@ function runBenchmarkSuite() {
                 if (tmStats.dropped.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無拋棄紀錄</div>`;
                 else listHtml = Array.from(tmStats.dropped.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#c4b5fd;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <span>${u}</span>
+                        <span>${escapeHtml(u)}</span>
                         ${c > 1 ? `<span style="${badgeStyle} background:#4c1d95; color:#ddd6fe;">x${c}</span>` : ''}
                     </div>
                 </div>`).join('');
@@ -2085,16 +2111,16 @@ function runBenchmarkSuite() {
                 if (tmStats.cleaned.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無淨化紀錄</div>`;
                 else listHtml = Array.from(tmStats.cleaned.entries()).reverse().map(([o, data]) => `<div style="${itemStyle}">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
-                        <div style="text-decoration:line-through; color:#475569;">${o}</div>
+                        <div style="text-decoration:line-through; color:#475569;">${escapeHtml(o)}</div>
                         ${data.count > 1 ? `<span style="${badgeStyle} background:#064e3b; color:#a7f3d0;">x${data.count}</span>` : ''}
                     </div>
-                    <div style="color:#6ee7b7;">➔ ${data.newUrl}</div>
+                    <div style="color:#6ee7b7;">➔ ${escapeHtml(data.newUrl)}</div>
                 </div>`).join('');
             } else if (activeTab === 'allowed') {
                 if (tmStats.allowed.size === 0) listHtml = `<div style="padding:16px; text-align:center; color:#64748b; font-size:12px;">無放行紀錄</div>`;
                 else listHtml = Array.from(tmStats.allowed.entries()).reverse().map(([u, c]) => `<div style="${itemStyle} color:#94a3b8;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                        <span>${u}</span>
+                        <span>${escapeHtml(u)}</span>
                         ${c > 1 ? `<span style="${badgeStyle} background:#334155; color:#cbd5e1;">x${c}</span>` : ''}
                     </div>
                 </div>`).join('');
@@ -2104,7 +2130,7 @@ function runBenchmarkSuite() {
     }
 
     function applyFilter(url) {
-        if (!url || typeof url !== 'string' || !url.startsWith('http')) return null;
+        if (!url || typeof url !== 'string' || !/^https?:\/\//i.test(url)) return null;
         return processRequest({ url: url });
     }
 
@@ -2121,13 +2147,14 @@ function runBenchmarkSuite() {
                 url = url.slice(0, -1);
             }
             try {
-                const absoluteUrl = new URL(url, location.origin).href;
+                const absoluteUrl = resolveInputUrl(url);
                 const action = applyFilter(absoluteUrl);
-                if (action && action.url && absoluteUrl !== action.url) {
-                    tmStats.recordClean(absoluteUrl, action.url);
-                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 📋 Clipboard Cleaned: ${absoluteUrl} -> ${action.url}`);
+                const cleanedUrl = getActionUrl(action);
+                if (cleanedUrl && absoluteUrl !== cleanedUrl) {
+                    tmStats.recordClean(absoluteUrl, cleanedUrl);
+                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 📋 Clipboard Cleaned: ${absoluteUrl} -> ${cleanedUrl}`);
                     modified = true;
-                    return action.url + trailing;
+                    return cleanedUrl + trailing;
                 }
             } catch(e) {}
             return match; 
@@ -2137,10 +2164,12 @@ function runBenchmarkSuite() {
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
         const origWriteText = navigator.clipboard.writeText.bind(navigator.clipboard);
-        navigator.clipboard.writeText = function(text) {
-            const result = cleanTextUrls(text);
-            return origWriteText(result.text);
-        };
+        try {
+            navigator.clipboard.writeText = function(text) {
+                const result = cleanTextUrls(text);
+                return origWriteText(result.text);
+            };
+        } catch (_) {} // An optional locked clipboard hook must not stop network protection.
     }
 
     document.addEventListener('copy', (e) => {
@@ -2149,7 +2178,7 @@ function runBenchmarkSuite() {
         if (!selection || selection.isCollapsed) return;
         const selectedText = selection.toString();
         const result = cleanTextUrls(selectedText);
-        if (result.modified) {
+        if (result.modified && e.clipboardData) {
             e.preventDefault();
             e.clipboardData.setData('text/plain', result.text);
         }
@@ -2157,34 +2186,48 @@ function runBenchmarkSuite() {
     // --- Clipboard Interceptor 模組結束 ---
 
     // --- Property Setter Hook (動態腳本屬性攔截器) ---
+    // Loaders waiting on onload/onerror must settle even though the assignment is suppressed.
+    // A dropped script mimics an empty 204 load; an empty image body still fails to decode.
+    function signalBlockedLoad(element, isDrop) {
+        if (element.tagName === 'IFRAME') return;
+        const type = isDrop && element.tagName === 'SCRIPT' ? 'load' : 'error';
+        setTimeout(() => { try { element.dispatchEvent(new Event(type)); } catch (_) {} }, 0);
+    }
+
     function hookProperty(elementClass, propertyName) {
         const origDesc = Object.getOwnPropertyDescriptor(elementClass.prototype, propertyName);
-        if (origDesc && origDesc.set) {
+        if (origDesc && origDesc.set && origDesc.configurable) {
             Object.defineProperty(elementClass.prototype, propertyName, {
                 set: function(val) {
                     if (val && typeof val === 'string') {
                         try {
-                            const absoluteUrl = new URL(val, location.origin).href;
+                            const absoluteUrl = resolveInputUrl(val);
                             const action = applyFilter(absoluteUrl);
                             if (action && action.response) {
                                 if (action.response.status === 403) {
                                     tmStats.recordBlock(absoluteUrl);
                                     if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Property Hook Blocked: ${absoluteUrl}`);
+                                    signalBlockedLoad(this, false);
                                     return; // 物理阻斷賦值，瀏覽器完全不發送請求
                                 } else if (action.response.status === 204) {
                                     tmStats.recordDrop(absoluteUrl);
                                     if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Property Hook Dropped: ${absoluteUrl}`);
+                                    signalBlockedLoad(this, true);
                                     return; // 物理阻斷賦值，瀏覽器完全不發送請求
                                 }
-                            } else if (action && action.url && val !== action.url) {
-                                tmStats.recordClean(absoluteUrl, action.url);
-                                val = action.url;
+                            }
+                            const cleanedUrl = getActionUrl(action);
+                            if (cleanedUrl && absoluteUrl !== cleanedUrl) {
+                                tmStats.recordClean(absoluteUrl, cleanedUrl);
+                                val = cleanedUrl;
                             }
                         } catch(e) {}
                     }
                     return origDesc.set.call(this, val);
                 },
-                get: origDesc.get
+                get: origDesc.get,
+                configurable: origDesc.configurable,
+                enumerable: origDesc.enumerable
             });
         }
     }
@@ -2197,42 +2240,64 @@ function runBenchmarkSuite() {
     let _pendingDrops = 0;
     const MAX_PENDING_DROPS = 64; 
     const origFetch = window.fetch;
+    // Mocked responses must honour AbortSignal like a native fetch.
+    function getFetchSignal(args) {
+        try {
+            if (args[1] && args[1].signal) return args[1].signal;
+            if (isRequestInput(args[0]) && args[0].signal) return args[0].signal;
+        } catch (_) {}
+        return null;
+    }
+    function abortReason(signal) {
+        return signal.reason !== undefined ? signal.reason : new DOMException('The operation was aborted.', 'AbortError');
+    }
     window.fetch = async function(...args) {
-        let url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+        let url = '';
+        try { url = resolveInputUrl(args[0]); } catch (_) {}
         if (url) {
-            try { url = new URL(url, location.origin).href; } catch(e){}
             const action = applyFilter(url);
             if (action) {
                 if (action.response) {
                     if (action.response.status === 403) {
                         tmStats.recordBlock(url);
                         if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Blocked: ${url}`);
+                        const signal = getFetchSignal(args);
+                        if (signal && signal.aborted) return Promise.reject(abortReason(signal));
                         return Promise.reject(new Error("Blocked by URL Ultimate Filter SSOT"));
                     } else if (action.response.status === 204) {
                         tmStats.recordDrop(url);
                         if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Dropped (Delayed Mock): ${url}`);
+                        const signal = getFetchSignal(args);
+                        if (signal && signal.aborted) return Promise.reject(abortReason(signal));
                         const mock204 = () => new Response(null, { status: 204, statusText: 'No Content' });
                         if (_pendingDrops >= MAX_PENDING_DROPS) return Promise.resolve(mock204());
                         const delay = Math.floor(Math.random() * 100) + 50;
                         _pendingDrops++;
-                        return new Promise(resolve => {
-                            setTimeout(() => {
+                        return new Promise((resolve, reject) => {
+                            const onAbort = () => {
+                                clearTimeout(timer);
+                                _pendingDrops--;
+                                reject(abortReason(signal));
+                            };
+                            const timer = setTimeout(() => {
+                                if (signal) signal.removeEventListener('abort', onAbort);
                                 _pendingDrops--;
                                 resolve(mock204());
                             }, delay);
+                            if (signal) signal.addEventListener('abort', onAbort, { once: true });
                         });
                     } else if (action.response.status === 302 && action.response.headers && action.response.headers.Location) {
                         const cleanedUrl = action.response.headers.Location;
                         tmStats.recordClean(url, cleanedUrl);
                         if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] ✏️ Fetch Cleaned (302): ${url} -> ${cleanedUrl}`);
-                        if (typeof args[0] === 'string') args[0] = cleanedUrl;
-                        else args[0] = new Request(cleanedUrl, args[0]);
+                        if (isRequestInput(args[0])) args[0] = new Request(cleanedUrl, args[0]);
+                        else args[0] = cleanedUrl;
                     }
                 } else if (action.url) {
                     tmStats.recordClean(url, action.url);
                     if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] ✏️ Rewrote: ${url} -> ${action.url}`);
-                    if (typeof args[0] === 'string') args[0] = action.url;
-                    else args[0] = new Request(action.url, args[0]);
+                    if (isRequestInput(args[0])) args[0] = new Request(action.url, args[0]);
+                    else args[0] = action.url;
                 } else {
                     tmStats.recordAllow(url);
                 }
@@ -2244,12 +2309,20 @@ function runBenchmarkSuite() {
     };
 
     const origOpen = XMLHttpRequest.prototype.open;
+    const xhrMockProperties = ['readyState', 'status', 'statusText', 'response', 'responseText',
+        'responseURL', 'getAllResponseHeaders', 'getResponseHeader'];
     XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+        if (this._ssotMocked) {
+            for (const key of xhrMockProperties) delete this[key];
+            this._ssotMocked = false;
+        }
+        this._ssotGeneration = (this._ssotGeneration || 0) + 1;
+        this._ssotAsync = rest[0] !== false;
         this._ssotAction = null;
         this._ssotUrl = '';
         if (url) {
             try {
-                let absoluteUrl = new URL(url, location.origin).href;
+                let absoluteUrl = resolveInputUrl(url);
                 this._ssotUrl = absoluteUrl;
                 const action = applyFilter(absoluteUrl);
                 if (action) {
@@ -2280,28 +2353,81 @@ function runBenchmarkSuite() {
     };
 
     const origSend = XMLHttpRequest.prototype.send;
+    const origAbort = XMLHttpRequest.prototype.abort;
+    XMLHttpRequest.prototype.abort = function(...args) {
+        const abortPendingMock = this._ssotMocked && this._ssotPending ? this._ssotAbortMock : null;
+        this._ssotGeneration = (this._ssotGeneration || 0) + 1;
+        this._ssotPending = false;
+        // Keep _ssotAction: the native request is still opened with the filtered URL,
+        // so a later send() on this instance must stay blocked/dropped instead of leaking.
+        // Mock properties stay until open(), so send() after abort() throws like native UNSENT.
+        const result = origAbort.apply(this, args);
+        if (abortPendingMock) abortPendingMock();
+        else if (this._ssotMocked) this._ssotResetMock();
+        return result;
+    };
     XMLHttpRequest.prototype.send = function(...args) {
-        if (this._ssotAction === 403) {
-            this.dispatchEvent(new Event('error'));
-            return;
-        } else if (this._ssotAction === 204) {
+        if (this._ssotAction === 403 || this._ssotAction === 204) {
+            if (this._ssotMocked) throw new DOMException('Request already sent', 'InvalidStateError');
+            const isDrop = this._ssotAction === 204;
             const mockUrl = this._ssotUrl;
-            Object.defineProperties(this, {
-                readyState: { get: () => 4 },
-                status: { get: () => 204 },
-                statusText: { get: () => 'No Content' },
-                response: { get: () => '' },
-                responseText: { get: () => '' },
-                responseURL: { get: () => mockUrl },
-                getAllResponseHeaders: { value: () => 'content-length: 0\r\n' },
+            let completed = false;
+            let mockState = 1;
+            let responseObject = null;
+            const descriptors = {
+                readyState: { get: () => mockState },
+                status: { get: () => completed && isDrop ? 204 : 0 },
+                statusText: { get: () => completed && isDrop ? 'No Content' : '' },
+                response: { get: () => {
+                    const type = this.responseType || 'text';
+                    if (type === 'text') return '';
+                    if (!completed || !isDrop || type === 'json' || type === 'document') return null;
+                    if (responseObject === null) {
+                        if (type === 'arraybuffer') responseObject = new ArrayBuffer(0);
+                        else if (type === 'blob') responseObject = new Blob([]);
+                    }
+                    return responseObject;
+                } },
+                responseText: { get: () => {
+                    if (this.responseType && this.responseType !== 'text') throw new DOMException('Invalid responseType', 'InvalidStateError');
+                    return '';
+                } },
+                responseURL: { get: () => completed && isDrop ? mockUrl : '' },
+                getAllResponseHeaders: { value: () => completed && isDrop ? 'content-length: 0\r\n' : '' },
                 getResponseHeader: { value: (name) => null }
-            });
-            const fireXhrEvents = () => {
+            };
+            for (const descriptor of Object.values(descriptors)) descriptor.configurable = true;
+            Object.defineProperties(this, descriptors);
+            this._ssotMocked = true;
+            this._ssotResetMock = () => { completed = false; mockState = 0; };
+            // A blocked synchronous request behaves like a native network error.
+            if (!isDrop && !this._ssotAsync) {
+                mockState = 4;
+                this._ssotPending = false;
+                throw new DOMException('Blocked by URL Ultimate Filter SSOT', 'NetworkError');
+            }
+            this._ssotPending = true;
+            // Spec abort sequence for a pending mock: DONE + events, then UNSENT.
+            this._ssotAbortMock = () => {
+                mockState = 4;
                 this.dispatchEvent(new Event('readystatechange'));
-                this.dispatchEvent(new Event('load'));
+                this.dispatchEvent(new Event('abort'));
+                this.dispatchEvent(new Event('loadend'));
+                mockState = 0;
+            };
+            const generation = this._ssotGeneration;
+            const fireXhrEvents = () => {
+                if (generation !== this._ssotGeneration) return;
+                completed = true;
+                mockState = 4;
+                this._ssotPending = false;
+                this.dispatchEvent(new Event('readystatechange'));
+                this.dispatchEvent(new Event(isDrop ? 'load' : 'error'));
                 this.dispatchEvent(new Event('loadend'));
             };
-            if (_pendingDrops >= MAX_PENDING_DROPS) { fireXhrEvents(); return; }
+            // Like a native network error, a blocked async request completes after send() returns.
+            if (!isDrop) { setTimeout(fireXhrEvents, 0); return; }
+            if (!this._ssotAsync || _pendingDrops >= MAX_PENDING_DROPS) { fireXhrEvents(); return; }
             const delay = Math.floor(Math.random() * 100) + 50;
             _pendingDrops++;
             setTimeout(() => {
@@ -2318,7 +2444,7 @@ function runBenchmarkSuite() {
         const beaconInterceptor = function(url, data) {
             if (url) {
                 try {
-                    let absoluteUrl = new URL(url, location.origin).href;
+                    let absoluteUrl = resolveInputUrl(url);
                     const action = applyFilter(absoluteUrl);
                     if (action && action.response) {
                         if (action.response.status === 403) {
@@ -2330,6 +2456,11 @@ function runBenchmarkSuite() {
                             if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Beacon Dropped (Fake Success): ${absoluteUrl}`);
                             return true;
                         }
+                    }
+                    const cleanedUrl = getActionUrl(action);
+                    if (cleanedUrl && cleanedUrl !== absoluteUrl) {
+                        tmStats.recordClean(absoluteUrl, cleanedUrl);
+                        url = cleanedUrl;
                     }
                 } catch(e){}
             }
@@ -2347,11 +2478,13 @@ function runBenchmarkSuite() {
 
         if (navigator.sendBeacon !== beaconInterceptor && typeof Proxy !== 'undefined') {
             try {
-                const navProxy = new Proxy(navigator, {
-                    get(target, prop, receiver) {
+                const originalNavigator = navigator;
+                // A locked own property cannot be replaced by a Proxy get trap on that same target.
+                const navProxy = new Proxy(Object.create(Object.getPrototypeOf(originalNavigator)), {
+                    get(target, prop) {
                         if (prop === 'sendBeacon') return beaconInterceptor;
-                        const val = Reflect.get(target, prop, receiver);
-                        return typeof val === 'function' ? val.bind(target) : val;
+                        const val = Reflect.get(originalNavigator, prop, originalNavigator);
+                        return typeof val === 'function' ? val.bind(originalNavigator) : val;
                     }
                 });
                 Object.defineProperty(window, 'navigator', {
@@ -2365,37 +2498,51 @@ function runBenchmarkSuite() {
         }
     }
     
+    const patchedIframeWindows = new WeakMap();
     function patchIframeBeacon(iframe) {
         try {
             const iframeWin = iframe.contentWindow;
-            if (!iframeWin || !iframeWin.navigator || !iframeWin.navigator.sendBeacon) return;
-            const iframeOrigBeacon = iframeWin.navigator.sendBeacon.bind(iframeWin.navigator);
-            iframeWin.navigator.sendBeacon = function(url, data) {
-                if (url) {
-                    try {
-                        let absoluteUrl = new URL(url, location.origin).href;
-                        const action = applyFilter(absoluteUrl);
-                        if (action && action.response) {
-                            if (action.response.status === 403) {
-                                tmStats.recordBlock(absoluteUrl);
-                                if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 iframe Beacon Blocked: ${absoluteUrl}`);
-                                return false;
-                            } else if (action.response.status === 204) {
-                                tmStats.recordDrop(absoluteUrl);
-                                if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 iframe Beacon Dropped: ${absoluteUrl}`);
-                                return true;
-                            }
+            if (!iframeWin || !iframeWin.navigator) return;
+            const iframeDocument = iframeWin.document;
+            if (patchedIframeWindows.get(iframeWin) === iframeDocument) return;
+            patchedIframeWindows.set(iframeWin, iframeDocument);
+            const iframeBase = () => iframeWin.document.baseURI || iframeWin.location.href;
+            if (iframeWin.navigator.sendBeacon) {
+                const iframeOrigBeacon = iframeWin.navigator.sendBeacon.bind(iframeWin.navigator);
+                try {
+                    iframeWin.navigator.sendBeacon = function(url, data) {
+                        if (url) {
+                            try {
+                                let absoluteUrl = resolveInputUrl(url, iframeBase());
+                                const action = applyFilter(absoluteUrl);
+                                if (action && action.response) {
+                                    if (action.response.status === 403) {
+                                        tmStats.recordBlock(absoluteUrl);
+                                        if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 iframe Beacon Blocked: ${absoluteUrl}`);
+                                        return false;
+                                    } else if (action.response.status === 204) {
+                                        tmStats.recordDrop(absoluteUrl);
+                                        if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 iframe Beacon Dropped: ${absoluteUrl}`);
+                                        return true;
+                                    }
+                                }
+                                const cleanedUrl = getActionUrl(action);
+                                if (cleanedUrl && cleanedUrl !== absoluteUrl) {
+                                    tmStats.recordClean(absoluteUrl, cleanedUrl);
+                                    url = cleanedUrl;
+                                }
+                            } catch(e){}
                         }
-                    } catch(e){}
-                }
-                return iframeOrigBeacon(url, data);
-            };
+                        return iframeOrigBeacon(url, data);
+                    };
+                } catch (_) {} // Keep the fetch hook available when this optional property is locked.
+            }
             if (iframeWin.fetch) {
                 const iframeOrigFetch = iframeWin.fetch;
                 iframeWin.fetch = function(...args) {
-                    let url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+                    let url = '';
+                    try { url = resolveInputUrl(args[0], iframeBase()); } catch (_) {}
                     if (url) {
-                        try { url = new URL(url, location.origin).href; } catch(e){}
                         const action = applyFilter(url);
                         if (action && action.response) {
                             if (action.response.status === 403) {
@@ -2406,6 +2553,12 @@ function runBenchmarkSuite() {
                                 return Promise.resolve(new Response(null, { status: 204, statusText: 'No Content' }));
                             }
                         }
+                        const cleanedUrl = getActionUrl(action);
+                        if (cleanedUrl && cleanedUrl !== url) {
+                            tmStats.recordClean(url, cleanedUrl);
+                            if (isRequestInput(args[0])) args[0] = new iframeWin.Request(cleanedUrl, args[0]);
+                            else args[0] = cleanedUrl;
+                        }
                     }
                     return iframeOrigFetch.apply(this, args);
                 };
@@ -2413,21 +2566,31 @@ function runBenchmarkSuite() {
         } catch(e) {}
     }
 
+    const watchedIframes = new WeakSet();
+    function watchIframe(iframe) {
+        if (watchedIframes.has(iframe)) return;
+        watchedIframes.add(iframe);
+        iframe.addEventListener('load', () => patchIframeBeacon(iframe));
+    }
+
     const origCreateElement = document.createElement.bind(document);
     document.createElement = function(tagName, options) {
         const el = origCreateElement(tagName, options);
         if (tagName && tagName.toLowerCase() === 'iframe') {
-            el.addEventListener('load', () => patchIframeBeacon(el), { once: false });
+            watchIframe(el);
         }
         return el;
     };
     try {
         const existingIframes = document.querySelectorAll('iframe');
-        for (const iframe of existingIframes) patchIframeBeacon(iframe);
+        for (const iframe of existingIframes) {
+            watchIframe(iframe);
+            patchIframeBeacon(iframe);
+        }
     } catch(e) {}
 
     document.addEventListener('click', (e) => {
-        const target = e.target.closest('a[ping]');
+        const target = e.target && typeof e.target.closest === 'function' ? e.target.closest('a[ping]') : null;
         if (target) {
             target.removeAttribute('ping');
             if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🔪 Ping Attribute Defused on click`);
@@ -2448,80 +2611,96 @@ function runBenchmarkSuite() {
         try {
             if (!node || !node.style || !node.style.backgroundImage) return;
             const bgVal = node.style.backgroundImage;
-            let match;
-            CSS_BG_URL_RE.lastIndex = 0;
-            while ((match = CSS_BG_URL_RE.exec(bgVal)) !== null) {
-                const action = applyFilter(match[1]);
-                if (action && action.response) {
-                    node.style.backgroundImage = 'none';
-                    if (action.response.status === 403) tmStats.recordBlock(match[1]);
-                    else if (action.response.status === 204) tmStats.recordDrop(match[1]);
-                    if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🎨 CSS bg-image tracker defused: ${match[1]}`);
-                    break;
+            const cleanedBg = bgVal.replace(CSS_BG_URL_RE, (match, url) => {
+                const action = applyFilter(url);
+                if (action && action.response && (action.response.status === 403 || action.response.status === 204)) {
+                    if (action.response.status === 403) tmStats.recordBlock(url);
+                    else tmStats.recordDrop(url);
+                    return 'none';
                 }
-            }
+                const cleanedUrl = getActionUrl(action);
+                if (cleanedUrl && cleanedUrl !== url) {
+                    tmStats.recordClean(url, cleanedUrl);
+                    return 'url(' + JSON.stringify(cleanedUrl) + ')';
+                }
+                return match;
+            });
+            if (cleanedBg !== bgVal) node.style.backgroundImage = cleanedBg;
         } catch(e) {}
     }
 
     const observer = new MutationObserver((mutations) => {
         for (const mutation of mutations) {
-            for (const node of mutation.addedNodes) {
-                if (node.nodeType !== 1) continue; 
+            const isAttributes = mutation.type === 'attributes';
+            const roots = isAttributes ? [mutation.target] : Array.from(mutation.addedNodes);
+            for (const root of roots) {
+                const nodes = [root];
+                if (!isAttributes && root.querySelectorAll) nodes.push(...root.querySelectorAll('script[src], img[src], iframe[src]'));
+                for (const node of nodes) {
+                    if (node.nodeType !== 1) continue;
 
-                if (node.tagName === 'A' && node.hasAttribute('ping')) {
-                    node.removeAttribute('ping');
-                } else if (node.querySelectorAll) {
-                    defuseAllPingAttributes(node);
-                }
+                    if (node.tagName === 'A' && node.hasAttribute('ping')) {
+                        node.removeAttribute('ping');
+                    } else if (!isAttributes && node.querySelectorAll) {
+                        defuseAllPingAttributes(node);
+                    }
 
-                defuseCssBgTrackers(node);
-                if (node.querySelectorAll) {
-                    try {
-                        const styled = node.querySelectorAll('[style*="background"]');
-                        for (const el of styled) defuseCssBgTrackers(el);
-                    } catch(e) {}
-                }
-
-                if (node.tagName === 'IFRAME') {
-                    node.addEventListener('load', () => patchIframeBeacon(node), { once: false });
-                    patchIframeBeacon(node); 
-                }
-                
-                // 保留 MutationObserver 作為安全網 (針對不支援 property hook 的邊界情況)
-                if (node.tagName === 'SCRIPT' || node.tagName === 'IMG' || node.tagName === 'IFRAME') {
-                    if (node.src) {
+                    defuseCssBgTrackers(node);
+                    if (!isAttributes && node.querySelectorAll) {
                         try {
-                            const action = applyFilter(node.src);
-                            if (action && action.response) {
-                                if (action.response.status === 403) {
-                                    tmStats.recordBlock(node.src);
-                                    node.remove();
-                                } else if (action.response.status === 204) {
-                                    tmStats.recordDrop(node.src);
-                                    node.remove();
+                            const styled = node.querySelectorAll('[style*="background"]');
+                            for (const el of styled) defuseCssBgTrackers(el);
+                        } catch(e) {}
+                    }
+
+                    if (node.tagName === 'IFRAME') {
+                        watchIframe(node);
+                        patchIframeBeacon(node);
+                    }
+                
+                    // 保留 MutationObserver 作為安全網 (針對不支援 property hook 的邊界情況)
+                    if (node.tagName === 'SCRIPT' || node.tagName === 'IMG' || node.tagName === 'IFRAME') {
+                        if (node.src) {
+                            try {
+                                const action = applyFilter(node.src);
+                                if (action && action.response) {
+                                    if (action.response.status === 403) {
+                                        tmStats.recordBlock(node.src);
+                                        node.remove();
+                                    } else if (action.response.status === 204) {
+                                        tmStats.recordDrop(node.src);
+                                        node.remove();
+                                    }
                                 }
-                            } else if (action && action.url && node.src !== action.url) {
-                                tmStats.recordClean(node.src, action.url);
-                                node.src = action.url;
-                            } else if (!action) {
-                                tmStats.recordAllow(node.src);
-                            }
-                        } catch(e){}
+                                const cleanedUrl = getActionUrl(action);
+                                if (cleanedUrl && node.src !== cleanedUrl) {
+                                    tmStats.recordClean(node.src, cleanedUrl);
+                                    node.src = cleanedUrl;
+                                } else if (!action) {
+                                    tmStats.recordAllow(node.src);
+                                }
+                            } catch(e){}
+                        }
                     }
                 }
             }
         }
     });
     
+    function startObserver() {
+        defuseAllPingAttributes(document);
+        observer.observe(document, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style', 'src'] });
+    }
+    startObserver();
+    function safeInitUI() {
+        try { initUI(); } catch (e) { console.warn('[SSOT-TM] UI init failed; filtering remains active.', e); }
+    }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
-            defuseAllPingAttributes(document); 
-            observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style', 'src'] });
-            initUI();
+            startObserver();
+            safeInitUI();
         });
     } else {
-        defuseAllPingAttributes(document); 
-        observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['ping', 'style', 'src'] });
-        initUI();
+        safeInitUI();
     }
 })();
