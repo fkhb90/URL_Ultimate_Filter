@@ -3,18 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.72 (2026-10-07)
+當前版本：V46.77 (2026-10-07)
 最新架構更新：
-- [BugFix] 修正 fragment/query 邊界、保留參數分隔符、簽章 key 與安全轉址驗證。
-- [Security] Tampermonkey 紀錄 HTML 跳脫；補齊 302 清理、URL/baseURI、XHR 重用與 DOM/iframe 攔截。
-- [Test] 新增解析邊界與完整 Tampermonkey 模板回歸，驗證雙平台完整矩陣。
+- [BugFix] `setAttributeNS` 依 DOM 規範區分大小寫，只有名稱完全等於 `src` 才取消阻斷 src 的過期合成事件。
+- [Test] 新增 `setAttributeNS(null, 'SRC')` 不取消事件回歸。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
-- V46.72 (2026-10-07): BugFix/Security — URL 解析及轉址邊界、Tampermonkey 清理與生命週期修復；加入雙平台與瀏覽器介面回歸。
-- V46.71 (2026-10-07): Privacy — Costco TW `/storefront-logs` 日誌上報端點補漏；host-scoped `DROP_RE` 只鎖精確路徑邊界。
-- V46.70 (2026-10-07): Privacy — Bazaarvoice 錯誤回報 beacon 與 analytics 指令碼補漏；host-scoped `DROP_RE` 只鎖精確路徑，同 host 其他路徑與其他網域維持原規則。
-- V46.69 (2026-10-02): BugFix — `api2.cursor.sh` Background Composer 推播登記方法加入路徑豁免；全域 `pushnotification` 與 `api3` 遙測規則維持原行為。
-- V46.68 (2026-09-21): Privacy — PostHog `/e/` 與 App Center `/logs` 事件攝取端點補漏；host-scoped `DROP_RE` 只鎖精確路徑，相鄰路徑與其他網域維持原規則。
+- V46.77 (2026-10-07): BugFix — `setAttributeNS` 名稱區分大小寫，`SRC` 不再誤取消阻斷 src 的合成事件。
+- V46.76 (2026-10-07): BugFix — `setAttributeNS(null, 'src')` 也取消過期合成事件；被瀏覽器拒絕的 src 寫入不再誤取消事件。
+- V46.75 (2026-10-07): BugFix — `setAttribute('src')` 寫入相同值也會同步取消阻斷 src 的過期合成事件。
+- V46.74 (2026-10-07): BugFix — 阻斷 src 的合成事件也會被 `setAttribute('src')` 取消；賦值世代改存 WeakMap，不再寫入頁面可見屬性。
+- V46.73 (2026-10-07): BugFix — Tampermonkey 阻斷 src 的合成事件在元素改設新 src 後取消，避免 fallback 被誤判。
 
 """
 
@@ -42,14 +41,12 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.72"
+VERSION = "46.77"
 RELEASE_DATE = "2026-10-07"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] query 清理忽略 fragment 內的問號、保留未移除參數的原分隔符並移除空參數段，並保護無等號簽章 key；CheckConnection 僅匹配 path。
-- [Security] 轉址抽取排除 fragment 與含控制字元的目標；JS 字串與 Tampermonkey 紀錄 HTML 完整跳脫。
-- [BugFix] Tampermonkey 統一處理 302/REWRITE、URL 物件與文件 baseURI；修復 XHR DROP 重用、DOM 屬性/子樹與 iframe 重複 hook；XHR 403 改為非同步 network error、abort 後不再外洩請求、fetch mock 遵守 AbortSignal、阻斷 script/img 依結果補發 load/error 事件、UI 初始化失敗不外拋。
-- [Test] 新增解析邊界、完整 Tampermonkey 模板與雙平台完整矩陣回歸；CRITICAL_PATH_MAP 正則規則必須有對應案例。
+- [BugFix] Tampermonkey `setAttributeNS` hook 依 DOM 規範區分大小寫：只有無命名空間且名稱完全等於 `src` 的寫入才取消阻斷 src 的過期合成事件；`SRC` 屬於另一個屬性，不再誤吞事件。
+- [Test] 新增 `setAttributeNS(null, 'SRC')` 保留待送事件回歸。
 """
 
 
@@ -1985,10 +1982,26 @@ def compile_tampermonkey() -> str:
     // --- Property Setter Hook (動態腳本屬性攔截器) ---
     // Loaders waiting on onload/onerror must settle even though the assignment is suppressed.
     // A dropped script mimics an empty 204 load; an empty image body still fails to decode.
+    // A later src change supersedes the queued event, so fallbacks are not misreported.
+    // Property assignments and setAttribute('src') advance a private generation synchronously
+    // (WeakMap: works on frozen elements and never touches page-visible state); the attribute
+    // snapshot also catches other attribute paths, which a blocked assignment never changes.
+    const srcGenerations = new WeakMap();
+    function bumpSrcGeneration(element) {
+        try { srcGenerations.set(element, (srcGenerations.get(element) || 0) + 1); } catch (_) {}
+    }
+    function readSrcAttribute(element) {
+        try { return element.getAttribute('src'); } catch (_) { return null; }
+    }
     function signalBlockedLoad(element, isDrop) {
         if (element.tagName === 'IFRAME') return;
         const type = isDrop && element.tagName === 'SCRIPT' ? 'load' : 'error';
-        setTimeout(() => { try { element.dispatchEvent(new Event(type)); } catch (_) {} }, 0);
+        const generation = srcGenerations.get(element);
+        const attribute = readSrcAttribute(element);
+        setTimeout(() => {
+            if (srcGenerations.get(element) !== generation || readSrcAttribute(element) !== attribute) return;
+            try { element.dispatchEvent(new Event(type)); } catch (_) {}
+        }, 0);
     }
 
     function hookProperty(elementClass, propertyName) {
@@ -2004,11 +2017,13 @@ def compile_tampermonkey() -> str:
                                 if (action.response.status === 403) {
                                     tmStats.recordBlock(absoluteUrl);
                                     if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 🚫 Property Hook Blocked: ${absoluteUrl}`);
+                                    bumpSrcGeneration(this);
                                     signalBlockedLoad(this, false);
                                     return; // 物理阻斷賦值，瀏覽器完全不發送請求
                                 } else if (action.response.status === 204) {
                                     tmStats.recordDrop(absoluteUrl);
                                     if (CONFIG.DEBUG_MODE) console.log(`[SSOT-TM] 👻 Property Hook Dropped: ${absoluteUrl}`);
+                                    bumpSrcGeneration(this);
                                     signalBlockedLoad(this, true);
                                     return; // 物理阻斷賦值，瀏覽器完全不發送請求
                                 }
@@ -2020,7 +2035,10 @@ def compile_tampermonkey() -> str:
                             }
                         } catch(e) {}
                     }
-                    return origDesc.set.call(this, val);
+                    // Only a write the browser accepted (e.g. not rejected by Trusted Types) supersedes a queued event.
+                    const result = origDesc.set.call(this, val);
+                    bumpSrcGeneration(this);
+                    return result;
                 },
                 get: origDesc.get,
                 configurable: origDesc.configurable,
@@ -2032,6 +2050,24 @@ def compile_tampermonkey() -> str:
     hookProperty(HTMLScriptElement, 'src');
     hookProperty(HTMLImageElement, 'src');
     hookProperty(HTMLIFrameElement, 'src');
+    // setAttribute/setAttributeNS('src', ...) bypass the property setter; even a write of the same value
+    // supersedes a queued synthetic event. Synchronous, unlike MutationObserver records that may predate
+    // it, and only after the native write succeeds.
+    function hookSrcAttributeWriter(methodName, isSrcWrite) {
+        if (typeof Element === 'undefined' || typeof Element.prototype[methodName] !== 'function') return;
+        const original = Element.prototype[methodName];
+        try {
+            Element.prototype[methodName] = function() {
+                const result = original.apply(this, arguments);
+                if (isSrcWrite(arguments)) bumpSrcGeneration(this);
+                return result;
+            };
+        } catch (_) {} // Locked prototype: the attribute snapshot still covers value changes.
+    }
+    hookSrcAttributeWriter('setAttribute', args => String(args[0]).toLowerCase() === 'src');
+    // setAttributeNS keeps the qualified name's case, so 'SRC' is a different attribute than src.
+    hookSrcAttributeWriter('setAttributeNS', args =>
+        (args[0] === null || args[0] === undefined || args[0] === '') && String(args[1]) === 'src');
     // --- Property Setter Hook 結束 ---
 
     let _pendingDrops = 0;
@@ -4095,10 +4131,21 @@ def _tampermonkey_test_runner(test_body: str) -> str:
 const assert = require('node:assert/strict');
 const elements = new Map(), documentEvents = new Map();
 const fetchCalls = [], beaconCalls = [], observers = [];
-class TestElement extends EventTarget {
+class Element extends EventTarget {
+    getAttribute(key) { return this.attrs.has(key) ? this.attrs.get(key) : null; }
+    setAttribute(key, value) {
+        if (this.rejectWrites) throw new TypeError('TrustedScriptURL required');
+        this.attrs.set(String(key).toLowerCase(), String(value));
+    }
+    setAttributeNS(namespace, key, value) {
+        if (this.rejectWrites) throw new TypeError('TrustedScriptURL required');
+        this.attrs.set(namespace ? namespace + '|' + key : String(key), String(value));
+    }
+}
+class TestElement extends Element {
     constructor(tag = 'div') {
         super(); this.tagName = tag.toUpperCase(); this.nodeType = 1;
-        this.style = {}; this.attrs = new Map(); this.children = []; this._src = '';
+        this.style = {}; this.attrs = new Map(); this.children = [];
     }
     set id(value) { this._id = value; elements.set(value, this); }
     get id() { return this._id; }
@@ -4127,7 +4174,12 @@ class HTMLImageElement extends TestElement {}
 class HTMLIFrameElement extends TestElement {}
 for (const cls of [HTMLScriptElement, HTMLImageElement, HTMLIFrameElement]) {
     Object.defineProperty(cls.prototype, 'src', {
-        get() { return this._src; }, set(value) { this._src = value; }, configurable: true, enumerable: true
+        get() { return this.attrs.get('src') || ''; },
+        set(value) {
+            if (this.rejectWrites) throw new TypeError('TrustedScriptURL required');
+            this.attrs.set('src', String(value));
+        },
+        configurable: true, enumerable: true
     });
 }
 class XMLHttpRequest extends EventTarget {
@@ -4431,6 +4483,47 @@ watch(new HTMLIFrameElement('iframe'), 'frame403').src = 'https://ads.google.com
 assert.deepEqual(fired, []);
 await new Promise(resolve => setTimeout(resolve, 0));
 assert.deepEqual(fired, ['script403:error', 'script204:load', 'img204:error']);
+fired.length = 0;
+const reused = watch(new HTMLScriptElement('script'), 'reused');
+reused.src = 'https://ads.google.com/ad.js'; reused.src = 'https://example.com/app.js';
+const retried = watch(new HTMLImageElement('img'), 'retried');
+retried.src = 'https://ads.google.com/ad'; retried.src = 'https://slackb.com/test';
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.equal(reused.src, 'https://example.com/app.js');
+assert.deepEqual(fired, ['retried:error']);
+fired.length = 0;
+const viaAttribute = watch(new HTMLScriptElement('script'), 'viaAttribute');
+viaAttribute.src = 'https://ads.google.com/ad.js'; viaAttribute.setAttribute('src', 'https://example.com/fallback.js');
+const frozen = watch(new HTMLScriptElement('script'), 'frozen');
+Object.preventExtensions(frozen);
+frozen.src = 'https://ads.google.com/ad.js';
+const sealedSafe = Object.seal(new HTMLImageElement('img'));
+sealedSafe.src = 'https://example.com/a.png?utm_source=x';
+assert.equal(sealedSafe.src, 'https://example.com/a.png');
+const sameValue = watch(new HTMLImageElement('img'), 'sameValue');
+sameValue.src = 'https://example.com/a.png';
+sameValue.src = 'https://ads.google.com/ad'; sameValue.setAttribute('SRC', 'https://example.com/a.png');
+const restored = watch(new HTMLImageElement('img'), 'restored');
+restored.src = 'https://example.com/b.png';
+restored.src = 'https://ads.google.com/ad'; restored.removeAttribute('src'); restored.setAttribute('src', 'https://example.com/b.png');
+const otherAttribute = watch(new HTMLImageElement('img'), 'otherAttribute');
+otherAttribute.src = 'https://ads.google.com/ad'; otherAttribute.setAttribute('alt', 'x');
+const viaNamespace = watch(new HTMLImageElement('img'), 'viaNamespace');
+viaNamespace.src = 'https://example.com/c.png';
+viaNamespace.src = 'https://ads.google.com/ad'; viaNamespace.setAttributeNS(null, 'src', 'https://example.com/c.png');
+const foreignNamespace = watch(new HTMLImageElement('img'), 'foreignNamespace');
+foreignNamespace.src = 'https://ads.google.com/ad';
+foreignNamespace.setAttributeNS('http://www.w3.org/1999/xlink', 'src', 'https://example.com/x.png');
+const upperNamespace = watch(new HTMLImageElement('img'), 'upperNamespace');
+upperNamespace.src = 'https://ads.google.com/ad'; upperNamespace.setAttributeNS(null, 'SRC', 'https://example.com/u.png');
+const rejected = watch(new HTMLScriptElement('script'), 'rejected');
+rejected.src = 'https://ads.google.com/ad.js';
+rejected.rejectWrites = true;
+assert.throws(() => { rejected.src = 'https://example.com/raw.js'; }, TypeError);
+assert.throws(() => rejected.setAttribute('src', 'https://example.com/raw.js'), TypeError);
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.deepEqual(fired, ['frozen:error', 'otherAttribute:error', 'foreignNamespace:error', 'upperNamespace:error', 'rejected:error']);
+assert.equal(Object.keys(frozen).some(key => key.startsWith('_ssot')), false);
 """)
 
         def test_tampermonkey_ui_failure_does_not_escape(self):
