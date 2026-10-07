@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.73 (2026-10-07)
+當前版本：V46.74 (2026-10-07)
 最新架構更新：
-- [BugFix] Tampermonkey 阻斷 src 的合成 load/error 事件改綁定賦值世代；同一元素改設新 src 後不再補發過期事件。
-- [Test] 新增元素重複賦值與 fallback 情境回歸。
+- [BugFix] 阻斷 src 的合成事件也會被 `setAttribute('src')` 取消；賦值世代改存 WeakMap，凍結元素不再因寫入屬性而丟例外。
+- [Test] 新增 setAttribute fallback、凍結/封存元素賦值回歸。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.74 (2026-10-07): BugFix — 阻斷 src 的合成事件也會被 `setAttribute('src')` 取消；賦值世代改存 WeakMap，不再寫入頁面可見屬性。
 - V46.73 (2026-10-07): BugFix — Tampermonkey 阻斷 src 的合成事件在元素改設新 src 後取消，避免 fallback 被誤判。
 - V46.72 (2026-10-07): BugFix/Security — URL 解析及轉址邊界、Tampermonkey 清理與生命週期修復；加入雙平台與瀏覽器介面回歸。
 - V46.71 (2026-10-07): Privacy — Costco TW `/storefront-logs` 日誌上報端點補漏；host-scoped `DROP_RE` 只鎖精確路徑邊界。
 - V46.70 (2026-10-07): Privacy — Bazaarvoice 錯誤回報 beacon 與 analytics 指令碼補漏；host-scoped `DROP_RE` 只鎖精確路徑，同 host 其他路徑與其他網域維持原規則。
-- V46.69 (2026-10-02): BugFix — `api2.cursor.sh` Background Composer 推播登記方法加入路徑豁免；全域 `pushnotification` 與 `api3` 遙測規則維持原行為。
 
 """
 
@@ -41,12 +41,13 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.73"
+VERSION = "46.74"
 RELEASE_DATE = "2026-10-07"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] Tampermonkey 阻斷 script/img src 後補發的合成 load/error 事件改綁定賦值世代；同一元素隨即改設新 src 時取消過期事件，避免 fallback 載入被誤判為失敗或提前完成。
-- [Test] 新增元素重複賦值（阻斷後改設安全 URL、阻斷後改設另一阻斷 URL）回歸。
+- [BugFix] Tampermonkey 阻斷 src 後補發的合成事件，也會在元素改用 `setAttribute('src')` 設定 fallback 時取消，避免安全資源被誤判。
+- [BugFix] src 賦值世代改存於 userscript 私有 WeakMap；凍結/封存元素或頁面已占用同名屬性時，賦值不再丟 `TypeError`。
+- [Test] 新增 setAttribute fallback、凍結與封存元素賦值回歸，並確認不寫入頁面可見屬性。
 """
 
 
@@ -1982,13 +1983,24 @@ def compile_tampermonkey() -> str:
     // --- Property Setter Hook (動態腳本屬性攔截器) ---
     // Loaders waiting on onload/onerror must settle even though the assignment is suppressed.
     // A dropped script mimics an empty 204 load; an empty image body still fails to decode.
-    // A later src assignment supersedes the queued event, so fallbacks are not misreported.
+    // A later src change supersedes the queued event, so fallbacks are not misreported.
+    // Property assignments advance a private generation (WeakMap: works on frozen elements and
+    // never touches page-visible state); setAttribute('src') bypasses the setter but changes the
+    // reflected attribute, which a blocked assignment never does.
+    const srcGenerations = new WeakMap();
+    function bumpSrcGeneration(element) {
+        try { srcGenerations.set(element, (srcGenerations.get(element) || 0) + 1); } catch (_) {}
+    }
+    function readSrcAttribute(element) {
+        try { return element.getAttribute('src'); } catch (_) { return null; }
+    }
     function signalBlockedLoad(element, isDrop) {
         if (element.tagName === 'IFRAME') return;
         const type = isDrop && element.tagName === 'SCRIPT' ? 'load' : 'error';
-        const generation = element._ssotSrcGeneration;
+        const generation = srcGenerations.get(element);
+        const attribute = readSrcAttribute(element);
         setTimeout(() => {
-            if (element._ssotSrcGeneration !== generation) return;
+            if (srcGenerations.get(element) !== generation || readSrcAttribute(element) !== attribute) return;
             try { element.dispatchEvent(new Event(type)); } catch (_) {}
         }, 0);
     }
@@ -1998,7 +2010,7 @@ def compile_tampermonkey() -> str:
         if (origDesc && origDesc.set && origDesc.configurable) {
             Object.defineProperty(elementClass.prototype, propertyName, {
                 set: function(val) {
-                    this._ssotSrcGeneration = (this._ssotSrcGeneration || 0) + 1;
+                    bumpSrcGeneration(this);
                     if (val && typeof val === 'string') {
                         try {
                             const absoluteUrl = resolveInputUrl(val);
@@ -4101,7 +4113,7 @@ const fetchCalls = [], beaconCalls = [], observers = [];
 class TestElement extends EventTarget {
     constructor(tag = 'div') {
         super(); this.tagName = tag.toUpperCase(); this.nodeType = 1;
-        this.style = {}; this.attrs = new Map(); this.children = []; this._src = '';
+        this.style = {}; this.attrs = new Map(); this.children = [];
     }
     set id(value) { this._id = value; elements.set(value, this); }
     get id() { return this._id; }
@@ -4121,6 +4133,8 @@ class TestElement extends EventTarget {
         });
     }
     hasAttribute(key) { return this.attrs.has(key); }
+    getAttribute(key) { return this.attrs.has(key) ? this.attrs.get(key) : null; }
+    setAttribute(key, value) { this.attrs.set(key, String(value)); }
     removeAttribute(key) { this.attrs.delete(key); }
     remove() { this.removed = true; }
     closest() { return null; }
@@ -4130,7 +4144,8 @@ class HTMLImageElement extends TestElement {}
 class HTMLIFrameElement extends TestElement {}
 for (const cls of [HTMLScriptElement, HTMLImageElement, HTMLIFrameElement]) {
     Object.defineProperty(cls.prototype, 'src', {
-        get() { return this._src; }, set(value) { this._src = value; }, configurable: true, enumerable: true
+        get() { return this.attrs.get('src') || ''; }, set(value) { this.attrs.set('src', String(value)); },
+        configurable: true, enumerable: true
     });
 }
 class XMLHttpRequest extends EventTarget {
@@ -4442,6 +4457,18 @@ retried.src = 'https://ads.google.com/ad'; retried.src = 'https://slackb.com/tes
 await new Promise(resolve => setTimeout(resolve, 0));
 assert.equal(reused.src, 'https://example.com/app.js');
 assert.deepEqual(fired, ['retried:error']);
+fired.length = 0;
+const viaAttribute = watch(new HTMLScriptElement('script'), 'viaAttribute');
+viaAttribute.src = 'https://ads.google.com/ad.js'; viaAttribute.setAttribute('src', 'https://example.com/fallback.js');
+const frozen = watch(new HTMLScriptElement('script'), 'frozen');
+Object.preventExtensions(frozen);
+frozen.src = 'https://ads.google.com/ad.js';
+const sealedSafe = Object.seal(new HTMLImageElement('img'));
+sealedSafe.src = 'https://example.com/a.png?utm_source=x';
+assert.equal(sealedSafe.src, 'https://example.com/a.png');
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.deepEqual(fired, ['frozen:error']);
+assert.equal(Object.keys(frozen).some(key => key.startsWith('_ssot')), false);
 """)
 
         def test_tampermonkey_ui_failure_does_not_escape(self):

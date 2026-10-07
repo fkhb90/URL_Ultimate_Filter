@@ -1,5 +1,14 @@
 # URL Ultimate Filter - Changelog
 
+## V46.74 - 2026-10-07
+- [BugFix] Tampermonkey 阻斷 src 後補發的合成事件，也會在元素改用 `setAttribute('src')` 設定 fallback 時取消，避免安全資源被誤判。
+- [BugFix] src 賦值世代改存於 userscript 私有 WeakMap；凍結/封存元素或頁面已占用同名屬性時，賦值不再丟 `TypeError`。
+- [Test] 新增 setAttribute fallback、凍結與封存元素賦值回歸，並確認不寫入頁面可見屬性。
+
+## V46.73 - 2026-10-07
+- [BugFix] Tampermonkey 阻斷 script/img src 後補發的合成 load/error 事件改綁定賦值世代；同一元素隨即改設新 src 時取消過期事件，避免 fallback 載入被誤判為失敗或提前完成。
+- [Test] 新增元素重複賦值（阻斷後改設安全 URL、阻斷後改設另一阻斷 URL）回歸。
+
 ## V46.72 - 2026-10-07
 - [BugFix] query 清理忽略 fragment 內的問號、保留未移除參數的原分隔符並移除空參數段，並保護無等號簽章 key；CheckConnection 僅匹配 path。
 - [Security] 轉址抽取排除 fragment 與含控制字元的目標；JS 字串與 Tampermonkey 紀錄 HTML 完整跳脫。
