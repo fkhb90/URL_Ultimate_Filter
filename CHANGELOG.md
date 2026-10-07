@@ -1,5 +1,15 @@
 # URL Ultimate Filter - Changelog
 
+## V46.73 - 2026-10-07
+- [BugFix] Tampermonkey 阻斷 script/img src 後補發的合成 load/error 事件改綁定賦值世代；同一元素隨即改設新 src 時取消過期事件，避免 fallback 載入被誤判為失敗或提前完成。
+- [Test] 新增元素重複賦值（阻斷後改設安全 URL、阻斷後改設另一阻斷 URL）回歸。
+
+## V46.72 - 2026-10-07
+- [BugFix] query 清理忽略 fragment 內的問號、保留未移除參數的原分隔符並移除空參數段，並保護無等號簽章 key；CheckConnection 僅匹配 path。
+- [Security] 轉址抽取排除 fragment 與含控制字元的目標；JS 字串與 Tampermonkey 紀錄 HTML 完整跳脫。
+- [BugFix] Tampermonkey 統一處理 302/REWRITE、URL 物件與文件 baseURI；修復 XHR DROP 重用、DOM 屬性/子樹與 iframe 重複 hook；XHR 403 改為非同步 network error、abort 後不再外洩請求、fetch mock 遵守 AbortSignal、阻斷 script/img 依結果補發 load/error 事件、UI 初始化失敗不外拋。
+- [Test] 新增解析邊界、完整 Tampermonkey 模板與雙平台完整矩陣回歸；CRITICAL_PATH_MAP 正則規則必須有對應案例。
+
 ## V46.71 - 2026-10-07
 - [Privacy] Costco TW 前台日誌上報端點 `www.costco.com.tw/storefront-logs` 以 host-scoped `DROP_RE` 精準 204 靜默拋棄；不碰 costco.com.tw 其他路徑與其他主機。
 - [Test] V46.71 迴歸：精確端點與帶 query 版本 204；相鄰 `/storefront-logs-extra`、同 host 根路徑、其他網域同路徑維持 ALLOW。

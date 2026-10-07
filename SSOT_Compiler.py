@@ -3,18 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.72 (2026-10-07)
+當前版本：V46.73 (2026-10-07)
 最新架構更新：
-- [BugFix] 修正 fragment/query 邊界、保留參數分隔符、簽章 key 與安全轉址驗證。
-- [Security] Tampermonkey 紀錄 HTML 跳脫；補齊 302 清理、URL/baseURI、XHR 重用與 DOM/iframe 攔截。
-- [Test] 新增解析邊界與完整 Tampermonkey 模板回歸，驗證雙平台完整矩陣。
+- [BugFix] Tampermonkey 阻斷 src 的合成 load/error 事件改綁定賦值世代；同一元素改設新 src 後不再補發過期事件。
+- [Test] 新增元素重複賦值與 fallback 情境回歸。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.73 (2026-10-07): BugFix — Tampermonkey 阻斷 src 的合成事件在元素改設新 src 後取消，避免 fallback 被誤判。
 - V46.72 (2026-10-07): BugFix/Security — URL 解析及轉址邊界、Tampermonkey 清理與生命週期修復；加入雙平台與瀏覽器介面回歸。
 - V46.71 (2026-10-07): Privacy — Costco TW `/storefront-logs` 日誌上報端點補漏；host-scoped `DROP_RE` 只鎖精確路徑邊界。
 - V46.70 (2026-10-07): Privacy — Bazaarvoice 錯誤回報 beacon 與 analytics 指令碼補漏；host-scoped `DROP_RE` 只鎖精確路徑，同 host 其他路徑與其他網域維持原規則。
 - V46.69 (2026-10-02): BugFix — `api2.cursor.sh` Background Composer 推播登記方法加入路徑豁免；全域 `pushnotification` 與 `api3` 遙測規則維持原行為。
-- V46.68 (2026-09-21): Privacy — PostHog `/e/` 與 App Center `/logs` 事件攝取端點補漏；host-scoped `DROP_RE` 只鎖精確路徑，相鄰路徑與其他網域維持原規則。
 
 """
 
@@ -42,14 +41,12 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.72"
+VERSION = "46.73"
 RELEASE_DATE = "2026-10-07"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] query 清理忽略 fragment 內的問號、保留未移除參數的原分隔符並移除空參數段，並保護無等號簽章 key；CheckConnection 僅匹配 path。
-- [Security] 轉址抽取排除 fragment 與含控制字元的目標；JS 字串與 Tampermonkey 紀錄 HTML 完整跳脫。
-- [BugFix] Tampermonkey 統一處理 302/REWRITE、URL 物件與文件 baseURI；修復 XHR DROP 重用、DOM 屬性/子樹與 iframe 重複 hook；XHR 403 改為非同步 network error、abort 後不再外洩請求、fetch mock 遵守 AbortSignal、阻斷 script/img 依結果補發 load/error 事件、UI 初始化失敗不外拋。
-- [Test] 新增解析邊界、完整 Tampermonkey 模板與雙平台完整矩陣回歸；CRITICAL_PATH_MAP 正則規則必須有對應案例。
+- [BugFix] Tampermonkey 阻斷 script/img src 後補發的合成 load/error 事件改綁定賦值世代；同一元素隨即改設新 src 時取消過期事件，避免 fallback 載入被誤判為失敗或提前完成。
+- [Test] 新增元素重複賦值（阻斷後改設安全 URL、阻斷後改設另一阻斷 URL）回歸。
 """
 
 
@@ -1985,10 +1982,15 @@ def compile_tampermonkey() -> str:
     // --- Property Setter Hook (動態腳本屬性攔截器) ---
     // Loaders waiting on onload/onerror must settle even though the assignment is suppressed.
     // A dropped script mimics an empty 204 load; an empty image body still fails to decode.
+    // A later src assignment supersedes the queued event, so fallbacks are not misreported.
     function signalBlockedLoad(element, isDrop) {
         if (element.tagName === 'IFRAME') return;
         const type = isDrop && element.tagName === 'SCRIPT' ? 'load' : 'error';
-        setTimeout(() => { try { element.dispatchEvent(new Event(type)); } catch (_) {} }, 0);
+        const generation = element._ssotSrcGeneration;
+        setTimeout(() => {
+            if (element._ssotSrcGeneration !== generation) return;
+            try { element.dispatchEvent(new Event(type)); } catch (_) {}
+        }, 0);
     }
 
     function hookProperty(elementClass, propertyName) {
@@ -1996,6 +1998,7 @@ def compile_tampermonkey() -> str:
         if (origDesc && origDesc.set && origDesc.configurable) {
             Object.defineProperty(elementClass.prototype, propertyName, {
                 set: function(val) {
+                    this._ssotSrcGeneration = (this._ssotSrcGeneration || 0) + 1;
                     if (val && typeof val === 'string') {
                         try {
                             const absoluteUrl = resolveInputUrl(val);
@@ -4431,6 +4434,14 @@ watch(new HTMLIFrameElement('iframe'), 'frame403').src = 'https://ads.google.com
 assert.deepEqual(fired, []);
 await new Promise(resolve => setTimeout(resolve, 0));
 assert.deepEqual(fired, ['script403:error', 'script204:load', 'img204:error']);
+fired.length = 0;
+const reused = watch(new HTMLScriptElement('script'), 'reused');
+reused.src = 'https://ads.google.com/ad.js'; reused.src = 'https://example.com/app.js';
+const retried = watch(new HTMLImageElement('img'), 'retried');
+retried.src = 'https://ads.google.com/ad'; retried.src = 'https://slackb.com/test';
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.equal(reused.src, 'https://example.com/app.js');
+assert.deepEqual(fired, ['retried:error']);
 """)
 
         def test_tampermonkey_ui_failure_does_not_escape(self):
