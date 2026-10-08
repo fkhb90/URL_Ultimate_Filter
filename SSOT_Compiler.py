@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.77 (2026-10-07)
+當前版本：V46.78 (2026-10-09)
 最新架構更新：
-- [BugFix] `setAttributeNS` 依 DOM 規範區分大小寫，只有名稱完全等於 `src` 才取消阻斷 src 的過期合成事件。
-- [Test] 新增 `setAttributeNS(null, 'SRC')` 不取消事件回歸。
+- [Privacy] `mobile-data.onetrust.io` 的 OneTrust mobile CMP banner 設定端點 `/cfw/cmp/v1/banner` 以 host-scoped `CRITICAL_PATH_MAP` 精準 403 封鎖。
+- [Test] 新增 host-scoped 端點封鎖回歸：裸路徑、帶 query、尾斜線、相鄰 `-extra`、下一層路徑與其他網域。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.78 (2026-10-09): Privacy — `mobile-data.onetrust.io` `/cfw/cmp/v1/banner` host-scoped 精準封鎖。
 - V46.77 (2026-10-07): BugFix — `setAttributeNS` 名稱區分大小寫，`SRC` 不再誤取消阻斷 src 的合成事件。
 - V46.76 (2026-10-07): BugFix — `setAttributeNS(null, 'src')` 也取消過期合成事件；被瀏覽器拒絕的 src 寫入不再誤取消事件。
 - V46.75 (2026-10-07): BugFix — `setAttribute('src')` 寫入相同值也會同步取消阻斷 src 的過期合成事件。
 - V46.74 (2026-10-07): BugFix — 阻斷 src 的合成事件也會被 `setAttribute('src')` 取消；賦值世代改存 WeakMap，不再寫入頁面可見屬性。
-- V46.73 (2026-10-07): BugFix — Tampermonkey 阻斷 src 的合成事件在元素改設新 src 後取消，避免 fallback 被誤判。
 
 """
 
@@ -41,12 +41,12 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.77"
-RELEASE_DATE = "2026-10-07"
+VERSION = "46.78"
+RELEASE_DATE = "2026-10-09"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] Tampermonkey `setAttributeNS` hook 依 DOM 規範區分大小寫：只有無命名空間且名稱完全等於 `src` 的寫入才取消阻斷 src 的過期合成事件；`SRC` 屬於另一個屬性，不再誤吞事件。
-- [Test] 新增 `setAttributeNS(null, 'SRC')` 保留待送事件回歸。
+- [Privacy] `mobile-data.onetrust.io` 的 OneTrust mobile CMP banner 設定端點 `/cfw/cmp/v1/banner` 以 host-scoped `CRITICAL_PATH_MAP`（`RE:^/cfw/cmp/v1/banner/?(?:[?]|$)`）精準 403 封鎖；純 `/banner`（無尾斜線）此前不在既有多層樣式內。
+- [Test] 新增 host-scoped 端點封鎖回歸：裸路徑、帶 query、尾斜線、相鄰 `-extra`、下一層路徑與其他網域。
 """
 
 
@@ -419,6 +419,7 @@ RULES_DB = {
         r"\/adrotate\.js(?:\?|$)"
     ],
     "CRITICAL_PATH_MAP": {
+        'mobile-data.onetrust.io': ['RE:^/cfw/cmp/v1/banner/?(?:[?]|$)'],
         'statsig.anthropic.com': ['DROP:/v1/rgstr'],
         'claude.ai': ['DROP:/api/event_logging/'],
         'api.anthropic.com': ['DROP:/api/event_logging/'],
@@ -3326,6 +3327,15 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Regression: Costco Storefront Logs Sibling Pass", "https://www.costco.com.tw/storefront-logs-extra", RES_ALLOW, "V46.71 路徑邊界保護；相鄰 /storefront-logs-extra 不得被連帶 DROP"))
     cases.append(TestCase("Regression: Other Host Storefront Logs Path Pass", "https://example.com/storefront-logs", RES_ALLOW, "V46.71 規則限 www.costco.com.tw；其他網域同一路徑維持原行為"))
     cases.append(TestCase("Safe: Costco Root Pass", "https://www.costco.com.tw/", RES_ALLOW, "V46.71 規則只鎖 /storefront-logs 端點；host 根路徑維持原行為"))
+    # --- V46.78 OneTrust mobile CMP banner config precise block ---
+    cases.append(TestCase("Privacy: OneTrust Mobile CMP Banner Block", "https://mobile-data.onetrust.io/cfw/cmp/v1/banner", RES_BLOCK_403, "V46.78 OneTrust mobile CMP banner 設定端點；純 `/banner`（無尾斜線）不受既有多層樣式涵蓋，補 host-scoped CRITICAL_PATH_MAP RE: 精準 403"))
+    cases.append(TestCase("Privacy: OneTrust Mobile CMP Banner Query Block", "https://mobile-data.onetrust.io/cfw/cmp/v1/banner?query=fixture", RES_BLOCK_403, "V46.78 精確端點規則涵蓋帶 query 版本"))
+    cases.append(TestCase("Privacy: OneTrust Mobile CMP Banner Trailing Slash Block", "https://mobile-data.onetrust.io/cfw/cmp/v1/banner/", RES_BLOCK_403, "V46.78 尾斜線版本同屬端點本身"))
+    cases.append(TestCase("Regression: OneTrust CMP Banner Sibling Pass", "https://mobile-data.onetrust.io/cfw/cmp/v1/banner-extra", RES_ALLOW, "V46.78 路徑邊界保護；相鄰 /banner-extra 不得被連帶封鎖"))
+    cases.append(TestCase("Regression: OneTrust CMP Banner Subpath Still Blocked", "https://mobile-data.onetrust.io/cfw/cmp/v1/banner/extra", RES_BLOCK_403, "V46.78 下一層路徑仍由既有 HIGH_CONFIDENCE `/banner/` 層封鎖；本版未動該層"))
+    cases.append(TestCase("Regression: OneTrust CMP Other Path Pass", "https://mobile-data.onetrust.io/cfw/cmp/v1/other", RES_ALLOW, "V46.78 規則只鎖 /cfw/cmp/v1/banner；同 host 其他路徑維持原行為"))
+    cases.append(TestCase("Regression: Other Host CMP Banner Path Pass", "https://example.com/cfw/cmp/v1/banner", RES_ALLOW, "V46.78 規則限 mobile-data.onetrust.io；其他網域同一路徑維持原行為"))
+    cases.append(TestCase("Regression: OneTrust CMP Subdomain Banner Block", "https://sub.mobile-data.onetrust.io/cfw/cmp/v1/banner", RES_BLOCK_403, "V46.78 CRITICAL_PATH_MAP 網域鍵命中子網域；子網域同端點一併封鎖"))
     # --- V46.67 Cursor Statsig event-registration telemetry precise drop ---
     cases.append(TestCase("Privacy: Cursor Statsig Event Registration Drop", "https://api3.cursor.sh/tev1/v1/rgstr?k=client-fixture&st=javascript-client&sv=3.33.3&t=1789779230985&sid=1e54ae98-38be-4640-bbba-58185a4b4107&ec=4", RES_DROP_204, "V46.67 Cursor Statsig SDK 事件登記端點（POST 202／GET 403 RBAC）確認為遙測性質；host-scoped CRITICAL_PATH_MAP DROP_RE 精準 204，與 statsig.anthropic.com、prodregistryv2.org 的 `/v1/rgstr` 同家族"))
     cases.append(TestCase("Privacy: Cursor Statsig Event Registration Bare Drop", "https://api3.cursor.sh/tev1/v1/rgstr", RES_DROP_204, "V46.67 精確端點規則不依賴 query 參數，裸路徑同樣 204 DROP"))
