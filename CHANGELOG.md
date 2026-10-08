@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.78 - 2026-10-09
+- [Privacy] `mobile-data.onetrust.io` 的 OneTrust mobile CMP banner 設定端點 `/cfw/cmp/v1/banner` 以 host-scoped `CRITICAL_PATH_MAP`（`RE:^/cfw/cmp/v1/banner/?(?:[?]|$)`）精準 403 封鎖；純 `/banner`（無尾斜線）此前不在既有多層樣式內。
+- [Test] 新增 host-scoped 端點封鎖回歸：裸路徑、帶 query、尾斜線、相鄰 `-extra`、下一層路徑與其他網域。
+
 ## V46.77 - 2026-10-07
 - [BugFix] Tampermonkey `setAttributeNS` hook 依 DOM 規範區分大小寫：只有無命名空間且名稱完全等於 `src` 的寫入才取消阻斷 src 的過期合成事件；`SRC` 屬於另一個屬性，不再誤吞事件。
 - [Test] 新增 `setAttributeNS(null, 'SRC')` 保留待送事件回歸。
