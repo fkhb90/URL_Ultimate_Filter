@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.79 (2026-10-13)
+當前版本：V46.80 (2026-10-13)
 最新架構更新：
-- [Privacy] `hightouch-events.com`（Hightouch Events 第三方事件收集主機）以 host-scoped `CRITICAL_PATH_MAP` 加入整域 `DROP:/`，命中即 204 靜默拋棄並涵蓋子網域。
-- [Test] 新增整域靜默拋棄回歸：批次端點（含 query）、網域根、子網域，以及其他網域與相似網域不受影響。
+- [BugFix] `events.mlh.com`（Major League Hacking 活動站）活動路由家族 `/events`（活動詳細頁、`/register`、`/registration`、`.ics`）被子字串命中的全域 `CRITICAL_PATH_GENERIC` `/events` L1 規則誤封；以 host-scoped `PATH_EXEMPTIONS` `RE:^/events(?:/|$)` 精準放行，不改動全域關鍵字。
+- [Test] 新增回歸：活動頁／報名／`.ics`／列表放行；同 host 的 `/events-extra`、`/api/events` 與其他網域相同路徑維持 403。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.80 (2026-10-13): BugFix — `events.mlh.com` `/events` 活動路由家族（活動頁／報名／`.ics`／列表）被全域 `/events` L1 誤封，host-scoped PATH_EXEMPTIONS 精準放行。
 - V46.79 (2026-10-13): Privacy — `hightouch-events.com` 整域 `DROP:/` 靜默 204（Hightouch Events 事件收集遙測）。
 - V46.78 (2026-10-09): Privacy — `mobile-data.onetrust.io` `/cfw/cmp/v1/banner` host-scoped 精準封鎖。
 - V46.77 (2026-10-07): BugFix — `setAttributeNS` 名稱區分大小寫，`SRC` 不再誤取消阻斷 src 的合成事件。
 - V46.76 (2026-10-07): BugFix — `setAttributeNS(null, 'src')` 也取消過期合成事件；被瀏覽器拒絕的 src 寫入不再誤取消事件。
-- V46.75 (2026-10-07): BugFix — `setAttribute('src')` 寫入相同值也會同步取消阻斷 src 的過期合成事件。
 
 """
 
@@ -41,12 +41,12 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.79"
+VERSION = "46.80"
 RELEASE_DATE = "2026-10-13"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] `hightouch-events.com`（Hightouch Events 第三方事件收集主機）以 host-scoped `CRITICAL_PATH_MAP` 加入整域 `DROP:/`，命中即 204 靜默拋棄並涵蓋子網域；此網域僅承載事件收集遙測，非網站自身功能。
-- [Test] 新增整域靜默拋棄回歸：批次端點（含 query）、網域根、子網域，以及其他網域與相似網域不受影響。
+- [BugFix] `events.mlh.com`（Major League Hacking 活動站）的活動路由家族 `/events`（活動詳細頁、`/register`、`/registration`、`.ics` 日曆）被子字串命中的全域 `CRITICAL_PATH_GENERIC` `/events` L1 規則誤封；以 host-scoped `PATH_EXEMPTIONS` `RE:^/events(?:/|$)` 精準放行該路由家族，不改動全域關鍵字、也不擴大網域白名單。
+- [Test] 新增回歸：活動頁／報名／`.ics`／列表放行；同 host 的 `/events-extra`、`/api/events` 與其他網域相同路徑維持 403；PostHog `/events` 遙測維持 403。
 """
 
 
@@ -738,6 +738,7 @@ RULES_DB = {
         "volccdn.com": ["/data-static/log-sdk/"],
         "chat2-api.qianwen.com": ["/api/v1/session/delete/batch"],
         "traffic-dist.map.naver.com": ["/v3/events/"],
+        "events.mlh.com": ["RE:^/events(?:/|$)"],
         "mobile-api.g2a.com": ["/api/v1/transactions/"],
         "abs.twimg.com": ["RE:^/responsive-web/client-web/ondemand\\.inlineplayeranalytics(?:[./?]|$)"],
         "pbs.twimg.com": ["/media/"],
@@ -3328,6 +3329,17 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Regression: Costco Storefront Logs Sibling Pass", "https://www.costco.com.tw/storefront-logs-extra", RES_ALLOW, "V46.71 路徑邊界保護；相鄰 /storefront-logs-extra 不得被連帶 DROP"))
     cases.append(TestCase("Regression: Other Host Storefront Logs Path Pass", "https://example.com/storefront-logs", RES_ALLOW, "V46.71 規則限 www.costco.com.tw；其他網域同一路徑維持原行為"))
     cases.append(TestCase("Safe: Costco Root Pass", "https://www.costco.com.tw/", RES_ALLOW, "V46.71 規則只鎖 /storefront-logs 端點；host 根路徑維持原行為"))
+    # --- V46.80 MLH events route-family false-positive fix (host-scoped PATH_EXEMPTIONS) ---
+    cases.append(TestCase("BugFix: MLH Event Detail Page Pass", "https://events.mlh.com/events/14553-global-hack-week-hacktoberfest", RES_ALLOW, "V46.80 MLH 活動詳細頁被全域 CRITICAL_PATH_GENERIC `/events` L1 子字串誤封；host-scoped PATH_EXEMPTIONS RE:^/events(?:/|$) 精準放行"))
+    cases.append(TestCase("BugFix: MLH Event Register Page Pass", "https://events.mlh.com/events/14553-global-hack-week-hacktoberfest/register", RES_ALLOW, "V46.80 活動頁內建報名連結同屬 /events 路由家族，一併精準放行"))
+    cases.append(TestCase("BugFix: MLH Event Registration Form Pass", "https://events.mlh.com/events/14553-global-hack-week-hacktoberfest/registration", RES_ALLOW, "V46.80 活動頁報名表單 action 路徑，同屬 /events 路由家族"))
+    cases.append(TestCase("BugFix: MLH Event ICS Calendar Pass", "https://events.mlh.com/events/14553-global-hack-week-hacktoberfest.ics", RES_ALLOW, "V46.80 活動頁行事曆下載 .ics 不在靜態副檔名清單，需靠同一條路由豁免放行"))
+    cases.append(TestCase("BugFix: MLH Events Listing Pass", "https://events.mlh.com/events", RES_ALLOW, "V46.80 活動列表路由亦被 /events L1 誤封；邊界錨定規則涵蓋列表根路徑"))
+    cases.append(TestCase("BugFix: MLH Events Listing Query Pass", "https://events.mlh.com/events?page=2", RES_ALLOW, "V46.80 豁免以 path-only 比對，帶分頁 query 的列表請求同樣放行"))
+    cases.append(TestCase("Regression: MLH Events Sibling Still Blocked", "https://events.mlh.com/events-extra", RES_BLOCK_403, "V46.80 `^/events(?:/|$)` 邊界保護；相鄰 /events-extra 仍由全域 /events L1 封鎖"))
+    cases.append(TestCase("Regression: MLH Nested Api Events Still Blocked", "https://events.mlh.com/api/events", RES_BLOCK_403, "V46.80 豁免錨定路徑開頭；同 host 的 /api/events 不在豁免範圍，維持原封鎖"))
+    cases.append(TestCase("Regression: Other Host MLH Event Path Still Blocked", "https://example.com/events/14553-global-hack-week-hacktoberfest", RES_BLOCK_403, "V46.80 豁免限 events.mlh.com；其他網域相同路徑仍由全域 /events L1 封鎖"))
+    cases.append(TestCase("Regression: PostHog Events Still Blocked", "https://us.i.posthog.com/events", RES_BLOCK_403, "V46.80 未動全域 `/events` 關鍵字；遙測 `/events` 端點維持 403"))
     # --- V46.79 Hightouch Events host-wide silent drop ---
     cases.append(TestCase("Privacy: Hightouch Events Batch Endpoint Drop", "https://us-east-1.hightouch-events.com/v1/b", RES_DROP_204, "V46.79 Hightouch Events 第三方事件收集主機；host-scoped CRITICAL_PATH_MAP 整域 DROP:/ 靜默 204"))
     cases.append(TestCase("Privacy: Hightouch Events Batch Endpoint Query Drop", "https://us-east-1.hightouch-events.com/v1/batch?writeKey=fixture", RES_DROP_204, "V46.79 整域規則不依賴路徑或 query；批次端點帶 query 同樣 204"))
