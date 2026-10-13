@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.78 (2026-10-09)
+當前版本：V46.79 (2026-10-13)
 最新架構更新：
-- [Privacy] `mobile-data.onetrust.io` 的 OneTrust mobile CMP banner 設定端點 `/cfw/cmp/v1/banner` 以 host-scoped `CRITICAL_PATH_MAP` 精準 403 封鎖。
-- [Test] 新增 host-scoped 端點封鎖回歸：裸路徑、帶 query、尾斜線、相鄰 `-extra`、下一層路徑與其他網域。
+- [Privacy] `hightouch-events.com`（Hightouch Events 第三方事件收集主機）以 host-scoped `CRITICAL_PATH_MAP` 加入整域 `DROP:/`，命中即 204 靜默拋棄並涵蓋子網域。
+- [Test] 新增整域靜默拋棄回歸：批次端點（含 query）、網域根、子網域，以及其他網域與相似網域不受影響。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.79 (2026-10-13): Privacy — `hightouch-events.com` 整域 `DROP:/` 靜默 204（Hightouch Events 事件收集遙測）。
 - V46.78 (2026-10-09): Privacy — `mobile-data.onetrust.io` `/cfw/cmp/v1/banner` host-scoped 精準封鎖。
 - V46.77 (2026-10-07): BugFix — `setAttributeNS` 名稱區分大小寫，`SRC` 不再誤取消阻斷 src 的合成事件。
 - V46.76 (2026-10-07): BugFix — `setAttributeNS(null, 'src')` 也取消過期合成事件；被瀏覽器拒絕的 src 寫入不再誤取消事件。
 - V46.75 (2026-10-07): BugFix — `setAttribute('src')` 寫入相同值也會同步取消阻斷 src 的過期合成事件。
-- V46.74 (2026-10-07): BugFix — 阻斷 src 的合成事件也會被 `setAttribute('src')` 取消；賦值世代改存 WeakMap，不再寫入頁面可見屬性。
 
 """
 
@@ -41,12 +41,12 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.78"
-RELEASE_DATE = "2026-10-09"
+VERSION = "46.79"
+RELEASE_DATE = "2026-10-13"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] `mobile-data.onetrust.io` 的 OneTrust mobile CMP banner 設定端點 `/cfw/cmp/v1/banner` 以 host-scoped `CRITICAL_PATH_MAP`（`RE:^/cfw/cmp/v1/banner/?(?:[?]|$)`）精準 403 封鎖；純 `/banner`（無尾斜線）此前不在既有多層樣式內。
-- [Test] 新增 host-scoped 端點封鎖回歸：裸路徑、帶 query、尾斜線、相鄰 `-extra`、下一層路徑與其他網域。
+- [Privacy] `hightouch-events.com`（Hightouch Events 第三方事件收集主機）以 host-scoped `CRITICAL_PATH_MAP` 加入整域 `DROP:/`，命中即 204 靜默拋棄並涵蓋子網域；此網域僅承載事件收集遙測，非網站自身功能。
+- [Test] 新增整域靜默拋棄回歸：批次端點（含 query）、網域根、子網域，以及其他網域與相似網域不受影響。
 """
 
 
@@ -419,6 +419,7 @@ RULES_DB = {
         r"\/adrotate\.js(?:\?|$)"
     ],
     "CRITICAL_PATH_MAP": {
+        'hightouch-events.com': ['DROP:/'],
         'mobile-data.onetrust.io': ['RE:^/cfw/cmp/v1/banner/?(?:[?]|$)'],
         'statsig.anthropic.com': ['DROP:/v1/rgstr'],
         'claude.ai': ['DROP:/api/event_logging/'],
@@ -3327,6 +3328,13 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Regression: Costco Storefront Logs Sibling Pass", "https://www.costco.com.tw/storefront-logs-extra", RES_ALLOW, "V46.71 路徑邊界保護；相鄰 /storefront-logs-extra 不得被連帶 DROP"))
     cases.append(TestCase("Regression: Other Host Storefront Logs Path Pass", "https://example.com/storefront-logs", RES_ALLOW, "V46.71 規則限 www.costco.com.tw；其他網域同一路徑維持原行為"))
     cases.append(TestCase("Safe: Costco Root Pass", "https://www.costco.com.tw/", RES_ALLOW, "V46.71 規則只鎖 /storefront-logs 端點；host 根路徑維持原行為"))
+    # --- V46.79 Hightouch Events host-wide silent drop ---
+    cases.append(TestCase("Privacy: Hightouch Events Batch Endpoint Drop", "https://us-east-1.hightouch-events.com/v1/b", RES_DROP_204, "V46.79 Hightouch Events 第三方事件收集主機；host-scoped CRITICAL_PATH_MAP 整域 DROP:/ 靜默 204"))
+    cases.append(TestCase("Privacy: Hightouch Events Batch Endpoint Query Drop", "https://us-east-1.hightouch-events.com/v1/batch?writeKey=fixture", RES_DROP_204, "V46.79 整域規則不依賴路徑或 query；批次端點帶 query 同樣 204"))
+    cases.append(TestCase("Privacy: Hightouch Events Root Drop", "https://hightouch-events.com/", RES_DROP_204, "V46.79 網域根路徑亦在整域規則內，204 靜默拋棄"))
+    cases.append(TestCase("Privacy: Hightouch Events Subdomain Drop", "https://eu.hightouch-events.com/v1/batch", RES_DROP_204, "V46.79 CRITICAL_PATH_MAP 網域鍵命中子網域；其他區域主機一併 204"))
+    cases.append(TestCase("Regression: Other Host Hightouch Events Path Pass", "https://example.com/v1/b", RES_ALLOW, "V46.79 規則限 hightouch-events.com；其他網域相同路徑維持原行為"))
+    cases.append(TestCase("Regression: Lookalike Host Pass", "https://nothightouch-events.com/v1/b", RES_ALLOW, "V46.79 子網域比對需以 .hightouch-events.com 結尾；相似網域不得被連帶拋棄"))
     # --- V46.78 OneTrust mobile CMP banner config precise block ---
     cases.append(TestCase("Privacy: OneTrust Mobile CMP Banner Block", "https://mobile-data.onetrust.io/cfw/cmp/v1/banner", RES_BLOCK_403, "V46.78 OneTrust mobile CMP banner 設定端點；純 `/banner`（無尾斜線）不受既有多層樣式涵蓋，補 host-scoped CRITICAL_PATH_MAP RE: 精準 403"))
     cases.append(TestCase("Privacy: OneTrust Mobile CMP Banner Query Block", "https://mobile-data.onetrust.io/cfw/cmp/v1/banner?query=fixture", RES_BLOCK_403, "V46.78 精確端點規則涵蓋帶 query 版本"))
