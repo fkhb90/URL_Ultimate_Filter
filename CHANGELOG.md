@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.79 - 2026-10-13
+- [Privacy] `hightouch-events.com`（Hightouch Events 第三方事件收集主機）以 host-scoped `CRITICAL_PATH_MAP` 加入整域 `DROP:/`，命中即 204 靜默拋棄並涵蓋子網域；此網域僅承載事件收集遙測，非網站自身功能。
+- [Test] 新增整域靜默拋棄回歸：批次端點（含 query）、網域根、子網域，以及其他網域與相似網域不受影響。
+
 ## V46.78 - 2026-10-09
 - [Privacy] `mobile-data.onetrust.io` 的 OneTrust mobile CMP banner 設定端點 `/cfw/cmp/v1/banner` 以 host-scoped `CRITICAL_PATH_MAP`（`RE:^/cfw/cmp/v1/banner/?(?:[?]|$)`）精準 403 封鎖；純 `/banner`（無尾斜線）此前不在既有多層樣式內。
 - [Test] 新增 host-scoped 端點封鎖回歸：裸路徑、帶 query、尾斜線、相鄰 `-extra`、下一層路徑與其他網域。

@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.78
+// @name         URL Ultimate Filter V46.79
 // @namespace    http://tampermonkey.net/
-// @version      46.78
-// @date         2026-10-09
-// @description  SSOT 前端防護盾牌 V46.78 (2026-10-09) | 2191 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        2191 total (312 domains · 449 critical · 109 param)
+// @version      46.79
+// @date         2026-10-13
+// @description  SSOT 前端防護盾牌 V46.79 (2026-10-13) | 2192 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        2192 total (312 domains · 450 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.78
- * @date    2026-10-09
- * @rules   2191 total (312 domains, 449 critical paths, 401 path keywords, 109 param rules)
+ * @version 46.79
+ * @date    2026-10-13
+ * @rules   2192 total (312 domains, 450 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.78';
-const SCRIPT_BUILD = 'V46.78 (2026-10-09) | 2191 rules | 3465 tests';
+const SCRIPT_VERSION = '46.79';
+const SCRIPT_BUILD = 'V46.79 (2026-10-13) | 2192 rules | 3473 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -246,6 +246,9 @@ const RULES = {
 
   CRITICAL_PATH: {
     MAP: new Map([
+    ['hightouch-events.com', new Set([
+        'DROP:/'
+      ])],
     ['mobile-data.onetrust.io', new Set([
         'RE:^/cfw/cmp/v1/banner/?(?:[?]|$)'
       ])],
