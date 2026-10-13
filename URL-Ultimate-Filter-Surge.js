@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.79
+ * @version 46.80
  * @date    2026-10-13
- * @rules   2192 total (312 domains, 450 critical paths, 401 path keywords, 109 param rules)
+ * @rules   2193 total (312 domains, 450 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.79';
-const SCRIPT_BUILD = 'V46.79 (2026-10-13) | 2192 rules | 3473 tests';
+const SCRIPT_VERSION = '46.80';
+const SCRIPT_BUILD = 'V46.80 (2026-10-13) | 2193 rules | 3483 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1140,6 +1140,9 @@ const RULES = {
       ])],
     ['traffic-dist.map.naver.com', new Set([
         '/v3/events/'
+      ])],
+    ['events.mlh.com', new Set([
+        'RE:^/events(?:/|$)'
       ])],
     ['mobile-api.g2a.com', new Set([
         '/api/v1/transactions/'

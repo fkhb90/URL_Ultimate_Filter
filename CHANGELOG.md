@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.80 - 2026-10-13
+- [BugFix] `events.mlh.com`（Major League Hacking 活動站）的活動路由家族 `/events`（活動詳細頁、`/register`、`/registration`、`.ics` 日曆）被子字串命中的全域 `CRITICAL_PATH_GENERIC` `/events` L1 規則誤封；以 host-scoped `PATH_EXEMPTIONS` `RE:^/events(?:/|$)` 精準放行該路由家族，不改動全域關鍵字、也不擴大網域白名單。
+- [Test] 新增回歸：活動頁／報名／`.ics`／列表放行；同 host 的 `/events-extra`、`/api/events` 與其他網域相同路徑維持 403；PostHog `/events` 遙測維持 403。
+
 ## V46.79 - 2026-10-13
 - [Privacy] `hightouch-events.com`（Hightouch Events 第三方事件收集主機）以 host-scoped `CRITICAL_PATH_MAP` 加入整域 `DROP:/`，命中即 204 靜默拋棄並涵蓋子網域；此網域僅承載事件收集遙測，非網站自身功能。
 - [Test] 新增整域靜默拋棄回歸：批次端點（含 query）、網域根、子網域，以及其他網域與相似網域不受影響。
