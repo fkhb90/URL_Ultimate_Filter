@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.80 (2026-10-13)
+當前版本：V46.81 (2026-10-15)
 最新架構更新：
-- [BugFix] `events.mlh.com`（Major League Hacking 活動站）活動路由家族 `/events`（活動詳細頁、`/register`、`/registration`、`.ics`）被子字串命中的全域 `CRITICAL_PATH_GENERIC` `/events` L1 規則誤封；以 host-scoped `PATH_EXEMPTIONS` `RE:^/events(?:/|$)` 精準放行，不改動全域關鍵字。
-- [Test] 新增回歸：活動頁／報名／`.ics`／列表放行；同 host 的 `/events-extra`、`/api/events` 與其他網域相同路徑維持 403。
+- [Privacy] `apitd.net`（TrustDecision／同盾科技裝置指紋採集網域）整域加入 `BLOCK_DOMAINS_WILDCARDS`，命中即 403；網域鍵涵蓋所有區域子網域（cn-fp／sg-fp／us-fp 等 SDK 採集節點）。
+- [Test] 新增回歸：iOS 指紋採集節點、裸路徑、其他區域子網域與網域根皆 403；相似網域 `notapitd.net` 與其他網域相同路徑維持放行。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.81 (2026-10-15): Privacy — `apitd.net` 整域 403 硬封鎖（TrustDecision／同盾裝置指紋採集 SDK 網域）。
 - V46.80 (2026-10-13): BugFix — `events.mlh.com` `/events` 活動路由家族（活動頁／報名／`.ics`／列表）被全域 `/events` L1 誤封，host-scoped PATH_EXEMPTIONS 精準放行。
 - V46.79 (2026-10-13): Privacy — `hightouch-events.com` 整域 `DROP:/` 靜默 204（Hightouch Events 事件收集遙測）。
 - V46.78 (2026-10-09): Privacy — `mobile-data.onetrust.io` `/cfw/cmp/v1/banner` host-scoped 精準封鎖。
 - V46.77 (2026-10-07): BugFix — `setAttributeNS` 名稱區分大小寫，`SRC` 不再誤取消阻斷 src 的合成事件。
-- V46.76 (2026-10-07): BugFix — `setAttributeNS(null, 'src')` 也取消過期合成事件；被瀏覽器拒絕的 src 寫入不再誤取消事件。
 
 """
 
@@ -41,12 +41,12 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.80"
-RELEASE_DATE = "2026-10-13"
+VERSION = "46.81"
+RELEASE_DATE = "2026-10-15"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] `events.mlh.com`（Major League Hacking 活動站）的活動路由家族 `/events`（活動詳細頁、`/register`、`/registration`、`.ics` 日曆）被子字串命中的全域 `CRITICAL_PATH_GENERIC` `/events` L1 規則誤封；以 host-scoped `PATH_EXEMPTIONS` `RE:^/events(?:/|$)` 精準放行該路由家族，不改動全域關鍵字、也不擴大網域白名單。
-- [Test] 新增回歸：活動頁／報名／`.ics`／列表放行；同 host 的 `/events-extra`、`/api/events` 與其他網域相同路徑維持 403；PostHog `/events` 遙測維持 403。
+- [Privacy] `apitd.net`（TrustDecision／同盾科技，主體杭州小盾數字科技有限公司）為第三方裝置指紋採集網域：`*-fp.apitd.net` 子網域承載 iOS／Android／Web SDK 的裝置指紋與裝置風險上報（如 `/ios/v1`），非網站自身功能。整域加入 `BLOCK_DOMAINS_WILDCARDS`，命中即 403 並涵蓋所有區域子網域。
+- [Test] 新增回歸：iOS 指紋採集節點（帶 query／裸路徑）、其他區域子網域、網域根皆 403；相似網域 `notapitd.net` 與其他網域相同路徑維持放行。
 """
 
 
@@ -356,7 +356,7 @@ RULES_DB = {
         'log.aliyuncs.com', 'sls.aliyuncs.com',
         'jpush.cn', 'jpush.io', 'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com',
         'veta.naver.com', 'goqual.com', 'alibabachengdun.com',
-        'saf.aliyuncs.com', 'adapty.io', 'howxm.com', 'adhacker.online'
+        'saf.aliyuncs.com', 'adapty.io', 'howxm.com', 'adhacker.online', 'apitd.net'
     ],
     "BLOCK_DOMAINS_REGEX": [
         r'^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$',
@@ -3340,6 +3340,13 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Regression: MLH Nested Api Events Still Blocked", "https://events.mlh.com/api/events", RES_BLOCK_403, "V46.80 豁免錨定路徑開頭；同 host 的 /api/events 不在豁免範圍，維持原封鎖"))
     cases.append(TestCase("Regression: Other Host MLH Event Path Still Blocked", "https://example.com/events/14553-global-hack-week-hacktoberfest", RES_BLOCK_403, "V46.80 豁免限 events.mlh.com；其他網域相同路徑仍由全域 /events L1 封鎖"))
     cases.append(TestCase("Regression: PostHog Events Still Blocked", "https://us.i.posthog.com/events", RES_BLOCK_403, "V46.80 未動全域 `/events` 關鍵字；遙測 `/events` 端點維持 403"))
+    # --- V46.81 TrustDecision (apitd.net) device-fingerprint vendor domain block ---
+    cases.append(TestCase("Privacy: TrustDecision iOS Fingerprint Ingest Block", "https://sg-fp.apitd.net/ios/v1?version=5.3.0.1&partner=kimi&appKey=fixture", RES_BLOCK_403, "V46.81 TrustDecision／同盾裝置指紋採集節點；apitd.net 納入 BLOCK_DOMAINS_WILDCARDS 整域 403"))
+    cases.append(TestCase("Privacy: TrustDecision Fingerprint Bare Path Block", "https://sg-fp.apitd.net/ios/v1", RES_BLOCK_403, "V46.81 整域規則不依賴路徑或 query；裸路徑同樣 403"))
+    cases.append(TestCase("Privacy: TrustDecision Other Region Fingerprint Block", "https://cn-fp.apitd.net/android/v1", RES_BLOCK_403, "V46.81 網域鍵涵蓋所有區域子網域；其他區域 SDK 採集節點一併 403"))
+    cases.append(TestCase("Privacy: TrustDecision Apex Domain Block", "https://apitd.net/", RES_BLOCK_403, "V46.81 BLOCK_DOMAINS_WILDCARDS 亦命中註冊網域本身"))
+    cases.append(TestCase("Regression: Lookalike Apitd Domain Pass", "https://notapitd.net/ios/v1", RES_ALLOW, "V46.81 子網域比對需以 .apitd.net 結尾；相似網域不得被連帶封鎖"))
+    cases.append(TestCase("Regression: Other Host Fingerprint Path Pass", "https://example.com/ios/v1", RES_ALLOW, "V46.81 規則限 apitd.net；其他網域相同路徑維持原行為"))
     # --- V46.79 Hightouch Events host-wide silent drop ---
     cases.append(TestCase("Privacy: Hightouch Events Batch Endpoint Drop", "https://us-east-1.hightouch-events.com/v1/b", RES_DROP_204, "V46.79 Hightouch Events 第三方事件收集主機；host-scoped CRITICAL_PATH_MAP 整域 DROP:/ 靜默 204"))
     cases.append(TestCase("Privacy: Hightouch Events Batch Endpoint Query Drop", "https://us-east-1.hightouch-events.com/v1/batch?writeKey=fixture", RES_DROP_204, "V46.79 整域規則不依賴路徑或 query；批次端點帶 query 同樣 204"))
