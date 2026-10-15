@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.80
- * @date    2026-10-13
- * @rules   2193 total (312 domains, 450 critical paths, 401 path keywords, 109 param rules)
+ * @version 46.81
+ * @date    2026-10-15
+ * @rules   2194 total (313 domains, 450 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.80';
-const SCRIPT_BUILD = 'V46.80 (2026-10-13) | 2193 rules | 3483 tests';
+const SCRIPT_VERSION = '46.81';
+const SCRIPT_BUILD = 'V46.81 (2026-10-15) | 2194 rules | 3491 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -222,7 +222,7 @@ const RULES = {
     'tagtoo.com.tw', 'scupio.net', 'clickforce.net', 'log.aliyuncs.com', 'sls.aliyuncs.com', 'jpush.cn',
     'jpush.io', 'jiguang.cn', 'igexin.com', 'getui.com', 'getui.net', 'gepush.com',
     'veta.naver.com', 'goqual.com', 'alibabachengdun.com', 'saf.aliyuncs.com', 'adapty.io', 'howxm.com',
-    'adhacker.online'
+    'adhacker.online', 'apitd.net'
   ]),
 
   BLOCK_DOMAINS_REGEX: [

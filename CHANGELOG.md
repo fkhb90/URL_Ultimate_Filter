@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.81 - 2026-10-15
+- [Privacy] `apitd.net`（TrustDecision／同盾科技，主體杭州小盾數字科技有限公司）為第三方裝置指紋採集網域：`*-fp.apitd.net` 子網域承載 iOS／Android／Web SDK 的裝置指紋與裝置風險上報（如 `/ios/v1`），非網站自身功能。整域加入 `BLOCK_DOMAINS_WILDCARDS`，命中即 403 並涵蓋所有區域子網域。
+- [Test] 新增回歸：iOS 指紋採集節點（帶 query／裸路徑）、其他區域子網域、網域根皆 403；相似網域 `notapitd.net` 與其他網域相同路徑維持放行。
+
 ## V46.80 - 2026-10-13
 - [BugFix] `events.mlh.com`（Major League Hacking 活動站）的活動路由家族 `/events`（活動詳細頁、`/register`、`/registration`、`.ics` 日曆）被子字串命中的全域 `CRITICAL_PATH_GENERIC` `/events` L1 規則誤封；以 host-scoped `PATH_EXEMPTIONS` `RE:^/events(?:/|$)` 精準放行該路由家族，不改動全域關鍵字、也不擴大網域白名單。
 - [Test] 新增回歸：活動頁／報名／`.ics`／列表放行；同 host 的 `/events-extra`、`/api/events` 與其他網域相同路徑維持 403；PostHog `/events` 遙測維持 403。
