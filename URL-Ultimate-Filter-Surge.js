@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.81
- * @date    2026-10-15
- * @rules   2194 total (313 domains, 450 critical paths, 401 path keywords, 109 param rules)
+ * @version 46.82
+ * @date    2026-10-16
+ * @rules   2196 total (313 domains, 452 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.81';
-const SCRIPT_BUILD = 'V46.81 (2026-10-15) | 2194 rules | 3491 tests';
+const SCRIPT_VERSION = '46.82';
+const SCRIPT_BUILD = 'V46.82 (2026-10-16) | 2196 rules | 3502 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -661,6 +661,9 @@ const RULES = {
       ])],
     ['patronus.idata.shopeemobile.com', new Set([
         '/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'
+      ])],
+    ['deo.shopeemobile.com', new Set([
+        'tracking-hoc', '/anticrawler'
       ])],
     ['dp.tracking.shopee.tw', new Set([
         '/v4/event_batch'

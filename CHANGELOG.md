@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.82 - 2026-10-16
+- [Privacy] `deo.shopeemobile.com`（Shopee 動態模組 CDN）追蹤與反爬蟲 JS 封鎖：`shopee__tracking-hoc` 為模組聯邦追蹤高階元件，`/anticrawler/` 為反爬蟲腳本。CRITICAL_PATH_MAP 以 `tracking-hoc` 與 `/anticrawler` 精準 403，子域名繼承。
+- [Test] 新增回歸：tracking-hoc 原始與快照變體、anticrawler hash 變體、子域名繼承、正常模組路徑放行。
+
 ## V46.81 - 2026-10-15
 - [Privacy] `apitd.net`（TrustDecision／同盾科技，主體杭州小盾數字科技有限公司）為第三方裝置指紋採集網域：`*-fp.apitd.net` 子網域承載 iOS／Android／Web SDK 的裝置指紋與裝置風險上報（如 `/ios/v1`），非網站自身功能。整域加入 `BLOCK_DOMAINS_WILDCARDS`，命中即 403 並涵蓋所有區域子網域。
 - [Test] 新增回歸：iOS 指紋採集節點（帶 query／裸路徑）、其他區域子網域、網域根皆 403；相似網域 `notapitd.net` 與其他網域相同路徑維持放行。
