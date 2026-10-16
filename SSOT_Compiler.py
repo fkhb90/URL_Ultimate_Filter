@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.83 (2026-10-16)
+當前版本：V46.85 (2026-10-17)
 最新架構更新：
-- [BugFix] 撤回 V46.82：`deo.shopeemobile.com` 的 `tracking-hoc` 與 `/anticrawler` 是驗證碼所需腳本，移除 `CRITICAL_PATH_MAP`，恢復 V46.81 放行。
-- [Test] 使用者回報的兩條 URL 與變體改為 ALLOW。
+- [Privacy] `grok.com` 既有 host-scoped 條目追加 `DROP_RE:^/api/log_metric(?:\\?|$)`：邊界錨定、靜默 204，補上每秒一次的高頻遙測信標（與 /monitoring 同家族）。
+- [Test] /api/log_metric 精確路徑、query 變體、子網域與同前綴變體邊界案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.85 (2026-10-17): Privacy — `grok.com` `/api/log_metric` 遙測信標 host-scoped `DROP_RE` 邊界錨定 204。
+- V46.84 (2026-10-17): Privacy — `grok.com` `/monitoring` 遙測端點 host-scoped `DROP:/monitoring` 靜默 204（V45.69 `www.meta.ai` 同型先例）。
 - V46.83 (2026-10-16): BugFix — 撤回 V46.82，`deo.shopeemobile.com` tracking-hoc / anticrawler 恢復放行（驗證碼）。
 - V46.82 (2026-10-16): Privacy — `deo.shopeemobile.com` 追蹤與反爬蟲 JS 模組封鎖（tracking-hoc + /anticrawler）。
 - V46.81 (2026-10-15): Privacy — `apitd.net` 整域 403 硬封鎖（TrustDecision／同盾裝置指紋採集 SDK 網域）。
-- V46.80 (2026-10-13): BugFix — `events.mlh.com` `/events` 活動路由家族被全域 `/events` L1 誤封，host-scoped PATH_EXEMPTIONS 精準放行。
-- V46.79 (2026-10-13): Privacy — `hightouch-events.com` 整域 `DROP:/` 靜默 204（Hightouch Events 事件收集遙測）。
 
 """
 
@@ -41,12 +41,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.83"
-RELEASE_DATE = "2026-10-16"
+VERSION = "46.85"
+RELEASE_DATE = "2026-10-17"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] 撤回 V46.82：`deo.shopeemobile.com` 的 `tracking-hoc` 與 `/anticrawler` 會讓驗證碼出不來。移除該 host 的 `CRITICAL_PATH_MAP`，這兩條腳本恢復 V46.81 的放行。
-- [Test] 使用者回報的兩條 URL、快照變體與子網域改為 ALLOW。
+- [Privacy] `grok.com` host-scoped 條目現伺候兩條遙測路徑：`DROP:/monitoring`（子字串、靜默 204）與 `DROP_RE:^/api/log_metric(?:\\?|$)`（邊界錨定、靜默 204，不連帶擋同前綴變體）。
+- [Test] /monitoring 家族與 /api/log_metric 精確路徑、query 變體、子網域、同前綴變體與 host-scope 邊界案例。
 """
 
 
@@ -425,6 +425,7 @@ RULES_DB = {
         'claude.ai': ['DROP:/api/event_logging/'],
         'api.anthropic.com': ['DROP:/api/event_logging/'],
         'www.meta.ai': ['DROP:/monitoring', 'DROP:/api/analytics'],
+        'grok.com': ['DROP:/monitoring', 'DROP_RE:^/api/log_metric(?:\\?|$)'],
         'chat.mistral.ai': ['DROP:/api/trpc/event.'],
         'logx.optimizely.com': ['DROP:/v1/events'],
         'cpdl-deferrer.91app.com': ['DROP:deferrer-log'],
@@ -3340,6 +3341,20 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Regression: MLH Nested Api Events Still Blocked", "https://events.mlh.com/api/events", RES_BLOCK_403, "V46.80 豁免錨定路徑開頭；同 host 的 /api/events 不在豁免範圍，維持原封鎖"))
     cases.append(TestCase("Regression: Other Host MLH Event Path Still Blocked", "https://example.com/events/14553-global-hack-week-hacktoberfest", RES_BLOCK_403, "V46.80 豁免限 events.mlh.com；其他網域相同路徑仍由全域 /events L1 封鎖"))
     cases.append(TestCase("Regression: PostHog Events Still Blocked", "https://us.i.posthog.com/events", RES_BLOCK_403, "V46.80 未動全域 `/events` 關鍵字；遙測 `/events` 端點維持 403"))
+    # --- V46.85 grok.com /api/log_metric beacon drop (boundary-anchored DROP_RE) ---
+    cases.append(TestCase("Privacy: Grok Log Metric Beacon Drop", "https://grok.com/api/log_metric", RES_DROP_204, "V46.85 grok.com /api/log_metric 每秒一次的高頻遙測信標；host-scoped DROP_RE 邊界錨定靜默 204"))
+    cases.append(TestCase("Privacy: Grok Log Metric Query Variant Drop", "https://grok.com/api/log_metric?ts=1712345678", RES_DROP_204, "V46.85 帶 query 的遙測上報同樣 204；錨點允許 ? 或字串結尾"))
+    cases.append(TestCase("Privacy: Grok Log Metric Subdomain Drop", "https://sub.grok.com/api/log_metric", RES_DROP_204, "V46.85 CRITICAL_PATH_MAP 網域鍵以子網域形式繼承"))
+    cases.append(TestCase("Regression: Grok Log Metrics Batch Pass", "https://grok.com/api/log_metrics_batch", RES_ALLOW, "V46.85 邊界錨定不連帶擋 /api/log_metric 開頭的其他路徑（子字串形式會誤擋，故未採用）"))
+    cases.append(TestCase("Regression: Other Host Log Metric Pass", "https://example.com/api/log_metric", RES_ALLOW, "V46.85 規則限 grok.com；其他網域相同路徑維持原放行"))
+    cases.append(TestCase("Regression: Grok Api Root Pass", "https://grok.com/api/", RES_ALLOW, "V46.85 未動 grok.com 其他路徑；API 根路徑不受影響"))
+    # --- V46.84 grok.com /monitoring telemetry drop (host-scoped CRITICAL_PATH_MAP) ---
+    cases.append(TestCase("Privacy: Grok Monitoring Telemetry Drop", "https://grok.com/monitoring?o=4508179396558848&p=4508493378158592&r=us", RES_DROP_204, "V46.84 grok.com /monitoring 遙測端點；與 V45.69 www.meta.ai 先例同型（o/p/r ID query）"))
+    cases.append(TestCase("Privacy: Grok Monitoring Bare Path Drop", "https://grok.com/monitoring", RES_DROP_204, "V46.84 結尾無斜線的裸路徑原本被全域 /monitoring/ 關鍵字漏掉，改由 host-scoped MAP 涵蓋"))
+    cases.append(TestCase("Privacy: Grok Monitoring Subdomain Drop", "https://ssff.grok.com/monitoring", RES_DROP_204, "V46.84 CRITICAL_PATH_MAP 網域鍵以子網域形式繼承，子域遙測節點一併 204"))
+    cases.append(TestCase("Regression: Grok Monitoring Nested Path Drop", "https://grok.com/monitoring/api/log_metric", RES_DROP_204, "V46.84 nested 子路徑改由先執行的 MAP 規則回 204（原本是關鍵字層 403，仍為封鎖）"))
+    cases.append(TestCase("Regression: Other Host Monitoring Path Pass", "https://example.com/monitoring", RES_ALLOW, "V46.84 規則限 grok.com；其他網域裸 /monitoring 維持原放行"))
+    cases.append(TestCase("Regression: Grok Chat API Unaffected Pass", "https://grok.com/rest/app-chat/conversations/new", RES_ALLOW, "V46.84 未動 grok.com 其他路徑；聊天 API 不受影響"))
     # --- V46.83 revert V46.82 Shopee captcha false positive ---
     cases.append(TestCase("BugFix: Shopee DEO Tracking-HOC Captcha Pass", "https://deo.shopeemobile.com/shopee/modules-federation/live/0/shopee__tracking-hoc/0.0.0-snapshot-20260813090626.js", RES_ALLOW, "V46.83 撤回 V46.82 CRITICAL_PATH_MAP；tracking-hoc 為驗證碼所需腳本，恢復 V46.81 放行"))
     cases.append(TestCase("BugFix: Shopee DEO Tracking-HOC Variant Pass", "https://deo.shopeemobile.com/shopee/modules-federation/live/0/shopee__tracking-hoc/0.0.0-snapshot-20260813090627.js", RES_ALLOW, "V46.83 快照版本變體同樣放行"))
