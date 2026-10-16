@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.85 - 2026-10-17
+- [Privacy] `grok.com` host-scoped 條目現伺候兩條遙測路徑：`DROP:/monitoring`（子字串、靜默 204）與 `DROP_RE:^/api/log_metric(?:\?|$)`（邊界錨定、靜默 204，不連帶擋同前綴變體）。
+- [Test] /monitoring 家族與 /api/log_metric 精確路徑、query 變體、子網域、同前綴變體與 host-scope 邊界案例。
+
 ## V46.83 - 2026-10-16
 - [BugFix] 撤回 V46.82：`deo.shopeemobile.com` 的 `tracking-hoc` 與 `/anticrawler` 會讓驗證碼出不來。移除該 host 的 `CRITICAL_PATH_MAP`，這兩條腳本恢復 V46.81 的放行。
 - [Test] 使用者回報的兩條 URL、快照變體與子網域改為 ALLOW。
