@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.81 (2026-10-15)
+當前版本：V46.82 (2026-10-16)
 最新架構更新：
-- [Privacy] `apitd.net`（TrustDecision／同盾科技裝置指紋採集網域）整域加入 `BLOCK_DOMAINS_WILDCARDS`，命中即 403；網域鍵涵蓋所有區域子網域（cn-fp／sg-fp／us-fp 等 SDK 採集節點）。
-- [Test] 新增回歸：iOS 指紋採集節點、裸路徑、其他區域子網域與網域根皆 403；相似網域 `notapitd.net` 與其他網域相同路徑維持放行。
+- [Privacy] `deo.shopeemobile.com` 追蹤與反爬蟲模組精準封鎖：CRITICAL_PATH_MAP 新增 `tracking-hoc` 與 `/anticrawler`，命中即 403；對應 Shopee 模組聯邦 `shopee__tracking-hoc` 與 anticrawler JS（hash 檔名版本無關）。
+- [Test] 新增回歸：tracking-hoc 快照變體、anticrawler hash 變體、子域名繼承、非相關路徑放行。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.82 (2026-10-16): Privacy — `deo.shopeemobile.com` 追蹤與反爬蟲 JS 模組封鎖（tracking-hoc + /anticrawler）。
 - V46.81 (2026-10-15): Privacy — `apitd.net` 整域 403 硬封鎖（TrustDecision／同盾裝置指紋採集 SDK 網域）。
 - V46.80 (2026-10-13): BugFix — `events.mlh.com` `/events` 活動路由家族（活動頁／報名／`.ics`／列表）被全域 `/events` L1 誤封，host-scoped PATH_EXEMPTIONS 精準放行。
 - V46.79 (2026-10-13): Privacy — `hightouch-events.com` 整域 `DROP:/` 靜默 204（Hightouch Events 事件收集遙測）。
 - V46.78 (2026-10-09): Privacy — `mobile-data.onetrust.io` `/cfw/cmp/v1/banner` host-scoped 精準封鎖。
-- V46.77 (2026-10-07): BugFix — `setAttributeNS` 名稱區分大小寫，`SRC` 不再誤取消阻斷 src 的合成事件。
 
 """
 
@@ -39,14 +39,13 @@ if sys.platform == "win32":
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
-
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.81"
-RELEASE_DATE = "2026-10-15"
+VERSION = "46.82"
+RELEASE_DATE = "2026-10-16"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] `apitd.net`（TrustDecision／同盾科技，主體杭州小盾數字科技有限公司）為第三方裝置指紋採集網域：`*-fp.apitd.net` 子網域承載 iOS／Android／Web SDK 的裝置指紋與裝置風險上報（如 `/ios/v1`），非網站自身功能。整域加入 `BLOCK_DOMAINS_WILDCARDS`，命中即 403 並涵蓋所有區域子網域。
-- [Test] 新增回歸：iOS 指紋採集節點（帶 query／裸路徑）、其他區域子網域、網域根皆 403；相似網域 `notapitd.net` 與其他網域相同路徑維持放行。
+- [Privacy] `deo.shopeemobile.com`（Shopee 動態模組 CDN）追蹤與反爬蟲 JS 封鎖：`shopee__tracking-hoc` 為模組聯邦追蹤高階元件，`/anticrawler/` 為反爬蟲腳本。CRITICAL_PATH_MAP 以 `tracking-hoc` 與 `/anticrawler` 精準 403，子域名繼承。
+- [Test] 新增回歸：tracking-hoc 原始與快照變體、anticrawler hash 變體、子域名繼承、正常模組路徑放行。
 """
 
 
@@ -561,6 +560,7 @@ RULES_DB = {
         'instagram.com': ['/logging_client_events'],
         'mall.shopee.tw': ['/userstats_record/batchrecord'],
         'patronus.idata.shopeemobile.com': ['/log-receiver/api/v1/0/tw/event/batch', '/event-receiver/api/v4/tw'],
+        'deo.shopeemobile.com': ['tracking-hoc', '/anticrawler'],
         'dp.tracking.shopee.tw': ['/v4/event_batch'],
         'live-apm.shopee.tw': ['/apmapi/v1/event'],
         'cmapi.tw.coupang.com': ['/featureflag/batchtracking', '/sdp-atf-ads/', '/sdp-btf-ads/', '/home-banner-ads/', '/category-banner-ads/', '/plp-ads/', '/ad-info'],
@@ -3340,6 +3340,14 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Regression: MLH Nested Api Events Still Blocked", "https://events.mlh.com/api/events", RES_BLOCK_403, "V46.80 豁免錨定路徑開頭；同 host 的 /api/events 不在豁免範圍，維持原封鎖"))
     cases.append(TestCase("Regression: Other Host MLH Event Path Still Blocked", "https://example.com/events/14553-global-hack-week-hacktoberfest", RES_BLOCK_403, "V46.80 豁免限 events.mlh.com；其他網域相同路徑仍由全域 /events L1 封鎖"))
     cases.append(TestCase("Regression: PostHog Events Still Blocked", "https://us.i.posthog.com/events", RES_BLOCK_403, "V46.80 未動全域 `/events` 關鍵字；遙測 `/events` 端點維持 403"))
+    # --- V46.82 Shopee DEO CDN tracking-hoc + anticrawler precise block ---
+    cases.append(TestCase("Privacy: Shopee DEO Tracking-HOC Block", "https://deo.shopeemobile.com/shopee/modules-federation/live/0/shopee__tracking-hoc/0.0.0-snapshot-20260813090626.js", RES_BLOCK_403, "V46.82 deo.shopeemobile.com Shopee 模組聯邦 tracking-hoc 高階元件快照 JS；CRITICAL_PATH_MAP /tracking-hoc 子字串 403"))
+    cases.append(TestCase("Privacy: Shopee DEO Tracking-HOC Snapshot Variant Block", "https://deo.shopeemobile.com/shopee/modules-federation/live/0/shopee__tracking-hoc/0.0.0-snapshot-20260813090627.js", RES_BLOCK_403, "V46.82 hash 快照版本號變體同樣命中 /tracking-hoc 規則"))
+    cases.append(TestCase("Privacy: Shopee DEO Anticrawler Block", "https://deo.shopeemobile.com/shopee/shopee-mobilemall-live-sg/anticrawler/mobilemall-anticrawler.8ad5b229c3a06fa30401.js", RES_BLOCK_403, "V46.82 deo.shopeemobile.com 反爬蟲/設備指紋模組 anticrawler JS；CRITICAL_PATH_MAP /anticrawler 子字串 403（hash 檔名版本無關）"))
+    cases.append(TestCase("Privacy: Shopee DEO Anticrawler Variant Block", "https://deo.shopeemobile.com/shopee/shopee-mobilemall-live-sg/anticrawler/mobilemall-anticrawler.abcdef1234567890.js", RES_BLOCK_403, "V46.82 anticrawler 路徑下 hash 變體同樣命中 /anticrawler 規則"))
+    cases.append(TestCase("Privacy: Shopee DEO Tracking-HOC Subdomain Block", "https://sub.deo.shopeemobile.com/shopee/modules-federation/live/0/shopee__tracking-hoc/test.js", RES_BLOCK_403, "V46.82 CRITICAL_PATH_MAP 網域鍵命中子網域；子網域同路徑一併封鎖"))
+    cases.append(TestCase("Safe: Shopee DEO Normal Module Pass", "https://deo.shopeemobile.com/shopee/modules-federation/live/0/shopee__live-core/0.0.0-snapshot-20260813090626.js", RES_ALLOW, "V46.82 規則僅鎖 /tracking-hoc 與 /anticrawler；同 host 正常業務模組維持放行"))
+    cases.append(TestCase("Regression: Other Host Tracking-HOC Path Pass", "https://example.com/shopee__tracking-hoc/test.js", RES_ALLOW, "V46.82 規則限 deo.shopeemobile.com；其他網域相同路徑維持原行為"))
     # --- V46.81 TrustDecision (apitd.net) device-fingerprint vendor domain block ---
     cases.append(TestCase("Privacy: TrustDecision iOS Fingerprint Ingest Block", "https://sg-fp.apitd.net/ios/v1?version=5.3.0.1&partner=kimi&appKey=fixture", RES_BLOCK_403, "V46.81 TrustDecision／同盾裝置指紋採集節點；apitd.net 納入 BLOCK_DOMAINS_WILDCARDS 整域 403"))
     cases.append(TestCase("Privacy: TrustDecision Fingerprint Bare Path Block", "https://sg-fp.apitd.net/ios/v1", RES_BLOCK_403, "V46.81 整域規則不依賴路徑或 query；裸路徑同樣 403"))
