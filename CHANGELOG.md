@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.83 - 2026-10-16
+- [BugFix] 撤回 V46.82：`deo.shopeemobile.com` 的 `tracking-hoc` 與 `/anticrawler` 會讓驗證碼出不來。移除該 host 的 `CRITICAL_PATH_MAP`，這兩條腳本恢復 V46.81 的放行。
+- [Test] 使用者回報的兩條 URL、快照變體與子網域改為 ALLOW。
+
 ## V46.82 - 2026-10-16
 - [Privacy] `deo.shopeemobile.com`（Shopee 動態模組 CDN）追蹤與反爬蟲 JS 封鎖：`shopee__tracking-hoc` 為模組聯邦追蹤高階元件，`/anticrawler/` 為反爬蟲腳本。CRITICAL_PATH_MAP 以 `tracking-hoc` 與 `/anticrawler` 精準 403，子域名繼承。
 - [Test] 新增回歸：tracking-hoc 原始與快照變體、anticrawler hash 變體、子域名繼承、正常模組路徑放行。
