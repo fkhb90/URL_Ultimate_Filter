@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.85 (2026-10-17)
+當前版本：V46.86 (2026-10-17)
 最新架構更新：
-- [Privacy] `grok.com` 既有 host-scoped 條目追加 `DROP_RE:^/api/log_metric(?:\\?|$)`：邊界錨定、靜默 204，補上每秒一次的高頻遙測信標（與 /monitoring 同家族）。
-- [Test] /api/log_metric 精確路徑、query 變體、子網域與同前綴變體邊界案例。
+- [Privacy] `easervice.edenred.com.tw` 新增 host-scoped `DROP_RE:^/api/v2/app/addappsystemoperatelog(?:\\?|$)`：只靜默丟棄 `/api/v2/App/AddAppSystemOperateLog`，不封鎖整個 host。
+- [Test] 精確路徑、query 變體、子網域繼承、同前綴、目錄、相似 host 與其他網域邊界案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.86 (2026-10-17): Privacy — `easervice.edenred.com.tw` `/api/v2/App/AddAppSystemOperateLog` host-scoped `DROP_RE` 邊界錨定 204。
 - V46.85 (2026-10-17): Privacy — `grok.com` `/api/log_metric` 遙測信標 host-scoped `DROP_RE` 邊界錨定 204。
 - V46.84 (2026-10-17): Privacy — `grok.com` `/monitoring` 遙測端點 host-scoped `DROP:/monitoring` 靜默 204（V45.69 `www.meta.ai` 同型先例）。
 - V46.83 (2026-10-16): BugFix — 撤回 V46.82，`deo.shopeemobile.com` tracking-hoc / anticrawler 恢復放行（驗證碼）。
 - V46.82 (2026-10-16): Privacy — `deo.shopeemobile.com` 追蹤與反爬蟲 JS 模組封鎖（tracking-hoc + /anticrawler）。
-- V46.81 (2026-10-15): Privacy — `apitd.net` 整域 403 硬封鎖（TrustDecision／同盾裝置指紋採集 SDK 網域）。
 
 """
 
@@ -41,12 +41,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.85"
+VERSION = "46.86"
 RELEASE_DATE = "2026-10-17"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] `grok.com` host-scoped 條目現伺候兩條遙測路徑：`DROP:/monitoring`（子字串、靜默 204）與 `DROP_RE:^/api/log_metric(?:\\?|$)`（邊界錨定、靜默 204，不連帶擋同前綴變體）。
-- [Test] /monitoring 家族與 /api/log_metric 精確路徑、query 變體、子網域、同前綴變體與 host-scope 邊界案例。
+- [Privacy] `easervice.edenred.com.tw` host-scoped `DROP_RE:^/api/v2/app/addappsystemoperatelog(?:\\?|$)`：邊界錨定、靜默 204，只覆蓋精確操作日誌端點。
+- [Test] 精確路徑、query 變體、子網域繼承、同前綴、目錄、相似 host 與其他網域邊界案例。
 """
 
 
@@ -426,6 +426,7 @@ RULES_DB = {
         'api.anthropic.com': ['DROP:/api/event_logging/'],
         'www.meta.ai': ['DROP:/monitoring', 'DROP:/api/analytics'],
         'grok.com': ['DROP:/monitoring', 'DROP_RE:^/api/log_metric(?:\\?|$)'],
+        'easervice.edenred.com.tw': ['DROP_RE:^/api/v2/app/addappsystemoperatelog(?:\\?|$)'],
         'chat.mistral.ai': ['DROP:/api/trpc/event.'],
         'logx.optimizely.com': ['DROP:/v1/events'],
         'cpdl-deferrer.91app.com': ['DROP:deferrer-log'],
@@ -3341,6 +3342,15 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Regression: MLH Nested Api Events Still Blocked", "https://events.mlh.com/api/events", RES_BLOCK_403, "V46.80 豁免錨定路徑開頭；同 host 的 /api/events 不在豁免範圍，維持原封鎖"))
     cases.append(TestCase("Regression: Other Host MLH Event Path Still Blocked", "https://example.com/events/14553-global-hack-week-hacktoberfest", RES_BLOCK_403, "V46.80 豁免限 events.mlh.com；其他網域相同路徑仍由全域 /events L1 封鎖"))
     cases.append(TestCase("Regression: PostHog Events Still Blocked", "https://us.i.posthog.com/events", RES_BLOCK_403, "V46.80 未動全域 `/events` 關鍵字；遙測 `/events` 端點維持 403"))
+    # --- V46.86 easervice.edenred.com.tw operate-log drop (boundary-anchored DROP_RE) ---
+    cases.append(TestCase("Privacy: Edenred App Operate Log Drop", "https://easervice.edenred.com.tw/api/v2/App/AddAppSystemOperateLog", RES_DROP_204, "V46.86 使用者指定只擋此 URL；POST-only 操作日誌，host-scoped DROP_RE 邊界錨定靜默 204"))
+    cases.append(TestCase("Privacy: Edenred App Operate Log Query Drop", "https://easervice.edenred.com.tw/api/v2/App/AddAppSystemOperateLog?ts=1", RES_DROP_204, "V46.86 精確端點不依賴 query；帶 query 同樣 204"))
+    cases.append(TestCase("Privacy: Edenred App Operate Log Subdomain Drop", "https://sub.easervice.edenred.com.tw/api/v2/App/AddAppSystemOperateLog", RES_DROP_204, "V46.86 CRITICAL_PATH_MAP 網域鍵以子網域形式繼承"))
+    cases.append(TestCase("Regression: Edenred App Operate Log Sibling Pass", "https://easervice.edenred.com.tw/api/v2/App/AddAppSystemOperateLogExtra", RES_ALLOW, "V46.86 邊界錨定不連帶擋同前綴路徑"))
+    cases.append(TestCase("Regression: Edenred App Directory Pass", "https://easervice.edenred.com.tw/api/v2/App/", RES_ALLOW, "V46.86 規則只鎖精確端點；同 host 的 /api/v2/App/ 維持放行"))
+    cases.append(TestCase("Regression: Other Host Edenred Operate Log Pass", "https://example.com/api/v2/App/AddAppSystemOperateLog", RES_ALLOW, "V46.86 規則限 easervice.edenred.com.tw；其他網域相同路徑維持放行"))
+    cases.append(TestCase("Regression: Edenred Lookalike Host Pass", "https://not-easervice.edenred.com.tw/api/v2/App/AddAppSystemOperateLog", RES_ALLOW, "V46.86 子網域繼承要求點號邊界；not-easervice 前綴不得連帶 DROP"))
+    cases.append(TestCase("Safe: Edenred Easervice Root Pass", "https://easervice.edenred.com.tw/", RES_ALLOW, "V46.86 未封鎖整個 host；根路徑維持放行"))
     # --- V46.85 grok.com /api/log_metric beacon drop (boundary-anchored DROP_RE) ---
     cases.append(TestCase("Privacy: Grok Log Metric Beacon Drop", "https://grok.com/api/log_metric", RES_DROP_204, "V46.85 grok.com /api/log_metric 每秒一次的高頻遙測信標；host-scoped DROP_RE 邊界錨定靜默 204"))
     cases.append(TestCase("Privacy: Grok Log Metric Query Variant Drop", "https://grok.com/api/log_metric?ts=1712345678", RES_DROP_204, "V46.85 帶 query 的遙測上報同樣 204；錨點允許 ? 或字串結尾"))
