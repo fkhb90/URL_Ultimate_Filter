@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.85
+// @name         URL Ultimate Filter V46.86
 // @namespace    http://tampermonkey.net/
-// @version      46.85
+// @version      46.86
 // @date         2026-10-17
-// @description  SSOT 前端防護盾牌 V46.85 (2026-10-17) | 2196 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        2196 total (313 domains · 452 critical · 109 param)
+// @description  SSOT 前端防護盾牌 V46.86 (2026-10-17) | 2197 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        2197 total (313 domains · 453 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.85
+ * @version 46.86
  * @date    2026-10-17
- * @rules   2196 total (313 domains, 452 critical paths, 401 path keywords, 109 param rules)
+ * @rules   2197 total (313 domains, 453 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.85';
-const SCRIPT_BUILD = 'V46.85 (2026-10-17) | 2196 rules | 3510 tests';
+const SCRIPT_VERSION = '46.86';
+const SCRIPT_BUILD = 'V46.86 (2026-10-17) | 2197 rules | 3518 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -266,6 +266,9 @@ const RULES = {
       ])],
     ['grok.com', new Set([
         'DROP:/monitoring', 'DROP_RE:^/api/log_metric(?:\\?|$)'
+      ])],
+    ['easervice.edenred.com.tw', new Set([
+        'DROP_RE:^/api/v2/app/addappsystemoperatelog(?:\\?|$)'
       ])],
     ['chat.mistral.ai', new Set([
         'DROP:/api/trpc/event.'

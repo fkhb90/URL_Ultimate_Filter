@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.86 - 2026-10-17
+- [Privacy] `easervice.edenred.com.tw` host-scoped `DROP_RE:^/api/v2/app/addappsystemoperatelog(?:\?|$)`：邊界錨定、靜默 204，只覆蓋精確操作日誌端點。
+- [Test] 精確路徑、query 變體、子網域繼承、同前綴、目錄、相似 host 與其他網域邊界案例。
+
 ## V46.85 - 2026-10-17
 - [Privacy] `grok.com` host-scoped 條目現伺候兩條遙測路徑：`DROP:/monitoring`（子字串、靜默 204）與 `DROP_RE:^/api/log_metric(?:\?|$)`（邊界錨定、靜默 204，不連帶擋同前綴變體）。
 - [Test] /monitoring 家族與 /api/log_metric 精確路徑、query 變體、子網域、同前綴變體與 host-scope 邊界案例。
