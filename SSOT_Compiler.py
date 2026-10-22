@@ -3,17 +3,18 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.86 (2026-10-17)
+當前版本：V46.87 (2026-10-23)
 最新架構更新：
-- [Privacy] `easervice.edenred.com.tw` 新增 host-scoped `DROP_RE:^/api/v2/app/addappsystemoperatelog(?:\\?|$)`：只靜默丟棄 `/api/v2/App/AddAppSystemOperateLog`，不封鎖整個 host。
-- [Test] 精確路徑、query 變體、子網域繼承、同前綴、目錄、相似 host 與其他網域邊界案例。
+- [Privacy] `js-na2.hsadspixel.net` 加入精確主機封鎖清單，攔截 HubSpot 廣告像素腳本，不擴大封鎖其他主機。
+- [Test] 根路徑、靜態 JS、query、大小寫與連接埠，以及母網域、同層主機、子網域和相似主機邊界案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.87 (2026-10-23): Privacy — `js-na2.hsadspixel.net` 精確主機 403 封鎖；其他 HubSpot 主機不擴大封鎖。
 - V46.86 (2026-10-17): Privacy — `easervice.edenred.com.tw` `/api/v2/App/AddAppSystemOperateLog` host-scoped `DROP_RE` 邊界錨定 204。
 - V46.85 (2026-10-17): Privacy — `grok.com` `/api/log_metric` 遙測信標 host-scoped `DROP_RE` 邊界錨定 204。
 - V46.84 (2026-10-17): Privacy — `grok.com` `/monitoring` 遙測端點 host-scoped `DROP:/monitoring` 靜默 204（V45.69 `www.meta.ai` 同型先例）。
 - V46.83 (2026-10-16): BugFix — 撤回 V46.82，`deo.shopeemobile.com` tracking-hoc / anticrawler 恢復放行（驗證碼）。
-- V46.82 (2026-10-16): Privacy — `deo.shopeemobile.com` 追蹤與反爬蟲 JS 模組封鎖（tracking-hoc + /anticrawler）。
+
 
 """
 
@@ -41,12 +42,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.86"
-RELEASE_DATE = "2026-10-17"
+VERSION = "46.87"
+RELEASE_DATE = "2026-10-23"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] `easervice.edenred.com.tw` host-scoped `DROP_RE:^/api/v2/app/addappsystemoperatelog(?:\\?|$)`：邊界錨定、靜默 204，只覆蓋精確操作日誌端點。
-- [Test] 精確路徑、query 變體、子網域繼承、同前綴、目錄、相似 host 與其他網域邊界案例。
+- [Privacy] `js-na2.hsadspixel.net` 加入精確主機封鎖清單，攔截 HubSpot 廣告像素腳本，不擴大封鎖其他主機。
+- [Test] 根路徑、靜態 JS、query、大小寫與連接埠，以及母網域、同層主機、子網域和相似主機邊界案例。
 """
 
 
@@ -305,6 +306,7 @@ RULES_DB = {
         'optimizely.com', 'piwik.pro', 'posthog.com', 'quantserve.com', 'revcontent.com', 'rudderstack.com',
         'segment.com', 'semasio.net', 'snowplowanalytics.com', 'statcounter.com',
         'statsig.com', 'static.ads-twitter.com', 'sumo.com', 'sumome.com', 'tealium.com', 'track.hubspot.com',
+        'js-na2.hsadspixel.net',
         'track.tiara.daum.net', 'stat.tiara.daum.net', 'track.tiara.kakao.com', 'vwo.com', 'yieldlab.net',
         'fingerprint.com', 'doubleverify.com', 'iasds.com', 'moat.com', 'moatads.com',
         'sdk.iad-07.braze.com', 'serving-sys.com', 'tw.ad.doubleverify.com', 'agkn.com', 'id5-sync.com',
@@ -3342,6 +3344,13 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Regression: MLH Nested Api Events Still Blocked", "https://events.mlh.com/api/events", RES_BLOCK_403, "V46.80 豁免錨定路徑開頭；同 host 的 /api/events 不在豁免範圍，維持原封鎖"))
     cases.append(TestCase("Regression: Other Host MLH Event Path Still Blocked", "https://example.com/events/14553-global-hack-week-hacktoberfest", RES_BLOCK_403, "V46.80 豁免限 events.mlh.com；其他網域相同路徑仍由全域 /events L1 封鎖"))
     cases.append(TestCase("Regression: PostHog Events Still Blocked", "https://us.i.posthog.com/events", RES_BLOCK_403, "V46.80 未動全域 `/events` 關鍵字；遙測 `/events` 端點維持 403"))
+    # --- V46.87 HubSpot Ads pixel exact-host block ---
+    cases.append(TestCase("Privacy: HubSpot Ads Pixel Root Block", "https://js-na2.hsadspixel.net/", RES_BLOCK_403, "V46.87 精確主機封鎖，不依賴路徑關鍵字"))
+    cases.append(TestCase("Privacy: HubSpot Ads Pixel Static JS Block", "https://js-na2.hsadspixel.net/12345.js", RES_BLOCK_403, "V46.87 網域閘門先於靜態 JS 豁免"))
+    cases.append(TestCase("Privacy: HubSpot Ads Pixel Query Block", "https://js-na2.hsadspixel.net/12345.js?cb=123", RES_BLOCK_403, "V46.87 query 不改變精確主機封鎖"))
+    cases.append(TestCase("Privacy: HubSpot Ads Pixel Case Port Block", "https://JS-NA2.HSADSPIXEL.NET:443/12345.js", RES_BLOCK_403, "V46.87 主機大小寫和連接埠正規化後仍命中"))
+    for host in ("hsadspixel.net", "js-na1.hsadspixel.net", "sub.js-na2.hsadspixel.net", "not-js-na2.hsadspixel.net", "js-na2.hsadspixel.net.example.com", "js-na2.hsadspixel.net.evil", "js.hs-scripts.com", "app.hubspot.com"):
+        cases.append(TestCase("Regression: HubSpot Ads Pixel Exact Host Boundary", f"https://{host}/12345.js", RES_ALLOW, "V46.87 只新增精確主機，不擴大母網域、子網域、同層或相似主機封鎖"))
     # --- V46.86 easervice.edenred.com.tw operate-log drop (boundary-anchored DROP_RE) ---
     cases.append(TestCase("Privacy: Edenred App Operate Log Drop", "https://easervice.edenred.com.tw/api/v2/App/AddAppSystemOperateLog", RES_DROP_204, "V46.86 使用者指定只擋此 URL；POST-only 操作日誌，host-scoped DROP_RE 邊界錨定靜默 204"))
     cases.append(TestCase("Privacy: Edenred App Operate Log Query Drop", "https://easervice.edenred.com.tw/api/v2/App/AddAppSystemOperateLog?ts=1", RES_DROP_204, "V46.86 精確端點不依賴 query；帶 query 同樣 204"))
