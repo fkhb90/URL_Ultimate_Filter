@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.87 - 2026-10-23
+- [Privacy] `js-na2.hsadspixel.net` 加入精確主機封鎖清單，攔截 HubSpot 廣告像素腳本，不擴大封鎖其他主機。
+- [Test] 根路徑、靜態 JS、query、大小寫與連接埠，以及母網域、同層主機、子網域和相似主機邊界案例。
+
 ## V46.86 - 2026-10-17
 - [Privacy] `easervice.edenred.com.tw` host-scoped `DROP_RE:^/api/v2/app/addappsystemoperatelog(?:\?|$)`：邊界錨定、靜默 204，只覆蓋精確操作日誌端點。
 - [Test] 精確路徑、query 變體、子網域繼承、同前綴、目錄、相似 host 與其他網域邊界案例。
