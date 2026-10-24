@@ -3,17 +3,18 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.88 (2026-10-24)
+當前版本：V46.89 (2026-10-24)
 最新架構更新：
-- [BugFix] 依使用者指定，豁免 Grok `/_data/v1/events` 精確路徑；不擴大至相鄰事件路徑，並保留參數清理。
-- [Test] 精確路徑、query、參數清理、大小寫與連接埠，以及子網域、相似主機和相鄰路徑邊界案例。
+- [Privacy] 依使用者指定，對 legy.line-apps.com `/pgw/lg/v1/user/client-log` 精確路徑靜默丟棄 204；不封鎖整個主機。
+- [Test] 涵蓋原始 URL、query、大小寫、子網域繼承，以及相鄰路徑、其他主機與 query-only 負向案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.89 (2026-10-24): Privacy — 依使用者指定，legy.line-apps.com `/pgw/lg/v1/user/client-log` host-scoped 精確路徑 204 DROP。
 - V46.88 (2026-10-24): BugFix — 依使用者指定，豁免 Grok `/_data/v1/events` 精確路徑；保留其他事件路徑封鎖與參數清理。
 - V46.87 (2026-10-23): Privacy — `js-na2.hsadspixel.net` 精確主機 403 封鎖；其他 HubSpot 主機不擴大封鎖。
 - V46.86 (2026-10-17): Privacy — `easervice.edenred.com.tw` `/api/v2/App/AddAppSystemOperateLog` host-scoped `DROP_RE` 邊界錨定 204。
 - V46.85 (2026-10-17): Privacy — `grok.com` `/api/log_metric` 遙測信標 host-scoped `DROP_RE` 邊界錨定 204。
-- V46.84 (2026-10-17): Privacy — `grok.com` `/monitoring` 遙測端點 host-scoped `DROP:/monitoring` 靜默 204（V45.69 `www.meta.ai` 同型先例）。
+
 
 
 
@@ -43,12 +44,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.88"
+VERSION = "46.89"
 RELEASE_DATE = "2026-10-24"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] 依使用者指定，豁免 Grok `/_data/v1/events` 精確路徑；不擴大至相鄰事件路徑，並保留參數清理。
-- [Test] 精確路徑、query、參數清理、大小寫與連接埠，以及子網域、相似主機和相鄰路徑邊界案例。
+- [Privacy] 依使用者指定，對 legy.line-apps.com `/pgw/lg/v1/user/client-log` 精確路徑靜默丟棄 204；不封鎖整個主機。
+- [Test] 涵蓋原始 URL、query、大小寫、子網域繼承，以及相鄰路徑、其他主機與 query-only 負向案例。
 """
 
 
@@ -422,6 +423,7 @@ RULES_DB = {
         r"\/adrotate\.js(?:\?|$)"
     ],
     "CRITICAL_PATH_MAP": {
+        'legy.line-apps.com': ['DROP_RE:^/pgw/lg/v1/user/client-log(?:[?]|$)'],
         'hightouch-events.com': ['DROP:/'],
         'mobile-data.onetrust.io': ['RE:^/cfw/cmp/v1/banner/?(?:[?]|$)'],
         'statsig.anthropic.com': ['DROP:/v1/rgstr'],
@@ -3346,6 +3348,18 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Regression: MLH Nested Api Events Still Blocked", "https://events.mlh.com/api/events", RES_BLOCK_403, "V46.80 豁免錨定路徑開頭；同 host 的 /api/events 不在豁免範圍，維持原封鎖"))
     cases.append(TestCase("Regression: Other Host MLH Event Path Still Blocked", "https://example.com/events/14553-global-hack-week-hacktoberfest", RES_BLOCK_403, "V46.80 豁免限 events.mlh.com；其他網域相同路徑仍由全域 /events L1 封鎖"))
     cases.append(TestCase("Regression: PostHog Events Still Blocked", "https://us.i.posthog.com/events", RES_BLOCK_403, "V46.80 未動全域 `/events` 關鍵字；遙測 `/events` 端點維持 403"))
+    # --- V46.89 user-requested LINE client-log exact path drop ---
+    cases.append(TestCase("Privacy: LINE Client Log Original URL Drop", "https://legy.line-apps.com:443/pgw/lg/v1/user/client-log", RES_DROP_204, "V46.89 使用者指定封鎖；MAP 先於白名單，精確路徑回 204"))
+    for host in ("legy.line-apps.com", "LEGY.LINE-APPS.COM:443", "sub.legy.line-apps.com"):
+        cases.append(TestCase("Privacy: LINE Client Log Host Variant Drop", f"https://{host}/pgw/lg/v1/user/client-log", RES_DROP_204, "V46.89 主機正規化與既有子網域繼承語意"))
+    for suffix in ("?page=1", "?utm_source=test", "?next=/other"):
+        cases.append(TestCase("Privacy: LINE Client Log Query Drop", f"https://legy.line-apps.com/pgw/lg/v1/user/client-log{suffix}", RES_DROP_204, "V46.89 query 不改變端點封鎖，不落入白名單參數清理"))
+    cases.append(TestCase("Privacy: LINE Client Log Uppercase Path Drop", "https://legy.line-apps.com/PGW/LG/V1/USER/CLIENT-LOG", RES_DROP_204, "V46.89 沿用引擎不區分路徑大小寫語意"))
+    for path in ("/pgw/lg/v1/user/client-log-extra", "/pgw/lg/v1/user/client-log/", "/pgw/lg/v1/user/client-log/batch", "/prefix/pgw/lg/v1/user/client-log", "/pgw/lg/v1/user/profile", "/", "/other?next=/pgw/lg/v1/user/client-log"):
+        cases.append(TestCase("Regression: LINE Client Log Path Boundary Allow", f"https://legy.line-apps.com{path}", RES_ALLOW, "V46.89 不擴大至相鄰路徑、功能 API、根路徑或僅 query 含目標路徑的請求"))
+    for host in ("example.com", "line-apps.com", "obs-tw.line-apps.com", "notlegy.line-apps.com", "legy.line-apps.com.example.com"):
+        cases.append(TestCase("Regression: LINE Client Log Other Host Allow", f"https://{host}/pgw/lg/v1/user/client-log", RES_ALLOW, "V46.89 規則限 legy 主機家族，不影響母網域、同層或相似主機"))
+    cases.append(TestCase("Regression: LINE Client Log Child Other Path Allow", "https://sub.legy.line-apps.com/pgw/lg/v1/user/profile", RES_ALLOW, "V46.89 子網域僅繼承精確路徑規則，不封整個主機"))
     # --- V46.88 user-requested Grok exact events path exemption ---
     for host in ("grok.com", "sub.grok.com", "GROK.COM:443"):
         cases.append(TestCase("BugFix: Grok Exact Events Allow", f"https://{host}/_data/v1/events", RES_ALLOW, "V46.88 使用者指定放行；沿用網域鍵的子網域繼承"))
