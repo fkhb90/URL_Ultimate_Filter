@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.88 - 2026-10-24
+- [BugFix] 依使用者指定，豁免 Grok `/_data/v1/events` 精確路徑；不擴大至相鄰事件路徑，並保留參數清理。
+- [Test] 精確路徑、query、參數清理、大小寫與連接埠，以及子網域、相似主機和相鄰路徑邊界案例。
+
 ## V46.87 - 2026-10-23
 - [Privacy] `js-na2.hsadspixel.net` 加入精確主機封鎖清單，攔截 HubSpot 廣告像素腳本，不擴大封鎖其他主機。
 - [Test] 根路徑、靜態 JS、query、大小寫與連接埠，以及母網域、同層主機、子網域和相似主機邊界案例。

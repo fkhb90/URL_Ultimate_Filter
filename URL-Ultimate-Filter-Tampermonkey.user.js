@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.87
+// @name         URL Ultimate Filter V46.88
 // @namespace    http://tampermonkey.net/
-// @version      46.87
-// @date         2026-10-23
-// @description  SSOT 前端防護盾牌 V46.87 (2026-10-23) | 2198 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        2198 total (314 domains · 453 critical · 109 param)
+// @version      46.88
+// @date         2026-10-24
+// @description  SSOT 前端防護盾牌 V46.88 (2026-10-24) | 2199 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        2199 total (314 domains · 453 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.87
- * @date    2026-10-23
- * @rules   2198 total (314 domains, 453 critical paths, 401 path keywords, 109 param rules)
+ * @version 46.88
+ * @date    2026-10-24
+ * @rules   2199 total (314 domains, 453 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.87';
-const SCRIPT_BUILD = 'V46.87 (2026-10-23) | 2198 rules | 3531 tests';
+const SCRIPT_VERSION = '46.88';
+const SCRIPT_BUILD = 'V46.88 (2026-10-24) | 2199 rules | 3544 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1090,6 +1090,9 @@ const RULES = {
     'assets', 'static', 'images', 'img', 'css', 'js'
   ]),
     PATH_EXEMPTIONS: new Map([
+    ['grok.com', new Set([
+        'RE:^/_data/v1/events$'
+      ])],
     ['api2.cursor.sh', new Set([
         'RE:^/aiserver\\.v1\\.backgroundcomposerservice/registerpushnotificationtoken/?$'
       ])],
