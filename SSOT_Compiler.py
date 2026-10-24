@@ -3,17 +3,18 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.87 (2026-10-23)
+當前版本：V46.88 (2026-10-24)
 最新架構更新：
-- [Privacy] `js-na2.hsadspixel.net` 加入精確主機封鎖清單，攔截 HubSpot 廣告像素腳本，不擴大封鎖其他主機。
-- [Test] 根路徑、靜態 JS、query、大小寫與連接埠，以及母網域、同層主機、子網域和相似主機邊界案例。
+- [BugFix] 依使用者指定，豁免 Grok `/_data/v1/events` 精確路徑；不擴大至相鄰事件路徑，並保留參數清理。
+- [Test] 精確路徑、query、參數清理、大小寫與連接埠，以及子網域、相似主機和相鄰路徑邊界案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.88 (2026-10-24): BugFix — 依使用者指定，豁免 Grok `/_data/v1/events` 精確路徑；保留其他事件路徑封鎖與參數清理。
 - V46.87 (2026-10-23): Privacy — `js-na2.hsadspixel.net` 精確主機 403 封鎖；其他 HubSpot 主機不擴大封鎖。
 - V46.86 (2026-10-17): Privacy — `easervice.edenred.com.tw` `/api/v2/App/AddAppSystemOperateLog` host-scoped `DROP_RE` 邊界錨定 204。
 - V46.85 (2026-10-17): Privacy — `grok.com` `/api/log_metric` 遙測信標 host-scoped `DROP_RE` 邊界錨定 204。
 - V46.84 (2026-10-17): Privacy — `grok.com` `/monitoring` 遙測端點 host-scoped `DROP:/monitoring` 靜默 204（V45.69 `www.meta.ai` 同型先例）。
-- V46.83 (2026-10-16): BugFix — 撤回 V46.82，`deo.shopeemobile.com` tracking-hoc / anticrawler 恢復放行（驗證碼）。
+
 
 
 """
@@ -42,12 +43,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.87"
-RELEASE_DATE = "2026-10-23"
+VERSION = "46.88"
+RELEASE_DATE = "2026-10-24"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] `js-na2.hsadspixel.net` 加入精確主機封鎖清單，攔截 HubSpot 廣告像素腳本，不擴大封鎖其他主機。
-- [Test] 根路徑、靜態 JS、query、大小寫與連接埠，以及母網域、同層主機、子網域和相似主機邊界案例。
+- [BugFix] 依使用者指定，豁免 Grok `/_data/v1/events` 精確路徑；不擴大至相鄰事件路徑，並保留參數清理。
+- [Test] 精確路徑、query、參數清理、大小寫與連接埠，以及子網域、相似主機和相鄰路徑邊界案例。
 """
 
 
@@ -718,6 +719,7 @@ RULES_DB = {
         '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar'
     ],
     "PATH_EXEMPTIONS": {
+        "grok.com": ["RE:^/_data/v1/events$"],
         "api2.cursor.sh": ["RE:^/aiserver\\.v1\\.backgroundcomposerservice/registerpushnotificationtoken/?$"],
         "eapisgp1.pcloud.com": ["RE:^/eventslast/?$"],
         "id.atlassian.com": ["RE:^/login(?:/|$)"],
@@ -3344,6 +3346,17 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Regression: MLH Nested Api Events Still Blocked", "https://events.mlh.com/api/events", RES_BLOCK_403, "V46.80 豁免錨定路徑開頭；同 host 的 /api/events 不在豁免範圍，維持原封鎖"))
     cases.append(TestCase("Regression: Other Host MLH Event Path Still Blocked", "https://example.com/events/14553-global-hack-week-hacktoberfest", RES_BLOCK_403, "V46.80 豁免限 events.mlh.com；其他網域相同路徑仍由全域 /events L1 封鎖"))
     cases.append(TestCase("Regression: PostHog Events Still Blocked", "https://us.i.posthog.com/events", RES_BLOCK_403, "V46.80 未動全域 `/events` 關鍵字；遙測 `/events` 端點維持 403"))
+    # --- V46.88 user-requested Grok exact events path exemption ---
+    for host in ("grok.com", "sub.grok.com", "GROK.COM:443"):
+        cases.append(TestCase("BugFix: Grok Exact Events Allow", f"https://{host}/_data/v1/events", RES_ALLOW, "V46.88 使用者指定放行；沿用網域鍵的子網域繼承"))
+    cases.append(TestCase("BugFix: Grok Events Query Allow", "https://grok.com/_data/v1/events?page=1", RES_ALLOW, "V46.88 query 不改變精確路徑豁免"))
+    cases.append(TestCase("Regression: Grok Events Tracking Param Clean", "https://grok.com/_data/v1/events?utm_source=test", RES_CLEAN_302, "V46.88 路徑豁免仍執行參數清理"))
+    for path in ("/_data/v1/events-extra", "/_data/v1/events/", "/_data/v1/events/batch", "/prefix/_data/v1/events"):
+        cases.append(TestCase("Regression: Grok Events Path Boundary Block", f"https://grok.com{path}", RES_BLOCK_403, "V46.88 不豁免相鄰或前綴路徑"))
+    for host in ("example.com", "notgrok.com", "grok.com.example.com"):
+        cases.append(TestCase("Regression: Grok Events Host Boundary Block", f"https://{host}/_data/v1/events", RES_BLOCK_403, "V46.88 不豁免其他或相似網域"))
+    cases.append(TestCase("Regression: Grok Subdomain Other Events Block", "https://sub.grok.com/other/v1/events", RES_BLOCK_403, "V46.88 子網域僅繼承精確路徑豁免"))
+
     # --- V46.87 HubSpot Ads pixel exact-host block ---
     cases.append(TestCase("Privacy: HubSpot Ads Pixel Root Block", "https://js-na2.hsadspixel.net/", RES_BLOCK_403, "V46.87 精確主機封鎖，不依賴路徑關鍵字"))
     cases.append(TestCase("Privacy: HubSpot Ads Pixel Static JS Block", "https://js-na2.hsadspixel.net/12345.js", RES_BLOCK_403, "V46.87 網域閘門先於靜態 JS 豁免"))
