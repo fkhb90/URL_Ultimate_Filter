@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.89 - 2026-10-24
+- [Privacy] 依使用者指定，對 legy.line-apps.com `/pgw/lg/v1/user/client-log` 精確路徑靜默丟棄 204；不封鎖整個主機。
+- [Test] 涵蓋原始 URL、query、大小寫、子網域繼承，以及相鄰路徑、其他主機與 query-only 負向案例。
+
 ## V46.88 - 2026-10-24
 - [BugFix] 依使用者指定，豁免 Grok `/_data/v1/events` 精確路徑；不擴大至相鄰事件路徑，並保留參數清理。
 - [Test] 精確路徑、query、參數清理、大小寫與連接埠，以及子網域、相似主機和相鄰路徑邊界案例。

@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.88
+ * @version 46.89
  * @date    2026-10-24
- * @rules   2199 total (314 domains, 453 critical paths, 401 path keywords, 109 param rules)
+ * @rules   2200 total (314 domains, 454 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.88';
-const SCRIPT_BUILD = 'V46.88 (2026-10-24) | 2199 rules | 3544 tests';
+const SCRIPT_VERSION = '46.89';
+const SCRIPT_BUILD = 'V46.89 (2026-10-24) | 2200 rules | 3565 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -231,6 +231,9 @@ const RULES = {
 
   CRITICAL_PATH: {
     MAP: new Map([
+    ['legy.line-apps.com', new Set([
+        'DROP_RE:^/pgw/lg/v1/user/client-log(?:[?]|$)'
+      ])],
     ['hightouch-events.com', new Set([
         'DROP:/'
       ])],
