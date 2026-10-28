@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.90 - 2026-10-28
+- [BugFix] 依使用者指定豁免 external-content.duckduckgo.com 精確 `/iu/` 圖片代理路徑，避免圖片 ID 撞上 `spy` 關鍵字。
+- [Test] 涵蓋 query、子網域、相鄰路徑、其他主機與 DuckDuckGo 遙測端點。
+
 ## V46.89 - 2026-10-24
 - [Privacy] 依使用者指定，對 legy.line-apps.com `/pgw/lg/v1/user/client-log` 精確路徑靜默丟棄 204；不封鎖整個主機。
 - [Test] 涵蓋原始 URL、query、大小寫、子網域繼承，以及相鄰路徑、其他主機與 query-only 負向案例。

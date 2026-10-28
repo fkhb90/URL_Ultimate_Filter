@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.89
+// @name         URL Ultimate Filter V46.90
 // @namespace    http://tampermonkey.net/
-// @version      46.89
-// @date         2026-10-24
-// @description  SSOT 前端防護盾牌 V46.89 (2026-10-24) | 2200 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        2200 total (314 domains · 454 critical · 109 param)
+// @version      46.90
+// @date         2026-10-28
+// @description  SSOT 前端防護盾牌 V46.90 (2026-10-28) | 2201 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        2201 total (314 domains · 454 critical · 109 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.89
- * @date    2026-10-24
- * @rules   2200 total (314 domains, 454 critical paths, 401 path keywords, 109 param rules)
+ * @version 46.90
+ * @date    2026-10-28
+ * @rules   2201 total (314 domains, 454 critical paths, 401 path keywords, 109 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.89';
-const SCRIPT_BUILD = 'V46.89 (2026-10-24) | 2200 rules | 3565 tests';
+const SCRIPT_VERSION = '46.90';
+const SCRIPT_BUILD = 'V46.90 (2026-10-28) | 2201 rules | 3576 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1093,6 +1093,9 @@ const RULES = {
     'assets', 'static', 'images', 'img', 'css', 'js'
   ]),
     PATH_EXEMPTIONS: new Map([
+    ['external-content.duckduckgo.com', new Set([
+        'RE:^/iu/$'
+      ])],
     ['grok.com', new Set([
         'RE:^/_data/v1/events$'
       ])],
