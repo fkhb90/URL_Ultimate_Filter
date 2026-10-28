@@ -3,17 +3,18 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.89 (2026-10-24)
+當前版本：V46.90 (2026-10-28)
 最新架構更新：
-- [Privacy] 依使用者指定，對 legy.line-apps.com `/pgw/lg/v1/user/client-log` 精確路徑靜默丟棄 204；不封鎖整個主機。
-- [Test] 涵蓋原始 URL、query、大小寫、子網域繼承，以及相鄰路徑、其他主機與 query-only 負向案例。
+- [BugFix] 依使用者指定豁免 external-content.duckduckgo.com 精確 `/iu/` 圖片代理路徑，避免圖片 ID 撞上 `spy` 關鍵字。
+- [Test] 涵蓋 query、子網域、相鄰路徑、其他主機與 DuckDuckGo 遙測端點。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.90 (2026-10-28): BugFix — 豁免 DuckDuckGo external-content 圖片代理精確 `/iu/` 路徑。
 - V46.89 (2026-10-24): Privacy — 依使用者指定，legy.line-apps.com `/pgw/lg/v1/user/client-log` host-scoped 精確路徑 204 DROP。
 - V46.88 (2026-10-24): BugFix — 依使用者指定，豁免 Grok `/_data/v1/events` 精確路徑；保留其他事件路徑封鎖與參數清理。
 - V46.87 (2026-10-23): Privacy — `js-na2.hsadspixel.net` 精確主機 403 封鎖；其他 HubSpot 主機不擴大封鎖。
 - V46.86 (2026-10-17): Privacy — `easervice.edenred.com.tw` `/api/v2/App/AddAppSystemOperateLog` host-scoped `DROP_RE` 邊界錨定 204。
-- V46.85 (2026-10-17): Privacy — `grok.com` `/api/log_metric` 遙測信標 host-scoped `DROP_RE` 邊界錨定 204。
+
 
 
 
@@ -44,12 +45,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.89"
-RELEASE_DATE = "2026-10-24"
+VERSION = "46.90"
+RELEASE_DATE = "2026-10-28"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 依使用者指定，對 legy.line-apps.com `/pgw/lg/v1/user/client-log` 精確路徑靜默丟棄 204；不封鎖整個主機。
-- [Test] 涵蓋原始 URL、query、大小寫、子網域繼承，以及相鄰路徑、其他主機與 query-only 負向案例。
+- [BugFix] 依使用者指定豁免 external-content.duckduckgo.com 精確 `/iu/` 圖片代理路徑，避免圖片 ID 撞上 `spy` 關鍵字。
+- [Test] 涵蓋 query、子網域、相鄰路徑、其他主機與 DuckDuckGo 遙測端點。
 """
 
 
@@ -721,6 +722,7 @@ RULES_DB = {
         '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar'
     ],
     "PATH_EXEMPTIONS": {
+        "external-content.duckduckgo.com": ["RE:^/iu/$"],
         "grok.com": ["RE:^/_data/v1/events$"],
         "api2.cursor.sh": ["RE:^/aiserver\\.v1\\.backgroundcomposerservice/registerpushnotificationtoken/?$"],
         "eapisgp1.pcloud.com": ["RE:^/eventslast/?$"],
@@ -3348,6 +3350,16 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Regression: MLH Nested Api Events Still Blocked", "https://events.mlh.com/api/events", RES_BLOCK_403, "V46.80 豁免錨定路徑開頭；同 host 的 /api/events 不在豁免範圍，維持原封鎖"))
     cases.append(TestCase("Regression: Other Host MLH Event Path Still Blocked", "https://example.com/events/14553-global-hack-week-hacktoberfest", RES_BLOCK_403, "V46.80 豁免限 events.mlh.com；其他網域相同路徑仍由全域 /events L1 封鎖"))
     cases.append(TestCase("Regression: PostHog Events Still Blocked", "https://us.i.posthog.com/events", RES_BLOCK_403, "V46.80 未動全域 `/events` 關鍵字；遙測 `/events` 端點維持 403"))
+    # --- V46.90 DuckDuckGo image proxy exact path exemption ---
+    ddg_image_query = "?u=https%3A%2F%2Ftse4.mm.bing.net%2Fth%2Fid%2FOIP.SpYKYwzvQwiO8UbnwngUDQHaEc%3Fr%3D0%26pid%3DApi&f=1&ipo=images"
+    for host in ("external-content.duckduckgo.com", "EXTERNAL-CONTENT.DUCKDUCKGO.COM:443", "foo.external-content.duckduckgo.com"):
+        cases.append(TestCase("BugFix: DuckDuckGo Image Proxy Allow", f"https://{host}/iu/{ddg_image_query}", RES_ALLOW, "V46.90 精確路徑豁免避免圖片 ID 撞上 spy；沿用子網域繼承"))
+    cases.append(TestCase("Regression: DuckDuckGo Image Proxy Tracking Clean", "https://external-content.duckduckgo.com/iu/?utm_source=test", RES_CLEAN_302, "V46.90 豁免後仍清理追蹤參數"))
+    for path in ("/iu", "/iu/extra", "/iu-extra", "/prefix/iu/"):
+        cases.append(TestCase("Regression: DuckDuckGo Image Proxy Path Boundary", f"https://external-content.duckduckgo.com{path}{ddg_image_query}", RES_BLOCK_403, "V46.90 相鄰路徑維持原本 spy 封鎖"))
+    cases.append(TestCase("Regression: Other Host Image Proxy Path", f"https://example.com/iu/{ddg_image_query}", RES_BLOCK_403, "V46.90 其他主機不豁免"))
+    cases.append(TestCase("Regression: DuckDuckGo Perf Cohort Block", "https://improving.duckduckgo.com/t/perf?cohort=n", RES_BLOCK_403, "V46.90 不放行效能請求"))
+    cases.append(TestCase("Regression: DuckDuckGo Error Beacon Drop", "https://improving.duckduckgo.com/t/im_x?vertical=web&beacon=0&error=Failed%20to%20fetch", RES_DROP_204, "V46.90 不放行錯誤信標"))
     # --- V46.89 user-requested LINE client-log exact path drop ---
     cases.append(TestCase("Privacy: LINE Client Log Original URL Drop", "https://legy.line-apps.com:443/pgw/lg/v1/user/client-log", RES_DROP_204, "V46.89 使用者指定封鎖；MAP 先於白名單，精確路徑回 204"))
     for host in ("legy.line-apps.com", "LEGY.LINE-APPS.COM:443", "sub.legy.line-apps.com"):
