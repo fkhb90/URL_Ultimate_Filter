@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.91 - 2026-10-29
+- [Privacy] x.com 與 twitter.com（含子網域）清理分享後綴 query `s` 與 `a`；其他主機維持原樣，`s` 仍在全域白名單。
+- [Test] 涵蓋兩個參數、編碼、大小寫、子網域、其他參數保留，以及相似主機與 OAuth safe harbor 不清理。
+
 ## V46.90 - 2026-10-28
 - [BugFix] 依使用者指定豁免 external-content.duckduckgo.com 精確 `/iu/` 圖片代理路徑，避免圖片 ID 撞上 `spy` 關鍵字。
 - [Test] 涵蓋 query、子網域、相鄰路徑、其他主機與 DuckDuckGo 遙測端點。

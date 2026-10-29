@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.90
- * @date    2026-10-28
- * @rules   2201 total (314 domains, 454 critical paths, 401 path keywords, 109 param rules)
+ * @version 46.91
+ * @date    2026-10-29
+ * @rules   2205 total (314 domains, 454 critical paths, 401 path keywords, 113 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.90';
-const SCRIPT_BUILD = 'V46.90 (2026-10-28) | 2201 rules | 3576 tests';
+const SCRIPT_VERSION = '46.91';
+const SCRIPT_BUILD = 'V46.91 (2026-10-29) | 2205 rules | 3600 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1049,6 +1049,14 @@ const RULES = {
             'device_id'
           ])]
         ])]
+  ]),
+    HOST_SCOPED: new Map([
+    ['x.com', new Set([
+        's', 'a'
+      ])],
+    ['twitter.com', new Set([
+        's', 'a'
+      ])]
   ])
   },
 
@@ -1341,6 +1349,15 @@ function resolveScopedParamExemptions(hostname) {
   return null;
 }
 
+function resolveHostScopedParams(hostname) {
+  const scoped = RULES.PARAMS.HOST_SCOPED.get(hostname);
+  if (scoped) return scoped;
+  for (const [domain, params] of RULES.PARAMS.HOST_SCOPED) {
+    if (hostname.endsWith('.' + domain)) return params;
+  }
+  return null;
+}
+
 function getHostProfile(hostname) {
   const cached = hostProfileCache.get(hostname);
   if (cached !== null) return cached;
@@ -1469,6 +1486,7 @@ const HELPERS = {
       })) return null;
       const kept = [];
       const scopedParamExemptions = hostProfile.scopedParamExemptions;
+      const hostScopedStrip = resolveHostScopedParams(hostname);
       let changed = false;
 
       for (let i = 0; i < pairs.length; i++) {
@@ -1478,6 +1496,8 @@ const HELPERS = {
         const eqIdx = pair.indexOf('=');
         const key = eqIdx >= 0 ? pair.substring(0, eqIdx) : pair;
         const lowerKey = decodeParamName(key);
+
+        if (hostScopedStrip && hostScopedStrip.has(lowerKey)) { changed = true; continue; }
 
         if (RULES.PARAMS.WHITELIST.has(lowerKey) || HELPERS.isScopedParamAllowed(scopedParamExemptions, pathOnly, lowerKey)) {
           kept.push(entry); continue;
