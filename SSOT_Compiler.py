@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.90 (2026-10-28)
+當前版本：V46.91 (2026-10-29)
 最新架構更新：
-- [BugFix] 依使用者指定豁免 external-content.duckduckgo.com 精確 `/iu/` 圖片代理路徑，避免圖片 ID 撞上 `spy` 關鍵字。
-- [Test] 涵蓋 query、子網域、相鄰路徑、其他主機與 DuckDuckGo 遙測端點。
+- [Privacy] x.com 與 twitter.com（含子網域）清理分享後綴 query `s` 與 `a`；其他主機維持原樣，`s` 仍在全域白名單。
+- [Test] 涵蓋兩個參數、編碼、大小寫、子網域、其他參數保留，以及相似主機與 OAuth safe harbor 不清理。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.91 (2026-10-29): Privacy — x.com / twitter.com 清理分享後綴 `s` 與 `a`。
 - V46.90 (2026-10-28): BugFix — 豁免 DuckDuckGo external-content 圖片代理精確 `/iu/` 路徑。
 - V46.89 (2026-10-24): Privacy — 依使用者指定，legy.line-apps.com `/pgw/lg/v1/user/client-log` host-scoped 精確路徑 204 DROP。
 - V46.88 (2026-10-24): BugFix — 依使用者指定，豁免 Grok `/_data/v1/events` 精確路徑；保留其他事件路徑封鎖與參數清理。
 - V46.87 (2026-10-23): Privacy — `js-na2.hsadspixel.net` 精確主機 403 封鎖；其他 HubSpot 主機不擴大封鎖。
-- V46.86 (2026-10-17): Privacy — `easervice.edenred.com.tw` `/api/v2/App/AddAppSystemOperateLog` host-scoped `DROP_RE` 邊界錨定 204。
 
 
 
@@ -45,12 +45,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.90"
-RELEASE_DATE = "2026-10-28"
+VERSION = "46.91"
+RELEASE_DATE = "2026-10-29"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] 依使用者指定豁免 external-content.duckduckgo.com 精確 `/iu/` 圖片代理路徑，避免圖片 ID 撞上 `spy` 關鍵字。
-- [Test] 涵蓋 query、子網域、相鄰路徑、其他主機與 DuckDuckGo 遙測端點。
+- [Privacy] x.com 與 twitter.com（含子網域）清理分享後綴 query `s` 與 `a`；其他主機維持原樣，`s` 仍在全域白名單。
+- [Test] 涵蓋兩個參數、編碼、大小寫、子網域、其他參數保留，以及相似主機與 OAuth safe harbor 不清理。
 """
 
 
@@ -106,6 +106,12 @@ RULES_DB = {
             "/2.0/": ["device_id"],
             "!/2.0/ad/": ["device_id"]
         }
+    },
+    # Exact query keys stripped only on these hosts and their subdomains.
+    # Must run before PARAMS_WHITELIST; `s` is globally retained everywhere else.
+    "PARAMS_HOST_SCOPED": {
+        "x.com": ["s", "a"],
+        "twitter.com": ["s", "a"],
     },
     "ABSOLUTE_BYPASS_DOMAINS": {
         "EXACT": [
@@ -766,7 +772,7 @@ RULES_STATS = {
     "critical_paths":   len(RULES_DB["CRITICAL_PATH_GENERIC"]) + sum(len(v) for v in RULES_DB["CRITICAL_PATH_MAP"].values()),
     "path_keywords":    len(RULES_DB["PATH_BLOCK"]) + len(RULES_DB["HIGH_CONFIDENCE"]),
     "drop_keywords":    len(RULES_DB["DROP"]) + len(RULES_DB["PRIORITY_DROP"]),
-    "param_rules":      len(RULES_DB["PARAMS_GLOBAL"]) + len(RULES_DB["PARAMS_PREFIXES"]),
+    "param_rules":      len(RULES_DB["PARAMS_GLOBAL"]) + len(RULES_DB["PARAMS_PREFIXES"]) + sum(len(v) for v in RULES_DB["PARAMS_HOST_SCOPED"].values()),
     "whitelist":        len(RULES_DB["SOFT_WHITELIST"]["EXACT"]) + len(RULES_DB["SOFT_WHITELIST"]["WILDCARDS"])
                         + len(RULES_DB["HARD_WHITELIST"]["EXACT"]) + len(RULES_DB["HARD_WHITELIST"]["WILDCARDS"]),
 }
@@ -933,7 +939,8 @@ const RULES = {{
     COSMETIC: {format_js_set(RULES_DB['PARAMS_COSMETIC'])},
     WHITELIST: {format_js_set(RULES_DB['PARAMS_WHITELIST'])},
     EXEMPTIONS: new Map(),
-    SCOPED_EXEMPTIONS: {format_scoped_exemptions(RULES_DB['SCOPED_PARAM_EXEMPTIONS'])}
+    SCOPED_EXEMPTIONS: {format_scoped_exemptions(RULES_DB['SCOPED_PARAM_EXEMPTIONS'])},
+    HOST_SCOPED: {format_js_map(RULES_DB['PARAMS_HOST_SCOPED'])}
   }},
 
   REGEX: {{
@@ -1104,6 +1111,15 @@ function resolveScopedParamExemptions(hostname) {
   return null;
 }
 
+function resolveHostScopedParams(hostname) {
+  const scoped = RULES.PARAMS.HOST_SCOPED.get(hostname);
+  if (scoped) return scoped;
+  for (const [domain, params] of RULES.PARAMS.HOST_SCOPED) {
+    if (hostname.endsWith('.' + domain)) return params;
+  }
+  return null;
+}
+
 function getHostProfile(hostname) {
   const cached = hostProfileCache.get(hostname);
   if (cached !== null) return cached;
@@ -1232,6 +1248,7 @@ const HELPERS = {
       })) return null;
       const kept = [];
       const scopedParamExemptions = hostProfile.scopedParamExemptions;
+      const hostScopedStrip = resolveHostScopedParams(hostname);
       let changed = false;
 
       for (let i = 0; i < pairs.length; i++) {
@@ -1241,6 +1258,8 @@ const HELPERS = {
         const eqIdx = pair.indexOf('=');
         const key = eqIdx >= 0 ? pair.substring(0, eqIdx) : pair;
         const lowerKey = decodeParamName(key);
+
+        if (hostScopedStrip && hostScopedStrip.has(lowerKey)) { changed = true; continue; }
 
         if (RULES.PARAMS.WHITELIST.has(lowerKey) || HELPERS.isScopedParamAllowed(scopedParamExemptions, pathOnly, lowerKey)) {
           kept.push(entry); continue;
@@ -3944,6 +3963,58 @@ def generate_full_coverage_cases() -> List[TestCase]:
                      '/https%3A%2F%2Fexample.com%2F%3Fq%3Da%26id%3D2#outer']:
             cases.append(TestCase('V46.72: Redirect query/fragment boundary', 'https://' + host + tail,
                                   RES_CLEAN_302, expected_url='https://example.com/?q=a&id=2'))
+
+    # --- V46.91 X/Twitter share-suffix query cleaning ---
+    x_status = "https://x.com/yaohongan2025/status/2112348685778489753"
+    tw_status = "https://twitter.com/yaohongan2025/status/2112348685778489753"
+    cases.append(TestCase("Privacy: X Share s Param Clean", x_status + "?s=12", RES_CLEAN_302,
+                          "V46.91 x.com 分享後綴 s 應移除", expected_url=x_status))
+    cases.append(TestCase("Privacy: X Share a Param Clean", x_status + "?a=1", RES_CLEAN_302,
+                          "V46.91 x.com 分享後綴 a 應移除", expected_url=x_status))
+    cases.append(TestCase("Privacy: X Share s And a Param Clean", x_status + "?s=12&a=1", RES_CLEAN_302,
+                          "V46.91 兩個分享後綴同時存在時都移除", expected_url=x_status))
+    cases.append(TestCase("Privacy: Twitter Share s And a Param Clean", tw_status + "?a=9&s=12", RES_CLEAN_302,
+                          "V46.91 twitter.com 同樣清理 s 與 a", expected_url=tw_status))
+    cases.append(TestCase("Privacy: X Share Keep Other Params", x_status + "?s=12&lang=zh-tw&a=1", RES_CLEAN_302,
+                          "V46.91 只移除 s/a，其他參數保留", expected_url=x_status + "?lang=zh-tw"))
+    cases.append(TestCase("Privacy: X Share Encoded Keys Clean", x_status + "?%73=12&%61=1", RES_CLEAN_302,
+                          "V46.91 參數名解碼後仍命中 s 與 a", expected_url=x_status))
+    cases.append(TestCase("Privacy: X Share Param Case Clean", x_status + "?S=12&A=1", RES_CLEAN_302,
+                          "V46.91 參數名大小寫不影響清理", expected_url=x_status))
+    cases.append(TestCase("Privacy: X Share Bare And Empty Clean", x_status + "?s&a=", RES_CLEAN_302,
+                          "V46.91 無值與空值同樣移除", expected_url=x_status))
+    cases.append(TestCase("Privacy: X Share Hash Preserved", x_status + "?s=12#frag", RES_CLEAN_302,
+                          "V46.91 清理後保留 fragment", expected_url=x_status + "#frag"))
+    cases.append(TestCase("Privacy: X Share Mid Query Order", x_status + "?lang=zh&s=12&id=9", RES_CLEAN_302,
+                          "V46.91 中間的 s 移除後保留前後參數與分隔符", expected_url=x_status + "?lang=zh&id=9"))
+    cases.append(TestCase("Privacy: X Share Semicolon Separator", x_status + "?lang=zh;s=12", RES_CLEAN_302,
+                          "V46.91 分號分隔的 s 同樣移除", expected_url=x_status + "?lang=zh"))
+    cases.append(TestCase("Privacy: X Subdomain s Clean", "https://mobile.x.com/user/status/1?s=20", RES_CLEAN_302,
+                          "V46.91 子網域繼承 x.com", expected_url="https://mobile.x.com/user/status/1"))
+    cases.append(TestCase("Privacy: Twitter Subdomain a Clean", "https://www.twitter.com/user/status/1?a=2", RES_CLEAN_302,
+                          "V46.91 子網域繼承 twitter.com", expected_url="https://www.twitter.com/user/status/1"))
+    cases.append(TestCase("Privacy: X Uppercase Host s Clean", "https://X.com/user/status/1?s=12", RES_CLEAN_302,
+                          "V46.91 hostname 正規化後仍清理，輸出保留原字串", expected_url="https://X.com/user/status/1"))
+    cases.append(TestCase("Privacy: X Port s Clean", "https://x.com:443/user/status/1?s=12", RES_CLEAN_302,
+                          "V46.91 port 不影響 host 比對", expected_url="https://x.com:443/user/status/1"))
+    cases.append(TestCase("Regression: X Status Without Share Params", x_status, RES_ALLOW,
+                          "V46.91 沒有 s/a 時維持放行"))
+    cases.append(TestCase("Regression: X Other Share Params Kept", x_status + "?t=123&src=share", RES_ALLOW,
+                          "V46.91 未授權的 t 與 src 不清理"))
+    cases.append(TestCase("Regression: Other Host s Kept", "https://example.com/search?s=12", RES_ALLOW,
+                          "V46.91 s 仍屬全域白名單，其他主機不清理"))
+    cases.append(TestCase("Regression: Other Host a Kept", "https://example.com/page?a=1", RES_ALLOW,
+                          "V46.91 a 不是全域清理參數"))
+    cases.append(TestCase("Regression: Lookalike Host s Kept", "https://notx.com/status/1?s=12", RES_ALLOW,
+                          "V46.91 相似主機不誤中"))
+    cases.append(TestCase("Regression: Suffixed Lookalike s And a Kept", "https://x.com.evil.example/status/1?s=12&a=1", RES_ALLOW,
+                          "V46.91 後綴相似網域不繼承 x.com"))
+    cases.append(TestCase("Regression: Twitter Lookalike a Kept", "https://twitter.com.evil.example/status/1?a=1", RES_ALLOW,
+                          "V46.91 後綴相似網域不繼承 twitter.com"))
+    cases.append(TestCase("Regression: X API Safe Harbor Keeps s", "https://api.x.com/2/users/me?s=12", RES_ALLOW,
+                          "V46.91 api.x.com 是 OAuth safe harbor，不進入參數清理"))
+    cases.append(TestCase("Regression: Twitter API Safe Harbor Keeps a", "https://api.twitter.com/2/users/me?a=1", RES_ALLOW,
+                          "V46.91 api.twitter.com 是 OAuth safe harbor，不進入參數清理"))
     return cases
 
 def evaluate_result(actual: Any, expected_type: str, expected_url: Optional[str] = None) -> Tuple[bool, str, str]:
