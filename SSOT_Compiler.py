@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.91 (2026-10-29)
+當前版本：V46.92 (2026-10-30)
 最新架構更新：
-- [Privacy] x.com 與 twitter.com（含子網域）清理分享後綴 query `s` 與 `a`；其他主機維持原樣，`s` 仍在全域白名單。
-- [Test] 涵蓋兩個參數、編碼、大小寫、子網域、其他參數保留，以及相似主機與 OAuth safe harbor 不清理。
+- [Privacy] 依使用者指定，url8792.mail.anthropic.com 的 `/wf/open` 精確路徑 204 DROP。不擋 `/ls/click`。子網域會繼承；url8793 與 mail.anthropic.com 不套用。
+- [Test] 涵蓋 query、大小寫、port、子網域繼承，以及登入連結、相鄰路徑、兄弟主機、sendgrid.net 維持放行。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.92 (2026-10-30): Privacy — url8792.mail.anthropic.com `/wf/open` 精確路徑 204 DROP，保留 `/ls/click`。
 - V46.91 (2026-10-29): Privacy — x.com / twitter.com 清理分享後綴 `s` 與 `a`。
 - V46.90 (2026-10-28): BugFix — 豁免 DuckDuckGo external-content 圖片代理精確 `/iu/` 路徑。
 - V46.89 (2026-10-24): Privacy — 依使用者指定，legy.line-apps.com `/pgw/lg/v1/user/client-log` host-scoped 精確路徑 204 DROP。
 - V46.88 (2026-10-24): BugFix — 依使用者指定，豁免 Grok `/_data/v1/events` 精確路徑；保留其他事件路徑封鎖與參數清理。
-- V46.87 (2026-10-23): Privacy — `js-na2.hsadspixel.net` 精確主機 403 封鎖；其他 HubSpot 主機不擴大封鎖。
 
 
 
@@ -45,12 +45,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.91"
-RELEASE_DATE = "2026-10-29"
+VERSION = "46.92"
+RELEASE_DATE = "2026-10-30"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] x.com 與 twitter.com（含子網域）清理分享後綴 query `s` 與 `a`；其他主機維持原樣，`s` 仍在全域白名單。
-- [Test] 涵蓋兩個參數、編碼、大小寫、子網域、其他參數保留，以及相似主機與 OAuth safe harbor 不清理。
+- [Privacy] 依使用者指定，url8792.mail.anthropic.com 的 `/wf/open` 精確路徑 204 DROP。不擋 `/ls/click`。子網域會繼承；url8793 與 mail.anthropic.com 不套用。
+- [Test] 涵蓋 query、大小寫、port、子網域繼承，以及登入連結、相鄰路徑、兄弟主機、sendgrid.net 維持放行。
 """
 
 
@@ -436,6 +436,7 @@ RULES_DB = {
         'statsig.anthropic.com': ['DROP:/v1/rgstr'],
         'claude.ai': ['DROP:/api/event_logging/'],
         'api.anthropic.com': ['DROP:/api/event_logging/'],
+        'url8792.mail.anthropic.com': ['DROP_RE:^/wf/open(?:[?]|$)'],
         'www.meta.ai': ['DROP:/monitoring', 'DROP:/api/analytics'],
         'grok.com': ['DROP:/monitoring', 'DROP_RE:^/api/log_metric(?:\\?|$)'],
         'easervice.edenred.com.tw': ['DROP_RE:^/api/v2/app/addappsystemoperatelog(?:\\?|$)'],
@@ -4015,6 +4016,72 @@ def generate_full_coverage_cases() -> List[TestCase]:
                           "V46.91 api.x.com 是 OAuth safe harbor，不進入參數清理"))
     cases.append(TestCase("Regression: Twitter API Safe Harbor Keeps a", "https://api.twitter.com/2/users/me?a=1", RES_ALLOW,
                           "V46.91 api.twitter.com 是 OAuth safe harbor，不進入參數清理"))
+
+    # --- V46.92 Anthropic SendGrid open-pixel drop; login click stays ---
+    open_host = "url8792.mail.anthropic.com"
+    cases.append(TestCase("Privacy: Anthropic Open Pixel Drop",
+                          f"https://{open_host}/wf/open?upn=test", RES_DROP_204,
+                          "V46.92 使用者指定：開信像素 /wf/open 204；live GET 回 1x1 gif"))
+    cases.append(TestCase("Privacy: Anthropic Open Pixel No Query",
+                          f"https://{open_host}/wf/open", RES_DROP_204,
+                          "V46.92 無 query 同樣 204"))
+    cases.append(TestCase("Privacy: Anthropic Open Pixel Other upn",
+                          f"https://{open_host}/wf/open?upn=other-token&utm_source=email", RES_DROP_204,
+                          "V46.92 不綁定單一 upn 值，追蹤參數也不改判定"))
+    cases.append(TestCase("Privacy: Anthropic Open Pixel Empty upn",
+                          f"https://{open_host}/wf/open?upn=", RES_DROP_204,
+                          "V46.92 空 upn 仍 204"))
+    cases.append(TestCase("Privacy: Anthropic Open Pixel Host Case",
+                          "https://URL8792.mail.anthropic.com/wf/open?upn=test", RES_DROP_204,
+                          "V46.92 hostname 大小寫正規化後仍 204"))
+    cases.append(TestCase("Privacy: Anthropic Open Pixel Port",
+                          f"https://{open_host}:443/wf/open?upn=test", RES_DROP_204,
+                          "V46.92 port 不影響 host 比對"))
+    cases.append(TestCase("Privacy: Anthropic Open Pixel Path Case",
+                          f"https://{open_host}/WF/OPEN?upn=test", RES_DROP_204,
+                          "V46.92 路徑比對不分大小寫"))
+    cases.append(TestCase("Privacy: Anthropic Open Pixel Child Host",
+                          f"https://pixel.{open_host}/wf/open?upn=test", RES_DROP_204,
+                          "V46.92 CRITICAL_PATH_MAP 鍵會讓子網域繼承 204"))
+    cases.append(TestCase("Regression: Anthropic Login Click Kept",
+                          f"https://{open_host}/ls/click?upn=test", RES_ALLOW,
+                          "V46.92 登入點擊 /ls/click 維持放行"))
+    cases.append(TestCase("Regression: Anthropic Click Query Does Not Drop",
+                          f"https://{open_host}/ls/click?next=/wf/open", RES_ALLOW,
+                          "V46.92 query 含 /wf/open 不構成路徑命中"))
+    cases.append(TestCase("Regression: Anthropic Open Pixel Suffix Kept",
+                          f"https://{open_host}/wf/open-extra", RES_ALLOW,
+                          "V46.92 錨定規則不誤中 /wf/open-extra"))
+    cases.append(TestCase("Regression: Anthropic Open Pixel Slash Kept",
+                          f"https://{open_host}/wf/open/", RES_ALLOW,
+                          "V46.92 trailing slash 不在授權範圍"))
+    cases.append(TestCase("Regression: Anthropic Open Pixel Child Path Kept",
+                          f"https://{open_host}/wf/open/child", RES_ALLOW,
+                          "V46.92 子路徑不在授權範圍"))
+    cases.append(TestCase("Regression: Anthropic Open Pixel Prefixed Kept",
+                          f"https://{open_host}/prefix/wf/open", RES_ALLOW,
+                          "V46.92 前綴路徑不命中"))
+    cases.append(TestCase("Regression: Anthropic Open Host Root Kept",
+                          f"https://{open_host}/", RES_ALLOW,
+                          "V46.92 同 host 其他路徑維持放行"))
+    cases.append(TestCase("Regression: Anthropic Sibling Open Pixel Kept",
+                          "https://url8793.mail.anthropic.com/wf/open?upn=test", RES_ALLOW,
+                          "V46.92 兄弟 host url8793 不套用"))
+    cases.append(TestCase("Regression: Anthropic Parent Open Pixel Kept",
+                          "https://mail.anthropic.com/wf/open?upn=test", RES_ALLOW,
+                          "V46.92 父域 mail.anthropic.com 不套用"))
+    cases.append(TestCase("Regression: Anthropic Lookalike Open Pixel Kept",
+                          "https://url8792.mail.anthropic.com.evil.example/wf/open?upn=test", RES_ALLOW,
+                          "V46.92 後綴相似網域不繼承"))
+    cases.append(TestCase("Regression: Anthropic Prefixed Host Open Pixel Kept",
+                          "https://noturl8792.mail.anthropic.com/wf/open?upn=test", RES_ALLOW,
+                          "V46.92 前綴相似 host 不命中"))
+    cases.append(TestCase("Regression: SendGrid Open Pixel Still Allowed",
+                          "https://email.sendgrid.net/wf/open?upn=test", RES_ALLOW,
+                          "V46.92 sendgrid.net 硬白名單維持放行，本次不改"))
+    cases.append(TestCase("Regression: Other Host Query Open Path Kept",
+                          "https://example.com/page?next=/wf/open", RES_ALLOW,
+                          "V46.92 其他 host 的 query 含目標路徑不封鎖"))
     return cases
 
 def evaluate_result(actual: Any, expected_type: str, expected_url: Optional[str] = None) -> Tuple[bool, str, str]:
