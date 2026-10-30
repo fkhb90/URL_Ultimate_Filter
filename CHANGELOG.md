@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.92 - 2026-10-30
+- [Privacy] 依使用者指定，url8792.mail.anthropic.com 的 `/wf/open` 精確路徑 204 DROP。不擋 `/ls/click`。子網域會繼承；url8793 與 mail.anthropic.com 不套用。
+- [Test] 涵蓋 query、大小寫、port、子網域繼承，以及登入連結、相鄰路徑、兄弟主機、sendgrid.net 維持放行。
+
 ## V46.91 - 2026-10-29
 - [Privacy] x.com 與 twitter.com（含子網域）清理分享後綴 query `s` 與 `a`；其他主機維持原樣，`s` 仍在全域白名單。
 - [Test] 涵蓋兩個參數、編碼、大小寫、子網域、其他參數保留，以及相似主機與 OAuth safe harbor 不清理。

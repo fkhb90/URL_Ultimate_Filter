@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.91
- * @date    2026-10-29
- * @rules   2205 total (314 domains, 454 critical paths, 401 path keywords, 113 param rules)
+ * @version 46.92
+ * @date    2026-10-30
+ * @rules   2206 total (314 domains, 455 critical paths, 401 path keywords, 113 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.91';
-const SCRIPT_BUILD = 'V46.91 (2026-10-29) | 2205 rules | 3600 tests';
+const SCRIPT_VERSION = '46.92';
+const SCRIPT_BUILD = 'V46.92 (2026-10-30) | 2206 rules | 3621 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -248,6 +248,9 @@ const RULES = {
       ])],
     ['api.anthropic.com', new Set([
         'DROP:/api/event_logging/'
+      ])],
+    ['url8792.mail.anthropic.com', new Set([
+        'DROP_RE:^/wf/open(?:[?]|$)'
       ])],
     ['www.meta.ai', new Set([
         'DROP:/monitoring', 'DROP:/api/analytics'
