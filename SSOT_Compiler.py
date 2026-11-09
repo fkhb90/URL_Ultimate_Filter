@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.92 (2026-10-30)
+當前版本：V46.93 (2026-11-09)
 最新架構更新：
-- [Privacy] 依使用者指定，url8792.mail.anthropic.com 的 `/wf/open` 精確路徑 204 DROP。不擋 `/ls/click`。子網域會繼承；url8793 與 mail.anthropic.com 不套用。
-- [Test] 涵蓋 query、大小寫、port、子網域繼承，以及登入連結、相鄰路徑、兄弟主機、sendgrid.net 維持放行。
+- [BugFix] 依使用者指定，www.youtube.com 的 `/s/_/ytmainappweb` 加入邊界錨定 PATH_EXEMPTIONS。主程式模組載入的輪替 `rs=` 簽章撞上全域 PATH_BLOCK `spy`，不再 403。不移除 `spy`，不放行 m.youtube.com 或裸 youtube.com，也不動既有 `/ptracking`、`/api/stats/`、`/youtubei/v1/log_event`。
+- [Test] 涵蓋原 URL、其他簽章、大小寫、port、子網域繼承、追蹤參數清理，以及相鄰路徑、其他 host、既有遙測維持原動作。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.93 (2026-11-09): BugFix — www.youtube.com `/s/_/ytmainappweb` 路徑豁免，避免 rs 簽章撞上 spy。
 - V46.92 (2026-10-30): Privacy — url8792.mail.anthropic.com `/wf/open` 精確路徑 204 DROP，保留 `/ls/click`。
 - V46.91 (2026-10-29): Privacy — x.com / twitter.com 清理分享後綴 `s` 與 `a`。
 - V46.90 (2026-10-28): BugFix — 豁免 DuckDuckGo external-content 圖片代理精確 `/iu/` 路徑。
 - V46.89 (2026-10-24): Privacy — 依使用者指定，legy.line-apps.com `/pgw/lg/v1/user/client-log` host-scoped 精確路徑 204 DROP。
-- V46.88 (2026-10-24): BugFix — 依使用者指定，豁免 Grok `/_data/v1/events` 精確路徑；保留其他事件路徑封鎖與參數清理。
 
 
 
@@ -45,12 +45,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.92"
-RELEASE_DATE = "2026-10-30"
+VERSION = "46.93"
+RELEASE_DATE = "2026-11-09"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 依使用者指定，url8792.mail.anthropic.com 的 `/wf/open` 精確路徑 204 DROP。不擋 `/ls/click`。子網域會繼承；url8793 與 mail.anthropic.com 不套用。
-- [Test] 涵蓋 query、大小寫、port、子網域繼承，以及登入連結、相鄰路徑、兄弟主機、sendgrid.net 維持放行。
+- [BugFix] 依使用者指定，www.youtube.com 的 `/s/_/ytmainappweb` 加入邊界錨定 PATH_EXEMPTIONS。主程式模組載入的輪替 `rs=` 簽章撞上全域 PATH_BLOCK `spy`，不再 403。不移除 `spy`，不放行 m.youtube.com 或裸 youtube.com，也不動既有 `/ptracking`、`/api/stats/`、`/youtubei/v1/log_event`。
+- [Test] 涵蓋原 URL、其他簽章、大小寫、port、子網域繼承、追蹤參數清理，以及相鄰路徑、其他 host、既有遙測維持原動作。
 """
 
 
@@ -761,7 +761,7 @@ RULES_DB = {
         "pbs.twimg.com": ["/media/"],
         "chatgpt.com": ["/cdn/assets/", "/codex/cloud/sett", "/backend-api/o11y/v1/traces"],
         "commandcode.ai": ["/assets/"],
-        "www.youtube.com": ["/redirect"],
+        "www.youtube.com": ["/redirect", "RE:^/s/_/ytmainappweb(?:/|$)"],
         "api.production.hushed.com": ["/v1/maelstrom/events"],
         "x.com": ["RE:^/i/api/graphql/", "/account/authenticate_web_view", "RE:^/i/api/1\\.1/strato/.*pushnotifications/clients/permissionsstate$", "RE:^/i/api/1\\.1/live_video_stream/status/[^/?]+$"]
     }
@@ -4082,6 +4082,63 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Regression: Other Host Query Open Path Kept",
                           "https://example.com/page?next=/wf/open", RES_ALLOW,
                           "V46.92 其他 host 的 query 含目標路徑不封鎖"))
+
+    # --- V46.93 YouTube main-app module loader: opaque rs= collides with PATH_BLOCK spy ---
+    yt_module = "https://www.youtube.com/s/_/ytmainappweb/_/ss/k=ytmainappweb.base_module_set.7-N5z9POBgg.L.B1.O/am=AAAAAECAAc8AMAE/d=0/br=1/rs=AGKMywHxsPyZzWqZFj7U-DcEqiTDNj3uRw"
+    cases.append(TestCase("BugFix: YouTube Main App Module Allow", yt_module, RES_ALLOW,
+                          "V46.93 使用者指定放行；rs 簽章含 spy 子字串，host-scoped 錨定路徑豁免"))
+    cases.append(TestCase("BugFix: YouTube Main App Module Other Signature Allow",
+                          "https://www.youtube.com/s/_/ytmainappweb/_/ss/k=other.module/rs=zzspy99", RES_ALLOW,
+                          "V46.93 不綁定單一 rs 值；同家族其他簽章同樣放行"))
+    cases.append(TestCase("BugFix: YouTube Main App Module Path Case Allow",
+                          "https://www.youtube.com/S/_/YTMAINAPPWEB/_/ss/k=base/rs=agkmywhxspy", RES_ALLOW,
+                          "V46.93 RE 不區分大小寫"))
+    cases.append(TestCase("BugFix: YouTube Main App Module Host Case Port Allow",
+                          "https://WWW.YOUTUBE.COM:443/s/_/ytmainappweb/_/ss/k=base/rs=agkmywhxspy", RES_ALLOW,
+                          "V46.93 hostname 大小寫與 port 正規化後仍豁免"))
+    cases.append(TestCase("BugFix: YouTube Main App Module Child Host Allow",
+                          "https://foo.www.youtube.com/s/_/ytmainappweb/_/ss/k=base/rs=agkmywhxspy", RES_ALLOW,
+                          "V46.93 PATH_EXEMPTIONS 網域鍵會讓 *.www.youtube.com 繼承；不擴到 m.youtube.com"))
+    cases.append(TestCase("BugFix: YouTube Main App Module Query Spy Allow",
+                          "https://www.youtube.com/s/_/ytmainappweb?q=spy", RES_ALLOW,
+                          "V46.93 邊界錨定含路徑結尾；query 含 spy 不再進入關鍵字掃描"))
+    cases.append(TestCase("Regression: YouTube Main App Module Tracking Clean",
+                          "https://www.youtube.com/s/_/ytmainappweb/?utm_source=test", RES_CLEAN_302,
+                          "V46.93 路徑豁免後仍清理追蹤參數",
+                          expected_url="https://www.youtube.com/s/_/ytmainappweb/"))
+    cases.append(TestCase("Regression: YouTube Main App Module Original Tracking Clean",
+                          yt_module + "?utm_source=test", RES_CLEAN_302,
+                          "V46.93 原 URL 加追蹤參數時清理後放行",
+                          expected_url=yt_module))
+    for path in ("/s/_/ytmainappweb-extra/_/ss/rs=agkmywhxspy",
+                 "/prefix/s/_/ytmainappweb/rs=agkmywhxspy",
+                 "/s/_/other/rs=agkmywhxspy",
+                 "/spy"):
+        cases.append(TestCase("Regression: YouTube Main App Module Path Boundary",
+                              f"https://www.youtube.com{path}", RES_BLOCK_403,
+                              "V46.93 相鄰、前綴、其他服務與 /spy 維持原本 spy 封鎖"))
+    cases.append(TestCase("Regression: YouTube Main App Module Query Does Not Exempt",
+                          "https://www.youtube.com/spy?next=/s/_/ytmainappweb/", RES_BLOCK_403,
+                          "V46.93 query 含目標路徑不構成豁免"))
+    for host in ("m.youtube.com", "youtube.com", "music.youtube.com", "example.com", "www.youtube.com.evil.example"):
+        cases.append(TestCase("Regression: YouTube Main App Module Other Host",
+                              f"https://{host}/s/_/ytmainappweb/_/ss/rs=agkmywhxspy", RES_BLOCK_403,
+                              "V46.93 只豁免 www.youtube.com 家族，不放行行動版、裸網域、music 或其他 host"))
+    cases.append(TestCase("Regression: YouTube Stats Qoe Still Blocked",
+                          "https://www.youtube.com/api/stats/qoe?event=1", RES_BLOCK_403,
+                          "V46.93 CRITICAL_PATH_MAP 先於路徑豁免，統計端點維持封鎖"))
+    cases.append(TestCase("Regression: YouTube Ptracking Still Blocked",
+                          "https://www.youtube.com/ptracking?html5=1", RES_BLOCK_403,
+                          "V46.93 /ptracking 維持 Map 封鎖"))
+    cases.append(TestCase("Regression: YouTube Log Event Still Blocked",
+                          "https://www.youtube.com/youtubei/v1/log_event", RES_BLOCK_403,
+                          "V46.93 log_event 維持 Map 封鎖"))
+    cases.append(TestCase("Regression: YouTube Redirect Exemption Kept",
+                          "https://www.youtube.com/redirect?q=https%3A%2F%2Fexample.com", RES_ALLOW,
+                          "V46.93 既有 /redirect 豁免維持放行"))
+    cases.append(TestCase("Regression: YouTube Main App Static JS Kept",
+                          "https://www.youtube.com/s/_/ytmainappweb/base.js", RES_ALLOW,
+                          "V46.93 原本就因靜態副檔名放行的 js 維持放行"))
     return cases
 
 def evaluate_result(actual: Any, expected_type: str, expected_url: Optional[str] = None) -> Tuple[bool, str, str]:
