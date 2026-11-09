@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.93 - 2026-11-09
+- [BugFix] 依使用者指定，www.youtube.com 的 `/s/_/ytmainappweb` 加入邊界錨定 PATH_EXEMPTIONS。主程式模組載入的輪替 `rs=` 簽章撞上全域 PATH_BLOCK `spy`，不再 403。不移除 `spy`，不放行 m.youtube.com 或裸 youtube.com，也不動既有 `/ptracking`、`/api/stats/`、`/youtubei/v1/log_event`。
+- [Test] 涵蓋原 URL、其他簽章、大小寫、port、子網域繼承、追蹤參數清理，以及相鄰路徑、其他 host、既有遙測維持原動作。
+
 ## V46.92 - 2026-10-30
 - [Privacy] 依使用者指定，url8792.mail.anthropic.com 的 `/wf/open` 精確路徑 204 DROP。不擋 `/ls/click`。子網域會繼承；url8793 與 mail.anthropic.com 不套用。
 - [Test] 涵蓋 query、大小寫、port、子網域繼承，以及登入連結、相鄰路徑、兄弟主機、sendgrid.net 維持放行。
