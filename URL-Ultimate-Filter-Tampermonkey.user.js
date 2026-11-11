@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.93
+// @name         URL Ultimate Filter V46.94
 // @namespace    http://tampermonkey.net/
-// @version      46.93
-// @date         2026-11-09
-// @description  SSOT 前端防護盾牌 V46.93 (2026-11-09) | 2207 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        2207 total (314 domains · 455 critical · 113 param)
+// @version      46.94
+// @date         2026-11-11
+// @description  SSOT 前端防護盾牌 V46.94 (2026-11-11) | 2208 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        2208 total (314 domains · 455 critical · 113 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.93
- * @date    2026-11-09
- * @rules   2207 total (314 domains, 455 critical paths, 401 path keywords, 113 param rules)
+ * @version 46.94
+ * @date    2026-11-11
+ * @rules   2208 total (314 domains, 455 critical paths, 401 path keywords, 113 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.93';
-const SCRIPT_BUILD = 'V46.93 (2026-11-09) | 2207 rules | 3644 tests';
+const SCRIPT_VERSION = '46.94';
+const SCRIPT_BUILD = 'V46.94 (2026-11-11) | 2208 rules | 3665 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1104,6 +1104,9 @@ const RULES = {
     'assets', 'static', 'images', 'img', 'css', 'js'
   ]),
     PATH_EXEMPTIONS: new Map([
+    ['EXACT:cht.tw', new Set([
+        'RE:^/x/(?![.]+/?$)[A-Za-z0-9._~-]+/?$'
+      ])],
     ['external-content.duckduckgo.com', new Set([
         'RE:^/iu/$'
       ])],
@@ -1291,6 +1294,7 @@ function matchesAnyRegex(regexList, text) {
 function parseRequestUrl(url) {
   const match = /^https?:\/\/([^/?#]*)([^#]*)/i.exec(url);
   if (!match) return null;
+  const rawAuthority = match[1];
   let authority = match[1];
   authority = authority.substring(authority.lastIndexOf('@') + 1);
   let hostname;
@@ -1307,7 +1311,7 @@ function parseRequestUrl(url) {
   if (!hostname) return null;
   const rawPath = match[2].startsWith('/') ? match[2] : '/' + match[2];
   const qi = rawPath.indexOf('?');
-  return { hostname, rawPath, rawPathOnly: qi < 0 ? rawPath : rawPath.substring(0, qi) };
+  return { hostname, rawAuthority, rawPath, rawPathOnly: qi < 0 ? rawPath : rawPath.substring(0, qi) };
 }
 
 function decodePath(text) {
@@ -1339,6 +1343,13 @@ function isDomainMatch(setExact, wildcardsSet, hostname) {
 function resolvePathExemptions(hostname) {
   let matches = null;
   for (const [domainOrPrefix, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
+    if (domainOrPrefix.startsWith('EXACT:')) {
+      if (hostname === domainOrPrefix.substring(6)) {
+        if (!matches) matches = [];
+        matches.push(exemptedPaths);
+      }
+      continue;
+    }
     let isMatch = false;
     if (domainOrPrefix.endsWith('.') && /^\d/.test(domainOrPrefix)) {
       isMatch = hostname.startsWith(domainOrPrefix);
@@ -1703,7 +1714,9 @@ function processRequest(request) {
       return { response: { status: 403, body: 'Blocked by Domain' } };
     }
 
-    if (HELPERS.isPathExemptedForDomain(hostProfile.pathExemptions, pathLower, rawPathOnlyLower)) {
+    // A backslash in authority can make this parser's host differ from the URL handler's host.
+    if (!parsed.rawAuthority.includes('\\') &&
+        HELPERS.isPathExemptedForDomain(hostProfile.pathExemptions, pathLower, rawPathOnlyLower)) {
       stats.allows++;
       return _performCleaning(url, hostname, pathLower, hostProfile);
     }
