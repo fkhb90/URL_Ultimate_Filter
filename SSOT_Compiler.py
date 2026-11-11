@@ -3,17 +3,18 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.93 (2026-11-09)
+當前版本：V46.94 (2026-11-11)
 最新架構更新：
-- [BugFix] 依使用者指定，www.youtube.com 的 `/s/_/ytmainappweb` 加入邊界錨定 PATH_EXEMPTIONS。主程式模組載入的輪替 `rs=` 簽章撞上全域 PATH_BLOCK `spy`，不再 403。不移除 `spy`，不放行 m.youtube.com 或裸 youtube.com，也不動既有 `/ptracking`、`/api/stats/`、`/youtubei/v1/log_event`。
-- [Test] 涵蓋原 URL、其他簽章、大小寫、port、子網域繼承、追蹤參數清理，以及相鄰路徑、其他 host、既有遙測維持原動作。
+- [BugFix] 依使用者指定，精確主機 cht.tw 的 `/x/<短碼>` 路徑加入 PATH_EXEMPTIONS；只接受一段未編碼的網址安全短碼，避免斜線或點路徑被偽裝成短碼，不放行其他路徑或子網域。
+- [Test] 涵蓋短碼、query 保留／清理、host/path 正規化，以及子網域、相鄰路徑、編碼斜線和其他 host 的邊界。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.94 (2026-11-11): BugFix — 精確主機 cht.tw 的 `/x/<未編碼短碼>` 路徑豁免；排除子網域及編碼斜線／點路徑。
 - V46.93 (2026-11-09): BugFix — www.youtube.com `/s/_/ytmainappweb` 路徑豁免，避免 rs 簽章撞上 spy。
 - V46.92 (2026-10-30): Privacy — url8792.mail.anthropic.com `/wf/open` 精確路徑 204 DROP，保留 `/ls/click`。
 - V46.91 (2026-10-29): Privacy — x.com / twitter.com 清理分享後綴 `s` 與 `a`。
 - V46.90 (2026-10-28): BugFix — 豁免 DuckDuckGo external-content 圖片代理精確 `/iu/` 路徑。
-- V46.89 (2026-10-24): Privacy — 依使用者指定，legy.line-apps.com `/pgw/lg/v1/user/client-log` host-scoped 精確路徑 204 DROP。
+
 
 
 
@@ -45,12 +46,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.93"
-RELEASE_DATE = "2026-11-09"
+VERSION = "46.94"
+RELEASE_DATE = "2026-11-11"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] 依使用者指定，www.youtube.com 的 `/s/_/ytmainappweb` 加入邊界錨定 PATH_EXEMPTIONS。主程式模組載入的輪替 `rs=` 簽章撞上全域 PATH_BLOCK `spy`，不再 403。不移除 `spy`，不放行 m.youtube.com 或裸 youtube.com，也不動既有 `/ptracking`、`/api/stats/`、`/youtubei/v1/log_event`。
-- [Test] 涵蓋原 URL、其他簽章、大小寫、port、子網域繼承、追蹤參數清理，以及相鄰路徑、其他 host、既有遙測維持原動作。
+- [BugFix] 依使用者指定，精確主機 cht.tw 的 `/x/<短碼>` 路徑加入 PATH_EXEMPTIONS；只接受一段未編碼的網址安全短碼，避免斜線或點路徑被偽裝成短碼，不放行其他路徑或子網域。
+- [Test] 涵蓋短碼、query 保留／清理、host/path 正規化，以及子網域、相鄰路徑、編碼斜線和其他 host 的邊界。
 """
 
 
@@ -729,6 +730,7 @@ RULES_DB = {
         '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.zip', '.rar'
     ],
     "PATH_EXEMPTIONS": {
+        "EXACT:cht.tw": ["RE:^/x/(?![.]+/?$)[A-Za-z0-9._~-]+/?$"],
         "external-content.duckduckgo.com": ["RE:^/iu/$"],
         "grok.com": ["RE:^/_data/v1/events$"],
         "api2.cursor.sh": ["RE:^/aiserver\\.v1\\.backgroundcomposerservice/registerpushnotificationtoken/?$"],
@@ -1036,6 +1038,7 @@ function matchesAnyRegex(regexList, text) {
 function parseRequestUrl(url) {
   const match = /^https?:\/\/([^/?#]*)([^#]*)/i.exec(url);
   if (!match) return null;
+  const rawAuthority = match[1];
   let authority = match[1];
   authority = authority.substring(authority.lastIndexOf('@') + 1);
   let hostname;
@@ -1052,7 +1055,7 @@ function parseRequestUrl(url) {
   if (!hostname) return null;
   const rawPath = match[2].startsWith('/') ? match[2] : '/' + match[2];
   const qi = rawPath.indexOf('?');
-  return { hostname, rawPath, rawPathOnly: qi < 0 ? rawPath : rawPath.substring(0, qi) };
+  return { hostname, rawAuthority, rawPath, rawPathOnly: qi < 0 ? rawPath : rawPath.substring(0, qi) };
 }
 
 function decodePath(text) {
@@ -1084,6 +1087,13 @@ function isDomainMatch(setExact, wildcardsSet, hostname) {
 function resolvePathExemptions(hostname) {
   let matches = null;
   for (const [domainOrPrefix, exemptedPaths] of RULES.EXCEPTIONS.PATH_EXEMPTIONS) {
+    if (domainOrPrefix.startsWith('EXACT:')) {
+      if (hostname === domainOrPrefix.substring(6)) {
+        if (!matches) matches = [];
+        matches.push(exemptedPaths);
+      }
+      continue;
+    }
     let isMatch = false;
     if (domainOrPrefix.endsWith('.') && /^\d/.test(domainOrPrefix)) {
       isMatch = hostname.startsWith(domainOrPrefix);
@@ -1448,7 +1458,9 @@ function processRequest(request) {
       return { response: { status: 403, body: 'Blocked by Domain' } };
     }
 
-    if (HELPERS.isPathExemptedForDomain(hostProfile.pathExemptions, pathLower, rawPathOnlyLower)) {
+    // A backslash in authority can make this parser's host differ from the URL handler's host.
+    if (!parsed.rawAuthority.includes('\\') &&
+        HELPERS.isPathExemptedForDomain(hostProfile.pathExemptions, pathLower, rawPathOnlyLower)) {
       stats.allows++;
       return _performCleaning(url, hostname, pathLower, hostProfile);
     }
@@ -4139,6 +4151,43 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Regression: YouTube Main App Static JS Kept",
                           "https://www.youtube.com/s/_/ytmainappweb/base.js", RES_ALLOW,
                           "V46.93 原本就因靜態副檔名放行的 js 維持放行"))
+
+    # --- V46.94 cht.tw short-link path exemption, exact host only ---
+    cases.append(TestCase("BugFix: CHT Short Link Allow",
+                          "https://cht.tw/x/bkjuj", RES_ALLOW,
+                          "V46.94 使用者要求精確主機 cht.tw 的 /x/ 短網址不封鎖"))
+    cases.append(TestCase("BugFix: CHT Short Link Keyword Collision Allow",
+                          "https://CHT.TW:443/x/collect", RES_ALLOW,
+                          "V46.94 /x/ 短碼包含 PATH_BLOCK 關鍵字仍放行；host 大小寫與預設 port 正規化"))
+    cases.append(TestCase("BugFix: CHT Short Link Path Case Allow",
+                          "https://cht.tw/X/COLLECT", RES_ALLOW,
+                          "V46.94 路徑豁免 regex 不區分大小寫"))
+    for url in ("https://cht.tw./x/bkjuj", "https://cht.tw:8443/x/bkjuj"):
+        cases.append(TestCase("BugFix: CHT Short Link Host Normalization Allow",
+                              url, RES_ALLOW,
+                              "V46.94 host 正規化移除尾點與 port 後仍命中精確主機"))
+    cases.append(TestCase("Regression: CHT Short Link Keeps Functional Query",
+                          "https://cht.tw/x/bkjuj?page=2", RES_ALLOW,
+                          "V46.94 不移除未知的功能 query 參數"))
+    cases.append(TestCase("Regression: CHT Short Link Query Cleaning",
+                          "https://cht.tw/x/bkjuj?page=2&utm_source=test", RES_CLEAN_302,
+                          "V46.94 路徑豁免後仍清理追蹤參數並保留功能 query",
+                          expected_url="https://cht.tw/x/bkjuj?page=2"))
+    cases.append(TestCase("Regression: CHT Short Link Rejects Ambiguous Authority",
+                          r"https://admob.com\@cht.tw/x/collect", RES_BLOCK_403,
+                          "V46.94 含反斜線 authority 不套用路徑豁免，避免 host parser 分歧"))
+    for host in ("sub.cht.tw", "cht.tw.evil.example", "example.com"):
+        cases.append(TestCase("Regression: CHT Short Link Exact Host Boundary",
+                              f"https://{host}/x/bkjuj", RES_BLOCK_403,
+                              "V46.94 精確 host 豁免不套用子網域、後綴相似 host 或其他 host"))
+    for path in ("/x-extra/bkjuj", "/other/bkjuj", "/x/../collect",
+                 "/x/%2e%2e/collect", "/x%2Fcollect",
+                 "/x/..%2Fcollect", "/x/%2e%2e%2Fcollect",
+                 "/x/abc%2Fcollect", "/x/abc%252Fcollect",
+                 "/x/%252e%252e%252fcollect"):
+        cases.append(TestCase("Regression: CHT Short Link Path Boundary",
+                              f"https://cht.tw{path}", RES_BLOCK_403,
+                              "V46.94 僅豁免單段未編碼 /x/<短碼>；相鄰、dot-segment 或編碼斜線維持封鎖"))
     return cases
 
 def evaluate_result(actual: Any, expected_type: str, expected_url: Optional[str] = None) -> Tuple[bool, str, str]:
