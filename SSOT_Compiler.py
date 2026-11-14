@@ -3,17 +3,18 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.94 (2026-11-11)
+當前版本：V46.95 (2026-11-14)
 最新架構更新：
-- [BugFix] 依使用者指定，精確主機 cht.tw 的 `/x/<短碼>` 路徑加入 PATH_EXEMPTIONS；只接受一段未編碼的網址安全短碼，避免斜線或點路徑被偽裝成短碼，不放行其他路徑或子網域。
-- [Test] 涵蓋短碼、query 保留／清理、host/path 正規化，以及子網域、相鄰路徑、編碼斜線和其他 host 的邊界。
+- [Privacy] 依使用者指定，封鎖精確主機 collector-pxljub4etb.perimeterx.net；不擴及其他主機或子網域。
+- [Test] 涵蓋路徑、query、host 正規化和相鄰主機邊界。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.95 (2026-11-14): Privacy — 精確封鎖 collector-pxljub4etb.perimeterx.net。
 - V46.94 (2026-11-11): BugFix — 精確主機 cht.tw 的 `/x/<未編碼短碼>` 路徑豁免；排除子網域及編碼斜線／點路徑。
 - V46.93 (2026-11-09): BugFix — www.youtube.com `/s/_/ytmainappweb` 路徑豁免，避免 rs 簽章撞上 spy。
 - V46.92 (2026-10-30): Privacy — url8792.mail.anthropic.com `/wf/open` 精確路徑 204 DROP，保留 `/ls/click`。
 - V46.91 (2026-10-29): Privacy — x.com / twitter.com 清理分享後綴 `s` 與 `a`。
-- V46.90 (2026-10-28): BugFix — 豁免 DuckDuckGo external-content 圖片代理精確 `/iu/` 路徑。
+
 
 
 
@@ -46,12 +47,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.94"
-RELEASE_DATE = "2026-11-11"
+VERSION = "46.95"
+RELEASE_DATE = "2026-11-14"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] 依使用者指定，精確主機 cht.tw 的 `/x/<短碼>` 路徑加入 PATH_EXEMPTIONS；只接受一段未編碼的網址安全短碼，避免斜線或點路徑被偽裝成短碼，不放行其他路徑或子網域。
-- [Test] 涵蓋短碼、query 保留／清理、host/path 正規化，以及子網域、相鄰路徑、編碼斜線和其他 host 的邊界。
+- [Privacy] 依使用者指定，封鎖精確主機 collector-pxljub4etb.perimeterx.net；不擴及其他主機或子網域。
+- [Test] 涵蓋路徑、query、host 正規化和相鄰主機邊界。
 """
 
 
@@ -290,6 +291,7 @@ RULES_DB = {
         ]
     },
     "BLOCK_DOMAINS": [
+        'collector-pxljub4etb.perimeterx.net',
         'anymind360.com', 'vt.quark.cn', 'iqr.chinatimes.com', 'ecount.ctee.com.tw', 'sdk.gamania.dev',
         'udc.yahoo.com', 'csc.yahoo.com', 'beap.gemini.yahoo.com', 'opus.analytics.yahoo.com', 'noa.yahoo.com',
         'sspap.pchome.tw', 'rtb.pchome.tw', 'log.pchome.com.tw', 'ad.pchome.com.tw',
@@ -4188,6 +4190,21 @@ def generate_full_coverage_cases() -> List[TestCase]:
         cases.append(TestCase("Regression: CHT Short Link Path Boundary",
                               f"https://cht.tw{path}", RES_BLOCK_403,
                               "V46.94 僅豁免單段未編碼 /x/<短碼>；相鄰、dot-segment 或編碼斜線維持封鎖"))
+    # --- V46.95 PerimeterX collector exact-host user policy ---
+    for url in ("https://collector-pxljub4etb.perimeterx.net/",
+                "https://collector-pxljub4etb.perimeterx.net/static.js",
+                "https://collector-pxljub4etb.perimeterx.net/api?event=1",
+                "https://COLLECTOR-PXLJUB4ETB.PERIMETERX.NET:443/",
+                "https://collector-pxljub4etb.perimeterx.net:8443/"):
+        cases.append(TestCase("Privacy: PerimeterX Collector Exact Host Block", url, RES_BLOCK_403,
+                              "V46.95 依使用者指定精確主機封鎖"))
+    for host in ("perimeterx.net", "collector-other.perimeterx.net",
+                 "child.collector-pxljub4etb.perimeterx.net",
+                 "xcollector-pxljub4etb.perimeterx.net",
+                 "collector-pxljub4etb.perimeterx.net.example.com"):
+        cases.append(TestCase("Regression: PerimeterX Collector Host Boundary",
+                              f"https://{host}/", RES_ALLOW,
+                              "V46.95 精確主機規則不擴及相鄰主機或子網域"))
     return cases
 
 def evaluate_result(actual: Any, expected_type: str, expected_url: Optional[str] = None) -> Tuple[bool, str, str]:
