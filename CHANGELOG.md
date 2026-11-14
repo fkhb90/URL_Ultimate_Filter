@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.95 - 2026-11-14
+- [Privacy] 依使用者指定，封鎖精確主機 collector-pxljub4etb.perimeterx.net；不擴及其他主機或子網域。
+- [Test] 涵蓋路徑、query、host 正規化和相鄰主機邊界。
+
 ## V46.94 - 2026-11-11
 - [BugFix] 依使用者指定，精確主機 cht.tw 的 `/x/<短碼>` 路徑加入 PATH_EXEMPTIONS；只接受一段未編碼的網址安全短碼，避免斜線或點路徑被偽裝成短碼，不放行其他路徑或子網域。
 - [Test] 涵蓋短碼、query 保留／清理、host/path 正規化，以及子網域、相鄰路徑、編碼斜線和其他 host 的邊界。
