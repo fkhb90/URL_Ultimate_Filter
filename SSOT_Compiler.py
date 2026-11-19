@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.98 (2026-11-19)
+當前版本：V46.99 (2026-11-19)
 最新架構更新：
-- [Privacy] 小紅書 CDN 廣告圖片 shard `ads-i<x>.xhscdn.com` 以 host 正則整族封鎖；有機內容圖 `sns-img-*` 不受影響。
-- [Test] 補 shard 編號變體、大小寫／連接埠、母網域、前後綴相似 host 與有機圖片 CDN 控制案例。
+- [Privacy] 小紅書使用者成長行為上報端點 `/api/usergrowth/behavior/report` 在 edith.rnote.com 與 edith.xiaohongshu.com 兩台對稱主機同時 204 DROP。
+- [Test] 補雙主機、query 變體、路徑邊界與鄰近路徑控制案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.99 (2026-11-19): Privacy — edith 雙主機 `/api/usergrowth/behavior/report` 204 DROP；未帶登入的 POST 回 `code:-100 登录已过期`，屬需登入的行為上報。
 - V46.98 (2026-11-19): Privacy — 403 封鎖小紅書廣告圖片 shard 整族（`ads-i1`..`ads-i4` 實測存在；`sns-img-*` 有機圖片 CDN 不受影響）。
 - V46.97 (2026-11-19): Privacy — rnote.com 上報端點 204 DROP；edith.rnote.com 對齊 xiaohongshu 既有 metrics_report 規則，並新增 referee.rnote.com `/v1/stateReport`。
 - V46.96 (2026-11-19): BugFix — Surge http-request wrapper 將 null 放行結果轉為 `{}`，符合 `$done()` 輸出格式。
 - V46.95 (2026-11-14): Privacy — 精確封鎖 collector-pxljub4etb.perimeterx.net。
-- V46.94 (2026-11-11): BugFix — 精確主機 cht.tw 的 `/x/<未編碼短碼>` 路徑豁免；排除子網域及編碼斜線／點路徑。
 
 
 
@@ -47,12 +47,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.98"
+VERSION = "46.99"
 RELEASE_DATE = "2026-11-19"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 403 封鎖小紅書廣告圖片 CDN shard 整族（`ads-i<x>.xhscdn.com`）；有機內容圖 `sns-img-*`、母網域 `xhscdn.com` 與相似 host 不受影響。
-- [Test] 補 shard 編號、大小寫／連接埠、母網域、前後綴相似 host 與有機圖片 CDN 控制案例。
+- [Privacy] edith.rnote.com 與 edith.xiaohongshu.com 的 `/api/usergrowth/behavior/report` 改為 204 DROP（需登入的使用者成長行為上報）。
+- [Test] 補雙主機、大小寫／連接埠、query 變體、路徑邊界與鄰近路徑控制案例。
 """
 
 
@@ -482,8 +482,8 @@ RULES_DB = {
         'js.stripe.com': ['/fingerprinted/'],
         'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'],
         'c.umsns.com': ['DROP:/slink_logs'],
-        'edith.xiaohongshu.com': ['DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)'],
-        'edith.rnote.com': ['DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)'],
+        'edith.xiaohongshu.com': ['DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)', 'DROP_RE:^/api/usergrowth/behavior/report(?:[/?#]|$)'],
+        'edith.rnote.com': ['DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)', 'DROP_RE:^/api/usergrowth/behavior/report(?:[/?#]|$)'],
         'referee.rnote.com': ['DROP_RE:^/v1/stateReport(?:[/?#]|$)'],
         'tw.fd-api.com': ['DROP:/api/v5/action-log'],
         'chatbot.shopee.tw': ['/report/v1/log'],
@@ -4253,6 +4253,21 @@ def generate_full_coverage_cases() -> List[TestCase]:
                 "https://ads-i1.xhscdn.com.cn/hera/204f455275ab0f1e095475ce3115d36693908d4c"):
         cases.append(TestCase("Regression: Xiaohongshu Ads Shard Boundary Allow", url, RES_ALLOW,
                               "V46.98 正則錨定完整 host：有機圖片 CDN、母網域、無編號、前後綴相似與網域後綴相似皆不命中"))
+    # --- V46.99 edith 雙主機 usergrowth/behavior/report 204 DROP ---
+    for url in ("https://edith.rnote.com/api/usergrowth/behavior/report",
+                "https://edith.rnote.com/api/usergrowth/behavior/report?source=feed&_t=1763520576000",
+                "https://EDITH.RNOTE.COM:443/api/usergrowth/behavior/report",
+                "https://edith.xiaohongshu.com/api/usergrowth/behavior/report",
+                "https://child.edith.xiaohongshu.com/api/usergrowth/behavior/report"):
+        cases.append(TestCase("Privacy: Xiaohongshu Usergrowth Behavior Report Drop", url, RES_DROP_204,
+                              "V46.99 需登入的使用者成長行為上報端點；edith.rnote.com 與 edith.xiaohongshu.com 對稱主機同規則，未帶登入 POST 回 code:-100"))
+    for url in ("https://edith.rnote.com/api/usergrowth/config",
+                "https://edith.rnote.com/api/usergrowth/behavior/reportx",
+                "https://edith.xiaohongshu.com/api/usergrowth/behavior/ping",
+                "https://edith.rnote.com.evil.example/api/usergrowth/behavior/report",
+                "https://rnote.com/api/usergrowth/behavior/report"):
+        cases.append(TestCase("Regression: Xiaohongshu Usergrowth Boundary Allow", url, RES_ALLOW,
+                              "V46.99 DROP_RE 錨定 /api/usergrowth/behavior/report；鄰近路徑、後綴相似 host 與 apex 不命中"))
     return cases
 
 def evaluate_result(actual: Any, expected_type: str, expected_url: Optional[str] = None) -> Tuple[bool, str, str]:
