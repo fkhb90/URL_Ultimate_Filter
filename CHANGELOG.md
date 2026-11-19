@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.96 - 2026-11-19
+- [BugFix] Surge http-request wrapper 將 null 放行結果轉為空物件，符合 `$done()` 輸出格式。
+- [Test] 加入 wrapper 的放行、封鎖與參數清理回歸檢查。
+
 ## V46.95 - 2026-11-14
 - [Privacy] 依使用者指定，封鎖精確主機 collector-pxljub4etb.perimeterx.net；不擴及其他主機或子網域。
 - [Test] 涵蓋路徑、query、host 正規化和相鄰主機邊界。
