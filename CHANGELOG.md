@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.99 - 2026-11-19
+- [Privacy] edith.rnote.com 與 edith.xiaohongshu.com 的 `/api/usergrowth/behavior/report` 改為 204 DROP（需登入的使用者成長行為上報）。
+- [Test] 補雙主機、大小寫／連接埠、query 變體、路徑邊界與鄰近路徑控制案例。
+
 ## V46.98 - 2026-11-19
 - [Privacy] 403 封鎖小紅書廣告圖片 CDN shard 整族（`ads-i<x>.xhscdn.com`）；有機內容圖 `sns-img-*`、母網域 `xhscdn.com` 與相似 host 不受影響。
 - [Test] 補 shard 編號、大小寫／連接埠、母網域、前後綴相似 host 與有機圖片 CDN 控制案例。

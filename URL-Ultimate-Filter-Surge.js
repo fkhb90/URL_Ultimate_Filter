@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 46.98
+ * @version 46.99
  * @date    2026-11-19
- * @rules   2212 total (316 domains, 457 critical paths, 401 path keywords, 113 param rules)
+ * @rules   2214 total (316 domains, 459 critical paths, 401 path keywords, 113 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.98';
-const SCRIPT_BUILD = 'V46.98 (2026-11-19) | 2212 rules | 3701 tests';
+const SCRIPT_VERSION = '46.99';
+const SCRIPT_BUILD = 'V46.99 (2026-11-19) | 2214 rules | 3711 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -379,10 +379,10 @@ const RULES = {
         'DROP:/slink_logs'
       ])],
     ['edith.xiaohongshu.com', new Set([
-        'DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)'
+        'DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)', 'DROP_RE:^/api/usergrowth/behavior/report(?:[/?#]|$)'
       ])],
     ['edith.rnote.com', new Set([
-        'DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)'
+        'DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)', 'DROP_RE:^/api/usergrowth/behavior/report(?:[/?#]|$)'
       ])],
     ['referee.rnote.com', new Set([
         'DROP_RE:^/v1/stateReport(?:[/?#]|$)'
