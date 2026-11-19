@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.97 (2026-11-19)
+當前版本：V46.98 (2026-11-19)
 最新架構更新：
-- [Privacy] RedNote（小紅書國際版）rnote.com 兩個上報端點納入既有小紅書家族規則：edith.rnote.com 筆記 metrics_report、referee.rnote.com 狀態回報。
-- [Test] 補主機邊界、路徑邊界、query 變體與鄰近主機控制案例。
+- [Privacy] 小紅書 CDN 廣告圖片 shard `ads-i<x>.xhscdn.com` 以 host 正則整族封鎖；有機內容圖 `sns-img-*` 不受影響。
+- [Test] 補 shard 編號變體、大小寫／連接埠、母網域、前後綴相似 host 與有機圖片 CDN 控制案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.98 (2026-11-19): Privacy — 403 封鎖小紅書廣告圖片 shard 整族（`ads-i1`..`ads-i4` 實測存在；`sns-img-*` 有機圖片 CDN 不受影響）。
 - V46.97 (2026-11-19): Privacy — rnote.com 上報端點 204 DROP；edith.rnote.com 對齊 xiaohongshu 既有 metrics_report 規則，並新增 referee.rnote.com `/v1/stateReport`。
 - V46.96 (2026-11-19): BugFix — Surge http-request wrapper 將 null 放行結果轉為 `{}`，符合 `$done()` 輸出格式。
 - V46.95 (2026-11-14): Privacy — 精確封鎖 collector-pxljub4etb.perimeterx.net。
 - V46.94 (2026-11-11): BugFix — 精確主機 cht.tw 的 `/x/<未編碼短碼>` 路徑豁免；排除子網域及編碼斜線／點路徑。
-- V46.93 (2026-11-09): BugFix — www.youtube.com `/s/_/ytmainappweb` 路徑豁免，避免 rs 簽章撞上 spy。
 
 
 
@@ -47,12 +47,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.97"
+VERSION = "46.98"
 RELEASE_DATE = "2026-11-19"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] rnote.com（RedNote／小紅書國際版）兩個上報端點改為 204 DROP：edith.rnote.com `/api/sns/vN/note/metrics_report` 與 referee.rnote.com `/v1/stateReport`。
-- [Test] 補精確主機、路徑邊界、query 變體與鄰近主機控制案例。
+- [Privacy] 403 封鎖小紅書廣告圖片 CDN shard 整族（`ads-i<x>.xhscdn.com`）；有機內容圖 `sns-img-*`、母網域 `xhscdn.com` 與相似 host 不受影響。
+- [Test] 補 shard 編號、大小寫／連接埠、母網域、前後綴相似 host 與有機圖片 CDN 控制案例。
 """
 
 
@@ -375,7 +375,8 @@ RULES_DB = {
     "BLOCK_DOMAINS_REGEX": [
         r'^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$',
         r'^browser-intake-[\w.-]*datadoghq\.(?:com|eu|us)$',
-        r'(?:^|\.)adunblock\d*.*\.workers\.dev$'
+        r'(?:^|\.)adunblock\d*.*\.workers\.dev$',
+        r'^ads-i\d+\.xhscdn\.com$'
     ],
     "CRITICAL_PATH_GENERIC": [
         '/accounts/CheckConnection', '/0.gif', '/1.gif', '/pixel.gif', '/beacon.gif', '/ping.gif',
@@ -3729,6 +3730,7 @@ def generate_full_coverage_cases() -> List[TestCase]:
         ("browser-intake-eu1-datadoghq.eu",  "datadoghq.eu",            "browser-intake-*.datadoghq.eu"),
         ("adunblock.workers.dev",            "workers.dev",              "adunblock*.workers.dev"),
         ("sub.adunblock99.workers.dev",      "adblock.workers.dev",     "subdomain adunblock*.workers.dev"),
+        ("ads-i1.xhscdn.com",                "sns-img-qc.xhscdn.com",   "ads-i<N>.xhscdn.com"),
     ]
     for block_host, allow_host, note in _REGEX_BLOCK_SAMPLES:
         cases.append(TestCase("Auto: Regex Domain Block", f"https://{block_host}/path", RES_BLOCK_403, f"正則封鎖: {note}"))
@@ -4233,6 +4235,24 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Regression: RedNote Lookalike Host Allow",
                           "https://referee.rnote.com.evil.example/v1/stateReport", RES_ALLOW,
                           "V46.97 後綴相似 host 不命中 CRITICAL_PATH_MAP 主機鍵"))
+    # --- V46.98 小紅書廣告圖片 CDN shard 整族封鎖 ---
+    cases.append(TestCase("Privacy: Xiaohongshu Ads Image Shard Block",
+                          "https://ads-i1.xhscdn.com/hera/204f455275ab0f1e095475ce3115d36693908d4c?imageView2/2/w/1080/format/webp",
+                          RES_BLOCK_403,
+                          "V46.98 BLOCK_DOMAINS_REGEX 覆蓋廣告圖片 shard；同一 hash 只存在於 ads-i* 家族"))
+    for host in ("ads-i2.xhscdn.com", "ads-i4.xhscdn.com", "ADS-I1.XHSCDN.COM:443"):
+        cases.append(TestCase("Privacy: Xiaohongshu Ads Image Shard Variants",
+                              f"https://{host}/hera/204f455275ab0f1e095475ce3115d36693908d4c?imageView2/2/w/200/format/webp",
+                              RES_BLOCK_403,
+                              "V46.98 shard 編號、大小寫與連接埠均命中正則"))
+    for url in ("https://sns-img-qc.xhscdn.com/hera/204f455275ab0f1e095475ce3115d36693908d4c?imageView2/2/w/1080/format/webp",
+                "https://xhscdn.com/hera/204f455275ab0f1e095475ce3115d36693908d4c",
+                "https://ads-i.xhscdn.com/hera/204f455275ab0f1e095475ce3115d36693908d4c",
+                "https://ads-i1.xhscdn.com.evil.example/hera/204f455275ab0f1e095475ce3115d36693908d4c",
+                "https://xads-i1.xhscdn.com/hera/204f455275ab0f1e095475ce3115d36693908d4c",
+                "https://ads-i1.xhscdn.com.cn/hera/204f455275ab0f1e095475ce3115d36693908d4c"):
+        cases.append(TestCase("Regression: Xiaohongshu Ads Shard Boundary Allow", url, RES_ALLOW,
+                              "V46.98 正則錨定完整 host：有機圖片 CDN、母網域、無編號、前後綴相似與網域後綴相似皆不命中"))
     return cases
 
 def evaluate_result(actual: Any, expected_type: str, expected_url: Optional[str] = None) -> Tuple[bool, str, str]:
