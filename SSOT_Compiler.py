@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.96 (2026-11-19)
+當前版本：V46.97 (2026-11-19)
 最新架構更新：
-- [BugFix] Surge http-request wrapper 將放行時的 null 轉為空物件，符合 $done() 回傳格式。
-- [Test] 加入 wrapper 的放行、封鎖與參數清理回歸檢查。
+- [Privacy] RedNote（小紅書國際版）rnote.com 兩個上報端點納入既有小紅書家族規則：edith.rnote.com 筆記 metrics_report、referee.rnote.com 狀態回報。
+- [Test] 補主機邊界、路徑邊界、query 變體與鄰近主機控制案例。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.97 (2026-11-19): Privacy — rnote.com 上報端點 204 DROP；edith.rnote.com 對齊 xiaohongshu 既有 metrics_report 規則，並新增 referee.rnote.com `/v1/stateReport`。
 - V46.96 (2026-11-19): BugFix — Surge http-request wrapper 將 null 放行結果轉為 `{}`，符合 `$done()` 輸出格式。
 - V46.95 (2026-11-14): Privacy — 精確封鎖 collector-pxljub4etb.perimeterx.net。
 - V46.94 (2026-11-11): BugFix — 精確主機 cht.tw 的 `/x/<未編碼短碼>` 路徑豁免；排除子網域及編碼斜線／點路徑。
 - V46.93 (2026-11-09): BugFix — www.youtube.com `/s/_/ytmainappweb` 路徑豁免，避免 rs 簽章撞上 spy。
-- V46.92 (2026-10-30): Privacy — url8792.mail.anthropic.com `/wf/open` 精確路徑 204 DROP，保留 `/ls/click`。
 
 
 
@@ -47,12 +47,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.96"
+VERSION = "46.97"
 RELEASE_DATE = "2026-11-19"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] Surge http-request wrapper 將 null 放行結果轉為空物件，符合 `$done()` 輸出格式。
-- [Test] 加入 wrapper 的放行、封鎖與參數清理回歸檢查。
+- [Privacy] rnote.com（RedNote／小紅書國際版）兩個上報端點改為 204 DROP：edith.rnote.com `/api/sns/vN/note/metrics_report` 與 referee.rnote.com `/v1/stateReport`。
+- [Test] 補精確主機、路徑邊界、query 變體與鄰近主機控制案例。
 """
 
 
@@ -482,6 +482,8 @@ RULES_DB = {
         'chatgpt.com': ['/ces/statsc/flush', '/v1/rgstr', 'DROP:/ces/v1/m', 'DROP:/ces/v1/t'],
         'c.umsns.com': ['DROP:/slink_logs'],
         'edith.xiaohongshu.com': ['DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)'],
+        'edith.rnote.com': ['DROP_RE:^/api/sns/v\\d+/note/metrics_report(?:[/?#]|$)'],
+        'referee.rnote.com': ['DROP_RE:^/v1/stateReport(?:[/?#]|$)'],
         'tw.fd-api.com': ['DROP:/api/v5/action-log'],
         'chatbot.shopee.tw': ['/report/v1/log'],
         'data-rep.livetech.shopee.tw': ['/dataapi/dataweb/event/'],
@@ -4205,6 +4207,32 @@ def generate_full_coverage_cases() -> List[TestCase]:
         cases.append(TestCase("Regression: PerimeterX Collector Host Boundary",
                               f"https://{host}/", RES_ALLOW,
                               "V46.95 精確主機規則不擴及相鄰主機或子網域"))
+    # --- V46.97 RedNote（小紅書國際版）rnote.com 上報端點 204 DROP ---
+    for url in ("https://edith.rnote.com/api/sns/v1/note/metrics_report",
+                "https://edith.rnote.com/api/sns/v3/note/metrics_report?app=red&_t=1763520576000",
+                "https://EDITH.RNOTE.COM:443/api/sns/v1/note/metrics_report",
+                "https://child.edith.rnote.com/api/sns/v1/note/metrics_report"):
+        cases.append(TestCase("Privacy: RedNote Edith Note Metrics Report Drop", url, RES_DROP_204,
+                              "V46.97 edith.rnote.com 與 edith.xiaohongshu.com 同家族，共用 metrics_report DROP_RE；CRITICAL_PATH_MAP 主機鍵含子網域"))
+    for url in ("https://referee.rnote.com/v1/stateReport",
+                "https://referee.rnote.com/v1/stateReport?ts=1763520576000",
+                "https://REFEREE.RNOTE.COM:443/v1/stateReport"):
+        cases.append(TestCase("Privacy: RedNote Referee State Report Drop", url, RES_DROP_204,
+                              "V46.97 referee.rnote.com /v1/stateReport 為 karen-gateway-adsthird 廣告閘道狀態回報；204 靜默 DROP"))
+    cases.append(TestCase("Regression: RedNote Edith Sibling Path Allow",
+                          "https://edith.rnote.com/api/sns/v1/feed", RES_ALLOW,
+                          "V46.97 只錨定 /api/sns/vN/note/metrics_report，同主機其他 sns 路徑不受影響"))
+    for url in ("https://referee.rnote.com/v1/health",
+                "https://referee.rnote.com/v1/stateReports",
+                "https://referee.rnote.com/v1/xstateReport"):
+        cases.append(TestCase("Regression: RedNote State Report Path Boundary Allow", url, RES_ALLOW,
+                              "V46.97 DROP_RE 以 ^/v1/stateReport(?:[/?#]|$) 錨定；相鄰路徑與前綴字串不命中"))
+    cases.append(TestCase("Regression: RedNote Apex Host Not Dropped",
+                          "https://rnote.com/v1/stateReport", RES_ALLOW,
+                          "V46.97 規則只掛在 edith／referee 主機，apex 不繼承"))
+    cases.append(TestCase("Regression: RedNote Lookalike Host Allow",
+                          "https://referee.rnote.com.evil.example/v1/stateReport", RES_ALLOW,
+                          "V46.97 後綴相似 host 不命中 CRITICAL_PATH_MAP 主機鍵"))
     return cases
 
 def evaluate_result(actual: Any, expected_type: str, expected_url: Optional[str] = None) -> Tuple[bool, str, str]:
