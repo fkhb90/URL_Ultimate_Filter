@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.97 - 2026-11-19
+- [Privacy] rnote.com（RedNote／小紅書國際版）兩個上報端點改為 204 DROP：edith.rnote.com `/api/sns/vN/note/metrics_report` 與 referee.rnote.com `/v1/stateReport`。
+- [Test] 補精確主機、路徑邊界、query 變體與鄰近主機控制案例。
+
 ## V46.96 - 2026-11-19
 - [BugFix] Surge http-request wrapper 將 null 放行結果轉為空物件，符合 `$done()` 輸出格式。
 - [Test] 加入 wrapper 的放行、封鎖與參數清理回歸檢查。
