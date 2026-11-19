@@ -3,17 +3,17 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.95 (2026-11-14)
+當前版本：V46.96 (2026-11-19)
 最新架構更新：
-- [Privacy] 依使用者指定，封鎖精確主機 collector-pxljub4etb.perimeterx.net；不擴及其他主機或子網域。
-- [Test] 涵蓋路徑、query、host 正規化和相鄰主機邊界。
+- [BugFix] Surge http-request wrapper 將放行時的 null 轉為空物件，符合 $done() 回傳格式。
+- [Test] 加入 wrapper 的放行、封鎖與參數清理回歸檢查。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V46.96 (2026-11-19): BugFix — Surge http-request wrapper 將 null 放行結果轉為 `{}`，符合 `$done()` 輸出格式。
 - V46.95 (2026-11-14): Privacy — 精確封鎖 collector-pxljub4etb.perimeterx.net。
 - V46.94 (2026-11-11): BugFix — 精確主機 cht.tw 的 `/x/<未編碼短碼>` 路徑豁免；排除子網域及編碼斜線／點路徑。
 - V46.93 (2026-11-09): BugFix — www.youtube.com `/s/_/ytmainappweb` 路徑豁免，避免 rs 簽章撞上 spy。
 - V46.92 (2026-10-30): Privacy — url8792.mail.anthropic.com `/wf/open` 精確路徑 204 DROP，保留 `/ls/click`。
-- V46.91 (2026-10-29): Privacy — x.com / twitter.com 清理分享後綴 `s` 與 `a`。
 
 
 
@@ -47,12 +47,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.95"
-RELEASE_DATE = "2026-11-14"
+VERSION = "46.96"
+RELEASE_DATE = "2026-11-19"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 依使用者指定，封鎖精確主機 collector-pxljub4etb.perimeterx.net；不擴及其他主機或子網域。
-- [Test] 涵蓋路徑、query、host 正規化和相鄰主機邊界。
+- [BugFix] Surge http-request wrapper 將 null 放行結果轉為空物件，符合 `$done()` 輸出格式。
+- [Test] 加入 wrapper 的放行、封鎖與參數清理回歸檢查。
 """
 
 
@@ -1696,7 +1696,7 @@ def compile_surge() -> str:
     js = get_js_rules_definition("Surge") + get_js_engine_logic()
     wrapper = """
 if (typeof $request !== 'undefined') {
-  $done(processRequest($request));
+  $done(processRequest($request) || {});
 } else {
   if (typeof $done !== 'undefined') {
     if (shouldRunBenchmark()) $done(runBenchmarkSuite());
@@ -4626,6 +4626,36 @@ def run_self_tests() -> int:
 
         def run_tm(self, body):
             self.assertEqual(_execute_node(_tampermonkey_test_runner(body), self.cases), self.results)
+
+        def run_surge_request(self, url):
+            runner = "\n".join([
+                f"global.$request = {json.dumps({'url': url})};",
+                "global.__doneCapture = { calls: 0, value: null };",
+                "global.$done = function(value) {",
+                "  global.__doneCapture.calls += 1;",
+                "  global.__doneCapture.value = value;",
+                "};",
+                "global.$notification = { post: function() {} };",
+                compile_surge(),
+                "console.log(JSON.stringify([{id:0, output:global.__doneCapture}]));",
+            ])
+            return _execute_node(runner, self.cases)[0]['output']
+
+        def test_surge_http_request_done_contract(self):
+            allowed = self.run_surge_request('https://example.com/')
+            self.assertEqual(allowed, {'calls': 1, 'value': {}})
+
+            blocked = self.run_surge_request('https://ads.google.com/page')
+            self.assertEqual(blocked['calls'], 1)
+            self.assertEqual(blocked['value']['response']['status'], 403)
+
+            cleaned = self.run_surge_request('https://example.com/page?utm_source=test')
+            self.assertEqual(cleaned['calls'], 1)
+            self.assertEqual(cleaned['value']['response']['status'], 302)
+            self.assertEqual(
+                cleaned['value']['response']['headers']['Location'],
+                'https://example.com/page',
+            )
 
         def test_tampermonkey_full_matrix(self):
             with contextlib.redirect_stdout(io.StringIO()):
