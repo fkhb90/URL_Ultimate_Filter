@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.97
+// @name         URL Ultimate Filter V46.98
 // @namespace    http://tampermonkey.net/
-// @version      46.97
+// @version      46.98
 // @date         2026-11-19
-// @description  SSOT 前端防護盾牌 V46.97 (2026-11-19) | 2211 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        2211 total (315 domains · 457 critical · 113 param)
+// @description  SSOT 前端防護盾牌 V46.98 (2026-11-19) | 2212 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        2212 total (316 domains · 457 critical · 113 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.97
+ * @version 46.98
  * @date    2026-11-19
- * @rules   2211 total (315 domains, 457 critical paths, 401 path keywords, 113 param rules)
+ * @rules   2212 total (316 domains, 457 critical paths, 401 path keywords, 113 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.97';
-const SCRIPT_BUILD = 'V46.97 (2026-11-19) | 2211 rules | 3689 tests';
+const SCRIPT_VERSION = '46.98';
+const SCRIPT_BUILD = 'V46.98 (2026-11-19) | 2212 rules | 3701 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -241,7 +241,7 @@ const RULES = {
   ]),
 
   BLOCK_DOMAINS_REGEX: [
-    /^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$/i, /^browser-intake-[\w.-]*datadoghq\.(?:com|eu|us)$/i, /(?:^|\.)adunblock\d*.*\.workers\.dev$/i
+    /^ads?\d*\.(?:ettoday\.net|ltn\.com\.tw)$/i, /^browser-intake-[\w.-]*datadoghq\.(?:com|eu|us)$/i, /(?:^|\.)adunblock\d*.*\.workers\.dev$/i, /^ads-i\d+\.xhscdn\.com$/i
   ],
 
   CRITICAL_PATH: {

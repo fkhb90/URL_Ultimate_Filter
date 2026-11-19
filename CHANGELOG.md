@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V46.98 - 2026-11-19
+- [Privacy] 403 封鎖小紅書廣告圖片 CDN shard 整族（`ads-i<x>.xhscdn.com`）；有機內容圖 `sns-img-*`、母網域 `xhscdn.com` 與相似 host 不受影響。
+- [Test] 補 shard 編號、大小寫／連接埠、母網域、前後綴相似 host 與有機圖片 CDN 控制案例。
+
 ## V46.97 - 2026-11-19
 - [Privacy] rnote.com（RedNote／小紅書國際版）兩個上報端點改為 204 DROP：edith.rnote.com `/api/sns/vN/note/metrics_report` 與 referee.rnote.com `/v1/stateReport`。
 - [Test] 補精確主機、路徑邊界、query 變體與鄰近主機控制案例。
