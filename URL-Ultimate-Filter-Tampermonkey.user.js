@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V46.99
+// @name         URL Ultimate Filter V47.00
 // @namespace    http://tampermonkey.net/
-// @version      46.99
-// @date         2026-11-19
-// @description  SSOT 前端防護盾牌 V46.99 (2026-11-19) | 2214 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        2214 total (316 domains · 459 critical · 113 param)
+// @version      47.00
+// @date         2026-11-20
+// @description  SSOT 前端防護盾牌 V47.00 (2026-11-20) | 2215 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        2215 total (316 domains · 459 critical · 113 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 46.99
- * @date    2026-11-19
- * @rules   2214 total (316 domains, 459 critical paths, 401 path keywords, 113 param rules)
+ * @version 47.00
+ * @date    2026-11-20
+ * @rules   2215 total (316 domains, 459 critical paths, 401 path keywords, 113 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '46.99';
-const SCRIPT_BUILD = 'V46.99 (2026-11-19) | 2214 rules | 3711 tests';
+const SCRIPT_VERSION = '47.00';
+const SCRIPT_BUILD = 'V47.00 (2026-11-20) | 2215 rules | 3719 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1091,6 +1091,9 @@ const RULES = {
   },
 
   EXCEPTIONS: {
+    EXACT_URLS: new Set([
+    'https://redeem.openpoint.com.tw/SETOPAPI/api/service/banner/1.405/FrontendAPP/GetHomePageOptimize'
+  ]),
     SUFFIXES: new Set([
     '.css', '.js', '.jpg', '.jpeg', '.gif', '.png',
     '.ico', '.svg', '.webp', '.woff', '.woff2', '.ttf',
@@ -1718,6 +1721,12 @@ function processRequest(request) {
     if (hostProfile.isBlockedDomain) {
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked by Domain' } };
+    }
+
+    // Literal URL exceptions do not cover query, host, or case variants.
+    if (RULES.EXCEPTIONS.EXACT_URLS.has(url)) {
+      stats.allows++;
+      return _performCleaning(url, hostname, pathLower, hostProfile);
     }
 
     // A backslash in authority can make this parser's host differ from the URL handler's host.
