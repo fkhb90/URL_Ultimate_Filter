@@ -3,17 +3,18 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V46.99 (2026-11-19)
+當前版本：V47.00 (2026-11-20)
 最新架構更新：
-- [Privacy] 小紅書使用者成長行為上報端點 `/api/usergrowth/behavior/report` 在 edith.rnote.com 與 edith.xiaohongshu.com 兩台對稱主機同時 204 DROP。
-- [Test] 補雙主機、query 變體、路徑邊界與鄰近路徑控制案例。
+- [BugFix] 依使用者要求逐字精確豁免指定 OPENPOINT 網址。
+- [Test] 涵蓋 query、子網域、大小寫、連接埠與路徑邊界。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V47.00 (2026-11-20): BugFix — 僅逐字放行指定 OPENPOINT 首頁 API 網址。
 - V46.99 (2026-11-19): Privacy — edith 雙主機 `/api/usergrowth/behavior/report` 204 DROP；未帶登入的 POST 回 `code:-100 登录已过期`，屬需登入的行為上報。
 - V46.98 (2026-11-19): Privacy — 403 封鎖小紅書廣告圖片 shard 整族（`ads-i1`..`ads-i4` 實測存在；`sns-img-*` 有機圖片 CDN 不受影響）。
 - V46.97 (2026-11-19): Privacy — rnote.com 上報端點 204 DROP；edith.rnote.com 對齊 xiaohongshu 既有 metrics_report 規則，並新增 referee.rnote.com `/v1/stateReport`。
 - V46.96 (2026-11-19): BugFix — Surge http-request wrapper 將 null 放行結果轉為 `{}`，符合 `$done()` 輸出格式。
-- V46.95 (2026-11-14): Privacy — 精確封鎖 collector-pxljub4etb.perimeterx.net。
+
 
 
 
@@ -47,12 +48,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "46.99"
-RELEASE_DATE = "2026-11-19"
+VERSION = "47.00"
+RELEASE_DATE = "2026-11-20"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] edith.rnote.com 與 edith.xiaohongshu.com 的 `/api/usergrowth/behavior/report` 改為 204 DROP（需登入的使用者成長行為上報）。
-- [Test] 補雙主機、大小寫／連接埠、query 變體、路徑邊界與鄰近路徑控制案例。
+- [BugFix] 依使用者要求僅逐字放行指定 OPENPOINT 網址，不涵蓋 query 或子網域。
+- [Test] 新增精確 URL 與鄰近變體回歸案例。
 """
 
 
@@ -62,6 +63,7 @@ CURRENT_RELEASE_NOTES = """
 
 RULES_DB = {
     # Mutable policy collections: keep these in the cache fingerprint and rule counts.
+    'EXACT_URL_EXEMPTIONS': ['https://redeem.openpoint.com.tw/SETOPAPI/api/service/banner/1.405/FrontendAPP/GetHomePageOptimize'],
     'OAUTH_PATH_REGEX': ['/(login|oauth|oauth2|authorize|signin|session)(/|$)'],
     'PARAMS_GLOBAL_REGEX': ['^utm_\\w+', '^ig_[\\w_]+', '^asa_\\w+', '^tt_[\\w_]+', '^li_[\\w_]+'],
     'PARAMS_PREFIXES_REGEX': ['_ga_', '^tt_[\\w_]+', '^li_[\\w_]+'],
@@ -958,6 +960,7 @@ const RULES = {{
   }},
 
   EXCEPTIONS: {{
+    EXACT_URLS: {format_js_set(RULES_DB['EXACT_URL_EXEMPTIONS'])},
     SUFFIXES: {format_js_set(RULES_DB['EXCEPTIONS_SUFFIXES'])},
     PREFIXES: {format_js_set(RULES_DB['EXCEPTIONS_PREFIXES'])},
     SUBSTRINGS: {format_js_set(RULES_DB['EXCEPTIONS_SUBSTRINGS'])},
@@ -1461,6 +1464,12 @@ function processRequest(request) {
     if (hostProfile.isBlockedDomain) {
       stats.blocks++;
       return { response: { status: 403, body: 'Blocked by Domain' } };
+    }
+
+    // Literal URL exceptions do not cover query, host, or case variants.
+    if (RULES.EXCEPTIONS.EXACT_URLS.has(url)) {
+      stats.allows++;
+      return _performCleaning(url, hostname, pathLower, hostProfile);
     }
 
     // A backslash in authority can make this parser's host differ from the URL handler's host.
@@ -3346,6 +3355,15 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Safe: AppCenter Root Pass", "https://in.appcenter.ms/", RES_ALLOW, "V46.68 規則只鎖 `/logs` 端點；host 根路徑維持原行為"))
     cases.append(TestCase("Regression: Other Host /e/ Pass", "https://example.com/e/", RES_ALLOW, "V46.68 規則限 us./eu.i.posthog.com；其他網域同一路徑維持原行為"))
     cases.append(TestCase("Regression: Other Host /logs Pass", "https://example.com/logs", RES_ALLOW, "V46.68 規則限 in.appcenter.ms；其他網域 `/logs` 維持原行為"))
+    # --- V47.00 User-requested literal OPENPOINT URL exemption ---
+    cases.append(TestCase("OPENPOINT exact URL", "https://redeem.openpoint.com.tw/SETOPAPI/api/service/banner/1.405/FrontendAPP/GetHomePageOptimize", RES_ALLOW, "Only the literal URL is exempt"))
+    cases.append(TestCase("OPENPOINT query excluded", "https://redeem.openpoint.com.tw/SETOPAPI/api/service/banner/1.405/FrontendAPP/GetHomePageOptimize?x=1", RES_BLOCK_403, "Query variant remains blocked"))
+    cases.append(TestCase("OPENPOINT empty query excluded", "https://redeem.openpoint.com.tw/SETOPAPI/api/service/banner/1.405/FrontendAPP/GetHomePageOptimize?", RES_BLOCK_403, "Empty query variant remains blocked"))
+    cases.append(TestCase("OPENPOINT child host excluded", "https://foo.redeem.openpoint.com.tw/SETOPAPI/api/service/banner/1.405/FrontendAPP/GetHomePageOptimize", RES_BLOCK_403, "Child host remains blocked"))
+    cases.append(TestCase("OPENPOINT host case excluded", "https://REDEEM.openpoint.com.tw/SETOPAPI/api/service/banner/1.405/FrontendAPP/GetHomePageOptimize", RES_BLOCK_403, "Host case variant remains blocked"))
+    cases.append(TestCase("OPENPOINT port excluded", "https://redeem.openpoint.com.tw:443/SETOPAPI/api/service/banner/1.405/FrontendAPP/GetHomePageOptimize", RES_BLOCK_403, "Explicit port remains blocked"))
+    cases.append(TestCase("OPENPOINT sibling excluded", "https://redeem.openpoint.com.tw/SETOPAPI/api/service/banner/1.405/FrontendAPP/GetHomePageOptimize-extra", RES_BLOCK_403, "Sibling path remains blocked"))
+    cases.append(TestCase("OPENPOINT other host excluded", "https://example.com/SETOPAPI/api/service/banner/1.405/FrontendAPP/GetHomePageOptimize", RES_BLOCK_403, "Other host remains blocked"))
     # --- V46.69 Cursor Background Composer push registration keyword collision ---
     cases.append(TestCase("BugFix: Cursor Background Composer Push Token Pass", "https://api2.cursor.sh/aiserver.v1.BackgroundComposerService/RegisterPushNotificationToken", RES_ALLOW, "V46.69 方法名含全域 PATH_BLOCK pushnotification；host-scoped PATH_EXEMPTIONS 只放行 api2 這一個方法"))
     cases.append(TestCase("BugFix: Cursor Background Composer Push Token Query Pass", "https://api2.cursor.sh/aiserver.v1.BackgroundComposerService/RegisterPushNotificationToken?x=1", RES_ALLOW, "V46.69 RE 比對已移除 query 的 raw pathname；普通 query 仍放行"))
