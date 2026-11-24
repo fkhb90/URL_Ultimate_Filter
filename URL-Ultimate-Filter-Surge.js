@@ -1,14 +1,14 @@
 /**
  * @file    URL-Ultimate-Filter-Surge.js
- * @version 47.00
- * @date    2026-11-20
- * @rules   2215 total (316 domains, 459 critical paths, 401 path keywords, 113 param rules)
+ * @version 47.01
+ * @date    2026-11-24
+ * @rules   2224 total (316 domains, 459 critical paths, 401 path keywords, 118 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '47.00';
-const SCRIPT_BUILD = 'V47.00 (2026-11-20) | 2215 rules | 3719 tests';
+const SCRIPT_VERSION = '47.01';
+const SCRIPT_BUILD = 'V47.01 (2026-11-24) | 2224 rules | 3783 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -959,9 +959,18 @@ const RULES = {
   ])
   },
 
+  EXACT_DROP_PATHS: new Set([
+    '/cdn-cgi/rum', '/cdn-cgi/rum/'
+  ]),
   LATE_EXACT_PATH_BLOCK_REGEX: new Map([
     ['cmapi.tw.coupang.com', new Set([
         '/.*-ads/'
+      ])],
+    ['tr.snapchat.com', new Set([
+        '^/p/?$'
+      ])],
+    ['brain.adbot.tw', new Set([
+        '^/js/bootstrap[.]min[.]js$'
       ])]
   ]),
   PARAMS: {
@@ -978,7 +987,8 @@ const RULES = {
     'irclickid', 'is_retargeting', 'ko_click_id', 'li_fat_id', 'mibextid', 'msclkid',
     'oprtrack', 'rb_clickid', 'sscid', 'trk', 'usqp', 'vero_conv',
     'vero_id', 'wbraid', 'wt_mc', 'xtor', 'ysclid', 'zanpid',
-    'yt_src', 'yt_ad', 's_kwcid', 'sc_cid', 'log_level'
+    'yt_src', 'yt_ad', 's_kwcid', 'sc_cid', 'log_level', 'gad_campaignid',
+    'sccid', '__hsfp', '__hssc', '__hstc'
   ]),
     GLOBAL_REGEX: [new RegExp("^utm_\\w+", "i"), new RegExp("^ig_[\\w_]+", "i"), new RegExp("^asa_\\w+", "i"), new RegExp("^tt_[\\w_]+", "i"), new RegExp("^li_[\\w_]+", "i")],
     PREFIX_BUCKETS: new Map([
@@ -1719,6 +1729,11 @@ function processRequest(request) {
         HELPERS.isPathExemptedForDomain(hostProfile.pathExemptions, pathLower, rawPathOnlyLower)) {
       stats.allows++;
       return _performCleaning(url, hostname, pathLower, hostProfile);
+    }
+
+    if (RULES.EXACT_DROP_PATHS.has(rawPathOnly)) {
+      stats.blocks++;
+      return { response: { status: 204 } };
     }
 
     const isSoftWhitelisted = hostProfile.isSoftWhitelisted;

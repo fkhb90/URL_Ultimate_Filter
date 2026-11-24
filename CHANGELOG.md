@@ -1,5 +1,11 @@
 # URL Ultimate Filter - Changelog
 
+## V47.01 - 2026-11-24
+- [Privacy] 封鎖 Snap 像素及痞客邦文章使用的 AdBot 浮動廣告載入器。
+- [Privacy] 靜默捨棄 Cloudflare 同站 RUM 回報，保留驗證及圖片服務路徑。
+- [Privacy] 清除 Google Ads 活動編號、Snap 點擊編號與 HubSpot 三個跨網域訪客連結參數。
+- [Test] 驗證痞客邦專用追蹤腳本與文章、登入、人氣及燈箱資源的判定邊界。
+
 ## V47.00 - 2026-11-20
 - [BugFix] 依使用者要求僅逐字放行指定 OPENPOINT 網址，不涵蓋 query 或子網域。
 - [Test] 新增精確 URL 與鄰近變體回歸案例。
