@@ -3,17 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V47.00 (2026-11-20)
+當前版本：V47.01 (2026-11-24)
 最新架構更新：
-- [BugFix] 依使用者要求逐字精確豁免指定 OPENPOINT 網址。
-- [Test] 涵蓋 query、子網域、大小寫、連接埠與路徑邊界。
+- [Privacy] 補齊跨站像素、同站效能遙測、網址歸因與痞客邦廣告腳本規則。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V47.01 (2026-11-24): Privacy — 年度追蹤規則更新與痞客邦專項回歸。
 - V47.00 (2026-11-20): BugFix — 僅逐字放行指定 OPENPOINT 首頁 API 網址。
 - V46.99 (2026-11-19): Privacy — edith 雙主機 `/api/usergrowth/behavior/report` 204 DROP；未帶登入的 POST 回 `code:-100 登录已过期`，屬需登入的行為上報。
 - V46.98 (2026-11-19): Privacy — 403 封鎖小紅書廣告圖片 shard 整族（`ads-i1`..`ads-i4` 實測存在；`sns-img-*` 有機圖片 CDN 不受影響）。
 - V46.97 (2026-11-19): Privacy — rnote.com 上報端點 204 DROP；edith.rnote.com 對齊 xiaohongshu 既有 metrics_report 規則，並新增 referee.rnote.com `/v1/stateReport`。
-- V46.96 (2026-11-19): BugFix — Surge http-request wrapper 將 null 放行結果轉為 `{}`，符合 `$done()` 輸出格式。
 
 
 
@@ -48,12 +47,14 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "47.00"
-RELEASE_DATE = "2026-11-20"
+VERSION = "47.01"
+RELEASE_DATE = "2026-11-24"
 
 CURRENT_RELEASE_NOTES = """
-- [BugFix] 依使用者要求僅逐字放行指定 OPENPOINT 網址，不涵蓋 query 或子網域。
-- [Test] 新增精確 URL 與鄰近變體回歸案例。
+- [Privacy] 封鎖 Snap 像素及痞客邦文章使用的 AdBot 浮動廣告載入器。
+- [Privacy] 靜默捨棄 Cloudflare 同站 RUM 回報，保留驗證及圖片服務路徑。
+- [Privacy] 清除 Google Ads 活動編號、Snap 點擊編號與 HubSpot 三個跨網域訪客連結參數。
+- [Test] 驗證痞客邦專用追蹤腳本與文章、登入、人氣及燈箱資源的判定邊界。
 """
 
 
@@ -76,7 +77,12 @@ RULES_DB = {
     'EXCEPTIONS_SUBSTRINGS': ['cdn-cgi'],
     'EXCEPTIONS_SEGMENTS': ['assets', 'static', 'images', 'img', 'css', 'js'],
     'SIGNATURE_PARAMS': ['signature', 'sig', 'hmac'],
-    'LATE_EXACT_PATH_BLOCK_REGEX': {'cmapi.tw.coupang.com': ['/.*-ads/']},
+    'LATE_EXACT_PATH_BLOCK_REGEX': {
+        'cmapi.tw.coupang.com': ['/.*-ads/'],
+        'tr.snapchat.com': ['^/p/?$'],
+        'brain.adbot.tw': ['^/js/bootstrap[.]min[.]js$'],
+    },
+    'EXACT_DROP_PATHS': ['/cdn-cgi/rum', '/cdn-cgi/rum/'],
 
     "OAUTH_SAFE_HARBOR_DOMAINS": [
         'accounts.google.com', 'accounts.google.com.tw', 'accounts.youtube.com',
@@ -722,7 +728,8 @@ RULES_DB = {
         'cjevent', 'cmpid', 'cuid', 'external_click_id', 'gad_source', 'gbraid', 'gps_adid', 'iclid',
         'igshid', 'irclickid', 'is_retargeting', 'ko_click_id', 'li_fat_id', 'mibextid', 'msclkid',
         'oprtrack', 'rb_clickid', 'sscid', 'trk', 'usqp', 'vero_conv', 'vero_id', 'wbraid', 'wt_mc',
-        'xtor', 'ysclid', 'zanpid', 'yt_src', 'yt_ad', 's_kwcid', 'sc_cid', 'log_level'
+        'xtor', 'ysclid', 'zanpid', 'yt_src', 'yt_ad', 's_kwcid', 'sc_cid', 'log_level',
+        'gad_campaignid', 'sccid', '__hsfp', '__hssc', '__hstc'
     ],
     "PARAMS_PREFIXES": [
         '__cf_', '_bta', '_ga_', '_gat_', '_gid_', '_hs', '_oly_', 'action_', 'ad_', 'adjust_', 
@@ -781,7 +788,7 @@ RULES_STATS = {
     "block_domains":    len(RULES_DB["BLOCK_DOMAINS"]) + len(RULES_DB["BLOCK_DOMAINS_WILDCARDS"]) + len(RULES_DB["BLOCK_DOMAINS_REGEX"]),
     "critical_paths":   len(RULES_DB["CRITICAL_PATH_GENERIC"]) + sum(len(v) for v in RULES_DB["CRITICAL_PATH_MAP"].values()),
     "path_keywords":    len(RULES_DB["PATH_BLOCK"]) + len(RULES_DB["HIGH_CONFIDENCE"]),
-    "drop_keywords":    len(RULES_DB["DROP"]) + len(RULES_DB["PRIORITY_DROP"]),
+    "drop_keywords":    len(RULES_DB["DROP"]) + len(RULES_DB["PRIORITY_DROP"]) + len(RULES_DB["EXACT_DROP_PATHS"]),
     "param_rules":      len(RULES_DB["PARAMS_GLOBAL"]) + len(RULES_DB["PARAMS_PREFIXES"]) + sum(len(v) for v in RULES_DB["PARAMS_HOST_SCOPED"].values()),
     "whitelist":        len(RULES_DB["SOFT_WHITELIST"]["EXACT"]) + len(RULES_DB["SOFT_WHITELIST"]["WILDCARDS"])
                         + len(RULES_DB["HARD_WHITELIST"]["EXACT"]) + len(RULES_DB["HARD_WHITELIST"]["WILDCARDS"]),
@@ -939,6 +946,7 @@ const RULES = {{
     DROP: {format_js_set(RULES_DB['DROP'])}
   }},
 
+  EXACT_DROP_PATHS: {format_js_set(RULES_DB['EXACT_DROP_PATHS'])},
   LATE_EXACT_PATH_BLOCK_REGEX: {format_js_map(RULES_DB['LATE_EXACT_PATH_BLOCK_REGEX'])},
   PARAMS: {{
     SIGNATURE_NAMES: {format_js_set(RULES_DB['SIGNATURE_PARAMS'])},
@@ -1477,6 +1485,11 @@ function processRequest(request) {
         HELPERS.isPathExemptedForDomain(hostProfile.pathExemptions, pathLower, rawPathOnlyLower)) {
       stats.allows++;
       return _performCleaning(url, hostname, pathLower, hostProfile);
+    }
+
+    if (RULES.EXACT_DROP_PATHS.has(rawPathOnly)) {
+      stats.blocks++;
+      return { response: { status: 204 } };
     }
 
     const isSoftWhitelisted = hostProfile.isSoftWhitelisted;
@@ -3355,6 +3368,40 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Safe: AppCenter Root Pass", "https://in.appcenter.ms/", RES_ALLOW, "V46.68 規則只鎖 `/logs` 端點；host 根路徑維持原行為"))
     cases.append(TestCase("Regression: Other Host /e/ Pass", "https://example.com/e/", RES_ALLOW, "V46.68 規則限 us./eu.i.posthog.com；其他網域同一路徑維持原行為"))
     cases.append(TestCase("Regression: Other Host /logs Pass", "https://example.com/logs", RES_ALLOW, "V46.68 規則限 in.appcenter.ms；其他網域 `/logs` 維持原行為"))
+    # V47.01：用平台實際路徑與相鄰功能驗證年度隱私規則。
+    for host, path in [('tr.snapchat.com', '/p'), ('brain.adbot.tw', '/js/bootstrap.min.js')]:
+        for authority, suffix in [(host, ''), (host, '?pid=demo'), (host.upper() + ':443', '?utm_source=test')]:
+            cases.append(TestCase('年度：精確攔截像素或廣告腳本', f'https://{authority}{path}{suffix}', RES_BLOCK_403))
+        for authority, other in [(host, path + '2'), (host, path + '/child'), (host, '/other' + path),
+                                 (host, '/read?next=' + path), ('sub.' + host, path), ('example.com', path)]:
+            cases.append(TestCase('年度：保留相鄰路徑與其他主機', f'https://{authority}{other}', RES_ALLOW))
+    cases.append(TestCase('Snap 像素尾斜線', 'https://tr.snapchat.com/p/?pid=demo', RES_BLOCK_403))
+    cases.append(TestCase('AdBot 腳本尾斜線', 'https://brain.adbot.tw/js/bootstrap.min.js/', RES_ALLOW))
+
+    for path in ['/cdn-cgi/rum', '/cdn-cgi/rum/?v=1', '/cdn-cgi/rum?utm_source=test']:
+        cases.append(TestCase('Cloudflare 同站效能回報', 'https://example.com' + path, RES_DROP_204))
+    for path in ['/cdn-cgi/rumor', '/cdn-cgi/rum/child', '/other/cdn-cgi/rum',
+                 '/cdn-cgi/challenge-platform/h/g/flow', '/cdn-cgi/image/width=100/photo.jpg',
+                 '/read?next=/cdn-cgi/rum']:
+        cases.append(TestCase('Cloudflare 相鄰路徑與驗證服務', 'https://example.com' + path, RES_ALLOW))
+    cases.append(TestCase('優先保留付款端點', 'https://api.ecpay.com.tw/cdn-cgi/rum', RES_ALLOW))
+
+    for key in ['gad_campaignid', 'ScCid', '__hsfp', '__hssc', '__hstc']:
+        base = 'https://example.com/article'
+        cases.append(TestCase('跨站歸因：保留文章參數與錨點',
+                              f'{base}?id=7&{key}=a&{key.upper()}=&{key}#part',
+                              RES_CLEAN_302, expected_url=base + '?id=7#part'))
+        cases.append(TestCase('跨站歸因：相似鍵名保留', f'{base}?{key}2=1', RES_ALLOW))
+
+    pix_blog = 'https://goris.pixnet.net'
+    pix_static = 'https://static.1px.tw/blog/public'
+    for url in [pix_blog + '/blog/posts/965413177147571966', pix_blog + '/auth/me',
+                pix_blog + '/api/stats/post?postId=965413177147571966', pix_blog + '/api/stats/posts',
+                pix_static + '/js/pixsdk.min.js', pix_static + '/js/stats.min.js',
+                pix_static + '/lib/glightbox/js/glightbox.min.js']:
+        cases.append(TestCase('痞客邦文章與功能資源', url, RES_ALLOW))
+    for url in [pix_blog + '/api/track/beacon', pix_static + '/lib/tracking.min.js?v=1795253501']:
+        cases.append(TestCase('痞客邦瀏覽行為追蹤', url, RES_BLOCK_403))
     # --- V47.00 User-requested literal OPENPOINT URL exemption ---
     cases.append(TestCase("OPENPOINT exact URL", "https://redeem.openpoint.com.tw/SETOPAPI/api/service/banner/1.405/FrontendAPP/GetHomePageOptimize", RES_ALLOW, "Only the literal URL is exempt"))
     cases.append(TestCase("OPENPOINT query excluded", "https://redeem.openpoint.com.tw/SETOPAPI/api/service/banner/1.405/FrontendAPP/GetHomePageOptimize?x=1", RES_BLOCK_403, "Query variant remains blocked"))
