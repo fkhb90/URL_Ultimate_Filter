@@ -3,16 +3,16 @@
 """
 URL Ultimate Filter - SSOT Compiler & Matrix Test Suite
 -------------------------
-當前版本：V47.01 (2026-11-24)
+當前版本：V47.02 (2026-11-25)
 最新架構更新：
-- [Privacy] 補齊跨站像素、同站效能遙測、網址歸因與痞客邦廣告腳本規則。
+- [BugFix] 僅放行指定燦坤維護頁網址，保留全域 `/events` 攔截。
 
 近期更新摘要 (完整歷史軌跡請參閱 CHANGELOG.md)：
+- V47.02 (2026-11-25): BugFix — 修正燦坤維護頁的 `/events` 誤封。
 - V47.01 (2026-11-24): Privacy — 年度追蹤規則更新與痞客邦專項回歸。
 - V47.00 (2026-11-20): BugFix — 僅逐字放行指定 OPENPOINT 首頁 API 網址。
 - V46.99 (2026-11-19): Privacy — edith 雙主機 `/api/usergrowth/behavior/report` 204 DROP；未帶登入的 POST 回 `code:-100 登录已过期`，屬需登入的行為上報。
 - V46.98 (2026-11-19): Privacy — 403 封鎖小紅書廣告圖片 shard 整族（`ads-i1`..`ads-i4` 實測存在；`sns-img-*` 有機圖片 CDN 不受影響）。
-- V46.97 (2026-11-19): Privacy — rnote.com 上報端點 204 DROP；edith.rnote.com 對齊 xiaohongshu 既有 metrics_report 規則，並新增 referee.rnote.com `/v1/stateReport`。
 
 
 
@@ -47,14 +47,12 @@ if sys.platform == "win32":
     except Exception:
         pass
 BASE_DIR = Path(__file__).resolve().parent
-VERSION = "47.01"
-RELEASE_DATE = "2026-11-24"
+VERSION = "47.02"
+RELEASE_DATE = "2026-11-25"
 
 CURRENT_RELEASE_NOTES = """
-- [Privacy] 封鎖 Snap 像素及痞客邦文章使用的 AdBot 浮動廣告載入器。
-- [Privacy] 靜默捨棄 Cloudflare 同站 RUM 回報，保留驗證及圖片服務路徑。
-- [Privacy] 清除 Google Ads 活動編號、Snap 點擊編號與 HubSpot 三個跨網域訪客連結參數。
-- [Test] 驗證痞客邦專用追蹤腳本與文章、登入、人氣及燈箱資源的判定邊界。
+- [BugFix] 僅逐字放行指定燦坤維護頁網址，不調整全域 `/events` 規則。
+- [Test] 驗證查詢參數、相鄰路徑、子網域及其他網域不會繼承放行。
 """
 
 
@@ -64,7 +62,10 @@ CURRENT_RELEASE_NOTES = """
 
 RULES_DB = {
     # Mutable policy collections: keep these in the cache fingerprint and rule counts.
-    'EXACT_URL_EXEMPTIONS': ['https://redeem.openpoint.com.tw/SETOPAPI/api/service/banner/1.405/FrontendAPP/GetHomePageOptimize'],
+    'EXACT_URL_EXEMPTIONS': [
+        'https://redeem.openpoint.com.tw/SETOPAPI/api/service/banner/1.405/FrontendAPP/GetHomePageOptimize',
+        'https://events.tk3c.com/events_net/maintain/index.html',
+    ],
     'OAUTH_PATH_REGEX': ['/(login|oauth|oauth2|authorize|signin|session)(/|$)'],
     'PARAMS_GLOBAL_REGEX': ['^utm_\\w+', '^ig_[\\w_]+', '^asa_\\w+', '^tt_[\\w_]+', '^li_[\\w_]+'],
     'PARAMS_PREFIXES_REGEX': ['_ga_', '^tt_[\\w_]+', '^li_[\\w_]+'],
@@ -3368,6 +3369,19 @@ def generate_full_coverage_cases() -> List[TestCase]:
     cases.append(TestCase("Safe: AppCenter Root Pass", "https://in.appcenter.ms/", RES_ALLOW, "V46.68 規則只鎖 `/logs` 端點；host 根路徑維持原行為"))
     cases.append(TestCase("Regression: Other Host /e/ Pass", "https://example.com/e/", RES_ALLOW, "V46.68 規則限 us./eu.i.posthog.com；其他網域同一路徑維持原行為"))
     cases.append(TestCase("Regression: Other Host /logs Pass", "https://example.com/logs", RES_ALLOW, "V46.68 規則限 in.appcenter.ms；其他網域 `/logs` 維持原行為"))
+    # V47.02：燦坤維護頁含 /events_net，會命中 L1 的 /events。
+    tk3c_maintenance = "https://events.tk3c.com/events_net/maintain/index.html"
+    cases.append(TestCase("TK3C literal maintenance URL", tk3c_maintenance, RES_ALLOW))
+    for name, variant in (
+        ("empty query", tk3c_maintenance + "?"),
+        ("encoded query value", tk3c_maintenance + "?x=%2F"),
+        ("tracking query", tk3c_maintenance + "?utm_source=test"),
+        ("sibling path", tk3c_maintenance + "-extra"),
+        ("child host", tk3c_maintenance.replace("events.tk3c.com", "sub.events.tk3c.com")),
+        ("other host", tk3c_maintenance.replace("events.tk3c.com", "example.com")),
+    ):
+        cases.append(TestCase("TK3C literal boundary: " + name, variant, RES_BLOCK_403))
+
     # V47.01：用平台實際路徑與相鄰功能驗證年度隱私規則。
     for host, path in [('tr.snapchat.com', '/p'), ('brain.adbot.tw', '/js/bootstrap.min.js')]:
         for authority, suffix in [(host, ''), (host, '?pid=demo'), (host.upper() + ':443', '?utm_source=test')]:
