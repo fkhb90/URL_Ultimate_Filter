@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         URL Ultimate Filter V47.01
+// @name         URL Ultimate Filter V47.02
 // @namespace    http://tampermonkey.net/
-// @version      47.01
-// @date         2026-11-24
-// @description  SSOT 前端防護盾牌 V47.01 (2026-11-24) | 2224 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
-// @rules        2224 total (316 domains · 459 critical · 118 param)
+// @version      47.02
+// @date         2026-11-25
+// @description  SSOT 前端防護盾牌 V47.02 (2026-11-25) | 2225 rules — 極簡盾牌 UI，獨立計數器，點擊外部自動收合。
+// @rules        2225 total (316 domains · 459 critical · 118 param)
 // @author       Jerry
 // @match        *://*/*
 // @run-at       document-start
@@ -15,15 +15,15 @@
     'use strict';
 /**
  * @file    URL-Ultimate-Filter-Tampermonkey.js
- * @version 47.01
- * @date    2026-11-24
- * @rules   2224 total (316 domains, 459 critical paths, 401 path keywords, 118 param rules)
+ * @version 47.02
+ * @date    2026-11-25
+ * @rules   2225 total (316 domains, 459 critical paths, 401 path keywords, 118 param rules)
  * @build   SSOT Compiler — Dual-Target Compilation
  */
 
 const CONFIG = { DEBUG_MODE: false };
-const SCRIPT_VERSION = '47.01';
-const SCRIPT_BUILD = 'V47.01 (2026-11-24) | 2224 rules | 3783 tests';
+const SCRIPT_VERSION = '47.02';
+const SCRIPT_BUILD = 'V47.02 (2026-11-25) | 2225 rules | 3790 tests';
 const EMPTY_SET = new Set();
 
 const OAUTH_SAFE_HARBOR = {
@@ -1102,7 +1102,7 @@ const RULES = {
 
   EXCEPTIONS: {
     EXACT_URLS: new Set([
-    'https://redeem.openpoint.com.tw/SETOPAPI/api/service/banner/1.405/FrontendAPP/GetHomePageOptimize'
+    'https://redeem.openpoint.com.tw/SETOPAPI/api/service/banner/1.405/FrontendAPP/GetHomePageOptimize', 'https://events.tk3c.com/events_net/maintain/index.html'
   ]),
     SUFFIXES: new Set([
     '.css', '.js', '.jpg', '.jpeg', '.gif', '.png',

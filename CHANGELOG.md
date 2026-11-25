@@ -1,5 +1,9 @@
 # URL Ultimate Filter - Changelog
 
+## V47.02 - 2026-11-25
+- [BugFix] 僅逐字放行指定燦坤維護頁網址，不調整全域 `/events` 規則。
+- [Test] 驗證查詢參數、相鄰路徑、子網域及其他網域不會繼承放行。
+
 ## V47.01 - 2026-11-24
 - [Privacy] 封鎖 Snap 像素及痞客邦文章使用的 AdBot 浮動廣告載入器。
 - [Privacy] 靜默捨棄 Cloudflare 同站 RUM 回報，保留驗證及圖片服務路徑。
